@@ -9,7 +9,8 @@ import {
   type ModelFile,
   resolveHookPort,
 } from "../shared/protocol.js";
-import type { Reaction } from "../shared/reaction.js";
+import type { CompanionSignal } from "../shared/reaction.js";
+import { isMemberId, type MemberId, memberIds, roster } from "../shared/team.js";
 import { type CompanionSettings, loadSettings, saveSettings } from "./settings-store.js";
 
 const overlaySize = { width: 340, height: 440 };
@@ -50,9 +51,9 @@ async function readModel(modelPath: string): Promise<ModelFile> {
   return { name: basename(modelPath), bytes };
 }
 
-async function pickModelFile(parent: BrowserWindow | null): Promise<string | null> {
+async function pickModelFile(parent: BrowserWindow | null, memberId: MemberId): Promise<string | null> {
   const options: Electron.OpenDialogOptions = {
-    title: "Pilih model .vrm",
+    title: `Pilih model .vrm untuk ${roster[memberId].displayName}`,
     filters: [{ name: "VRM model", extensions: ["vrm"] }],
     properties: ["openFile"],
   };
@@ -61,7 +62,7 @@ async function pickModelFile(parent: BrowserWindow | null): Promise<string | nul
   if (result.canceled || selected === undefined) {
     return null;
   }
-  await updateSettings({ modelPath: selected });
+  await updateSettings({ modelPaths: { ...settings.modelPaths, [memberId]: selected } });
   return selected;
 }
 
@@ -136,16 +137,19 @@ function showMenu(window: BrowserWindow): void {
   const officeIsOpen = officeWindow !== null && !officeWindow.isDestroyed();
   const menu = Menu.buildFromTemplate([
     {
-      label: "Pilih model .vrm...",
-      click: () => {
-        pickModelFile(window)
-          .then((selected) => {
-            if (selected !== null) {
-              broadcast(ipcChannels.modelChanged);
-            }
-          })
-          .catch((error: unknown) => console.error("[main] model pick failed", error));
-      },
+      label: "Pilih model .vrm",
+      submenu: memberIds.map((memberId) => ({
+        label: `${roster[memberId].displayName} (${roster[memberId].role})${settings.modelPaths[memberId] === undefined ? "" : "  \u2713"}`,
+        click: () => {
+          pickModelFile(window, memberId)
+            .then((selected) => {
+              if (selected !== null) {
+                broadcast(ipcChannels.modelChanged, memberId);
+              }
+            })
+            .catch((error: unknown) => console.error("[main] model pick failed", error));
+        },
+      })),
     },
     {
       label: officeIsOpen ? "Tutup kantor" : "Buka kantor",
@@ -196,20 +200,24 @@ function startCursorTracking(): NodeJS.Timeout {
 }
 
 function registerIpc(): void {
-  ipcMain.handle(ipcChannels.loadSavedModel, async () => {
-    if (settings.modelPath === null) {
-      return null;
+  ipcMain.handle(ipcChannels.loadSavedModel, async (_event, memberId: unknown) => {
+    if (!isMemberId(memberId)) {
+      throw new Error(`unknown member: ${String(memberId)}`);
     }
-    return readModel(settings.modelPath);
+    const modelPath = settings.modelPaths[memberId];
+    return modelPath === undefined ? null : readModel(modelPath);
   });
-  ipcMain.handle(ipcChannels.pickModel, async (event) => {
-    const selected = await pickModelFile(BrowserWindow.fromWebContents(event.sender));
+  ipcMain.handle(ipcChannels.pickModel, async (event, memberId: unknown) => {
+    if (!isMemberId(memberId)) {
+      throw new Error(`unknown member: ${String(memberId)}`);
+    }
+    const selected = await pickModelFile(BrowserWindow.fromWebContents(event.sender), memberId);
     if (selected === null) {
       return null;
     }
     for (const window of rendererWindows()) {
       if (window.webContents !== event.sender) {
-        window.webContents.send(ipcChannels.modelChanged);
+        window.webContents.send(ipcChannels.modelChanged, memberId);
       }
     }
     return readModel(selected);
@@ -226,7 +234,7 @@ function registerIpc(): void {
 async function startHookServer(): Promise<HookServer> {
   const port = resolveHookPort(process.env);
   const server = new HookServer({ host: "127.0.0.1", port });
-  server.on("reaction", (reaction: Reaction) => broadcast(ipcChannels.reaction, reaction));
+  server.on("signal", (signal: CompanionSignal) => broadcast(ipcChannels.signal, signal));
   try {
     const boundPort = await server.listen();
     serverStatus = { state: "listening", port: boundPort };

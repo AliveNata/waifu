@@ -1,0 +1,208 @@
+import type { MemberId } from "../../../shared/team.js";
+import type { ScreenDocument } from "./typing.js";
+
+/**
+ * Simulated screen content. Nothing here comes from the user's real work: the
+ * user chose simulated screens so the office is safe to show while screen sharing.
+ */
+export interface ScreenScript {
+  theme: { background: string; foreground: string; accent: string; muted: string; header: string };
+  /** Words colored with the accent, to read as syntax highlighting. */
+  keywords: readonly string[];
+  documents: readonly ScreenDocument[];
+}
+
+const sqlKeywords = [
+  "select",
+  "from",
+  "left",
+  "inner",
+  "join",
+  "on",
+  "where",
+  "group",
+  "by",
+  "with",
+  "as",
+  "and",
+  "order",
+  "count",
+  "sum",
+];
+
+export const screenScripts: Record<Exclude<MemberId, "robin" | "chizuru">, ScreenScript> = {
+  asuna: {
+    theme: { background: "#1b1f2a", foreground: "#e6e8ee", accent: "#f0a35e", muted: "#7c8396", header: "#2a3040" },
+    keywords: sqlKeywords,
+    documents: [
+      {
+        title: "models/marts/fct_daily_orders.sql",
+        text: [
+          "with orders as (",
+          "    select order_id, customer_id, order_ts, amount",
+          "    from {{ ref('stg_orders') }}",
+          "),",
+          "",
+          "customers as (",
+          "    select customer_id, region",
+          "    from {{ ref('stg_customers') }}",
+          ")",
+          "",
+          "select",
+          "    date(o.order_ts) as order_date,",
+          "    c.region,",
+          "    count(o.order_id) as order_count,",
+          "    sum(o.amount) as revenue",
+          "from orders as o",
+          "left join customers as c",
+          "    on o.customer_id = c.customer_id",
+          "group by order_date, c.region",
+        ].join("\n"),
+      },
+      {
+        title: "dags/daily_orders.py",
+        text: [
+          "from airflow.decorators import dag, task",
+          "",
+          "@dag(schedule='0 2 * * *', catchup=False)",
+          "def daily_orders() -> None:",
+          "    @task",
+          "    def run_dbt() -> None:",
+          "        build('fct_daily_orders')",
+          "",
+          "    @task",
+          "    def check_freshness() -> None:",
+          "        assert_fresh('fct_daily_orders', hours=26)",
+          "",
+          "    run_dbt() >> check_freshness()",
+        ].join("\n"),
+      },
+    ],
+  },
+  kobayashi: {
+    theme: { background: "#1e1e24", foreground: "#e8e6e3", accent: "#e0705a", muted: "#7d7a86", header: "#2c2c35" },
+    keywords: ["import", "from", "export", "function", "const", "return", "await", "async", "interface", "type"],
+    documents: [
+      {
+        title: "src/api/orders.ts",
+        text: [
+          "import { db } from './db';",
+          "",
+          "export interface OrderSummary {",
+          "  orderDate: string;",
+          "  region: string;",
+          "  revenue: number;",
+          "}",
+          "",
+          "export async function listSummaries(",
+          "  region: string,",
+          "): Promise<OrderSummary[]> {",
+          "  const rows = await db.query(",
+          "    'select order_date, region, revenue ' +",
+          "      'from fct_daily_orders where region = $1',",
+          "    [region],",
+          "  );",
+          "  return rows.map(toSummary);",
+          "}",
+        ].join("\n"),
+      },
+      {
+        title: "src/ui/RevenueChart.tsx",
+        text: [
+          "export function RevenueChart({ rows }: Props) {",
+          "  if (rows.length === 0) {",
+          "    return <Empty>Belum ada data</Empty>;",
+          "  }",
+          "  return (",
+          "    <LineChart data={rows} x='orderDate'",
+          "      y='revenue' label='Revenue per hari' />",
+          "  );",
+          "}",
+        ].join("\n"),
+      },
+    ],
+  },
+  fubuki: {
+    theme: { background: "#0f1512", foreground: "#d8eadf", accent: "#5fd38d", muted: "#6f8a7a", header: "#1a2620" },
+    keywords: ["kubectl", "helm", "get", "diff", "describe", "logs", "Running", "Ready"],
+    documents: [
+      {
+        title: "terminal: cluster-dev",
+        text: [
+          "$ kubectl config current-context",
+          "cluster-dev",
+          "$ kubectl get pods -n data",
+          "NAME                       READY  STATUS",
+          "orders-api-7d9f8-2kq4x     1/1    Running",
+          "orders-api-7d9f8-x8m2p     1/1    Running",
+          "dbt-runner-5c6b4-hw7rt     1/1    Running",
+          "kafka-consumer-0           1/1    Running",
+          "$ kubectl diff -f k8s/orders-api.yaml",
+          "-  replicas: 2",
+          "+  replicas: 3",
+          "# perubahan siap, nunggu konfirmasi",
+        ].join("\n"),
+      },
+      {
+        title: "k8s/orders-api.yaml",
+        text: [
+          "apiVersion: apps/v1",
+          "kind: Deployment",
+          "metadata:",
+          "  name: orders-api",
+          "  namespace: data",
+          "spec:",
+          "  replicas: 3",
+          "  template:",
+          "    spec:",
+          "      containers:",
+          "        - name: api",
+          "          image: orders-api:1.4.2",
+        ].join("\n"),
+      },
+    ],
+  },
+  erza: {
+    theme: { background: "#1d1a1c", foreground: "#ece6e6", accent: "#e35d5d", muted: "#857a7d", header: "#2c2629" },
+    keywords: ["PASS", "FAIL", "+", "-"],
+    documents: [
+      {
+        title: "review: orders-summary",
+        text: [
+          "--- a/src/api/orders.ts",
+          "+++ b/src/api/orders.ts",
+          "-  return rows;",
+          "+  return rows.map(toSummary);",
+          "",
+          "lint       PASS",
+          "typecheck  PASS",
+          "tests      PASS  42/42",
+          "",
+          "Verdict: PASS",
+          "1. orders.ts:14 region belum divalidasi",
+          "   (minor, bukan blocker)",
+        ].join("\n"),
+      },
+    ],
+  },
+  xenovia: {
+    theme: { background: "#f6f4ef", foreground: "#1f2433", accent: "#2f6fd6", muted: "#7a7f8c", header: "#e2ddd2" },
+    keywords: ["Plan", "[x]", "[ ]", "->"],
+    documents: [
+      {
+        title: "plan: dashboard revenue",
+        text: [
+          "Plan",
+          "[x] brainstorm -> Chizuru",
+          "[x] opsi arsitektur -> Robin",
+          "[ ] model dbt -> Asuna",
+          "[ ] API + chart -> Kobayashi",
+          "[ ] deploy dry-run -> Fubuki",
+          "[ ] review -> Erza",
+          "",
+          "Nunggu approval lo",
+        ].join("\n"),
+      },
+    ],
+  },
+};

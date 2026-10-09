@@ -23,6 +23,8 @@ const forwardedEvents: readonly HookEventName[] = [
   "Stop",
   "PreCompact",
   "SessionEnd",
+  "SubagentStart",
+  "SubagentStop",
 ];
 
 const toolEvents: ReadonlySet<HookEventName> = new Set(["PreToolUse", "PostToolUse"]);

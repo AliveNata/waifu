@@ -4,15 +4,16 @@ import { readFile, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { basename, extname, join, normalize, resolve, sep } from "node:path";
 import { parseHookPayload } from "../shared/hook-event.js";
-import { type Reaction, reactionForHook } from "../shared/reaction.js";
+import { type CompanionSignal, signalsForHook } from "../shared/reaction.js";
+import { isMemberId, type MemberId } from "../shared/team.js";
 
 const maxBodyBytes = 16 * 1024;
 
 export interface WebModeOptions {
   /** Built renderer directory (dist/renderer). */
   staticDir: string;
-  /** Optional .vrm served at GET /model so the browser pages can load it without a picker. */
-  modelPath: string | null;
+  /** Optional .vrm per member, served at GET /model/<member> so browser pages can load them without a picker. */
+  modelPaths: Partial<Record<MemberId, string>>;
 }
 
 export interface HookServerOptions {
@@ -24,7 +25,7 @@ export interface HookServerOptions {
 }
 
 interface HookServerEvents {
-  reaction: [Reaction];
+  signal: [CompanionSignal];
 }
 
 export class HookServer extends EventEmitter<HookServerEvents> {
@@ -96,8 +97,14 @@ export class HookServer extends EventEmitter<HookServerEvents> {
         this.openEventStream(response);
         return;
       }
-      if (url.pathname === "/model") {
-        await serveModel(web.modelPath, response);
+      const modelMatch = /^\/model\/([a-z]+)$/.exec(url.pathname);
+      if (modelMatch !== null) {
+        const memberId = modelMatch[1];
+        if (!isMemberId(memberId)) {
+          sendJson(response, 404, { ok: false, error: "unknown member" });
+          return;
+        }
+        await serveModel(web.modelPaths[memberId] ?? null, response);
         return;
       }
       await serveStatic(web.staticDir, url.pathname, response);
@@ -137,12 +144,12 @@ export class HookServer extends EventEmitter<HookServerEvents> {
       return;
     }
 
-    const reaction = reactionForHook(parsed.value, this.now());
-    if (reaction !== null) {
-      this.emit("reaction", reaction);
-      this.broadcastSse(reaction);
+    const signals = signalsForHook(parsed.value, this.now());
+    for (const signal of signals) {
+      this.emit("signal", signal);
+      this.broadcastSse(signal);
     }
-    sendJson(response, 202, { ok: true, mood: reaction?.mood ?? null });
+    sendJson(response, 202, { ok: true, signals: signals.map((signal) => signal.kind) });
   }
 
   private openEventStream(response: ServerResponse): void {
@@ -156,8 +163,8 @@ export class HookServer extends EventEmitter<HookServerEvents> {
     response.on("close", () => this.sseClients.delete(response));
   }
 
-  private broadcastSse(reaction: Reaction): void {
-    const frame = `event: reaction\ndata: ${JSON.stringify(reaction)}\n\n`;
+  private broadcastSse(signal: CompanionSignal): void {
+    const frame = `event: signal\ndata: ${JSON.stringify(signal)}\n\n`;
     for (const client of this.sseClients) {
       client.write(frame);
     }

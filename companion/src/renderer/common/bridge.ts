@@ -1,5 +1,6 @@
 import type { CompanionApi, CursorOffset, HookServerStatus, ModelFile } from "../../shared/protocol.js";
-import type { Reaction } from "../../shared/reaction.js";
+import type { CompanionSignal } from "../../shared/reaction.js";
+import type { MemberId } from "../../shared/team.js";
 
 declare global {
   interface Window {
@@ -43,45 +44,52 @@ function pickFileFromBrowser(): Promise<ModelFile | null> {
 
 function createWebBridge(): RendererBridge {
   let events: EventSource | null = null;
-  const reactionListeners = new Set<(reaction: Reaction) => void>();
+  const signalListeners = new Set<(signal: CompanionSignal) => void>();
 
   const ensureEventStream = (): void => {
     if (events !== null) {
       return;
     }
     events = new EventSource("/events");
-    events.addEventListener("reaction", (event) => {
-      const reaction = JSON.parse((event as MessageEvent<string>).data) as Reaction;
-      for (const listener of reactionListeners) {
-        listener(reaction);
+    // Hooks that arrive before the stream opens are lost, so tests and tooling wait for this marker.
+    events.addEventListener("open", () => {
+      document.documentElement.dataset.events = "connected";
+    });
+    events.addEventListener("error", () => {
+      document.documentElement.dataset.events = "disconnected";
+    });
+    events.addEventListener("signal", (event) => {
+      const signal = JSON.parse((event as MessageEvent<string>).data) as CompanionSignal;
+      for (const listener of signalListeners) {
+        listener(signal);
       }
     });
   };
 
   return {
     hasNativeMenu: false,
-    async loadSavedModel() {
-      const response = await fetch("/model");
+    async loadSavedModel(memberId: MemberId) {
+      const response = await fetch(`/model/${memberId}`);
       if (response.status === 204) {
         return null;
       }
       if (!response.ok) {
-        throw new Error(`GET /model answered ${response.status}`);
+        throw new Error(`GET /model/${memberId} answered ${response.status}`);
       }
       const name = decodeURIComponent(response.headers.get("x-model-name") ?? "model.vrm");
       return { name, bytes: await response.arrayBuffer() };
     },
-    pickModel: pickFileFromBrowser,
+    pickModel: () => pickFileFromBrowser(),
     async getServerStatus(): Promise<HookServerStatus> {
       return { state: "listening", port: Number(window.location.port) };
     },
     openMenu() {
       throw new Error("native menu is only available in Electron");
     },
-    onReaction(listener) {
+    onSignal(listener) {
       ensureEventStream();
-      reactionListeners.add(listener);
-      return () => reactionListeners.delete(listener);
+      signalListeners.add(listener);
+      return () => signalListeners.delete(listener);
     },
     onModelChanged() {
       // Each browser tab picks its own model, so there is nothing to sync.

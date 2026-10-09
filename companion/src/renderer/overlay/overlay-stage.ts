@@ -9,7 +9,7 @@ import {
   stepExpressionWeights,
 } from "../common/expressions.js";
 import type { Stage } from "../common/page.js";
-import { PoseApplier } from "../common/pose.js";
+import { PoseApplier, vrmPoseTarget } from "../common/pose.js";
 import { cursorAim, overlayPose } from "./overlay-pose.js";
 
 /** Vertical span of the close-up in meters: top of the hair down to mid chest. */
@@ -68,7 +68,11 @@ export class OverlayStage implements Stage {
       vrm.lookAt.target = this.lookTarget;
     }
     // Pose once before framing so the arms are down and the head bone is settled.
-    this.poseApplier.apply(vrm, overlayPose({ mood: "idle", time: 0, moodElapsed: 0, aimYaw: 0, aimPitch: 0 }), 1);
+    this.poseApplier.apply(
+      vrmPoseTarget(vrm),
+      overlayPose({ mood: "idle", time: 0, moodElapsed: 0, aimYaw: 0, aimPitch: 0 }),
+      1,
+    );
     vrm.update(0);
     this.frameHead(vrm);
   }
@@ -115,7 +119,7 @@ export class OverlayStage implements Stage {
         aimYaw: this.aim.yaw,
         aimPitch: this.aim.pitch,
       });
-      this.poseApplier.apply(vrm, pose, delta);
+      this.poseApplier.apply(vrmPoseTarget(vrm), pose, delta);
 
       // Eyes look at where the cursor is, on a plane at the camera.
       const distance = this.camera.position.z - vrm.scene.position.z;

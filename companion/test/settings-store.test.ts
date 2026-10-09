@@ -19,7 +19,7 @@ describe("settings store", () => {
   it("round-trips saved settings", async () => {
     // Arrange
     const file = join(await mkdtemp(join(tmpdir(), "companion-")), "nested", "settings.json");
-    const settings = { modelPath: "C:/models/xenovia.vrm", alwaysOnTop: false, officeOpen: true };
+    const settings = { modelPaths: { xenovia: "C:/models/xenovia.vrm" }, alwaysOnTop: false, officeOpen: true };
 
     // Act
     await saveSettings(file, settings);
@@ -41,10 +41,13 @@ describe("settings store", () => {
     expect(settings).toEqual(defaultSettings);
   });
 
-  it("ignores wrongly typed fields", () => {
-    expect(normalizeSettings({ modelPath: 3, alwaysOnTop: "yes", officeOpen: true })).toEqual({
-      ...defaultSettings,
-      officeOpen: true,
-    });
+  it("ignores wrongly typed fields and unknown members", () => {
+    expect(
+      normalizeSettings({ modelPaths: { asuna: 3, nobody: "x.vrm" }, alwaysOnTop: "yes", officeOpen: true }),
+    ).toEqual({ ...defaultSettings, officeOpen: true });
+  });
+
+  it("migrates the single modelPath from before the team existed", () => {
+    expect(normalizeSettings({ modelPath: "C:/old.vrm" }).modelPaths).toEqual({ xenovia: "C:/old.vrm" });
   });
 });

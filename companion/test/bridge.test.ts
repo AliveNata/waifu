@@ -45,6 +45,8 @@ describe("buildHooksConfig", () => {
       ],
     });
     expect(config.hooks.PreToolUse?.[0]?.matcher).toBe("*");
-    expect(Object.keys(config.hooks)).not.toContain("SubagentStop");
+    expect(Object.keys(config.hooks)).toEqual(
+      expect.arrayContaining(["SubagentStart", "SubagentStop", "PreToolUse", "Stop"]),
+    );
   });
 });

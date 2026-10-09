@@ -6,6 +6,7 @@
 export const supportedHookEventNames = [
   "SessionStart",
   "UserPromptSubmit",
+  "SubagentStart",
   "PreToolUse",
   "PostToolUse",
   "Notification",
@@ -21,6 +22,10 @@ export interface CompanionHookPayload {
   hook_event_name: HookEventName;
   tool_name?: string;
   message?: string;
+  /** Set on SubagentStart/Stop and on every event fired from inside a subagent. */
+  agent_id?: string;
+  /** Subagent name, matching the `name` frontmatter of its definition. */
+  agent_type?: string;
 }
 
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -63,6 +68,14 @@ export function parseHookPayload(input: unknown): ParseResult<CompanionHookPaylo
   if (!message.ok) {
     return message;
   }
+  const agentId = readOptionalText(input, "agent_id");
+  if (!agentId.ok) {
+    return agentId;
+  }
+  const agentType = readOptionalText(input, "agent_type");
+  if (!agentType.ok) {
+    return agentType;
+  }
 
   const payload: CompanionHookPayload = { hook_event_name: eventName };
   if (toolName.value !== undefined) {
@@ -70,6 +83,13 @@ export function parseHookPayload(input: unknown): ParseResult<CompanionHookPaylo
   }
   if (message.value !== undefined) {
     payload.message = message.value;
+  }
+  // Empty strings show up for internal agents and carry no identity.
+  if (agentId.value) {
+    payload.agent_id = agentId.value;
+  }
+  if (agentType.value) {
+    payload.agent_type = agentType.value;
   }
   return { ok: true, value: payload };
 }

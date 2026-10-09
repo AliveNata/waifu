@@ -1,14 +1,15 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { isMemberId, type MemberId } from "../shared/team.js";
 
 export interface CompanionSettings {
-  modelPath: string | null;
+  modelPaths: Partial<Record<MemberId, string>>;
   alwaysOnTop: boolean;
   officeOpen: boolean;
 }
 
 export const defaultSettings: CompanionSettings = {
-  modelPath: null,
+  modelPaths: {},
   alwaysOnTop: true,
   officeOpen: false,
 };
@@ -19,8 +20,20 @@ export function normalizeSettings(input: unknown): CompanionSettings {
     return { ...defaultSettings };
   }
   const record = input as Record<string, unknown>;
+  const modelPaths: Partial<Record<MemberId, string>> = {};
+  if (typeof record.modelPaths === "object" && record.modelPaths !== null) {
+    for (const [memberId, path] of Object.entries(record.modelPaths)) {
+      if (isMemberId(memberId) && typeof path === "string") {
+        modelPaths[memberId] = path;
+      }
+    }
+  }
+  // Settings from before the team existed stored only Xenovia's model.
+  if (modelPaths.xenovia === undefined && typeof record.modelPath === "string") {
+    modelPaths.xenovia = record.modelPath;
+  }
   return {
-    modelPath: typeof record.modelPath === "string" ? record.modelPath : defaultSettings.modelPath,
+    modelPaths,
     alwaysOnTop: typeof record.alwaysOnTop === "boolean" ? record.alwaysOnTop : defaultSettings.alwaysOnTop,
     officeOpen: typeof record.officeOpen === "boolean" ? record.officeOpen : defaultSettings.officeOpen,
   };

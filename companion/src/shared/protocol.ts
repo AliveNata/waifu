@@ -1,4 +1,5 @@
-import type { Reaction } from "./reaction.js";
+import type { CompanionSignal } from "./reaction.js";
+import type { MemberId } from "./team.js";
 
 export const defaultHookPort = 47823;
 export const hookPortEnvVar = "WAIFU_COMPANION_PORT";
@@ -29,12 +30,14 @@ export interface CursorOffset {
 }
 
 export interface CompanionApi {
-  loadSavedModel(): Promise<ModelFile | null>;
-  pickModel(): Promise<ModelFile | null>;
+  /** Model for a team member. Null when none is configured yet. */
+  loadSavedModel(memberId: MemberId): Promise<ModelFile | null>;
+  /** Asks the user for a .vrm for a team member and remembers it. */
+  pickModel(memberId: MemberId): Promise<ModelFile | null>;
   getServerStatus(): Promise<HookServerStatus>;
   openMenu(): void;
-  onReaction(listener: (reaction: Reaction) => void): () => void;
-  onModelChanged(listener: () => void): () => void;
+  onSignal(listener: (signal: CompanionSignal) => void): () => void;
+  onModelChanged(listener: (memberId: MemberId) => void): () => void;
   onCursor(listener: (offset: CursorOffset) => void): () => void;
   onServerStatus(listener: (status: HookServerStatus) => void): () => void;
 }
@@ -44,7 +47,7 @@ export const ipcChannels = {
   pickModel: "companion:pick-model",
   getServerStatus: "companion:get-server-status",
   openMenu: "companion:open-menu",
-  reaction: "companion:reaction",
+  signal: "companion:signal",
   modelChanged: "companion:model-changed",
   cursor: "companion:cursor",
   serverStatus: "companion:server-status",

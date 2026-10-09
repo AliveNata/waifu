@@ -1,6 +1,4 @@
-import { distance, type Point, planPath, type StationActivity, type StationId, stations } from "./office-layout.js";
-
-export type ActorActivity = { kind: "walk"; phase: number } | { kind: "station"; activity: StationActivity };
+import { distance, type Point, planPath, type StationId, stations } from "./office-layout.js";
 
 export interface ActorState {
   position: Point;
@@ -12,7 +10,7 @@ export interface ActorState {
   walkPhase: number;
 }
 
-export const walkSpeed = 1.1;
+export const walkSpeed = 1.2;
 const turnSpeed = 7;
 const arrivalTolerance = 0.02;
 /** Radians of leg cycle per meter walked. Tuned for chibi stride length. */
@@ -79,9 +77,6 @@ export function stepActor(state: ActorState, desired: StationId, deltaSeconds: n
   return { position, yaw, target, path, walkPhase };
 }
 
-export function actorActivity(state: ActorState): ActorActivity {
-  if (state.path.length > 0) {
-    return { kind: "walk", phase: state.walkPhase };
-  }
-  return { kind: "station", activity: stations[state.target].activity };
+export function isWalking(state: ActorState): boolean {
+  return state.path.length > 0;
 }

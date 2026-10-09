@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { HookServer } from "../src/server/hook-server.js";
-import type { Reaction } from "../src/shared/reaction.js";
+import type { CompanionSignal } from "../src/shared/reaction.js";
 
 let server: HookServer | null = null;
 
@@ -23,25 +23,46 @@ describe("HookServer", () => {
   it("emits a reaction for a valid hook", async () => {
     // Arrange
     const { server, base } = await startServer();
-    const received: Reaction[] = [];
-    server.on("reaction", (reaction) => received.push(reaction));
+    const received: CompanionSignal[] = [];
+    server.on("signal", (signal) => received.push(signal));
 
     // Act
     const response = await postJson(base, JSON.stringify({ hook_event_name: "PreToolUse", tool_name: "Bash" }));
 
     // Assert
     expect(response.status).toBe(202);
-    expect(received).toEqual([{ mood: "working", detail: "Bash", receivedAt: 1234 }]);
+    expect(received).toEqual([{ kind: "reaction", reaction: { mood: "working", detail: "Bash", receivedAt: 1234 } }]);
+  });
+
+  it("emits a member signal for a team subagent", async () => {
+    // Arrange
+    const { server, base } = await startServer();
+    const received: CompanionSignal[] = [];
+    server.on("signal", (signal) => received.push(signal));
+
+    // Act
+    await postJson(base, JSON.stringify({ hook_event_name: "SubagentStart", agent_id: "a1", agent_type: "reviewer" }));
+
+    // Assert
+    expect(received).toEqual([
+      {
+        kind: "member",
+        member: { memberId: "erza", activity: "start", agentId: "a1", tool: null, receivedAt: 1234 },
+      },
+    ]);
   });
 
   it("accepts ignored events without emitting", async () => {
     // Arrange
     const { server, base } = await startServer();
-    const received: Reaction[] = [];
-    server.on("reaction", (reaction) => received.push(reaction));
+    const received: CompanionSignal[] = [];
+    server.on("signal", (signal) => received.push(signal));
 
     // Act
-    const response = await postJson(base, JSON.stringify({ hook_event_name: "SubagentStop" }));
+    const response = await postJson(
+      base,
+      JSON.stringify({ hook_event_name: "SubagentStop", agent_id: "x", agent_type: "Explore" }),
+    );
 
     // Assert
     expect(response.status).toBe(202);

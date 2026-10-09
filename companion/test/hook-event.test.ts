@@ -18,6 +18,33 @@ describe("parseHookPayload", () => {
     expect(result).toEqual({ ok: true, value: { hook_event_name: "PreToolUse", tool_name: "Bash" } });
   });
 
+  it("keeps agent identity and drops subagent transcripts", () => {
+    // Arrange
+    const raw = {
+      hook_event_name: "SubagentStop",
+      agent_id: "agent-1",
+      agent_type: "reviewer",
+      last_assistant_message: "private findings",
+      agent_transcript_path: "/x.jsonl",
+    };
+
+    // Act
+    const result = parseHookPayload(raw);
+
+    // Assert
+    expect(result).toEqual({
+      ok: true,
+      value: { hook_event_name: "SubagentStop", agent_id: "agent-1", agent_type: "reviewer" },
+    });
+  });
+
+  it("drops empty agent fields from internal agents", () => {
+    expect(parseHookPayload({ hook_event_name: "Stop", agent_id: "", agent_type: "" })).toEqual({
+      ok: true,
+      value: { hook_event_name: "Stop" },
+    });
+  });
+
   it("truncates long notification messages", () => {
     // Arrange
     const raw = { hook_event_name: "Notification", message: "x".repeat(500) };

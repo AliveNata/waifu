@@ -2,6 +2,8 @@
 
 Target fase ini: satu file `.vrm` Xenovia pakai seragam Kuoh Academy. File ini dipakai companion desktop dan nanti jadi bahan avatar VRChat.
 
+Nggak mau bikin dari nol? Cari model Xenovia jadi di VRoid Hub atau BOOTH, lalu cek lisensinya. Caranya ada di [05-cari-model.md](05-cari-model.md). Detail ciri di bawah tetap kepake buat milih model yang paling mirip.
+
 VRoid dipilih karena rig humanoid, ekspresi wajah (blink, happy, surprised, dll), dan bone rambut langsung jadi otomatis. Buat yang belum pernah 3D, ini jalur paling realistis.
 
 > Nama menu di bawah ditulis sesuai VRoid Studio versi 2.x. Kalau versi lo beda, label persisnya bisa sedikit lain, tapi letak tab-nya sama.

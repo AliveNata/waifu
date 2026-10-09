@@ -14,16 +14,21 @@
   </head>
   <body>
     <main class="stage office">
-      <canvas id="scene" aria-label="Kantor Xenovia, tampilan isometrik"></canvas>
-      <section class="panel" id="panel" aria-live="polite">
-        <p class="panel-title" id="panel-title">Memuat</p>
-        <p class="panel-body" id="panel-body"></p>
-        <button class="button" id="panel-action" type="button" hidden></button>
-      </section>
+      <canvas id="scene" aria-label="Kantor tim Xenovia, tampilan isometrik"></canvas>
+      <p class="closeup-caption" id="closeup-caption" hidden></p>
       <div class="hud">
         <p class="status" id="status" role="status" hidden></p>
+        <button class="button hud-button" id="closeup-toggle" type="button" aria-pressed="true">Sembunyikan close-up</button>
         <button class="button menu-button" id="menu-button" type="button">Menu</button>
       </div>
+      <dialog class="model-dialog" id="model-dialog" aria-labelledby="model-dialog-title">
+        <h2 class="panel-title" id="model-dialog-title">Pilih model .vrm</h2>
+        <p class="panel-body">Anggota tanpa model tampil sebagai placeholder.</p>
+        <ul class="model-list" id="model-list"></ul>
+        <form method="dialog">
+          <button class="button" type="submit">Tutup</button>
+        </form>
+      </dialog>
     </main>
   </body>
 </html>

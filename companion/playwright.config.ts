@@ -5,6 +5,8 @@ const port = 47910;
 export default defineConfig({
   testDir: "e2e",
   timeout: 120_000,
+  // Every page listens to the same hook server, so parallel tests would see each other's hooks.
+  workers: 1,
   use: {
     baseURL: `http://127.0.0.1:${port}`,
     launchOptions: {
