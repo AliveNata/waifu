@@ -1,0 +1,6 @@
+/* The office is a normal window, so the HUD sits with more breathing room than the overlay. */
+.office .hud {
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+}

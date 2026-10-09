@@ -1,0 +1,38 @@
+{
+  "name": "waifu-companion",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop companion: Xenovia close-up overlay + chibi virtual office, driven by Claude Code hooks.",
+  "type": "module",
+  "main": "dist/node/main/main.js",
+  "scripts": {
+    "build": "npm run build:node && npm run build:renderer",
+    "build:node": "tsc -p tsconfig.node.json",
+    "build:renderer": "vite build",
+    "start": "npm run build && electron .",
+    "web": "npm run build && node dist/node/server/web-server.js",
+    "hooks:print": "node dist/node/bridge/print-hooks-config.js",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json --noEmit",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "test": "vitest run",
+    "test:e2e": "npm run build && playwright test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@pixiv/three-vrm": "3.5.5",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.2.5",
+    "@playwright/test": "1.56.1",
+    "@types/node": "22.18.8",
+    "@types/three": "0.186.0",
+    "electron": "44.7.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
+  }
+}

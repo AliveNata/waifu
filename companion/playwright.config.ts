@@ -1,0 +1,21 @@
+import { defineConfig } from "@playwright/test";
+
+const port = 47910;
+
+export default defineConfig({
+  testDir: "e2e",
+  timeout: 120_000,
+  use: {
+    baseURL: `http://127.0.0.1:${port}`,
+    launchOptions: {
+      // Headless CI machines have no GPU. SwiftShader gives WebGL a software fallback.
+      args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
+    },
+  },
+  webServer: {
+    command: "node dist/node/server/web-server.js",
+    url: `http://127.0.0.1:${port}/healthz`,
+    env: { WAIFU_COMPANION_PORT: String(port) },
+    reuseExistingServer: false,
+  },
+});

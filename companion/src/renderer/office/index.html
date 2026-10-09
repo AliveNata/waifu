@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self' blob: data:"
+    />
+    <!-- No app icon yet. An empty one stops the browser from requesting /favicon.ico. -->
+    <link rel="icon" href="data:," />
+    <title>Kantor Xenovia</title>
+    <script type="module" src="./office.ts"></script>
+  </head>
+  <body>
+    <main class="stage office">
+      <canvas id="scene" aria-label="Kantor Xenovia, tampilan isometrik"></canvas>
+      <section class="panel" id="panel" aria-live="polite">
+        <p class="panel-title" id="panel-title">Memuat</p>
+        <p class="panel-body" id="panel-body"></p>
+        <button class="button" id="panel-action" type="button" hidden></button>
+      </section>
+      <div class="hud">
+        <p class="status" id="status" role="status" hidden></p>
+        <button class="button menu-button" id="menu-button" type="button">Menu</button>
+      </div>
+    </main>
+  </body>
+</html>

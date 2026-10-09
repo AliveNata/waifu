@@ -1,0 +1,21 @@
+/* The whole overlay drags the window; controls opt out in base.css. */
+.overlay {
+  -webkit-app-region: drag;
+}
+
+/*
+ * The menu button only shows on hover or keyboard focus so the close-up stays
+ * clean. It remains in the tab order, so keyboard users still reach it.
+ */
+.overlay .menu-button {
+  opacity: 0;
+}
+
+.overlay:hover .menu-button,
+.overlay .menu-button:focus-visible {
+  opacity: 1;
+}
+
+.overlay .status {
+  margin-right: auto;
+}

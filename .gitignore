@@ -1,0 +1,8 @@
+# Fan models of a copyrighted character stay local.
+models/
+*.vrm
+*.vroid
+
+.env
+*.key
+*.pem
