@@ -9,22 +9,27 @@ VRoid dipilih karena rig humanoid, ekspresi wajah (blink, happy, surprised, dll)
 ## Persiapan
 
 1. Install VRoid Studio (gratis) dari [vroid.com/en/studio](https://vroid.com/en/studio) atau Steam.
-2. Siapin 2 sampai 3 screenshot Xenovia pakai seragam dari anime: tampak depan, samping, dan close-up wajah. Simpan di luar repo.
+2. Siapin gambar referensi Xenovia pakai seragam: tampak depan full-body (udah ada), plus kalau bisa tampak samping dan close-up wajah. Simpan di luar repo.
 3. Pakai screenshot itu buat ambil warna pakai eyedropper. Jangan ngandelin hex dari internet.
 
-## Ciri Xenovia: mana yang aman, mana yang harus lo cek
+## Ciri Xenovia dari gambar referensi
 
-Gua udah riset, dan sumber yang ada (fan wiki dan tag fan-made) nggak semuanya konsisten. Jadi dibagi dua:
+Tabel ini diambil dari art full-body Xenovia pakai seragam Kuoh (tampak depan) yang lo kirim. Gambarnya nggak disimpan di repo karena berhak cipta. "Kiri" dan "kanan" di sini dari sudut pandang kita yang ngeliat, bukan dari sisi Xenovia.
 
-| Bagian | Status | Catatan |
-|---|---|---|
-| Rambut biru, pendek sebatas leher | Konsisten di beberapa sumber | |
-| Streak hijau di poni | Konsisten | Satu fan profile bilang di sisi kanan. Cocokin ke screenshot |
-| Warna mata | **Cek sendiri** | Ada sumber bilang kuning, ada yang bilang coklat |
-| Kemeja putih lengan panjang, pita leher | Dari tag fan-made | Cocokin bentuk pitanya |
-| Capelet hitam di bahu | Dari tag fan-made | Cek ada atau nggak di screenshot lo |
-| Warna rok | **Cek sendiri** | Sumber beda-beda: merah, pink, hitam |
-| Kaos kaki hitam selutut | **Cek sendiri** | Fan wiki nyebut ini buat Akeno, belum tentu sama di Xenovia |
+| Bagian | Detail |
+|---|---|
+| Rambut | Biru, pendek sebatas dagu, ada satu helai mencuat di atas kepala (ahoge) |
+| Streak | Hijau, di poni bagian atas sisi kanan dekat ahoge |
+| Mata | Kuning kecoklatan (amber). Ambil warna pasnya pakai eyedropper dari close-up |
+| Kemeja | Putih, lengan panjang agak menggembung, ada lipit atau frill di manset |
+| Pita leher | Hitam, simpul di leher dengan dua ujung panjang menjuntai |
+| Capelet | Abu kebiruan gelap, nutup bahu sampai lengan atas, ada kancing kecil di dekat kerah |
+| Rompi atau korset | Navy gelap, kancing putih berderet di tengah. Bagian bawahnya terbelah jadi dua panel lancip yang nutup depan rok, pinggirnya ada list putih |
+| Rok | Merah marun (burgundy), lipit, ada garis putih dekat ujung, lalu renda putih di paling bawah |
+| Kaos kaki | Hitam atau abu gelap, selutut |
+| Sepatu | Loafer coklat |
+
+Bagian yang paling susah di VRoid itu rompi dengan dua panel lancip. Kalau nggak ada preset yang mirip, pakai atasan yang paling dekat bentuknya, lalu panel lancipnya dicat di texture rok (lihat [02-texturing.md](02-texturing.md)) atau ditambah belakangan di Blender.
 
 ## Langkah
 
@@ -38,7 +43,8 @@ Gua udah riset, dan sumber yang ada (fan wiki dan tag fan-made) nggak semuanya k
 - Jangan utak-atik preset ekspresi bawaan. Companion pakai ekspresi `blink`, `happy`, `relaxed`, dan `surprised` yang udah otomatis ada di export VRoid.
 
 ### 3. Hairstyle
-- Mulai dari preset rambut pendek (bob) yang paling mirip, lalu rapihin panjangnya sampai sebatas leher.
+- Mulai dari preset rambut pendek (bob) yang paling mirip, lalu rapihin panjangnya sampai sebatas dagu.
+- Tambahin satu helai ahoge di puncak kepala.
 - Set warna rambut utama biru sesuai screenshot.
 - Buat **hair group terpisah** buat streak hijau: bikin group baru di Hair Editor, gambar beberapa helai di poni sisi yang bener, lalu kasih warna hijau. Group terpisah bikin warnanya gampang diganti tanpa ganggu rambut utama.
 - Biarin setting physics rambut default dulu. Bone rambut ini yang bikin rambut goyang di companion.
@@ -48,11 +54,11 @@ Gua udah riset, dan sumber yang ada (fan wiki dan tag fan-made) nggak semuanya k
 - Hindari slider ekstrem. Proporsi yang terlalu jauh dari default bikin pose prosedural companion (duduk, ngetik, melambai) keliatan aneh.
 
 ### 5. Outfit (seragam Kuoh)
-- **Tops**: kemeja atau blouse lengan panjang putih.
-- **Bottoms**: rok lipit, warna sesuai hasil cek.
+- **Tops**: kemeja atau blouse lengan panjang putih dengan lengan agak menggembung.
+- **Bottoms**: rok lipit merah marun dengan garis putih dan renda di ujung.
 - **Socks**: kaos kaki selutut hitam.
-- **Shoes**: loafer.
-- **Pita leher dan capelet**: kalau nggak ada item yang pas, cat di texture kemeja (lihat [02-texturing.md](02-texturing.md)) atau tunda dulu. Bisa ditambah belakangan di Blender.
+- **Shoes**: loafer coklat.
+- **Pita leher, capelet, dan rompi**: kalau nggak ada item yang pas, cat di texture kemeja (lihat [02-texturing.md](02-texturing.md)) atau tunda dulu. Bisa ditambah belakangan di Blender.
 
 ### 6. Export ke VRM
 - Buka menu export (ikon kamera atau **Export as VRM**).
