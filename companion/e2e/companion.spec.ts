@@ -195,7 +195,7 @@ test.describe("team overlay", () => {
     expect(errors).toEqual([]);
   });
 
-  test("shows a simulated line by default when Xenovia delegates", async ({ page }) => {
+  test("shows a simulated line by default when Konan delegates", async ({ page }) => {
     // Arrange
     await openPage(page, "/team-overlay/");
 
@@ -208,7 +208,7 @@ test.describe("team overlay", () => {
     });
 
     // Assert
-    await expect(page.locator("#dialog-name")).toContainText("Xenovia");
+    await expect(page.locator("#dialog-name")).toContainText("Konan");
     await expect(page.locator("#dialog-text")).toHaveText("Erza, tolong bantu ya.", { timeout: 15_000 });
     await expect(page.locator("#dialog-tag")).toBeVisible();
   });

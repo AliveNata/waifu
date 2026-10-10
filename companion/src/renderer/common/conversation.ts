@@ -18,30 +18,30 @@ export interface DialogLine {
  * Simulated lines describe what a member is doing, never what came out of it.
  * A made-up "tests are green" would mislead the user about real work.
  */
-const startLines: Record<Exclude<MemberId, "xenovia">, readonly string[]> = {
+const startLines: Record<Exclude<MemberId, "konan">, readonly string[]> = {
   chizuru: ["Oke! Aku lempar ide sebanyak-banyaknya ya.", "Siap, aku cari sudut pandang lain dulu."],
-  robin: ["Menarik. Aku bandingin opsinya dulu.", "Aku baca konteksnya dulu sebelum milih."],
+  rias: ["Serahkan strateginya padaku.", "Aku susun opsinya dulu, lalu kita pilih."],
   asuna: ["Oke, aku cek pipeline datanya.", "Serahin ke aku, aku rapihin modelnya."],
   kobayashi: ["Siap, aku kerjain bagian aplikasinya.", "Oke, waktunya ngoding."],
-  fubuki: ["Aku cek cluster dulu, read-only.", "Tenang, nggak ada yang aku apply tanpa izin."],
+  yor: ["Aku cek cluster dulu ya, read-only.", "Tenang, nggak ada yang aku ubah tanpa izin."],
   erza: ["Serahkan review-nya padaku.", "Aku periksa satu per satu."],
 };
 
-const stopLines: Record<Exclude<MemberId, "xenovia">, string> = {
+const stopLines: Record<Exclude<MemberId, "konan">, string> = {
   chizuru: "Idenya udah aku tempel semua, tinggal dipilih.",
-  robin: "Opsi dan risikonya udah aku tulis. Keputusannya di kalian.",
-  asuna: "Bagianku selesai, laporannya ke Xenovia ya.",
+  rias: "Opsi dan risikonya udah aku tulis. Keputusannya di kalian.",
+  asuna: "Bagianku selesai, laporannya ke Konan ya.",
   kobayashi: "Bagian aplikasinya selesai, cek laporannya ya.",
-  fubuki: "Selesai. Usulan perubahannya ada di laporan.",
+  yor: "Selesai. Usulan perubahannya ada di laporan.",
   erza: "Review selesai. Hasilnya ada di laporan.",
 };
 
-const stopGestures: Record<Exclude<MemberId, "xenovia">, Gesture> = {
+const stopGestures: Record<Exclude<MemberId, "konan">, Gesture> = {
   chizuru: "cheer",
-  robin: "nod",
+  rias: "nod",
   asuna: "cheer",
   kobayashi: "nod",
-  fubuki: "nod",
+  yor: "nod",
   erza: "nod",
 };
 
@@ -57,7 +57,7 @@ export function toolLine(memberId: MemberId, tool: string): { text: string; gest
       return { text: "Aku ubah file-nya sekarang.", gesture: "none" };
     case "Bash":
       return {
-        text: memberId === "fubuki" ? "Jalanin command read-only dulu." : "Aku jalanin command-nya.",
+        text: memberId === "yor" ? "Jalanin command read-only dulu." : "Aku jalanin command-nya.",
         gesture: "none",
       };
     case "WebSearch":
@@ -130,7 +130,7 @@ export class Conversation {
   }
 
   private handleDelegation(delegation: Delegation, mode: ConversationMode): void {
-    if (delegation.memberId === null || delegation.memberId === "xenovia") {
+    if (delegation.memberId === null || delegation.memberId === "konan") {
       return;
     }
     const name = roster[delegation.memberId].displayName;
@@ -139,7 +139,7 @@ export class Conversation {
     }
     const real = mode === "real" && delegation.description !== null;
     this.push({
-      memberId: "xenovia",
+      memberId: "konan",
       text: real ? `${name}, tolong: ${delegation.description}` : `${name}, tolong bantu ya.`,
       simulated: !real,
       gesture: "point",
@@ -148,7 +148,7 @@ export class Conversation {
   }
 
   private handleMember(signal: MemberSignal, mode: ConversationMode): void {
-    if (signal.memberId === "xenovia") {
+    if (signal.memberId === "konan") {
       return;
     }
     const memberId = signal.memberId;

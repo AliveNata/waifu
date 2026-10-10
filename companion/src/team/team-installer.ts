@@ -63,8 +63,8 @@ export async function planInstall(teamDir: string, configDir: string): Promise<P
 
   const memoryPath = join(configDir, "CLAUDE.md");
   const currentMemory = await readOptional(memoryPath);
-  const xenoviaBlock = await readFile(join(teamDir, "xenovia.md"), "utf8");
-  const nextMemory = upsertMarkedBlock(currentMemory ?? "", xenoviaBlock);
+  const konanBlock = await readFile(join(teamDir, "konan.md"), "utf8");
+  const nextMemory = upsertMarkedBlock(currentMemory ?? "", konanBlock);
   changes.push({ target: memoryPath, action: actionFor(currentMemory, nextMemory), content: nextMemory });
 
   return changes;

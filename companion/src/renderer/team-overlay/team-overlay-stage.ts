@@ -21,7 +21,7 @@ const dialogExpressions: Record<Mood, ExpressionWeights> = {
   done: { happy: 0.55 },
 };
 
-/** Head to waist, wider than Xenovia's close-up so arm gestures stay in frame. */
+/** Head to waist, wider than Konan's close-up so arm gestures stay in frame. */
 const framedHeight = 0.9;
 const fieldOfViewDegrees = 24;
 

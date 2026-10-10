@@ -11,12 +11,12 @@ import { disposeVrm } from "../common/vrm-loader.js";
 import { TeamOverlayStage } from "./team-overlay-stage.js";
 
 const speakerColors: Record<MemberId, string> = {
-  xenovia: "#8fb4ff",
+  konan: "#a9b4ff",
   chizuru: "#e8c39a",
-  robin: "#c9a6e6",
+  rias: "#ff9ec4",
   asuna: "#f4b07a",
   kobayashi: "#f09a84",
-  fubuki: "#8fd6a8",
+  yor: "#f2d27a",
   erza: "#f58f8f",
 };
 

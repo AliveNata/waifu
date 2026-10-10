@@ -15,11 +15,11 @@ import { IdeaBoard } from "./surfaces/idea-board.js";
 import { Keyboard } from "./surfaces/keyboard.js";
 import { ScreenSurface } from "./surfaces/screen.js";
 import { screenScripts } from "./surfaces/screen-scripts.js";
-import { robinDiagrams, Whiteboard, xenoviaDiagrams } from "./surfaces/whiteboard.js";
+import { konanDiagrams, riasDiagrams, Whiteboard } from "./surfaces/whiteboard.js";
 
 /*
  * Palette (antislop R-29/R-31): warm wood and paper walls so the navy
- * furniture, which echoes Xenovia's hair, reads as the room's one strong color.
+ * furniture, which echoes Konan's hair, reads as the room's one strong color.
  * Screens use each member's own accent so the active desk is easy to spot.
  */
 const palette = {
@@ -53,7 +53,7 @@ function screenPlane(surface: { texture: MeshBasicMaterial["map"] }, width: numb
   return new Mesh(new PlaneGeometry(width, height), new MeshBasicMaterial({ map: surface.texture, toneMapped: false }));
 }
 
-export type DeskMember = Exclude<MemberId, "robin" | "chizuru">;
+export type DeskMember = Exclude<MemberId, "rias" | "chizuru">;
 
 export interface Workstation {
   screen: ScreenSurface;
@@ -119,10 +119,10 @@ function buildDesk(root: Group, memberId: DeskMember, x: number): Workstation {
   return { screen, keyboard };
 }
 
-function buildXenoviaDesk(root: Group): Workstation {
-  const screen = new ScreenSurface(screenScripts.xenovia);
-  const keyboard = new Keyboard(screenScripts.xenovia.theme.accent, "#c9c4ba", "#e9e5dc");
-  const seat = stations["desk-xenovia"].spot;
+function buildKonanDesk(root: Group): Workstation {
+  const screen = new ScreenSurface(screenScripts.konan);
+  const keyboard = new Keyboard(screenScripts.konan.theme.accent, "#c9c4ba", "#e9e5dc");
+  const seat = stations["desk-konan"].spot;
   const deskZ = seat.z + 0.55;
   root.add(
     box(1.2, 0.05, 0.6, palette.deskWood, seat.x, deskTop - 0.05, deskZ),
@@ -174,15 +174,15 @@ export function buildOffice(): OfficeProps {
   const workstations: Record<DeskMember, Workstation> = {
     asuna: buildDesk(root, "asuna", deskXs.asuna),
     kobayashi: buildDesk(root, "kobayashi", deskXs.kobayashi),
-    fubuki: buildDesk(root, "fubuki", deskXs.fubuki),
+    yor: buildDesk(root, "yor", deskXs.yor),
     erza: buildDesk(root, "erza", deskXs.erza),
-    xenovia: buildXenoviaDesk(root),
+    konan: buildKonanDesk(root),
   };
 
-  // Whiteboard: left half for Xenovia's planning, right half for Robin's architecture sketches.
+  // Whiteboard: left half for Konan's planning, right half for Rias's architecture sketches.
   const whiteboard = new Whiteboard([
-    { u0: 0, u1: 0.5, color: "#2f4fa8", diagrams: xenoviaDiagrams },
-    { u0: 0.5, u1: 1, color: "#3b3b46", diagrams: robinDiagrams },
+    { u0: 0, u1: 0.5, color: "#2f4fa8", diagrams: konanDiagrams },
+    { u0: 0.5, u1: 1, color: "#3b3b46", diagrams: riasDiagrams },
   ]);
   const wb = whiteboardSpec;
   root.add(
@@ -217,18 +217,18 @@ export function buildOffice(): OfficeProps {
     eye: new Vector3(x + 0.5, 1.28, deskCenterZ + 0.85),
     target: new Vector3(x - 0.02, deskTop + 0.2, deskCenterZ - 0.15),
   });
-  const xenoviaSeat = stations["desk-xenovia"].spot;
+  const konanSeat = stations["desk-konan"].spot;
   const closeups: Record<MemberId, CloseupShot> = {
     asuna: deskShot(deskXs.asuna),
     kobayashi: deskShot(deskXs.kobayashi),
-    fubuki: deskShot(deskXs.fubuki),
+    yor: deskShot(deskXs.yor),
     erza: deskShot(deskXs.erza),
     // Board shots come from the right-hand side (-Z when facing the left wall) so the writing hand shows.
-    robin: { eye: new Vector3(-3.75, 1.1, -3.3), target: leftWallPoint(wb, 0.72, 0.5) },
+    rias: { eye: new Vector3(-3.75, 1.1, -3.3), target: leftWallPoint(wb, 0.72, 0.5) },
     chizuru: { eye: new Vector3(-3.75, 1.1, -0.1), target: leftWallPoint(ib, 0.5, 0.5) },
-    xenovia: {
-      eye: new Vector3(xenoviaSeat.x + 0.45, 1.25, xenoviaSeat.z - 0.55),
-      target: new Vector3(xenoviaSeat.x, deskTop + 0.15, xenoviaSeat.z + 0.6),
+    konan: {
+      eye: new Vector3(konanSeat.x + 0.45, 1.25, konanSeat.z - 0.55),
+      target: new Vector3(konanSeat.x, deskTop + 0.15, konanSeat.z + 0.6),
     },
   };
 
@@ -243,7 +243,7 @@ export function buildOffice(): OfficeProps {
   };
 }
 
-/** Shot used when Xenovia is at the whiteboard instead of her desk. */
-export function xenoviaBoardShot(props: OfficeProps): CloseupShot {
+/** Shot used when Konan is at the whiteboard instead of her desk. */
+export function konanBoardShot(props: OfficeProps): CloseupShot {
   return { eye: new Vector3(-3.75, 1.1, -2.0), target: props.whiteboardPoint(0.26, 0.5) };
 }

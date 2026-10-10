@@ -1,6 +1,6 @@
 # 05. Cari model VRM jadi dan cek lisensinya
 
-Buat Xenovia dan anggota tim lain, lo bisa pakai model jadi daripada bikin dari nol di VRoid. Selama modelnya belum ada, companion pakai model anime cadangan yang diwarnai sesuai tiap karakter (lihat [03-companion.md](03-companion.md#model-karakter)).
+Buat Konan dan anggota tim lain, lo bisa pakai model jadi daripada bikin dari nol di VRoid. Selama modelnya belum ada, companion pakai model anime cadangan yang diwarnai sesuai tiap karakter (lihat [03-companion.md](03-companion.md#model-karakter)).
 
 ## Kandidat yang ketemu (Oktober 2026)
 
@@ -8,13 +8,14 @@ Dicari lewat mesin pencari, karena halaman BOOTH dan VRoid Hub nggak bisa dibuka
 
 | Cast | Kandidat | Harga | Catatan dari hasil pencarian |
 |---|---|---|---|
-| Xenovia | Belum ketemu | | Bikin di VRoid ([01](01-vroid-xenovia.md)) atau commission |
+| Konan | [Konan (Madoka-Senpai)](https://hub.vroid.com/en/characters/5324961974378812122/models/4053896250544932211) | Gratis | Rambut pendek biru. Boleh jadi avatar dan dimodifikasi, kredit nggak wajib. Nggak boleh dibagikan ulang |
 | Chizuru | [Mizuhara Chizuru](https://hub.vroid.com/en/characters/8332583862388126345/models/1972881642102544984) | Gratis | Boleh jadi avatar, dimodifikasi, dibagikan ulang. Nggak boleh komersial |
-| Robin | [VRoid Nico Robin Outfit](https://booth.pm/en/items/2875224) | ¥500 | Cuma outfit buat VRoid, bukan model utuh |
+| Rias | [Rias Gremory](https://hub.vroid.com/en/characters/1177311427432217/models/1259843191784755922) | Gratis | Syaratnya longgar menurut hasil pencarian, cek ulang di halamannya |
+| Rias | [VRoid Rias Gremory Outfit](https://booth.pm/en/items/2875224) | ¥500 | Cuma outfit buat VRoid, bukan model utuh |
 | Asuna | [Yuuki Asuna (School uniform)](https://hub.vroid.com/en/characters/5852999539721442220/models/1410570872446877209) | Gratis | Boleh jadi avatar, wajib kredit |
 | Asuna | [Asuna Yuuki](https://hub.vroid.com/en/characters/2424049014825747728/models/431547713285463029) | Gratis | Boleh jadi avatar, nggak boleh dimodifikasi (nggak bisa buat VRChat) |
 | Kobayashi | [Kobayashi-san working clothes](https://hub.vroid.com/en/characters/36311182371133330/models/7406901078278076562) | Gratis | Boleh jadi avatar, dimodifikasi, dibagikan ulang. Wajib kredit |
-| Fubuki | Belum ketemu | | |
+| Yor | [Yor Forger](https://hub.vroid.com/en/characters/4239190736811894538/models/8098810625864014076) | Gratis | Boleh jadi avatar, dimodifikasi, dibagikan ulang. Wajib kredit |
 | Erza | [Erza Scarlet Japanese Cloth Armor](https://hub.vroid.com/en/characters/3527892052199245319/models/8906292335027557197) | Gratis | Izin download perlu dicek di halamannya |
 
 Download dari VRoid Hub butuh akun pixiv, dan tombol download cuma muncul kalau creator-nya ngizinin.
@@ -27,7 +28,7 @@ Download dari VRoid Hub butuh akun pixiv, dan tombol download cuma muncul kalau 
 | [BOOTH](https://booth.pm) | Model VRM, preset rambut, outfit VRoid, gratis dan berbayar | Baca deskripsi dan syarat pemakaian di halaman produknya |
 
 Tips nyari:
-- Pakai nama karakter dalam huruf Jepang juga, misalnya ゼノヴィア buat Xenovia. Banyak creator nulis judulnya pakai bahasa Jepang.
+- Pakai nama karakter dalam huruf Jepang juga, misalnya 小南 buat Konan. Banyak creator nulis judulnya pakai bahasa Jepang.
 - Pilih yang formatnya `.vrm`. File `.vroid` cuma bisa dibuka di VRoid Studio, jadi harus di-export dulu.
 - Model yang kepakai buat semua anggota tim sebaiknya gaya visualnya mirip, biar kantornya nggak keliatan campur aduk.
 
@@ -69,6 +70,6 @@ Dua hal yang tetap berlaku apa pun hasil script-nya:
 
 1. Simpan `.vrm` di folder `models/` di root repo. Folder itu udah di-gitignore.
 2. Di companion, buka **Menu > Pilih model .vrm**, lalu pilih anggota tim yang mau dipasangin model.
-3. Overlay pakai model Xenovia. Kantor pakai model semua anggota, dan yang belum punya tetap tampil sebagai placeholder.
+3. Overlay pakai model Konan. Kantor pakai model semua anggota, dan yang belum punya tetap tampil sebagai placeholder.
 
 Kalau model gagal dimuat, kantor nampilin pesan di chip status dan anggota itu balik ke placeholder.

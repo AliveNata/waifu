@@ -1,24 +1,24 @@
-# 04. Tim agent Xenovia
+# 04. Tim agent Konan
 
-Xenovia jadi PA dan PM di session utama Claude Code. Dia dibantu enam subagent, masing-masing punya karakter dan meja sendiri di kantor virtual.
+Konan jadi PA dan PM di session utama Claude Code. Dia dibantu enam subagent, masing-masing punya karakter dan meja sendiri di kantor virtual.
 
 | Agent | Karakter | Anime | Tugas | Boleh ngedit? |
 |---|---|---|---|---|
-| (session utama) | Xenovia | High School DxD | PA + PM: triage, plan, delegasi, brief | Ya |
+| (session utama) | Konan | Naruto Shippuden | PA + PM: triage, plan, delegasi, brief | Ya |
 | `brainstormer` | Chizuru | Rent-a-Girlfriend | Ide dan alternatif sebelum ada keputusan | Tidak |
-| `architect` | Robin | One Piece | Bandingin opsi teknis, kritik plan | Tidak |
+| `architect` | Rias | High School DxD | Bandingin opsi teknis, kritik plan | Tidak |
 | `data-engineer` | Asuna | Sword Art Online | dbt, Airflow, SQL, Spark, Kafka | Ya |
 | `fullstack-engineer` | Kobayashi | Miss Kobayashi's Dragon Maid | UI, API, tools internal | Ya |
-| `platform-sre` | Fubuki | One Punch Man | Kubernetes, Helm, Linode + GCP, CI/CD, insiden | Ya, tapi nggak boleh ngubah cluster |
+| `platform-sre` | Yor | Spy x Family | Kubernetes, Helm, Linode + GCP, CI/CD, insiden | Ya, tapi nggak boleh ngubah cluster |
 | `reviewer` | Erza | Fairy Tail | Review, test, security sebelum commit atau deploy | Tidak |
 
-Definisinya ada di `team/agents/*.md`, dan aturan delegasi Xenovia ada di `team/xenovia.md`.
+Definisinya ada di `team/agents/*.md`, dan aturan delegasi Konan ada di `team/konan.md`.
 
 ## Alur kerja yang dirancang
 
-Fitur baru biasanya jalan begini: **Chizuru** ngelempar ide (opsional), lalu **Robin** bandingin opsi, lalu engineer sesuai area ngerjain, lalu **Erza** review. Xenovia yang ngatur urutannya dan minta approval lo di titik-titik penting.
+Fitur baru biasanya jalan begini: **Chizuru** ngelempar ide (opsional), lalu **Rias** bandingin opsi, lalu engineer sesuai area ngerjain, lalu **Erza** review. Konan yang ngatur urutannya dan minta approval lo di titik-titik penting.
 
-Subagent nggak bisa nanya langsung ke lo di tengah kerja. Jadi aksi berisiko, misalnya `kubectl apply`, ngubah data prod, atau push, dibalikin ke Xenovia dalam bentuk usulan lengkap dengan diff atau hasil dry-run. Xenovia yang minta konfirmasi lo.
+Subagent nggak bisa nanya langsung ke lo di tengah kerja. Jadi aksi berisiko, misalnya `kubectl apply`, ngubah data prod, atau push, dibalikin ke Konan dalam bentuk usulan lengkap dengan diff atau hasil dry-run. Konan yang minta konfirmasi lo.
 
 ## Install di PC lo
 
@@ -36,7 +36,7 @@ npm run team:install
 
 Yang dilakuin installer:
 - Nyalin 6 file agent ke `%USERPROFILE%\.claude\agents\`.
-- Nambahin blok Xenovia ke `%USERPROFILE%\.claude\CLAUDE.md`, di antara penanda `<!-- waifu-team:start -->` dan `<!-- waifu-team:end -->`. Isi file di luar penanda itu nggak disentuh.
+- Nambahin blok Konan ke `%USERPROFILE%\.claude\CLAUDE.md`, di antara penanda `<!-- waifu-team:start -->` dan `<!-- waifu-team:end -->`. Isi file di luar penanda itu nggak disentuh.
 - File yang udah ada dengan isi berbeda di-backup dulu jadi `<nama>.bak-<waktu>`.
 - Aman dijalanin ulang. Kalau nggak ada yang berubah, nggak ada yang ditulis.
 
@@ -46,7 +46,7 @@ Restart Claude Code setelah install. Cek pakai command `/agents`, harusnya keena
 
 ## Cara pakai
 
-Cukup ngobrol biasa ke Claude Code. Xenovia yang mutusin kapan perlu delegasi. Kalau mau manggil anggota tertentu, sebut namanya, misalnya "minta reviewer cek diff ini", atau pakai `@reviewer`.
+Cukup ngobrol biasa ke Claude Code. Konan yang mutusin kapan perlu delegasi. Kalau mau manggil anggota tertentu, sebut namanya, misalnya "minta reviewer cek diff ini", atau pakai `@reviewer`.
 
 Kalau companion lagi jalan dan hooks udah kepasang (lihat [03-companion.md](03-companion.md)), anggota yang dipanggil bakal mulai kerja di mejanya di kantor virtual.
 

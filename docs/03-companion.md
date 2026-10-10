@@ -1,9 +1,9 @@
 # 03. Desktop companion: overlay, overlay tim, dan kantor chibi
 
-Companion ini nampilin Xenovia dan timnya di tiga tempat:
+Companion ini nampilin Konan dan timnya di tiga tempat:
 
-- **Overlay Xenovia**: close-up 3D transparan di pojok kanan bawah layar, selalu di atas window lain. Kepala dan matanya ngikutin cursor lo.
-- **Overlay tim**: close-up transparan di pojok kanan atas. Muncul cuma pas ada yang ngomong: Xenovia ngoper tugas, atau anggota tim mulai kerja, pakai tool, dan selesai. Ada gerak mulut, ekspresi, gesture, dan kotak dialog.
+- **Overlay Konan**: close-up 3D transparan di pojok kanan bawah layar, selalu di atas window lain. Kepala dan matanya ngikutin cursor lo.
+- **Overlay tim**: close-up transparan di pojok kanan atas. Muncul cuma pas ada yang ngomong: Konan ngoper tugas, atau anggota tim mulai kerja, pakai tool, dan selesai. Ada gerak mulut, ekspresi, gesture, dan kotak dialog.
 - **Kantor**: window terpisah berisi ruangan isometrik dengan tujuh anggota tim versi chibi (lihat [04-tim.md](04-tim.md)). Tiap anggota punya meja atau papan sendiri dan mulai kerja pas subagent-nya dipanggil.
 
 Ketiganya bereaksi ke event yang sama dari hooks Claude Code.
@@ -13,7 +13,7 @@ Ketiganya bereaksi ke event yang sama dari hooks Claude Code.
 Urutan model yang dipakai buat tiap anggota:
 1. `.vrm` asli yang lo pasang lewat **Menu > Pilih model .vrm**.
 2. Kalau belum ada: **model anime cadangan**, yaitu sample resmi VRM 1.0 yang diwarnai ulang pakai warna rambut, mata, dan baju tiap karakter, plus kacamata buat Kobayashi. Wajah dan model rambutnya sama buat semua anggota.
-3. Kalau model cadangan belum didownload: chibi kotak-kotak di kantor, dan tulisan "Belum ada model" di overlay Xenovia.
+3. Kalau model cadangan belum didownload: chibi kotak-kotak di kantor, dan tulisan "Belum ada model" di overlay Konan.
 
 Model cadangan didownload sekali (sekitar 10 MB, versi di-pin dan dicek hash-nya):
 
@@ -39,31 +39,31 @@ File-nya disimpan di `models/base/` dan nggak ikut ke-commit.
 
 | Kejadian | Yang ngomong | Contoh (mode simulasi) | Gesture |
 |---|---|---|---|
-| Xenovia ngoper tugas | Xenovia | "Asuna, tolong bantu ya." | nunjuk |
+| Konan ngoper tugas | Konan | "Asuna, tolong bantu ya." | nunjuk |
 | Subagent mulai | Anggota itu | "Oke, aku cek pipeline datanya." | ngangguk |
 | Subagent pakai tool | Anggota itu | "Aku baca kodenya dulu." (maksimal sekali per 8 detik) | mikir atau ngetik |
 | Subagent selesai | Anggota itu | "Review selesai. Hasilnya ada di laporan." | ngangguk atau sorak |
 
 Kalimat simulasi cuma ngegambarin aktivitas, nggak pernah ngarang hasil. Tag "simulasi" muncul di pojok kotak dialog.
 
-**Isi asli**: tombol **Isi asli** di overlay tim (muncul pas di-hover), atau **Menu > Tampilkan isi percakapan asli**. Kalau dinyalain, Xenovia nyebut judul tugas yang beneran, dan anggota tim nutup dengan ringkasan laporan akhirnya (maksimal 280 karakter). Matiin lagi sebelum share screen.
+**Isi asli**: tombol **Isi asli** di overlay tim (muncul pas di-hover), atau **Menu > Tampilkan isi percakapan asli**. Kalau dinyalain, Konan nyebut judul tugas yang beneran, dan anggota tim nutup dengan ringkasan laporan akhirnya (maksimal 280 karakter). Matiin lagi sebelum share screen.
 
-Overlay tim bisa digeser kayak overlay Xenovia.
+Overlay tim bisa digeser kayak overlay Konan.
 | `PreCompact` | thinking | sama kayak thinking | sama kayak thinking |
 | `SessionEnd` | idle | santai | duduk di sofa |
 
 Greeting dan done balik ke idle sendiri setelah beberapa detik. Mood lain bertahan sampai event berikutnya, karena Claude Code nggak ngirim event "udah selesai mikir".
 
-Event yang terjadi di dalam subagent (misalnya Asuna ngejalanin `Edit`) cuma ngegerakin anggota itu, bukan Xenovia. Pas Xenovia ngoper kerjaan, chip status nampilin "Delegasi ke tim".
+Event yang terjadi di dalam subagent (misalnya Asuna ngejalanin `Edit`) cuma ngegerakin anggota itu, bukan Konan. Pas Konan ngoper kerjaan, chip status nampilin "Delegasi ke tim".
 
 ## Animasi di kantor
 
 | Anggota | Pas kerja | Pas santai |
 |---|---|---|
-| Asuna, Kobayashi, Fubuki, Erza | Ngetik. Teks muncul per karakter di monitor, tuts keyboard yang dipencet nyala | Nyender, nengok-nengok |
-| Robin | Nulis diagram di papan tulis, tangannya ngikutin ujung spidol | Baca buku |
+| Asuna, Kobayashi, Yor, Erza | Ngetik. Teks muncul per karakter di monitor, tuts keyboard yang dipencet nyala | Nyender, nengok-nengok |
+| Rias | Nulis diagram di papan tulis, tangannya ngikutin ujung spidol | Baca buku |
 | Chizuru | Nempel sticky note satu-satu di papan ide | Mikir sambil pegang dagu |
-| Xenovia | Ngetik di laptop, atau nulis plan di papan tulis pas mikir | Duduk di sofa |
+| Konan | Ngetik di laptop, atau nulis plan di papan tulis pas mikir | Duduk di sofa |
 
 Isi layar, papan tulis, dan sticky note semuanya **simulasi**, bukan kerjaan asli lo. Jadi aman pas lagi share screen.
 
@@ -92,7 +92,7 @@ npm start
 
 `npm ci` ikut download Electron (sekitar 100 MB), jadi yang pertama agak lama.
 
-Pertama kali jalan, overlay nampilin Xenovia versi model cadangan (rambut biru). Begitu lo punya `.vrm` aslinya, pasang lewat **Menu > Pilih model .vrm > Xenovia**. Path-nya disimpan, jadi next time langsung kebuka.
+Pertama kali jalan, overlay nampilin Konan versi model cadangan (rambut biru). Begitu lo punya `.vrm` aslinya, pasang lewat **Menu > Pilih model .vrm > Konan**. Path-nya disimpan, jadi next time langsung kebuka.
 
 Menu ada di tombol **Menu**. Di overlay, tombolnya cuma muncul pas cursor di atasnya, atau pas difokus pakai Tab. Isinya:
 
@@ -122,7 +122,7 @@ Hook-nya jalan dengan `"async": true`, jadi Claude Code nggak nungguin companion
 
 ## Data apa yang dikirim
 
-Bridge cuma nerusin field ini ke `127.0.0.1`: nama event, nama tool (misalnya `Bash`), pesan notifikasi, ID dan nama subagent, judul tugas pendek dari Xenovia (maksimal 120 karakter), dan awal laporan akhir subagent (maksimal 280 karakter). Dua yang terakhir cuma ditampilin kalau **isi asli** dinyalain. Isi file, command, prompt lo, prompt lengkap ke subagent, dan path transcript dibuang di bridge sebelum dikirim. Server companion cuma dengerin di localhost dan nolak request yang bukan `application/json`, jadi website random di browser nggak bisa nembak endpoint-nya.
+Bridge cuma nerusin field ini ke `127.0.0.1`: nama event, nama tool (misalnya `Bash`), pesan notifikasi, ID dan nama subagent, judul tugas pendek dari Konan (maksimal 120 karakter), dan awal laporan akhir subagent (maksimal 280 karakter). Dua yang terakhir cuma ditampilin kalau **isi asli** dinyalain. Isi file, command, prompt lo, prompt lengkap ke subagent, dan path transcript dibuang di bridge sebelum dikirim. Server companion cuma dengerin di localhost dan nolak request yang bukan `application/json`, jadi website random di browser nggak bisa nembak endpoint-nya.
 
 ## Ganti port
 
@@ -139,12 +139,12 @@ Buka terminal baru setelah `setx` biar nilainya kebaca.
 Buat ngetes atau kalau nggak mau window transparan:
 
 ```powershell
-$env:WAIFU_MODEL_PATH = "C:\path\ke\xenovia-vrm1.vrm"
+$env:WAIFU_MODEL_PATH = "C:\path\ke\konan-vrm1.vrm"
 $env:WAIFU_MODEL_PATH_ASUNA = "C:\path\ke\asuna.vrm"
 npm run web
 ```
 
-`WAIFU_MODEL_PATH` buat Xenovia, `WAIFU_MODEL_PATH_<NAMA>` buat anggota lain (`CHIZURU`, `ROBIN`, `ASUNA`, `KOBAYASHI`, `FUBUKI`, `ERZA`). Semuanya opsional. Model juga bisa dipilih lewat tombol **Model** di halaman kantor.
+`WAIFU_MODEL_PATH` buat Konan, `WAIFU_MODEL_PATH_<NAMA>` buat anggota lain (`CHIZURU`, `RIAS`, `ASUNA`, `KOBAYASHI`, `YOR`, `ERZA`). Semuanya opsional. Model juga bisa dipilih lewat tombol **Model** di halaman kantor.
 
 Lalu buka `http://127.0.0.1:47823/overlay/`, `http://127.0.0.1:47823/team-overlay/`, dan `http://127.0.0.1:47823/office/`. Hooks tetap nyambung lewat port yang sama.
 
@@ -153,12 +153,12 @@ Lalu buka `http://127.0.0.1:47823/overlay/`, `http://127.0.0.1:47823/team-overla
 | Gejala | Penyebab yang mungkin | Cek |
 |---|---|---|
 | Chip merah "Port ... sudah dipakai" | Ada aplikasi lain di port itu, atau companion kebuka dua kali lewat mode browser | Tutup yang lain, atau ganti port |
-| Xenovia nggak bereaksi | Hooks belum kepasang, atau path di `settings.json` salah | `/hooks` di Claude Code, lalu jalanin command hook-nya manual di PowerShell |
+| Konan nggak bereaksi | Hooks belum kepasang, atau path di `settings.json` salah | `/hooks` di Claude Code, lalu jalanin command hook-nya manual di PowerShell |
 | "Model gagal dimuat" | File bukan VRM, atau export-nya rusak | Export ulang dari VRoid, atau cek pakai `npm run inspect-vrm` |
 | Anggota tim nggak gerak pas dipanggil | Agent belum di-install, atau hooks belum ada `SubagentStart` | `npm run team:install`, lalu ulangi `hooks:print` |
 | Pose aneh (tangan nembus badan, duduk melayang) | Proporsi model beda jauh dari default VRoid | Kasih tau gua, angka pose bisa diatur |
 | Kantor masih kotak-kotak, ada chip "Model anime belum ada" | Model cadangan belum didownload | `npm run fetch-base-model`, lalu buka ulang companion |
-| Overlay tim nggak pernah muncul | Nggak ada subagent yang dipanggil, atau hooks lama tanpa `SubagentStart` | Minta Xenovia delegasi, atau ulangi `hooks:print` |
+| Overlay tim nggak pernah muncul | Nggak ada subagent yang dipanggil, atau hooks lama tanpa `SubagentStart` | Minta Konan delegasi, atau ulangi `hooks:print` |
 
 ## Buat developer
 

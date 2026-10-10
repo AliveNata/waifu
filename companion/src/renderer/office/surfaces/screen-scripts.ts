@@ -30,7 +30,7 @@ const sqlKeywords = [
   "sum",
 ];
 
-export const screenScripts: Record<Exclude<MemberId, "robin" | "chizuru">, ScreenScript> = {
+export const screenScripts: Record<Exclude<MemberId, "rias" | "chizuru">, ScreenScript> = {
   asuna: {
     theme: { background: "#1b1f2a", foreground: "#e6e8ee", accent: "#f0a35e", muted: "#7c8396", header: "#2a3040" },
     keywords: sqlKeywords,
@@ -122,7 +122,7 @@ export const screenScripts: Record<Exclude<MemberId, "robin" | "chizuru">, Scree
       },
     ],
   },
-  fubuki: {
+  yor: {
     theme: { background: "#0f1512", foreground: "#d8eadf", accent: "#5fd38d", muted: "#6f8a7a", header: "#1a2620" },
     keywords: ["kubectl", "helm", "get", "diff", "describe", "logs", "Running", "Ready"],
     documents: [
@@ -185,7 +185,7 @@ export const screenScripts: Record<Exclude<MemberId, "robin" | "chizuru">, Scree
       },
     ],
   },
-  xenovia: {
+  konan: {
     theme: { background: "#f6f4ef", foreground: "#1f2433", accent: "#2f6fd6", muted: "#7a7f8c", header: "#e2ddd2" },
     keywords: ["Plan", "[x]", "[ ]", "->"],
     documents: [
@@ -194,10 +194,10 @@ export const screenScripts: Record<Exclude<MemberId, "robin" | "chizuru">, Scree
         text: [
           "Plan",
           "[x] brainstorm -> Chizuru",
-          "[x] opsi arsitektur -> Robin",
+          "[x] opsi arsitektur -> Rias",
           "[ ] model dbt -> Asuna",
           "[ ] API + chart -> Kobayashi",
-          "[ ] deploy dry-run -> Fubuki",
+          "[ ] deploy dry-run -> Yor",
           "[ ] review -> Erza",
           "",
           "Nunggu approval lo",

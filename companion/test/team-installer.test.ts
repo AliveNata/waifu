@@ -9,10 +9,10 @@ const teamDir = resolve(import.meta.dirname, "../../team");
 describe("upsertMarkedBlock", () => {
   it("appends to existing content without touching it", () => {
     // Act
-    const result = upsertMarkedBlock("# My rules\n\nBe brief.\n", "Xenovia");
+    const result = upsertMarkedBlock("# My rules\n\nBe brief.\n", "Konan");
 
     // Assert
-    expect(result).toBe(`# My rules\n\nBe brief.\n\n${blockStart}\nXenovia\n${blockEnd}\n`);
+    expect(result).toBe(`# My rules\n\nBe brief.\n\n${blockStart}\nKonan\n${blockEnd}\n`);
   });
 
   it("replaces only the marked block on reinstall", () => {
@@ -29,7 +29,7 @@ describe("upsertMarkedBlock", () => {
 });
 
 describe("team install", () => {
-  it("creates every agent and the Xenovia block on a clean config", async () => {
+  it("creates every agent and the Konan block on a clean config", async () => {
     // Arrange
     const configDir = await mkdtemp(join(tmpdir(), "claude-config-"));
 
@@ -47,7 +47,7 @@ describe("team install", () => {
       "platform-sre.md",
       "reviewer.md",
     ]);
-    expect(await readFile(join(configDir, "CLAUDE.md"), "utf8")).toContain("Xenovia: personal assistant");
+    expect(await readFile(join(configDir, "CLAUDE.md"), "utf8")).toContain("Konan: personal assistant");
   });
 
   it("is a no-op the second time", async () => {

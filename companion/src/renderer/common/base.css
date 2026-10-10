@@ -1,7 +1,8 @@
 /*
  * Design decisions (antislop R-31):
- * - Navy chip: echoes Xenovia's blue hair and stays readable over any desktop wallpaper.
- * - Green is the only accent, borrowed from her hair streak, and appears only when she needs the user (waiting).
+ * - Navy chip: echoes Konan's blue-violet hair and stays readable over any desktop wallpaper.
+ * - Green is the only accent. No team member's hair is green, so it reads as a signal, not a character,
+ *   and it appears only when Konan needs the user (waiting).
  * - System UI font: the overlay should feel like part of the Windows desktop, and it works offline.
  * - One radius (6px) for chips, buttons and panels: small enough to stay out of the character's way.
  */

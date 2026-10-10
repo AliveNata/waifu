@@ -95,15 +95,6 @@ function buildHair(head: Group, look: MemberLook): void {
       break;
     }
   }
-
-  if (look.streak !== undefined) {
-    head.add(mesh(new BoxGeometry(0.05, 0.12, 0.05), look.streak, r * 0.35, r * 1.35, r * 0.9));
-  }
-  if (look.ahoge === true) {
-    const ahoge = mesh(new BoxGeometry(0.015, 0.1, 0.03), look.hair, 0.01, r * 2.1, 0.02);
-    ahoge.rotation.z = -0.5;
-    head.add(ahoge);
-  }
 }
 
 export class PlaceholderAvatar implements OfficeAvatar {

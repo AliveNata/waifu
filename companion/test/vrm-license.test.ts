@@ -26,7 +26,7 @@ describe("readVrmLicense", () => {
       extensions: {
         VRMC_vrm: {
           meta: {
-            name: "Xenovia",
+            name: "Konan",
             authors: ["fan"],
             avatarPermission: "everyone",
             commercialUsage: "personalNonProfit",
@@ -45,7 +45,7 @@ describe("readVrmLicense", () => {
     // Assert
     expect(license).toMatchObject({
       format: "VRM 1.0",
-      title: "Xenovia",
+      title: "Konan",
       avatarUse: "everyone",
       modification: "prohibited",
       redistribution: false,

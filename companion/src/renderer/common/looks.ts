@@ -5,9 +5,6 @@ export type HairStyle = "short" | "bob" | "long" | "ponytail";
 export interface MemberLook {
   hair: string;
   hairStyle: HairStyle;
-  /** Xenovia's green streak in the bangs. */
-  streak?: string;
-  ahoge?: boolean;
   eyes: string;
   skin: string;
   top: string;
@@ -18,7 +15,7 @@ export interface MemberLook {
   socks: string;
   shoes: string;
   glasses?: boolean;
-  /** Short cape over the shoulders (Xenovia's capelet). */
+  /** Short cape over the shoulders (Konan's capelet). */
   cape?: string;
   /** Breastplate color (Erza's armor). */
   armor?: string;
@@ -31,20 +28,18 @@ const skin = "#f3d9c6";
  * model and to build the low-poly fallback when no base model is available.
  */
 export const memberLooks: Record<MemberId, MemberLook> = {
-  xenovia: {
-    hair: "#2f6fd6",
-    hairStyle: "short",
-    streak: "#3fa66a",
-    ahoge: true,
-    eyes: "#b9862f",
+  konan: {
+    // Blue-violet bob and amber eyes, in the black Akatsuki cloak.
+    hair: "#6a72c9",
+    hairStyle: "bob",
+    eyes: "#c58a3a",
     skin,
-    top: "#2b3150",
-    sleeves: "#f2f2f2",
-    skirt: "#7a2335",
-    legs: skin,
-    socks: "#2a2a2e",
-    shoes: "#6b4a32",
-    cape: "#3c4560",
+    top: "#1b1b22",
+    sleeves: "#1b1b22",
+    skirt: "#1b1b22",
+    legs: "#2a2a30",
+    socks: "#2a2a30",
+    shoes: "#1b1b22",
   },
   chizuru: {
     hair: "#a6713f",
@@ -58,17 +53,19 @@ export const memberLooks: Record<MemberId, MemberLook> = {
     socks: skin,
     shoes: "#7a5234",
   },
-  robin: {
-    hair: "#1d1d24",
+  rias: {
+    // Crimson hair and blue-green eyes, in the Kuoh Academy uniform.
+    hair: "#b51f2e",
     hairStyle: "long",
-    eyes: "#3d6fb6",
-    skin: "#e8c7ad",
-    top: "#5b3a6e",
-    sleeves: "#5b3a6e",
-    skirt: "#3a2b44",
-    legs: "#3a2b44",
-    socks: "#1f1a24",
-    shoes: "#1a1a1e",
+    eyes: "#3f8f86",
+    skin,
+    top: "#2b3150",
+    sleeves: "#f2f2f2",
+    skirt: "#7a2335",
+    legs: skin,
+    socks: "#2a2a2e",
+    shoes: "#6b4a32",
+    cape: "#3c4560",
   },
   asuna: {
     hair: "#d9894a",
@@ -95,17 +92,18 @@ export const memberLooks: Record<MemberId, MemberLook> = {
     shoes: "#2a2a2a",
     glasses: true,
   },
-  fubuki: {
-    hair: "#15161c",
-    hairStyle: "bob",
-    eyes: "#3e9a5a",
+  yor: {
+    // Black hair and red eyes, in her black Thorn Princess dress.
+    hair: "#17171d",
+    hairStyle: "long",
+    eyes: "#b3262f",
     skin,
-    top: "#1f4d35",
-    sleeves: "#1f4d35",
-    skirt: "#1f4d35",
-    legs: "#1e1e22",
-    socks: "#1e1e22",
-    shoes: "#141416",
+    top: "#1c1a22",
+    sleeves: "#1c1a22",
+    skirt: "#1c1a22",
+    legs: "#141418",
+    socks: "#141418",
+    shoes: "#141418",
   },
   erza: {
     hair: "#c72a2a",

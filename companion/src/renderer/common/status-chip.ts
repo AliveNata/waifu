@@ -11,7 +11,7 @@ export function requireElement<T extends HTMLElement>(id: string, type: new () =
 
 /**
  * The status chip at the bottom of both pages. Priority: hook server errors,
- * then short-lived notices (e.g. a model failed to load), then Xenovia's mood.
+ * then short-lived notices (e.g. a model failed to load), then Konan's mood.
  */
 export class StatusChip {
   private serverError: string | null = null;

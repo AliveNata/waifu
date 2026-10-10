@@ -16,7 +16,7 @@ export interface Stage {
 type PanelState = { kind: "empty" } | { kind: "loading"; name: string } | { kind: "error"; message: string };
 
 /**
- * Page controller for the overlay: Xenovia's model with empty, loading and
+ * Page controller for the overlay: Konan's model with empty, loading and
  * error panels, the status chip and the menu button.
  */
 export class CompanionPage {
@@ -55,7 +55,7 @@ export class CompanionPage {
       }
     });
     this.bridge.onModelChanged((memberId) => {
-      if (memberId === "xenovia") {
+      if (memberId === "konan") {
         this.loadSaved();
       }
     });
@@ -79,9 +79,9 @@ export class CompanionPage {
   private loadSaved(): void {
     this.showPanel({ kind: "loading", name: "model tersimpan" });
     const generation = ++this.loadGeneration;
-    // Own .vrm first, then the anime base model in Xenovia's colors, then the empty state.
+    // Own .vrm first, then the anime base model in Konan's colors, then the empty state.
     this.models
-      .load("xenovia")
+      .load("konan")
       .then((loaded) => {
         if (generation !== this.loadGeneration) {
           if (loaded !== null) {
@@ -100,7 +100,7 @@ export class CompanionPage {
 
   private pickModel(): void {
     this.bridge
-      .pickModel("xenovia")
+      .pickModel("konan")
       .then((file) => (file === null ? undefined : this.loadModel(file)))
       .catch((error: unknown) => this.fail(error));
   }
@@ -138,7 +138,8 @@ export class CompanionPage {
     switch (state.kind) {
       case "empty":
         this.panelTitle.textContent = "Belum ada model";
-        this.panelBody.textContent = "Export Xenovia dari VRoid Studio sebagai .vrm, lalu pilih file-nya di sini.";
+        this.panelBody.textContent =
+          "Pilih file .vrm Konan, dari VRoid Hub atau hasil export VRoid Studio. Model cadangan juga belum ada: jalanin npm run fetch-base-model.";
         this.panelAction.hidden = false;
         this.panelAction.textContent = "Pilih file .vrm";
         break;

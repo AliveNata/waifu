@@ -11,9 +11,9 @@ import { findBaseModel, repoRootFrom } from "../tools/base-model.js";
 import { HookServer } from "./hook-server.js";
 
 const staticDir = resolve(import.meta.dirname, "../../renderer");
-/** WAIFU_MODEL_PATH is Xenovia's model, WAIFU_MODEL_PATH_<MEMBER> (e.g. WAIFU_MODEL_PATH_ASUNA) the others. */
+/** WAIFU_MODEL_PATH is Konan's model, WAIFU_MODEL_PATH_<MEMBER> (e.g. WAIFU_MODEL_PATH_ASUNA) the others. */
 function modelEnvVar(memberId: MemberId): string {
-  return memberId === "xenovia" ? "WAIFU_MODEL_PATH" : `WAIFU_MODEL_PATH_${memberId.toUpperCase()}`;
+  return memberId === "konan" ? "WAIFU_MODEL_PATH" : `WAIFU_MODEL_PATH_${memberId.toUpperCase()}`;
 }
 
 const modelPaths: Partial<Record<MemberId, string>> = {};

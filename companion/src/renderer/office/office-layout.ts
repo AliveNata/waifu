@@ -27,12 +27,12 @@ type Lane = "H" | "V";
 export type StationId =
   | "desk-asuna"
   | "desk-kobayashi"
-  | "desk-fubuki"
+  | "desk-yor"
   | "desk-erza"
-  | "board-robin"
-  | "board-xenovia"
+  | "board-rias"
+  | "board-konan"
   | "idea-board"
-  | "desk-xenovia"
+  | "desk-konan"
   | "sofa"
   | "front";
 
@@ -67,19 +67,19 @@ function wallStation(id: StationId, z: number, seated = false): Station {
   };
 }
 
-export const deskXs = { asuna: -3, kobayashi: -1, fubuki: 1, erza: 3 } as const;
+export const deskXs = { asuna: -3, kobayashi: -1, yor: 1, erza: 3 } as const;
 
 export const stations: Record<StationId, Station> = {
   "desk-asuna": deskStation("desk-asuna", deskXs.asuna),
   "desk-kobayashi": deskStation("desk-kobayashi", deskXs.kobayashi),
-  "desk-fubuki": deskStation("desk-fubuki", deskXs.fubuki),
+  "desk-yor": deskStation("desk-yor", deskXs.yor),
   "desk-erza": deskStation("desk-erza", deskXs.erza),
-  "board-robin": wallStation("board-robin", -2.2),
-  "board-xenovia": wallStation("board-xenovia", -1.0),
+  "board-rias": wallStation("board-rias", -2.2),
+  "board-konan": wallStation("board-konan", -1.0),
   "idea-board": wallStation("idea-board", 1.0),
   sofa: wallStation("sofa", 2.7, true),
-  "desk-xenovia": {
-    id: "desk-xenovia",
+  "desk-konan": {
+    id: "desk-konan",
     spot: { x: 2.2, z: 1.15 },
     facing: 0,
     approach: { x: 2.2, z: laneH.z },
@@ -96,13 +96,13 @@ export const stations: Record<StationId, Station> = {
   },
 };
 
-/** Home station of every member who does not walk around. Xenovia moves with her mood instead. */
-export const homeStations: Record<Exclude<MemberId, "xenovia">, StationId> = {
+/** Home station of every member who does not walk around. Konan moves with her mood instead. */
+export const homeStations: Record<Exclude<MemberId, "konan">, StationId> = {
   chizuru: "idea-board",
-  robin: "board-robin",
+  rias: "board-rias",
   asuna: "desk-asuna",
   kobayashi: "desk-kobayashi",
-  fubuki: "desk-fubuki",
+  yor: "desk-yor",
   erza: "desk-erza",
 };
 

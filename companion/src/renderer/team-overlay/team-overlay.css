@@ -1,4 +1,4 @@
-/* Drags like Xenovia's overlay; the toggle opts out in base.css. */
+/* Drags like Konan's overlay; the toggle opts out in base.css. */
 .team-overlay {
   -webkit-app-region: drag;
 }

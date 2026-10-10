@@ -20,7 +20,7 @@ const delegation: CompanionSignal = {
 };
 
 describe("Conversation", () => {
-  it("has Xenovia hand over the task, then the member answers", () => {
+  it("has Konan hand over the task, then the member answers", () => {
     // Arrange
     const conversation = new Conversation(() => 0);
 
@@ -32,7 +32,7 @@ describe("Conversation", () => {
 
     // Assert
     expect(first?.line).toMatchObject({
-      memberId: "xenovia",
+      memberId: "konan",
       text: "Asuna, tolong bantu ya.",
       simulated: true,
       gesture: "point",
@@ -95,8 +95,8 @@ describe("Conversation", () => {
 });
 
 describe("toolLine", () => {
-  it("keeps Fubuki's commands read-only in what she says", () => {
-    expect(toolLine("fubuki", "Bash").text).toBe("Jalanin command read-only dulu.");
+  it("keeps Yor's commands read-only in what she says", () => {
+    expect(toolLine("yor", "Bash").text).toBe("Jalanin command read-only dulu.");
     expect(toolLine("asuna", "Bash").text).toBe("Aku jalanin command-nya.");
   });
 });
