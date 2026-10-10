@@ -19,7 +19,26 @@ Dicari lewat mesin pencari, karena halaman BOOTH dan VRoid Hub nggak bisa dibuka
 | MEM-cho | [MEMちょ / MEM-Cho 私服ver](https://hub.vroid.com/en/characters/2131433267229618195/models/4218781344815917942) | Gratis | Boleh dimodifikasi, minta kredit. Daftar larangannya nggak kebaca di hasil pencarian, cek halamannya |
 | Erza | [Erza Scarlet Japanese Cloth Armor](https://hub.vroid.com/en/characters/3527892052199245319/models/8906292335027557197) | Gratis | Izin download perlu dicek di halamannya |
 
-Download dari VRoid Hub butuh akun pixiv, dan tombol download cuma muncul kalau creator-nya ngizinin.
+## Download dari VRoid Hub, langkah demi langkah
+
+1. **Login.** Buka [hub.vroid.com](https://hub.vroid.com), klik login, dan masuk pakai akun pixiv. Kalau belum punya, daftar di sana, gratis.
+2. **Buka link model** dari tabel di atas.
+3. **Baca syarat pemakaian** di halaman model, bagian *Conditions of use*. Yang penting:
+   - *Avatar use*: harus **Allow**, kalau nggak, model nggak boleh dipakai di companion.
+   - *Alterations*: harus **Allow** kalau nanti mau di-convert ke VRChat.
+   - *Attribution*: kalau **Required**, catat nama creator dan link modelnya (lihat langkah 7).
+4. **Download.** Klik tombol download di halaman model, lalu setujui syaratnya. Kalau tombolnya nggak ada, berarti creator-nya nggak ngizinin download. Pakai kandidat lain atau biarin pakai model cadangan.
+5. **Simpan** file `.vrm`-nya ke folder `models/` di root repo, dengan nama yang jelas, misalnya `models/2b.vrm` atau `models/mem.vrm`. Folder ini udah di-gitignore, jadi model nggak ikut ke-commit.
+6. **Cek lisensi di file-nya:**
+   ```powershell
+   cd companion
+   npm run inspect-vrm -- ..\models\2b.vrm
+   ```
+   Kalau hasil script beda sama halaman VRoid Hub, ikutin halamannya.
+7. **Catat kredit** buat model yang wajib kredit di `models/CREDITS.md`: nama karakter, nama creator, dan link model. Kredit ini perlu ditampilin kalau lo nunjukin avatarnya ke orang lain, misalnya di screenshot atau video.
+8. **Pasang ke companion:** **Menu > Pilih model .vrm > nama anggota**. Di mode web, pakai tombol **Model** di halaman kantor.
+
+Urutan yang disaranin: 2B dulu, karena dia yang muncul di overlay utama. Abis itu MEM-cho dan anggota yang paling sering lo panggil.
 
 ## Tempat nyari
 

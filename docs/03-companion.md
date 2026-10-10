@@ -93,7 +93,7 @@ npm start
 
 `npm ci` ikut download Electron (sekitar 100 MB), jadi yang pertama agak lama.
 
-Pertama kali jalan, overlay nampilin 2B versi model cadangan (rambut biru). Begitu lo punya `.vrm` aslinya, pasang lewat **Menu > Pilih model .vrm > 2B**. Path-nya disimpan, jadi next time langsung kebuka.
+Pertama kali jalan, overlay nampilin 2B versi model cadangan (rambut putih). Begitu lo punya `.vrm` aslinya, pasang lewat **Menu > Pilih model .vrm > 2B**. Path-nya disimpan, jadi next time langsung kebuka.
 
 Menu ada di tombol **Menu**. Di overlay, tombolnya cuma muncul pas cursor di atasnya, atau pas difokus pakai Tab. Isinya:
 
