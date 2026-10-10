@@ -9,12 +9,16 @@
     />
     <!-- No app icon yet. An empty one stops the browser from requesting /favicon.ico. -->
     <link rel="icon" href="data:," />
-    <title>Kantor 2B</title>
+    <title>Kantor AlyxLabs</title>
     <script type="module" src="./office.ts"></script>
   </head>
   <body>
     <main class="stage office">
-      <canvas id="scene" aria-label="Kantor tim 2B, tampilan isometrik"></canvas>
+      <canvas
+        id="scene"
+        tabindex="0"
+        aria-label="Kantor AlyxLabs dalam 3D. Drag atau panah buat muter, scroll atau plus minus buat zoom, nol atau klik dua kali buat balik ke tampilan awal."
+      ></canvas>
       <p class="closeup-caption" id="closeup-caption" hidden></p>
       <section class="dialog office-dialog" id="office-dialog" aria-live="polite" hidden>
         <p class="dialog-name"></p>

@@ -1,10 +1,10 @@
-# 03. Desktop companion: overlay, overlay tim, dan kantor chibi
+# 03. Desktop companion: overlay, overlay tim, dan kantor AlyxLabs
 
 Companion ini nampilin 2B dan timnya di tiga tempat:
 
 - **Overlay 2B**: close-up 3D transparan di pojok kanan bawah layar, selalu di atas window lain. Kepala dan matanya ngikutin cursor lo.
 - **Overlay tim**: close-up transparan di pojok kanan atas. Muncul cuma pas ada yang ngomong: 2B ngoper tugas, atau anggota tim mulai kerja, pakai tool, dan selesai. Ada gerak mulut, ekspresi, gesture, dan kotak dialog.
-- **Kantor**: window terpisah berisi ruangan isometrik dengan tujuh anggota tim versi chibi (lihat [04-tim.md](04-tim.md)). Tiap anggota punya meja atau papan sendiri dan mulai kerja pas subagent-nya dipanggil.
+- **Kantor AlyxLabs**: window terpisah berisi kantor 3D dengan 2B dan tujuh anggota tim versi chibi (lihat [04-tim.md](04-tim.md)). Tiap anggota punya meja sesuai role-nya, mulai kerja pas subagent-nya dipanggil, dan pas lagi nggak ada tugas mereka istirahat dengan kegiatan masing-masing.
 
 Ketiganya bereaksi ke event yang sama dari hooks Claude Code.
 
@@ -56,15 +56,44 @@ Overlay tim bisa digeser kayak overlay 2B.
 
 Event yang terjadi di dalam subagent (misalnya Asuna ngejalanin `Edit`) cuma ngegerakin anggota itu, bukan 2B. Pas 2B ngoper kerjaan, chip status nampilin "Delegasi ke tim".
 
-## Animasi di kantor
+## Kantor AlyxLabs
 
-| Anggota | Pas kerja | Pas santai |
+Ruangannya terang dengan aksen ungu dari logo AlyxLabs: strip LED di atas dinding, lampu di bawah meja, dan papan nama di dinding belakang. Zonanya:
+
+| Zona | Isi |
+|---|---|
+| Deretan meja belakang | Meja Asuna, Kobayashi, Erza, dan Yor, plus rak server di sebelah Yor |
+| Depan | Meja komando 2B dengan papan kanban, dan pojok konten Ruby dengan backdrop logo, ring light, kamera, dan mic |
+| Dinding kiri | Papan tulis (2B dan Rias), papan ide dan beanbag Chizuru, TV lounge |
+| Lounge | Sofa menghadap TV, meja kopi, beanbag |
+| Pantry | Mesin kopi, kulkas, meja bar dengan dua stool |
+| Pojok game | Mesin arcade |
+
+Setup meja sesuai role:
+
+| Anggota | Setup | Pas kerja |
 |---|---|---|
-| Asuna, Kobayashi, Yor, Erza | Ngetik. Teks muncul per karakter di monitor, tuts keyboard yang dipencet nyala | Nyender, nengok-nengok |
-| Rias | Nulis diagram di papan tulis, tangannya ngikutin ujung spidol | Baca buku |
-| Chizuru | Nempel sticky note satu-satu di papan ide | Mikir sambil pegang dagu |
-| 2B | Ngetik di laptop, atau nulis plan di papan tulis pas mikir | Duduk di sofa |
-| Ruby | Ngetik draft post di laptop, di meja dengan ring light | Nyender, nengok-nengok |
+| Asuna | Tiga monitor: SQL, DAG pipeline, dashboard | Ngetik SQL, teks muncul per karakter dan tuts yang dipencet nyala |
+| Kobayashi | Monitor ultrawide, boneka naga kecil | Ngetik kode aplikasi |
+| Erza | Dua monitor vertikal: diff dan checklist review, sepotong kue stroberi | Ngetik catatan review |
+| Yor | Terminal dan monitoring, mawar di meja | Ngetik command read-only |
+| 2B | Dua monitor dan kanban tim | Ngetik plan, atau nulis di papan tulis pas mikir |
+| Ruby | Laptop, mic, ring light | Ngetik draft post |
+| Rias | Papan tulis | Gambar diagram, tangannya ngikutin ujung spidol |
+| Chizuru | Papan ide | Nempel sticky note satu-satu |
+
+**Pas nggak ada tugas**, tiap cast milih kegiatan sendiri dan jalan ke sana tanpa nembus furnitur: kerja santai di meja, bikin kopi, ngemil di kulkas, nonton TV, main game di sofa, main arcade, nyiram tanaman, rebahan di beanbag, baca, atau ngobrol di meja bar. Kira-kira setengah waktunya di meja, setengahnya istirahat. Biar nggak monoton:
+- Kegiatan yang sama nggak dipilih dua kali berturut-turut, dan tiap kegiatan punya jeda sebelum bisa diulang.
+- Tiap cast punya kesukaan sendiri. Kobayashi sering main arcade, Erza sering ngemil, Rias sering baca, Yor sering ngecek rak server, Ruby sering selfie di depan ring light.
+- Satu tempat cuma dipakai satu orang. Kalau ada yang udah duduk di bar, yang lain lebih mungkin nyamperin buat ngobrol.
+- Abis kelar tugas, cast istirahat dulu, nggak langsung balik ke meja.
+- Begitu dipanggil Claude Code, cast langsung ninggalin kegiatannya dan jalan ke mejanya.
+
+TV nyala sendiri pas ada yang nonton atau main game, layar arcade makin rame pas dimainin, dan lampu rak server kedip cepat pas Yor ngecek.
+
+Pose duduk diukur dari panjang kaki tiap model. Di kursi rendah lututnya naik dan telapak kakinya napak, di stool tinggi kakinya menggantung. Sandaran kursi dan sofa dibikin rendah, terus ujung atasnya, sandaran sofa, dan lantai jadi penghalang buat physics rambut, jadi rambut panjang jatuh ke balik sandaran, bukan nembus.
+
+**Kamera**: drag buat muter, scroll buat zoom, klik dua kali buat balik ke tampilan awal. Pakai keyboard: Tab ke ruangan, panah buat muter, `+` dan `-` buat zoom, `0` buat reset. Kalau lama nggak disentuh, kameranya goyang pelan sendiri.
 
 Isi layar, papan tulis, dan sticky note semuanya **simulasi**, bukan kerjaan asli lo. Jadi aman pas lagi share screen.
 

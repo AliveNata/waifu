@@ -1,5 +1,6 @@
 import type { VRM, VRMHumanBoneName } from "@pixiv/three-vrm";
 import { Box3, Vector3 } from "three";
+import type { LegMetrics } from "./seating.js";
 
 export interface ChibiProportions {
   headScale: number;
@@ -21,19 +22,19 @@ export interface ChibiMetrics {
   sceneScale: number;
   /** Y offset for vrm.scene so the soles rest on the floor. */
   floorOffset: number;
-  /** Hips drop for sitting, in model units (the space hipsOffsetY lives in). */
-  sitDrop: number;
+  legs: LegMetrics;
 }
 
-/** Seat height of the office chair and sofa, in world meters. */
-export const seatHeight = 0.3;
-
-function worldY(vrm: VRM, bone: VRMHumanBoneName): number {
+function worldPosition(vrm: VRM, bone: VRMHumanBoneName): Vector3 {
   const node = vrm.humanoid.getRawBoneNode(bone);
   if (node === null) {
     throw new Error(`Model ini tidak punya bone ${bone}, padahal wajib untuk humanoid VRM.`);
   }
-  return node.getWorldPosition(new Vector3()).y;
+  return node.getWorldPosition(new Vector3());
+}
+
+function worldY(vrm: VRM, bone: VRMHumanBoneName): number {
+  return worldPosition(vrm, bone).y;
 }
 
 function scaleBone(vrm: VRM, bone: VRMHumanBoneName, scale: number): void {
@@ -101,11 +102,20 @@ export function applyChibi(vrm: VRM, proportions: ChibiProportions = defaultChib
   // Springs cache their rest lengths, so re-seed them at the new scale.
   vrm.springBoneManager?.setInitState();
 
-  const standingHipsWorld = (hipsY - soleY) * sceneScale;
-  const sittingHipsWorld = seatHeight + 0.04;
+  // Measured after scaling, so the numbers are the chibi's own legs in world meters.
+  const soleWorld = soleY * sceneScale;
+  const hipsWorld = worldPosition(vrm, "hips");
+  const thighWorld = worldPosition(vrm, "leftUpperLeg");
+  const kneeWorld = worldPosition(vrm, "leftLowerLeg");
   return {
     sceneScale,
-    floorOffset: -soleY * sceneScale,
-    sitDrop: Math.max(0, standingHipsWorld - sittingHipsWorld) / sceneScale,
+    floorOffset: -soleWorld,
+    legs: {
+      hipsHeight: hipsWorld.y - soleWorld,
+      thighJointDrop: Math.max(0, hipsWorld.y - thighWorld.y),
+      thigh: thighWorld.distanceTo(kneeWorld),
+      shin: Math.max(0.01, kneeWorld.y - soleWorld),
+      poseUnitsPerMeter: 1 / sceneScale,
+    },
   };
 }

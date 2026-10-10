@@ -16,8 +16,8 @@ import type { ExpressionWeights } from "../common/expressions.js";
 import type { MemberLook } from "../common/looks.js";
 import type { PoseTarget } from "../common/pose.js";
 import type { OfficeAvatar } from "./avatar.js";
-import { seatHeight } from "./chibi.js";
 import type { IkChain } from "./ik.js";
+import type { LegMetrics } from "./seating.js";
 
 /** Joint layout in meters, T-pose, facing +Z: the same conventions as normalized VRM bones. */
 const dims = {
@@ -100,7 +100,13 @@ function buildHair(head: Group, look: MemberLook): void {
 export class PlaceholderAvatar implements OfficeAvatar {
   readonly kind = "placeholder";
   readonly root = new Group();
-  readonly sitDrop = Math.max(0, dims.hipsY - (seatHeight + 0.04));
+  readonly legs: LegMetrics = {
+    hipsHeight: dims.hipsY,
+    thighJointDrop: 0.03,
+    thigh: dims.upperLeg,
+    shin: dims.hipsY - 0.03 - dims.upperLeg,
+    poseUnitsPerMeter: 1,
+  };
   readonly poseTarget: PoseTarget;
 
   private readonly joints = new Map<VRMHumanBoneName, Group>();
@@ -202,6 +208,10 @@ export class PlaceholderAvatar implements OfficeAvatar {
       effector: this.rightHand,
       sync: () => this.syncPose(),
     };
+  }
+
+  addHairColliders(): void {
+    // Placeholder hair is rigid geometry, nothing to collide.
   }
 
   setExpressions(weights: ExpressionWeights, blink: number): void {

@@ -80,3 +80,9 @@
   outline: 2px solid var(--panel-ink);
   outline-offset: 2px;
 }
+
+/* The canvas takes arrow keys for the camera, so it shows focus like any other control. */
+.office canvas:focus-visible {
+  outline: 2px solid var(--focus-halo);
+  outline-offset: -4px;
+}

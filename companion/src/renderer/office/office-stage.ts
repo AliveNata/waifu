@@ -1,15 +1,17 @@
 import {
+  ACESFilmicToneMapping,
   Color,
   DirectionalLight,
   HemisphereLight,
-  OrthographicCamera,
   PCFShadowMap,
   PerspectiveCamera,
   Scene,
+  Spherical,
   Timer,
   Vector3,
   WebGLRenderer,
 } from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { idleReaction, type MemberSignal, type Reaction } from "../../shared/reaction.js";
 import { type MemberId, memberIds, roster } from "../../shared/team.js";
 import {
@@ -24,21 +26,34 @@ import type { OfficeAvatar } from "./avatar.js";
 import { solveCcd } from "./ik.js";
 import { type ActorState, initialActor, isWalking, stepActor } from "./office-actor.js";
 import { type MemberPlan, memberPlan, type OfficeAction, twobPlan, usesHandIk } from "./office-director.js";
-import { homeStations } from "./office-layout.js";
+import { OfficeLife } from "./office-life.js";
+import { stations } from "./office-plan.js";
 import { officePose } from "./office-pose.js";
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
 import { PlaceholderAvatar } from "./placeholder.js";
+import { fitSeat } from "./seating.js";
 import type { Vec2 } from "./surfaces/drawing.js";
 import { applyMemberSignal, emptyTeamRuntime, memberBehavior, type TeamRuntime } from "./team-state.js";
 
-const cameraDirection = new Vector3(1, 0.82, 1).normalize();
-const cameraFocus = new Vector3(-0.7, 0.6, -0.3);
-/** World units that must stay visible: roughly the room's diagonal footprint. */
-const minimumViewWidth = 11.5;
-const minimumViewHeight = 7;
 const closeupBackground = new Color("#e9e4da");
 /** Keeps the close-up on the last worker a little after they finish, so the "done" moment is visible. */
 const closeupHoldMs = 3500;
+
+/** Orbit target: the middle of the floor, a little toward the back where the desks are. */
+const viewTarget = new Vector3(-0.3, 0.3, -0.6);
+/** Default view from the open +x/+z corner, high enough to see over the front desks into the room. */
+const defaultView = { azimuth: Math.PI / 4, polar: 1.0 };
+/** Keeps the camera on the open sides of the cutaway: never behind a wall, never under the floor. */
+const viewLimits = {
+  minAzimuth: 0.12,
+  maxAzimuth: 1.45,
+  minPolar: 0.45,
+  maxPolar: 1.2,
+  minDistance: 6,
+  maxDistance: 26,
+};
+/** After this long without input the camera drifts slowly, so a parked office still feels alive. */
+const idleDriftAfterMs = 25_000;
 
 interface MemberRig {
   avatar: OfficeAvatar;
@@ -50,6 +65,8 @@ interface MemberRig {
   actionStartedAt: number;
   keystrokes: number;
   plan: MemberPlan;
+  /** Whether the last frame was real work, to hand the member back to their routine exactly once. */
+  wasWorking: boolean;
 }
 
 export interface CloseupRect {
@@ -82,15 +99,27 @@ const actionLabels: Record<OfficeAction, string> = {
   cheer: "selesai",
   wave: "manggil lo",
   relax: "santai",
+  watch: "nonton",
+  game: "main game",
+  brew: "bikin kopi",
+  snack: "ngemil",
+  arcade: "main arcade",
+  water: "nyiram tanaman",
+  lounge: "rebahan",
+  selfie: "selfie",
+  rack: "ngecek server",
+  chat: "ngobrol",
 };
 
 export class OfficeStage {
   private readonly renderer: WebGLRenderer;
   private readonly scene = new Scene();
-  private readonly camera = new OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+  private readonly camera = new PerspectiveCamera(30, 1.6, 0.1, 120);
   private readonly closeupCamera = new PerspectiveCamera(38, 1.6, 0.05, 30);
+  private readonly controls: OrbitControls;
   private readonly timer = new Timer();
   private readonly office = buildOffice();
+  private readonly life = new OfficeLife();
   private readonly rigs: Record<MemberId, MemberRig>;
 
   private team: TeamRuntime = emptyTeamRuntime();
@@ -99,6 +128,8 @@ export class OfficeStage {
   private closeupEnabled = true;
   private focus: CloseupFocus | null = null;
   private heldFocus: { memberId: MemberId; until: number } | null = null;
+  private lastInputAt = Date.now();
+  private driftPhase = 0;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -108,23 +139,43 @@ export class OfficeStage {
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.autoClear = false;
-    // Shadows ground the chibis on the floor; without them they read as floating.
+    // Filmic tone mapping keeps the bright room from washing out and lets the accent glow read as light.
+    this.renderer.toneMapping = ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.05;
+    // Soft shadows ground the chibis and furniture; without them the room reads as floating props.
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
 
-    const sun = new DirectionalLight(0xffffff, 2.2);
-    sun.position.set(4, 8, 5);
+    const sun = new DirectionalLight(0xfff2e2, 2.3);
+    sun.position.set(6, 11, 8);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.left = -7;
-    sun.shadow.camera.right = 7;
-    sun.shadow.camera.top = 7;
-    sun.shadow.camera.bottom = -7;
-    sun.shadow.bias = -0.0005;
-    this.scene.add(new HemisphereLight(0xfff8ee, 0x8a7a66, 1.6), sun, this.office.root);
+    sun.shadow.camera.left = -10;
+    sun.shadow.camera.right = 10;
+    sun.shadow.camera.top = 9;
+    sun.shadow.camera.bottom = -9;
+    sun.shadow.bias = -0.0004;
+    // Cool fill from the back windows, so faces at the back-row desks are not lit by the sun alone.
+    const windowFill = new DirectionalLight(0xdfeaff, 0.55);
+    windowFill.position.set(0, 4, -10);
+    this.scene.add(new HemisphereLight(0xfff8ee, 0xb7a68a, 1.5), sun, windowFill, this.office.root);
 
-    this.camera.position.copy(cameraFocus).addScaledVector(cameraDirection, 25);
-    this.camera.lookAt(cameraFocus);
+    this.controls = new OrbitControls(this.camera, canvas);
+    this.controls.target.copy(viewTarget);
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.08;
+    this.controls.enablePan = false;
+    this.controls.minAzimuthAngle = viewLimits.minAzimuth;
+    this.controls.maxAzimuthAngle = viewLimits.maxAzimuth;
+    this.controls.minPolarAngle = viewLimits.minPolar;
+    this.controls.maxPolarAngle = viewLimits.maxPolar;
+    this.controls.minDistance = viewLimits.minDistance;
+    this.controls.maxDistance = viewLimits.maxDistance;
+    this.controls.addEventListener("start", () => {
+      this.lastInputAt = Date.now();
+    });
+    canvas.addEventListener("keydown", (event) => this.handleKey(event));
+    canvas.addEventListener("dblclick", () => this.resetView());
 
     this.rigs = Object.fromEntries(
       memberIds.map((memberId) => [memberId, this.createRig(memberId, new PlaceholderAvatar(memberLooks[memberId]))]),
@@ -132,6 +183,7 @@ export class OfficeStage {
 
     window.addEventListener("resize", () => this.resize());
     this.resize();
+    this.resetView();
     this.renderer.setAnimationLoop((timestamp) => this.frame(timestamp));
   }
 
@@ -142,6 +194,7 @@ export class OfficeStage {
     rig.avatar = avatar;
     rig.poseApplier.reset();
     rig.expressions = {};
+    avatar.addHairColliders(this.office.hairColliders);
     this.scene.add(avatar.root);
   }
 
@@ -169,13 +222,62 @@ export class OfficeStage {
     return this.closeupEnabled ? this.focus : null;
   }
 
+  /** Back to the default view, the same framing the office opens with. */
+  resetView(): void {
+    const spherical = new Spherical(this.fitDistance(), defaultView.polar, defaultView.azimuth);
+    this.camera.position.copy(viewTarget).add(new Vector3().setFromSpherical(spherical));
+    this.controls.target.copy(viewTarget);
+    this.controls.update();
+  }
+
+  /** Keyboard parity with the mouse: arrows orbit, +/- zoom, 0 resets. */
+  private handleKey(event: KeyboardEvent): void {
+    const step = 0.08;
+    switch (event.key) {
+      case "ArrowLeft":
+        this.controls.rotateLeft(step);
+        break;
+      case "ArrowRight":
+        this.controls.rotateLeft(-step);
+        break;
+      case "ArrowUp":
+        this.controls.rotateUp(step);
+        break;
+      case "ArrowDown":
+        this.controls.rotateUp(-step);
+        break;
+      // OrbitControls multiplies the distance by the dolly scale, so zooming in takes a scale below 1.
+      case "+":
+      case "=":
+        this.controls.dollyIn(0.9);
+        break;
+      case "-":
+        this.controls.dollyOut(0.9);
+        break;
+      case "0":
+        this.resetView();
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    this.lastInputAt = Date.now();
+    this.controls.update();
+  }
+
+  /** Distance that fits the whole floor in view for the current window shape. */
+  private fitDistance(): number {
+    const aspect = this.camera.aspect;
+    // Tuned so a 16:10 window shows wall to wall; narrower windows back off to keep the width.
+    return Math.min(viewLimits.maxDistance, 14 * Math.max(1, 1.6 / aspect));
+  }
+
   private createRig(memberId: MemberId, avatar: OfficeAvatar): MemberRig {
-    const plan = memberId === "twob" ? twobPlan("idle") : memberPlan(memberId, "idle");
-    const station = memberId === "twob" ? plan.station : homeStations[memberId];
+    const plan = this.planFor(memberId, Date.now(), null);
     this.scene.add(avatar.root);
     return {
       avatar,
-      actor: initialActor(station),
+      actor: initialActor(plan.station),
       poseApplier: new PoseApplier(10),
       blink: new BlinkScheduler(),
       expressions: {},
@@ -183,28 +285,49 @@ export class OfficeStage {
       actionStartedAt: 0,
       keystrokes: 0,
       plan,
+      wasWorking: false,
     };
   }
 
   private resize(): void {
     const width = window.innerWidth;
     const height = window.innerHeight;
-    const aspect = width / height;
-    const viewHeight = Math.max(minimumViewHeight, minimumViewWidth / aspect);
-    const viewWidth = viewHeight * aspect;
-    this.camera.left = -viewWidth / 2;
-    this.camera.right = viewWidth / 2;
-    this.camera.top = viewHeight / 2;
-    this.camera.bottom = -viewHeight / 2;
+    this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
   }
 
-  private planFor(memberId: MemberId, now: number): MemberPlan {
+  private planFor(memberId: MemberId, now: number, rig: MemberRig | null): MemberPlan {
     if (memberId === "twob") {
-      return twobPlan(this.twobReaction.mood);
+      const mood = this.twobReaction.mood;
+      if (mood !== "idle") {
+        if (rig !== null && !rig.wasWorking) {
+          this.life.interrupt(memberId, now);
+        }
+        if (rig !== null) {
+          rig.wasWorking = true;
+        }
+        return twobPlan(mood, this.life.planFor(memberId, now));
+      }
+      if (rig !== null) {
+        rig.wasWorking = false;
+      }
+      return twobPlan("idle", this.life.planFor(memberId, now));
     }
-    return memberPlan(memberId, memberBehavior(this.team[memberId], now));
+    const behavior = memberBehavior(this.team[memberId], now);
+    if (behavior !== "idle") {
+      if (rig !== null && !rig.wasWorking) {
+        this.life.interrupt(memberId, now);
+      }
+      if (rig !== null) {
+        rig.wasWorking = true;
+      }
+      return memberPlan(memberId, behavior, null);
+    }
+    if (rig !== null) {
+      rig.wasWorking = false;
+    }
+    return memberPlan(memberId, "idle", this.life.planFor(memberId, now));
   }
 
   /** Advances the member's work surface and returns where the hand should be, if anywhere. */
@@ -212,7 +335,8 @@ export class OfficeStage {
     const action = rig.action;
     if (memberId in this.office.workstations) {
       const workstation = this.office.workstations[memberId as DeskMember];
-      const typed = workstation.screen.update(delta, action === "type");
+      const typing = action === "type" && rig.plan.station === `desk-${memberId}`;
+      const typed = workstation.screen.update(delta, typing);
       for (const character of typed) {
         workstation.keyboard.press(character);
       }
@@ -238,12 +362,14 @@ export class OfficeStage {
 
   private updateMember(memberId: MemberId, delta: number, now: number): void {
     const rig = this.rigs[memberId];
-    const plan = this.planFor(memberId, now);
+    const plan = this.planFor(memberId, now, rig);
     rig.plan = plan;
-    if (memberId === "twob") {
-      rig.actor = stepActor(rig.actor, plan.station, delta);
+    rig.actor = stepActor(rig.actor, plan.station, delta);
+    const walking = isWalking(rig.actor);
+    if (!walking && rig.actor.target === plan.station) {
+      this.life.arrived(memberId, now);
     }
-    const action = isWalking(rig.actor) ? null : plan.action;
+    const action = walking ? null : plan.action;
     if (action !== rig.action) {
       rig.action = action;
       rig.actionStartedAt = this.elapsed;
@@ -256,12 +382,13 @@ export class OfficeStage {
     const { avatar, actor } = rig;
     avatar.root.position.set(actor.position.x, 0, actor.position.z);
     avatar.root.rotation.y = actor.yaw;
+    const seatHeight = stations[plan.station].seatHeight;
     const pose = officePose({
       action,
       walkPhase: actor.walkPhase,
       time: this.elapsed + phaseOffset,
       actionElapsed: this.elapsed - rig.actionStartedAt,
-      sitDrop: avatar.sitDrop,
+      seat: action === null || seatHeight === null ? null : fitSeat(avatar.legs, seatHeight),
       keystrokes: rig.keystrokes,
     });
     rig.poseApplier.apply(avatar.poseTarget, pose, delta);
@@ -280,6 +407,20 @@ export class OfficeStage {
     avatar.update(delta);
   }
 
+  /** TV, arcade and rack react to whoever is using them, so the props look switched on by people. */
+  private updateProps(delta: number): void {
+    const usingAt = (station: string, action: OfficeAction): boolean =>
+      memberIds.some((memberId) => {
+        const rig = this.rigs[memberId];
+        return rig.action === action && rig.plan.station === station;
+      });
+    const onSofa = (action: OfficeAction): boolean =>
+      usingAt("sofa-1", action) || usingAt("sofa-2", action) || usingAt("sofa-3", action);
+    this.office.tv.update(delta, onSofa("game") ? "game" : onSofa("watch") ? "show" : "off");
+    this.office.arcade.update(delta, usingAt("arcade", "arcade") ? "playing" : "attract");
+    this.office.rackLights.update(this.elapsed, usingAt("rack", "rack"));
+  }
+
   private chooseFocus(now: number): CloseupFocus | null {
     let best: { memberId: MemberId; at: number } | null = null;
     for (const memberId of memberIds) {
@@ -292,7 +433,7 @@ export class OfficeStage {
       }
     }
     const twob = this.rigs.twob;
-    if (best === null && (twob.action === "type" || twob.action === "draw")) {
+    if (best === null && (twob.action === "type" || twob.action === "draw") && twob.plan.mood !== "idle") {
       best = { memberId: "twob", at: now };
     }
     if (best !== null) {
@@ -318,6 +459,16 @@ export class OfficeStage {
     return this.office.closeups[memberId];
   }
 
+  /** A slow sway around the default angle once nobody has touched the camera for a while. */
+  private drift(delta: number, now: number): void {
+    if (now - this.lastInputAt < idleDriftAfterMs) {
+      this.driftPhase = 0;
+      return;
+    }
+    this.driftPhase += delta;
+    this.controls.rotateLeft(Math.sin(this.driftPhase * 0.12) * 0.0009);
+  }
+
   private frame(timestamp: number): void {
     this.timer.update(timestamp);
     const delta = Math.min(this.timer.getDelta(), 0.1);
@@ -328,7 +479,10 @@ export class OfficeStage {
     for (const memberId of memberIds) {
       this.updateMember(memberId, delta, now);
     }
+    this.updateProps(delta);
     this.focus = this.chooseFocus(now);
+    this.drift(delta, now);
+    this.controls.update(delta);
 
     const width = this.canvas.clientWidth;
     const height = this.canvas.clientHeight;

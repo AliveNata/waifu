@@ -1,0 +1,265 @@
+import type { MemberId } from "../../shared/team.js";
+import type { OfficeAction } from "./office-director.js";
+import { homeStations } from "./office-layout.js";
+import type { StationId } from "./office-plan.js";
+
+/**
+ * What the team does between tasks. Each member picks weighted activities with
+ * personal preferences, never the same one twice in a row, and with a cooldown,
+ * so the office does not loop through the same few motions. Shared spots are
+ * reserved, so two people never sit in one seat or share the arcade.
+ */
+export type ActivityId =
+  | "desk"
+  | "coffee"
+  | "snack"
+  | "tv"
+  | "console"
+  | "arcade"
+  | "plants"
+  | "beanbag"
+  | "chat"
+  | "read"
+  | "selfie"
+  | "rack";
+
+interface Activity {
+  /** Null means the member's own idle spot. */
+  stations: readonly StationId[] | null;
+  action: OfficeAction;
+  durationSeconds: readonly [number, number];
+  weight: number;
+  cooldownSeconds: number;
+  /** Restricts an activity to members whose job or habits it belongs to. */
+  only?: readonly MemberId[];
+}
+
+const sofaSeats: readonly StationId[] = ["sofa-1", "sofa-2", "sofa-3"];
+
+/**
+ * Desk time weighs about as much as every break together (weight times duration),
+ * which is the "balanced" mix: roughly half the idle time at the desk.
+ */
+const activities: Record<ActivityId, Activity> = {
+  desk: { stations: null, action: "desk-idle", durationSeconds: [25, 50], weight: 3, cooldownSeconds: 0 },
+  coffee: { stations: ["coffee"], action: "brew", durationSeconds: [8, 14], weight: 1, cooldownSeconds: 90 },
+  snack: { stations: ["fridge"], action: "snack", durationSeconds: [5, 9], weight: 0.6, cooldownSeconds: 120 },
+  tv: { stations: sofaSeats, action: "watch", durationSeconds: [20, 40], weight: 0.9, cooldownSeconds: 60 },
+  console: { stations: sofaSeats, action: "game", durationSeconds: [20, 35], weight: 0.6, cooldownSeconds: 90 },
+  arcade: { stations: ["arcade"], action: "arcade", durationSeconds: [15, 30], weight: 0.7, cooldownSeconds: 90 },
+  plants: {
+    stations: ["plant-lounge", "plant-corner", "plant-desks"],
+    action: "water",
+    durationSeconds: [6, 10],
+    weight: 0.6,
+    cooldownSeconds: 120,
+  },
+  beanbag: {
+    stations: ["beanbag-lounge"],
+    action: "lounge",
+    durationSeconds: [20, 40],
+    weight: 0.6,
+    cooldownSeconds: 90,
+  },
+  chat: {
+    stations: ["bar-left", "bar-right"],
+    action: "chat",
+    durationSeconds: [15, 30],
+    weight: 0.8,
+    cooldownSeconds: 60,
+  },
+  read: {
+    stations: [...sofaSeats, "beanbag-lounge"],
+    action: "read",
+    durationSeconds: [20, 40],
+    weight: 0.5,
+    cooldownSeconds: 90,
+  },
+  selfie: {
+    stations: ["selfie"],
+    action: "selfie",
+    durationSeconds: [10, 16],
+    weight: 1.5,
+    cooldownSeconds: 60,
+    only: ["ruby"],
+  },
+  rack: {
+    stations: ["rack"],
+    action: "rack",
+    durationSeconds: [10, 16],
+    weight: 1,
+    cooldownSeconds: 90,
+    only: ["yor", "kobayashi"],
+  },
+};
+
+export const activityIds = Object.keys(activities) as ActivityId[];
+
+/** Character habits as weight multipliers. Missing entries count as 1. */
+const preferences: Record<MemberId, Partial<Record<ActivityId, number>>> = {
+  twob: { plants: 1.5, coffee: 1.2, arcade: 0.6, console: 0.7 },
+  chizuru: { beanbag: 2, chat: 1.6, tv: 1.2, arcade: 0.7 },
+  rias: { read: 2, coffee: 1.4, chat: 1.2, arcade: 0.5 },
+  asuna: { coffee: 1.6, console: 1.3, plants: 0.8 },
+  kobayashi: { arcade: 1.8, console: 1.5, rack: 0.6 },
+  yor: { rack: 2, plants: 1.3, snack: 1.2, arcade: 0.6 },
+  erza: { snack: 1.8, read: 1.2, console: 0.7 },
+  ruby: { chat: 1.5, tv: 1.2, read: 0.6 },
+};
+
+/** Where a member idles when the "desk" activity comes up, and what they do there. */
+const idleHome: Record<MemberId, { station: StationId; action: OfficeAction }> = {
+  twob: { station: "desk-twob", action: "desk-idle" },
+  chizuru: { station: "beanbag-chizuru", action: "lounge" },
+  rias: { station: homeStations.rias, action: "ponder" },
+  asuna: { station: homeStations.asuna, action: "desk-idle" },
+  kobayashi: { station: homeStations.kobayashi, action: "desk-idle" },
+  yor: { station: homeStations.yor, action: "desk-idle" },
+  erza: { station: homeStations.erza, action: "desk-idle" },
+  ruby: { station: homeStations.ruby, action: "desk-idle" },
+};
+
+export interface LifeChoice {
+  activity: ActivityId;
+  station: StationId;
+  action: OfficeAction;
+  durationMs: number;
+  /** Set once the member reaches the station; the duration counts from here, not from leaving. */
+  arrivedAt: number | null;
+  chosenAt: number;
+}
+
+/** A walk that never arrives (blocked or interrupted) is given up after this long. */
+const arrivalTimeoutMs = 60_000;
+/** Chat is much more likely when someone already sits at the bar to talk to. */
+const companyBoost = 4;
+
+export class OfficeLife {
+  private readonly choices = new Map<MemberId, LifeChoice>();
+  private readonly lastDone = new Map<MemberId, Map<ActivityId, number>>();
+  private readonly reserved = new Map<StationId, MemberId>();
+  private readonly cameFromWork = new Set<MemberId>();
+
+  constructor(private readonly random: () => number = Math.random) {}
+
+  /** The member's current idle activity, picking a new one when the last has run its course. */
+  planFor(memberId: MemberId, now: number): LifeChoice {
+    const current = this.choices.get(memberId);
+    if (current !== undefined && !this.isOver(current, now)) {
+      return current;
+    }
+    if (current !== undefined) {
+      this.finish(memberId, current, now);
+    }
+    const next = this.choose(memberId, now, current?.activity ?? null);
+    this.choices.set(memberId, next);
+    if (next.activity !== "desk") {
+      this.reserved.set(next.station, memberId);
+    }
+    return next;
+  }
+
+  /** The stage reports arrival so the activity runs its full length once the member is actually there. */
+  arrived(memberId: MemberId, now: number): void {
+    const current = this.choices.get(memberId);
+    if (current !== undefined && current.arrivedAt === null) {
+      current.arrivedAt = now;
+    }
+  }
+
+  /** Real work takes over: free the spot and make the next idle choice a break, not more desk. */
+  interrupt(memberId: MemberId, now: number): void {
+    const current = this.choices.get(memberId);
+    if (current !== undefined) {
+      this.finish(memberId, current, now);
+      this.choices.delete(memberId);
+    }
+    this.cameFromWork.add(memberId);
+  }
+
+  occupant(station: StationId): MemberId | null {
+    return this.reserved.get(station) ?? null;
+  }
+
+  private isOver(choice: LifeChoice, now: number): boolean {
+    if (choice.arrivedAt === null) {
+      return now - choice.chosenAt >= arrivalTimeoutMs;
+    }
+    return now - choice.arrivedAt >= choice.durationMs;
+  }
+
+  private finish(memberId: MemberId, choice: LifeChoice, now: number): void {
+    if (this.reserved.get(choice.station) === memberId) {
+      this.reserved.delete(choice.station);
+    }
+    let history = this.lastDone.get(memberId);
+    if (history === undefined) {
+      history = new Map();
+      this.lastDone.set(memberId, history);
+    }
+    history.set(choice.activity, now);
+  }
+
+  private freeStations(activity: Activity, memberId: MemberId): StationId[] {
+    if (activity.stations === null) {
+      return [idleHome[memberId].station];
+    }
+    return activity.stations.filter((station) => !this.reserved.has(station));
+  }
+
+  private weightOf(memberId: MemberId, id: ActivityId, previous: ActivityId | null, now: number): number {
+    const activity = activities[id];
+    if (activity.only !== undefined && !activity.only.includes(memberId)) {
+      return 0;
+    }
+    if (id === previous) {
+      return 0;
+    }
+    if (id === "desk" && this.cameFromWork.has(memberId)) {
+      return 0;
+    }
+    const doneAt = this.lastDone.get(memberId)?.get(id);
+    if (doneAt !== undefined && now - doneAt < activity.cooldownSeconds * 1000) {
+      return 0;
+    }
+    if (this.freeStations(activity, memberId).length === 0) {
+      return 0;
+    }
+    let weight = activity.weight * (preferences[memberId][id] ?? 1);
+    if (id === "chat" && activity.stations?.some((station) => this.reserved.has(station))) {
+      weight *= companyBoost;
+    }
+    return weight;
+  }
+
+  private choose(memberId: MemberId, now: number, previous: ActivityId | null): LifeChoice {
+    const weights = activityIds.map((id) => [id, this.weightOf(memberId, id, previous, now)] as const);
+    const total = weights.reduce((sum, [, weight]) => sum + weight, 0);
+    let picked: ActivityId = "desk";
+    if (total > 0) {
+      let roll = this.random() * total;
+      for (const [id, weight] of weights) {
+        roll -= weight;
+        if (weight > 0 && roll < 0) {
+          picked = id;
+          break;
+        }
+      }
+    }
+    this.cameFromWork.delete(memberId);
+
+    const activity = activities[picked];
+    const candidates = this.freeStations(activity, memberId);
+    const station = candidates[Math.floor(this.random() * candidates.length) % candidates.length] as StationId;
+    const [shortest, longest] = activity.durationSeconds;
+    const action = picked === "desk" ? idleHome[memberId].action : activity.action;
+    return {
+      activity: picked,
+      station,
+      action,
+      durationMs: (shortest + this.random() * (longest - shortest)) * 1000,
+      arrivedAt: null,
+      chosenAt: now,
+    };
+  }
+}

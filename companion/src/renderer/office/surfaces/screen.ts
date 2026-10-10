@@ -2,13 +2,18 @@ import { CanvasTexture, SRGBColorSpace } from "three";
 import type { ScreenScript } from "./screen-scripts.js";
 import { TypingProgress, visibleText } from "./typing.js";
 
-const width = 640;
-const height = 400;
 const headerHeight = 36;
 const lineHeight = 24;
 const gutterWidth = 44;
 const font = "19px Consolas, 'DejaVu Sans Mono', 'Courier New', monospace";
-const maxLines = Math.floor((height - headerHeight - 12) / lineHeight);
+
+/** Canvas size in pixels. Ultrawide and portrait monitors get their own shape, so text never stretches. */
+export interface ScreenSize {
+  width: number;
+  height: number;
+}
+
+export const landscapeScreen: ScreenSize = { width: 640, height: 400 };
 
 /** A monitor or laptop screen whose content is typed live onto a canvas texture. */
 export class ScreenSurface {
@@ -20,11 +25,20 @@ export class ScreenSurface {
   private active = false;
   private cursorVisible = true;
   private cursorTimer = 0;
+  private readonly width: number;
+  private readonly height: number;
+  private readonly maxLines: number;
 
-  constructor(private readonly script: ScreenScript) {
+  constructor(
+    private readonly script: ScreenScript,
+    size: ScreenSize = landscapeScreen,
+  ) {
+    this.width = size.width;
+    this.height = size.height;
+    this.maxLines = Math.floor((size.height - headerHeight - 12) / lineHeight);
     this.canvas = document.createElement("canvas");
-    this.canvas.width = width;
-    this.canvas.height = height;
+    this.canvas.width = size.width;
+    this.canvas.height = size.height;
     const context = this.canvas.getContext("2d");
     if (context === null) {
       throw new Error("2D canvas is not available");
@@ -62,6 +76,7 @@ export class ScreenSurface {
   private draw(): void {
     const ctx = this.context;
     const { theme } = this.script;
+    const { width, height } = this;
 
     ctx.fillStyle = theme.background;
     ctx.fillRect(0, 0, width, height);
@@ -78,7 +93,7 @@ export class ScreenSurface {
     ctx.fillText("simulasi", width - 12, headerHeight / 2);
     ctx.textAlign = "left";
 
-    const view = visibleText(this.progress.document.text, this.progress.typed, maxLines);
+    const view = visibleText(this.progress.document.text, this.progress.typed, this.maxLines);
     ctx.font = font;
     view.lines.forEach((line, index) => {
       const y = headerHeight + 10 + index * lineHeight + lineHeight / 2;

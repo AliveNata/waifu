@@ -178,7 +178,7 @@ function openOfficeWindow(): void {
     height: 640,
     minWidth: 480,
     minHeight: 360,
-    title: "Kantor 2B",
+    title: "Kantor AlyxLabs",
     backgroundColor: "#e9e4da",
     autoHideMenuBar: true,
     webPreferences,

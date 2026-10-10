@@ -114,6 +114,25 @@ test.describe("office", () => {
     expect(errors).toEqual([]);
   });
 
+  test("lets the keyboard reach and steer the 3D camera", async ({ page }) => {
+    // Arrange
+    const errors = collectErrors(page);
+    await openPage(page, "/office/");
+    const scene = page.locator("#scene");
+
+    // Act
+    await page.keyboard.press("Tab");
+    await expect(scene).toBeFocused();
+    for (const key of ["ArrowLeft", "ArrowUp", "+", "-", "0"]) {
+      await page.keyboard.press(key);
+    }
+    await page.waitForTimeout(300);
+
+    // Assert
+    expect(await scene.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe("solid");
+    expect(errors).toEqual([]);
+  });
+
   test("shows a close-up of the member a subagent hook names", async ({ page }) => {
     // Arrange
     await openPage(page, "/office/");

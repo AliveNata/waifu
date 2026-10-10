@@ -2,7 +2,7 @@
 
 2B (NieR:Automata) dan timnya sebagai avatar 3D. Isinya:
 
-1. **Desktop companion** di Windows: close-up 2B di kanan bawah, overlay tim yang ngobrol di kanan atas, dan kantor isometrik berisi tim chibi. Semuanya bereaksi ke hooks Claude Code.
+1. **Desktop companion** di Windows: close-up 2B di kanan bawah, overlay tim yang ngobrol di kanan atas, dan kantor 3D AlyxLabs berisi tim chibi yang kerja dan istirahat sendiri. Semuanya bereaksi ke hooks Claude Code.
 2. **Tim agent Claude Code**: 2B sebagai PA + PM, dibantu tujuh subagent dengan karakter masing-masing.
 3. **Avatar VRChat** buat upload private. Ini masih rencana, lihat fase 6.
 
@@ -39,7 +39,7 @@ Detail dan troubleshooting: [docs/03-companion.md](docs/03-companion.md) dan [do
 |---|---|---|
 | 1 | Base model di VRoid Studio | Guide: [docs/01-vroid-xenovia.md](docs/01-vroid-xenovia.md), contohnya masih Xenovia |
 | 2 | Texturing | Guide: [docs/02-texturing.md](docs/02-texturing.md) |
-| 3 | Desktop companion (overlay, overlay tim, kantor chibi) | Jalan. Setup: [docs/03-companion.md](docs/03-companion.md) |
+| 3 | Desktop companion (overlay, overlay tim, kantor AlyxLabs) | Jalan. Setup: [docs/03-companion.md](docs/03-companion.md) |
 | 4 | Tim agent (2B + 7) | Jalan. Setup: [docs/04-tim.md](docs/04-tim.md) |
 | 5 | Model jadi dari VRoid Hub/BOOTH + cek lisensi | Model tiap anggota udah dipilih. Daftar, link, dan syaratnya: [docs/05-cari-model.md](docs/05-cari-model.md) |
 | 6 | Pipeline VRChat (script Blender + Unity SDK) | Belum dikerjain. Cek dulu izin modifikasi model yang mau dibawa pakai `npm run inspect-vrm` |

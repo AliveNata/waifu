@@ -1,4 +1,4 @@
-import type { VRM } from "@pixiv/three-vrm";
+import type { VRM, VRMSpringBoneCollider } from "@pixiv/three-vrm";
 import { Group } from "three";
 import type { ExpressionWeights } from "../common/expressions.js";
 import { type PoseTarget, vrmPoseTarget } from "../common/pose.js";
@@ -6,18 +6,21 @@ import { disposeVrm } from "../common/vrm-loader.js";
 import { updateVrmStable } from "../common/vrm-update.js";
 import { applyChibi } from "./chibi.js";
 import type { IkChain } from "./ik.js";
+import type { LegMetrics } from "./seating.js";
 
 /** A character in the office: either a chibi VRM or a low-poly placeholder. */
 export interface OfficeAvatar {
   readonly kind: "vrm" | "placeholder";
   /** Positioned and turned by the stage. Faces +Z at yaw 0. */
   readonly root: Group;
-  /** Hips drop for sitting, in pose units. */
-  readonly sitDrop: number;
+  /** Leg measurements in world meters, used to fit seated poses to each seat. */
+  readonly legs: LegMetrics;
   readonly poseTarget: PoseTarget;
   /** Brings world matrices up to date after the pose, before IK reads positions. */
   syncPose(): void;
   rightArm(): IkChain | null;
+  /** Lets hair and skirts collide with the room (floor, backrests). Placeholders have no springs. */
+  addHairColliders(colliders: readonly VRMSpringBoneCollider[]): void;
   setExpressions(weights: ExpressionWeights, blink: number): void;
   update(deltaSeconds: number): void;
   dispose(): void;
@@ -26,12 +29,12 @@ export interface OfficeAvatar {
 export class VrmOfficeAvatar implements OfficeAvatar {
   readonly kind = "vrm";
   readonly root = new Group();
-  readonly sitDrop: number;
+  readonly legs: LegMetrics;
   readonly poseTarget: PoseTarget;
 
   constructor(private readonly vrm: VRM) {
     const metrics = applyChibi(vrm);
-    this.sitDrop = metrics.sitDrop;
+    this.legs = metrics.legs;
     this.poseTarget = vrmPoseTarget(vrm);
     // The inner scene keeps the VRM's own base yaw (VRM 0.x is rotated) and the floor offset.
     vrm.scene.position.y = metrics.floorOffset;
@@ -70,6 +73,13 @@ export class VrmOfficeAvatar implements OfficeAvatar {
       effector: hand,
       sync: () => this.syncPose(),
     };
+  }
+
+  addHairColliders(colliders: readonly VRMSpringBoneCollider[]): void {
+    const group = { name: "office-environment", colliders: [...colliders] };
+    for (const joint of this.vrm.springBoneManager?.joints ?? []) {
+      joint.colliderGroups = [...joint.colliderGroups, group];
+    }
   }
 
   setExpressions(weights: ExpressionWeights, blink: number): void {

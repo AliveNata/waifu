@@ -1,0 +1,480 @@
+/**
+ * AlyxLabs floor plan as data. The scene builds furniture meshes from it, the
+ * navigation grid treats furniture footprints as walls, and stations say where
+ * a character stands or sits to use something. Keeping all three on one list
+ * means a moved desk can never leave its chair or its walkway behind.
+ *
+ * World axes: x grows to the right, z grows toward the camera. The back wall
+ * sits at z = minZ and the left wall at x = minX; the camera looks in from +x/+z.
+ */
+
+export interface Point {
+  x: number;
+  z: number;
+}
+
+export const room = { minX: -7, maxX: 7, minZ: -5, maxZ: 4, wallHeight: 3 } as const;
+
+/** Yaw that faces the camera, which looks in along the +x/+z diagonal. */
+export const facingCamera = Math.PI / 4;
+
+/** Yaw conventions: 0 faces +Z (toward the camera), PI faces the back wall, -PI/2 faces the left wall. */
+export const facing = { camera: 0, backWall: Math.PI, leftWall: -Math.PI / 2, right: Math.PI / 2 } as const;
+
+export type FurnitureKind =
+  | "desk-asuna"
+  | "desk-kobayashi"
+  | "desk-erza"
+  | "desk-yor"
+  | "desk-twob"
+  | "desk-ruby"
+  | "chair"
+  | "server-rack"
+  | "arcade"
+  | "pantry-counter"
+  | "fridge"
+  | "bar-table"
+  | "stool"
+  | "whiteboard"
+  | "idea-board"
+  | "tv-wall"
+  | "tv-console"
+  | "sofa"
+  | "coffee-table"
+  | "beanbag"
+  | "rug"
+  | "plant"
+  | "kanban"
+  | "ring-light"
+  | "camera-tripod"
+  | "backdrop";
+
+export interface Furniture {
+  id: string;
+  kind: FurnitureKind;
+  /** Footprint center. */
+  x: number;
+  z: number;
+  /** Footprint size along x and z, in meters. */
+  width: number;
+  depth: number;
+  /** Yaw the piece faces (its "front"), same convention as stations. */
+  yaw: number;
+  /** False for things people walk over or through: rugs, wall-mounted boards, seats they sit in. */
+  blocksWalking: boolean;
+}
+
+export type StationId =
+  | "desk-asuna"
+  | "desk-kobayashi"
+  | "desk-erza"
+  | "desk-yor"
+  | "desk-twob"
+  | "desk-ruby"
+  | "board-rias"
+  | "board-twob"
+  | "idea-board"
+  | "beanbag-chizuru"
+  | "front"
+  | "coffee"
+  | "fridge"
+  | "bar-left"
+  | "bar-right"
+  | "sofa-1"
+  | "sofa-2"
+  | "sofa-3"
+  | "beanbag-lounge"
+  | "arcade"
+  | "rack"
+  | "selfie"
+  | "plant-lounge"
+  | "plant-corner"
+  | "plant-desks";
+
+export interface Station {
+  id: StationId;
+  /** Where the character stands, or the point under the hips when seated. */
+  spot: Point;
+  facing: number;
+  /** Walkable point just outside the furniture where the character steps on and off. */
+  approach: Point;
+  /** Seat surface height in meters, or null when standing. */
+  seatHeight: number | null;
+}
+
+const deskRowSeatZ = -3.72;
+const deskRowAisleZ = -3.0;
+/** Office chairs are sized for chibi legs: low enough that most feet reach the floor. */
+export const chairSeatHeight = 0.28;
+const sofaSeatHeight = 0.26;
+const stoolSeatHeight = 0.42;
+const beanbagSeatHeight = 0.14;
+
+/** x of each back-row desk, left to right. Yor sits next to her server rack. */
+export const deskRowX = { asuna: -2.7, kobayashi: -0.7, erza: 1.3, yor: 3.3 } as const;
+
+/** Back-row desks are 1.6 m wide and 0.8 m deep, flush against the back wall. */
+const deskRow: Furniture[] = (Object.entries(deskRowX) as [keyof typeof deskRowX, number][]).flatMap(([member, x]) => [
+  {
+    id: `desk-${member}`,
+    kind: `desk-${member}`,
+    x,
+    z: -4.55,
+    width: 1.6,
+    depth: 0.8,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  {
+    id: `chair-${member}`,
+    kind: "chair",
+    x,
+    z: deskRowSeatZ,
+    width: 0.5,
+    depth: 0.5,
+    yaw: facing.backWall,
+    blocksWalking: false,
+  },
+]);
+
+const frontDeskZ = 1.95;
+
+export const furniture: readonly Furniture[] = [
+  ...deskRow,
+  // Creator and command desks face the camera, so the room reads as "people at work" from the default view.
+  {
+    id: "desk-ruby",
+    kind: "desk-ruby",
+    x: -1.9,
+    z: frontDeskZ,
+    width: 1.3,
+    depth: 0.65,
+    yaw: facing.backWall,
+    blocksWalking: true,
+  },
+  {
+    id: "chair-ruby",
+    kind: "chair",
+    x: -1.9,
+    z: 1.4,
+    width: 0.5,
+    depth: 0.5,
+    yaw: facing.camera,
+    blocksWalking: false,
+  },
+  {
+    id: "backdrop",
+    kind: "backdrop",
+    x: -1.9,
+    z: 0.72,
+    width: 1.5,
+    depth: 0.12,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  {
+    id: "ring-light",
+    kind: "ring-light",
+    x: -2.85,
+    z: 1.75,
+    width: 0.35,
+    depth: 0.35,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  {
+    id: "camera-tripod",
+    kind: "camera-tripod",
+    x: -1.0,
+    z: 2.75,
+    width: 0.4,
+    depth: 0.4,
+    yaw: facing.backWall,
+    blocksWalking: true,
+  },
+  {
+    id: "desk-twob",
+    kind: "desk-twob",
+    x: 2.4,
+    z: frontDeskZ,
+    width: 1.6,
+    depth: 0.7,
+    yaw: facing.backWall,
+    blocksWalking: true,
+  },
+  { id: "chair-twob", kind: "chair", x: 2.4, z: 1.4, width: 0.5, depth: 0.5, yaw: facing.camera, blocksWalking: false },
+  { id: "kanban", kind: "kanban", x: 2.4, z: 0.55, width: 1.3, depth: 0.12, yaw: facing.camera, blocksWalking: true },
+
+  {
+    id: "server-rack",
+    kind: "server-rack",
+    x: 5.15,
+    z: -4.6,
+    width: 0.7,
+    depth: 0.7,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  { id: "arcade", kind: "arcade", x: 6.35, z: -4.55, width: 0.8, depth: 0.8, yaw: facing.camera, blocksWalking: true },
+
+  { id: "fridge", kind: "fridge", x: -6.6, z: -4.62, width: 0.7, depth: 0.7, yaw: facing.camera, blocksWalking: true },
+  {
+    id: "pantry-counter",
+    kind: "pantry-counter",
+    x: -5.1,
+    z: -4.65,
+    width: 2.2,
+    depth: 0.65,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  {
+    id: "bar-table",
+    kind: "bar-table",
+    x: -4.5,
+    z: -2.95,
+    width: 0.6,
+    depth: 0.6,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  {
+    id: "stool-left",
+    kind: "stool",
+    x: -5.0,
+    z: -2.95,
+    width: 0.36,
+    depth: 0.36,
+    yaw: facing.right,
+    blocksWalking: false,
+  },
+  {
+    id: "stool-right",
+    kind: "stool",
+    x: -4.0,
+    z: -2.95,
+    width: 0.36,
+    depth: 0.36,
+    yaw: facing.leftWall,
+    blocksWalking: false,
+  },
+
+  {
+    id: "whiteboard",
+    kind: "whiteboard",
+    x: -6.95,
+    z: -2.0,
+    width: 0.1,
+    depth: 2.6,
+    yaw: facing.right,
+    blocksWalking: true,
+  },
+  {
+    id: "idea-board",
+    kind: "idea-board",
+    x: -6.95,
+    z: 0.55,
+    width: 0.1,
+    depth: 1.6,
+    yaw: facing.right,
+    blocksWalking: true,
+  },
+  {
+    id: "beanbag-chizuru",
+    kind: "beanbag",
+    x: -5.6,
+    z: 0.95,
+    width: 0.7,
+    depth: 0.7,
+    yaw: facingCamera,
+    blocksWalking: false,
+  },
+
+  { id: "tv-wall", kind: "tv-wall", x: -6.95, z: 2.95, width: 0.1, depth: 1.7, yaw: facing.right, blocksWalking: true },
+  {
+    id: "tv-console",
+    kind: "tv-console",
+    x: -6.72,
+    z: 2.95,
+    width: 0.5,
+    depth: 1.6,
+    yaw: facing.right,
+    blocksWalking: true,
+  },
+  { id: "rug", kind: "rug", x: -5.4, z: 2.95, width: 2.6, depth: 2.0, yaw: facing.right, blocksWalking: false },
+  {
+    id: "coffee-table",
+    kind: "coffee-table",
+    x: -5.75,
+    z: 2.95,
+    width: 0.5,
+    depth: 0.9,
+    yaw: facing.right,
+    blocksWalking: true,
+  },
+  { id: "sofa", kind: "sofa", x: -4.6, z: 2.95, width: 0.8, depth: 1.9, yaw: facing.leftWall, blocksWalking: true },
+  {
+    id: "beanbag-lounge",
+    kind: "beanbag",
+    x: -5.5,
+    z: 1.9,
+    width: 0.7,
+    depth: 0.7,
+    yaw: facing.leftWall,
+    blocksWalking: false,
+  },
+
+  {
+    id: "plant-lounge",
+    kind: "plant",
+    x: -6.55,
+    z: 1.75,
+    width: 0.5,
+    depth: 0.5,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  {
+    id: "plant-corner",
+    kind: "plant",
+    x: 6.4,
+    z: 3.4,
+    width: 0.6,
+    depth: 0.6,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  {
+    id: "plant-desks",
+    kind: "plant",
+    x: 4.55,
+    z: -4.65,
+    width: 0.4,
+    depth: 0.4,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  {
+    id: "plant-entry",
+    kind: "plant",
+    x: 6.45,
+    z: -1.6,
+    width: 0.5,
+    depth: 0.5,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+];
+
+function deskRowStation(id: StationId, x: number): Station {
+  return {
+    id,
+    spot: { x, z: deskRowSeatZ },
+    facing: facing.backWall,
+    approach: { x, z: deskRowAisleZ },
+    seatHeight: chairSeatHeight,
+  };
+}
+
+function standing(id: StationId, spot: Point, yaw: number, approach: Point = spot): Station {
+  return { id, spot, facing: yaw, approach, seatHeight: null };
+}
+
+/** Yaw that turns someone at `from` toward `to`. */
+export function yawToward(from: Point, to: Point): number {
+  return Math.atan2(to.x - from.x, to.z - from.z);
+}
+
+const boardStandX = -6.3;
+
+export const stations: Record<StationId, Station> = {
+  "desk-asuna": deskRowStation("desk-asuna", deskRowX.asuna),
+  "desk-kobayashi": deskRowStation("desk-kobayashi", deskRowX.kobayashi),
+  "desk-erza": deskRowStation("desk-erza", deskRowX.erza),
+  "desk-yor": deskRowStation("desk-yor", deskRowX.yor),
+  "desk-ruby": {
+    id: "desk-ruby",
+    spot: { x: -1.9, z: 1.4 },
+    facing: facing.camera,
+    approach: { x: -1.25, z: 1.05 },
+    seatHeight: chairSeatHeight,
+  },
+  "desk-twob": {
+    id: "desk-twob",
+    spot: { x: 2.4, z: 1.4 },
+    facing: facing.camera,
+    approach: { x: 3.4, z: 1.2 },
+    seatHeight: chairSeatHeight,
+  },
+  // Facing the left wall, the board's left half (+z side) is 2B's plan and the right half Rias's sketches.
+  "board-twob": standing("board-twob", { x: boardStandX, z: -1.4 }, facing.leftWall),
+  "board-rias": standing("board-rias", { x: boardStandX, z: -2.65 }, facing.leftWall),
+  "idea-board": standing("idea-board", { x: boardStandX, z: 0.4 }, facing.leftWall),
+  "beanbag-chizuru": {
+    id: "beanbag-chizuru",
+    spot: { x: -5.6, z: 0.95 },
+    facing: facingCamera,
+    approach: { x: -5.0, z: 0.7 },
+    seatHeight: beanbagSeatHeight,
+  },
+  front: standing("front", { x: 0.4, z: 3.0 }, facingCamera),
+  coffee: standing("coffee", { x: -5.35, z: -3.95 }, facing.backWall),
+  fridge: standing("fridge", { x: -6.55, z: -3.85 }, facing.backWall),
+  "bar-left": {
+    id: "bar-left",
+    spot: { x: -5.0, z: -2.95 },
+    facing: facing.right,
+    approach: { x: -5.1, z: -2.35 },
+    seatHeight: stoolSeatHeight,
+  },
+  "bar-right": {
+    id: "bar-right",
+    spot: { x: -4.0, z: -2.95 },
+    facing: facing.leftWall,
+    approach: { x: -3.9, z: -2.35 },
+    seatHeight: stoolSeatHeight,
+  },
+  "sofa-1": {
+    id: "sofa-1",
+    spot: { x: -4.68, z: 2.35 },
+    facing: facing.leftWall,
+    approach: { x: -3.75, z: 2.35 },
+    seatHeight: sofaSeatHeight,
+  },
+  "sofa-2": {
+    id: "sofa-2",
+    spot: { x: -4.68, z: 2.95 },
+    facing: facing.leftWall,
+    approach: { x: -3.75, z: 2.95 },
+    seatHeight: sofaSeatHeight,
+  },
+  "sofa-3": {
+    id: "sofa-3",
+    spot: { x: -4.68, z: 3.55 },
+    facing: facing.leftWall,
+    approach: { x: -3.75, z: 3.55 },
+    seatHeight: sofaSeatHeight,
+  },
+  "beanbag-lounge": {
+    id: "beanbag-lounge",
+    spot: { x: -5.5, z: 1.9 },
+    facing: facing.leftWall,
+    approach: { x: -4.9, z: 1.7 },
+    seatHeight: beanbagSeatHeight,
+  },
+  arcade: standing("arcade", { x: 6.35, z: -3.8 }, facing.backWall),
+  rack: standing("rack", { x: 5.15, z: -3.85 }, facing.backWall),
+  // In front of her backdrop, so the ring light and camera frame her like a real shoot.
+  selfie: standing("selfie", { x: -2.75, z: 1.05 }, yawToward({ x: -2.75, z: 1.05 }, { x: -1.0, z: 2.75 })),
+  "plant-lounge": standing(
+    "plant-lounge",
+    { x: -6.1, z: 1.45 },
+    yawToward({ x: -6.1, z: 1.45 }, { x: -6.55, z: 1.75 }),
+  ),
+  "plant-corner": standing("plant-corner", { x: 5.85, z: 3.05 }, yawToward({ x: 5.85, z: 3.05 }, { x: 6.4, z: 3.4 })),
+  "plant-desks": standing("plant-desks", { x: 4.55, z: -3.9 }, facing.backWall),
+};
+
+export function distance(a: Point, b: Point): number {
+  return Math.hypot(a.x - b.x, a.z - b.z);
+}

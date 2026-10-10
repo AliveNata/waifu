@@ -1,6 +1,7 @@
 import type { Mood } from "../../shared/reaction.js";
 import type { MemberId } from "../../shared/team.js";
 import { homeStations, type StationId } from "./office-layout.js";
+import type { LifeChoice } from "./office-life.js";
 import type { MemberBehavior } from "./team-state.js";
 
 export type OfficeAction =
@@ -13,7 +14,17 @@ export type OfficeAction =
   | "ponder"
   | "cheer"
   | "wave"
-  | "relax";
+  | "relax"
+  | "watch"
+  | "game"
+  | "brew"
+  | "snack"
+  | "arcade"
+  | "water"
+  | "lounge"
+  | "selfie"
+  | "rack"
+  | "chat";
 
 export interface MemberPlan {
   station: StationId;
@@ -23,8 +34,8 @@ export interface MemberPlan {
   mood: Mood;
 }
 
-const twobPlans: Record<Mood, MemberPlan> = {
-  idle: { station: "sofa", action: "relax", mood: "idle" },
+/** 2B's plan for every mood except idle, where she joins the team's break routine. */
+const twobPlans: Record<Exclude<Mood, "idle">, MemberPlan> = {
   greeting: { station: "front", action: "wave", mood: "greeting" },
   thinking: { station: "board-twob", action: "draw", mood: "thinking" },
   working: { station: "desk-twob", action: "type", mood: "working" },
@@ -32,24 +43,31 @@ const twobPlans: Record<Mood, MemberPlan> = {
   done: { station: "front", action: "cheer", mood: "done" },
 };
 
-export function twobPlan(mood: Mood): MemberPlan {
-  return twobPlans[mood];
+export function twobPlan(mood: Mood, idle: LifeChoice): MemberPlan {
+  return mood === "idle" ? { station: idle.station, action: idle.action, mood: "idle" } : twobPlans[mood];
 }
 
-const behaviorMood: Record<MemberBehavior, Mood> = { idle: "idle", working: "working", done: "done" };
-
-const actionsByMember: Record<Exclude<MemberId, "twob">, Record<MemberBehavior, OfficeAction>> = {
-  chizuru: { working: "stick", idle: "ponder", done: "cheer" },
-  rias: { working: "draw", idle: "read", done: "cheer" },
-  asuna: { working: "type", idle: "desk-idle", done: "stretch" },
-  kobayashi: { working: "type", idle: "desk-idle", done: "stretch" },
-  yor: { working: "type", idle: "desk-idle", done: "stretch" },
-  erza: { working: "type", idle: "desk-idle", done: "stretch" },
-  ruby: { working: "type", idle: "desk-idle", done: "stretch" },
+const workActions: Record<Exclude<MemberId, "twob">, { working: OfficeAction; done: OfficeAction }> = {
+  chizuru: { working: "stick", done: "cheer" },
+  rias: { working: "draw", done: "cheer" },
+  asuna: { working: "type", done: "stretch" },
+  kobayashi: { working: "type", done: "stretch" },
+  yor: { working: "type", done: "stretch" },
+  erza: { working: "type", done: "stretch" },
+  ruby: { working: "type", done: "cheer" },
 };
 
-export function memberPlan(memberId: Exclude<MemberId, "twob">, behavior: MemberBehavior): MemberPlan {
-  return { station: homeStations[memberId], action: actionsByMember[memberId][behavior], mood: behaviorMood[behavior] };
+/** Work happens at the member's home station; between tasks they follow their own routine. */
+export function memberPlan(
+  memberId: Exclude<MemberId, "twob">,
+  behavior: MemberBehavior,
+  idle: LifeChoice | null,
+): MemberPlan {
+  if (behavior === "idle" && idle !== null) {
+    return { station: idle.station, action: idle.action, mood: "idle" };
+  }
+  const action = behavior === "done" ? workActions[memberId].done : workActions[memberId].working;
+  return { station: homeStations[memberId], action, mood: behavior === "done" ? "done" : "working" };
 }
 
 /** Actions where the right hand is placed by IK onto a board instead of by the pose. */
