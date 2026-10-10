@@ -43,7 +43,9 @@ Yang dilakuin installer:
 
 Kalau lo pakai `CLAUDE_CONFIG_DIR`, installer ikut pakai folder itu.
 
-Restart Claude Code setelah install. Cek pakai command `/agents`, harusnya ketujuh agent muncul.
+Restart Claude Code setelah install. Command `/agents` udah dihapus dari Claude Code versi baru, jadi ceknya pakai salah satu cara ini:
+- Jalanin lagi `npm run team:install -- --dry-run`. Kalau ketujuh agent dan `CLAUDE.md` statusnya `unchanged`, berarti udah kepasang.
+- Atau tanya langsung ke Claude Code: "subagent apa aja yang tersedia?".
 
 ## Cara pakai
 
