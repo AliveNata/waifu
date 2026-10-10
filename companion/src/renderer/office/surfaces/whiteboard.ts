@@ -1,7 +1,7 @@
 import { CanvasTexture, SRGBColorSpace } from "three";
 import { arrow, type Diagram, diagramInk, inkProgress, rect, strokeInk, text, type Vec2 } from "./drawing.js";
 
-/** Simulated sketches. Rias compares architecture options, Konan plans the sprint. */
+/** Simulated sketches. Rias compares architecture options, 2B plans the sprint. */
 export const riasDiagrams: readonly Diagram[] = [
   [
     text([0.05, 0.12], "Opsi A: batch", 1.1),
@@ -35,7 +35,7 @@ export const riasDiagrams: readonly Diagram[] = [
   ],
 ];
 
-export const konanDiagrams: readonly Diagram[] = [
+export const twobDiagrams: readonly Diagram[] = [
   [
     text([0.06, 0.12], "Sprint", 1.2),
     rect(0.06, 0.25, 0.05, 0.08),

@@ -144,7 +144,7 @@ describe("signalsForHook", () => {
     ).toEqual([]);
   });
 
-  it("emits a delegation alongside Konan's reaction when she starts a subagent", () => {
+  it("emits a delegation alongside 2B's reaction when she starts a subagent", () => {
     // Act
     const signals = signalsForHook(
       { hook_event_name: "PreToolUse", tool_name: "Agent", subagent_type: "reviewer", task_description: "Review diff" },

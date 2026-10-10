@@ -18,31 +18,34 @@ export interface DialogLine {
  * Simulated lines describe what a member is doing, never what came out of it.
  * A made-up "tests are green" would mislead the user about real work.
  */
-const startLines: Record<Exclude<MemberId, "konan">, readonly string[]> = {
+const startLines: Record<Exclude<MemberId, "twob">, readonly string[]> = {
   chizuru: ["Oke! Aku lempar ide sebanyak-banyaknya ya.", "Siap, aku cari sudut pandang lain dulu."],
   rias: ["Serahkan strateginya padaku.", "Aku susun opsinya dulu, lalu kita pilih."],
   asuna: ["Oke, aku cek pipeline datanya.", "Serahin ke aku, aku rapihin modelnya."],
   kobayashi: ["Siap, aku kerjain bagian aplikasinya.", "Oke, waktunya ngoding."],
   yor: ["Aku cek cluster dulu ya, read-only.", "Tenang, nggak ada yang aku ubah tanpa izin."],
   erza: ["Serahkan review-nya padaku.", "Aku periksa satu per satu."],
+  mem: ["Siap! Aku bikinin konten dari kerjaan lo ya.", "Oke, aku cari sudut cerita yang paling menjual."],
 };
 
-const stopLines: Record<Exclude<MemberId, "konan">, string> = {
+const stopLines: Record<Exclude<MemberId, "twob">, string> = {
   chizuru: "Idenya udah aku tempel semua, tinggal dipilih.",
   rias: "Opsi dan risikonya udah aku tulis. Keputusannya di kalian.",
-  asuna: "Bagianku selesai, laporannya ke Konan ya.",
+  asuna: "Bagianku selesai, laporannya ke 2B ya.",
   kobayashi: "Bagian aplikasinya selesai, cek laporannya ya.",
   yor: "Selesai. Usulan perubahannya ada di laporan.",
   erza: "Review selesai. Hasilnya ada di laporan.",
+  mem: "Draft-nya udah aku taruh di folder portfolio, tinggal lo cek.",
 };
 
-const stopGestures: Record<Exclude<MemberId, "konan">, Gesture> = {
+const stopGestures: Record<Exclude<MemberId, "twob">, Gesture> = {
   chizuru: "cheer",
   rias: "nod",
   asuna: "cheer",
   kobayashi: "nod",
   yor: "nod",
   erza: "nod",
+  mem: "cheer",
 };
 
 export function toolLine(memberId: MemberId, tool: string): { text: string; gesture: Gesture } {
@@ -130,7 +133,7 @@ export class Conversation {
   }
 
   private handleDelegation(delegation: Delegation, mode: ConversationMode): void {
-    if (delegation.memberId === null || delegation.memberId === "konan") {
+    if (delegation.memberId === null || delegation.memberId === "twob") {
       return;
     }
     const name = roster[delegation.memberId].displayName;
@@ -139,7 +142,7 @@ export class Conversation {
     }
     const real = mode === "real" && delegation.description !== null;
     this.push({
-      memberId: "konan",
+      memberId: "twob",
       text: real ? `${name}, tolong: ${delegation.description}` : `${name}, tolong bantu ya.`,
       simulated: !real,
       gesture: "point",
@@ -148,7 +151,7 @@ export class Conversation {
   }
 
   private handleMember(signal: MemberSignal, mode: ConversationMode): void {
-    if (signal.memberId === "konan") {
+    if (signal.memberId === "twob") {
       return;
     }
     const memberId = signal.memberId;

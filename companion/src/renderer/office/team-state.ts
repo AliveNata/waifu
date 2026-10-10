@@ -60,7 +60,7 @@ export function memberBehavior(runtime: MemberRuntime, now: number): MemberBehav
   return "idle";
 }
 
-export type TeamRuntime = Record<Exclude<MemberId, "konan">, MemberRuntime>;
+export type TeamRuntime = Record<Exclude<MemberId, "twob">, MemberRuntime>;
 
 export function emptyTeamRuntime(): TeamRuntime {
   return {
@@ -70,5 +70,6 @@ export function emptyTeamRuntime(): TeamRuntime {
     kobayashi: emptyRuntime(),
     yor: emptyRuntime(),
     erza: emptyRuntime(),
+    mem: emptyRuntime(),
   };
 }

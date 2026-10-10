@@ -6,6 +6,7 @@ import {
   MeshBasicMaterial,
   MeshStandardMaterial,
   PlaneGeometry,
+  TorusGeometry,
   Vector3,
 } from "three";
 import type { MemberId } from "../../shared/team.js";
@@ -15,11 +16,11 @@ import { IdeaBoard } from "./surfaces/idea-board.js";
 import { Keyboard } from "./surfaces/keyboard.js";
 import { ScreenSurface } from "./surfaces/screen.js";
 import { screenScripts } from "./surfaces/screen-scripts.js";
-import { konanDiagrams, riasDiagrams, Whiteboard } from "./surfaces/whiteboard.js";
+import { riasDiagrams, twobDiagrams, Whiteboard } from "./surfaces/whiteboard.js";
 
 /*
  * Palette (antislop R-29/R-31): warm wood and paper walls so the navy
- * furniture, which echoes Konan's hair, reads as the room's one strong color.
+ * furniture, which echoes 2B's hair, reads as the room's one strong color.
  * Screens use each member's own accent so the active desk is easy to spot.
  */
 const palette = {
@@ -119,10 +120,13 @@ function buildDesk(root: Group, memberId: DeskMember, x: number): Workstation {
   return { screen, keyboard };
 }
 
-function buildKonanDesk(root: Group): Workstation {
-  const screen = new ScreenSurface(screenScripts.konan);
-  const keyboard = new Keyboard(screenScripts.konan.theme.accent, "#c9c4ba", "#e9e5dc");
-  const seat = stations["desk-konan"].spot;
+type LaptopMember = "twob" | "mem";
+
+/** Small desk with a laptop, the seat on the -Z side so the sitter faces the camera. */
+function buildLaptopDesk(root: Group, memberId: LaptopMember): Workstation {
+  const screen = new ScreenSurface(screenScripts[memberId]);
+  const keyboard = new Keyboard(screenScripts[memberId].theme.accent, "#c9c4ba", "#e9e5dc");
+  const seat = stations[`desk-${memberId}`].spot;
   const deskZ = seat.z + 0.55;
   root.add(
     box(1.2, 0.05, 0.6, palette.deskWood, seat.x, deskTop - 0.05, deskZ),
@@ -148,6 +152,26 @@ function buildKonanDesk(root: Group): Workstation {
   lid.add(back, plane);
   root.add(lid);
   return { screen, keyboard };
+}
+
+/**
+ * Ring light on a stand beside MEM-cho's laptop. It is the one prop that says
+ * "content creator" at office zoom, where a camera or phone would be too small to read.
+ */
+function buildRingLight(root: Group): void {
+  const seat = stations["desk-mem"].spot;
+  // On her left, away from the camera side, so the ring never covers her face in the room view.
+  const x = seat.x - 0.8;
+  const z = seat.z + 0.45;
+  root.add(box(0.03, 1.05, 0.03, palette.navyDark, x, 0, z), box(0.3, 0.02, 0.3, palette.navyDark, x, 0, z));
+  const ring = new Mesh(
+    new TorusGeometry(0.17, 0.025, 8, 32),
+    new MeshStandardMaterial({ color: "#fff6ee", emissive: new Color("#fff1e0"), emissiveIntensity: 0.9 }),
+  );
+  ring.position.set(x, 1.2, z);
+  // Turned toward her seat so the light reads as pointed at her face.
+  ring.rotation.y = Math.atan2(seat.x - x, seat.z - z);
+  root.add(ring);
 }
 
 export function buildOffice(): OfficeProps {
@@ -176,12 +200,14 @@ export function buildOffice(): OfficeProps {
     kobayashi: buildDesk(root, "kobayashi", deskXs.kobayashi),
     yor: buildDesk(root, "yor", deskXs.yor),
     erza: buildDesk(root, "erza", deskXs.erza),
-    konan: buildKonanDesk(root),
+    twob: buildLaptopDesk(root, "twob"),
+    mem: buildLaptopDesk(root, "mem"),
   };
+  buildRingLight(root);
 
-  // Whiteboard: left half for Konan's planning, right half for Rias's architecture sketches.
+  // Whiteboard: left half for 2B's planning, right half for Rias's architecture sketches.
   const whiteboard = new Whiteboard([
-    { u0: 0, u1: 0.5, color: "#2f4fa8", diagrams: konanDiagrams },
+    { u0: 0, u1: 0.5, color: "#2f4fa8", diagrams: twobDiagrams },
     { u0: 0.5, u1: 1, color: "#3b3b46", diagrams: riasDiagrams },
   ]);
   const wb = whiteboardSpec;
@@ -217,7 +243,14 @@ export function buildOffice(): OfficeProps {
     eye: new Vector3(x + 0.5, 1.28, deskCenterZ + 0.85),
     target: new Vector3(x - 0.02, deskTop + 0.2, deskCenterZ - 0.15),
   });
-  const konanSeat = stations["desk-konan"].spot;
+  // From in front of the laptop desk and a little to the side, so the face and the lid both show.
+  const laptopShot = (memberId: LaptopMember): CloseupShot => {
+    const seat = stations[`desk-${memberId}`].spot;
+    return {
+      eye: new Vector3(seat.x + 0.45, 1.25, seat.z - 0.55),
+      target: new Vector3(seat.x, deskTop + 0.15, seat.z + 0.6),
+    };
+  };
   const closeups: Record<MemberId, CloseupShot> = {
     asuna: deskShot(deskXs.asuna),
     kobayashi: deskShot(deskXs.kobayashi),
@@ -226,10 +259,8 @@ export function buildOffice(): OfficeProps {
     // Board shots come from the right-hand side (-Z when facing the left wall) so the writing hand shows.
     rias: { eye: new Vector3(-3.75, 1.1, -3.3), target: leftWallPoint(wb, 0.72, 0.5) },
     chizuru: { eye: new Vector3(-3.75, 1.1, -0.1), target: leftWallPoint(ib, 0.5, 0.5) },
-    konan: {
-      eye: new Vector3(konanSeat.x + 0.45, 1.25, konanSeat.z - 0.55),
-      target: new Vector3(konanSeat.x, deskTop + 0.15, konanSeat.z + 0.6),
-    },
+    twob: laptopShot("twob"),
+    mem: laptopShot("mem"),
   };
 
   return {
@@ -243,7 +274,7 @@ export function buildOffice(): OfficeProps {
   };
 }
 
-/** Shot used when Konan is at the whiteboard instead of her desk. */
-export function konanBoardShot(props: OfficeProps): CloseupShot {
+/** Shot used when 2B is at the whiteboard instead of her desk. */
+export function twobBoardShot(props: OfficeProps): CloseupShot {
   return { eye: new Vector3(-3.75, 1.1, -2.0), target: props.whiteboardPoint(0.26, 0.5) };
 }

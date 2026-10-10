@@ -90,7 +90,7 @@ function createOverlayWindow(): BrowserWindow {
     skipTaskbar: true,
     alwaysOnTop: settings.alwaysOnTop,
     backgroundColor: "#00000000",
-    title: "Konan",
+    title: "2B",
     webPreferences,
   });
   window.loadFile(join(rendererDir, "overlay/index.html")).catch((error: unknown) => {
@@ -124,7 +124,7 @@ function createTeamOverlayWindow(): BrowserWindow {
     skipTaskbar: true,
     alwaysOnTop: settings.alwaysOnTop,
     backgroundColor: "#00000000",
-    title: "Tim Konan",
+    title: "Tim 2B",
     webPreferences,
   });
   window.loadFile(join(rendererDir, "team-overlay/index.html")).catch((error: unknown) => {
@@ -147,7 +147,7 @@ function openOfficeWindow(): void {
     height: 640,
     minWidth: 480,
     minHeight: 360,
-    title: "Kantor Konan",
+    title: "Kantor 2B",
     backgroundColor: "#e9e4da",
     autoHideMenuBar: true,
     webPreferences,

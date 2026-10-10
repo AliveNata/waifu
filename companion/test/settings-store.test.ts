@@ -20,7 +20,7 @@ describe("settings store", () => {
     // Arrange
     const file = join(await mkdtemp(join(tmpdir(), "companion-")), "nested", "settings.json");
     const settings = {
-      modelPaths: { konan: "C:/models/konan.vrm" },
+      modelPaths: { twob: "C:/models/twob.vrm" },
       alwaysOnTop: false,
       officeOpen: true,
       conversationMode: "real" as const,
@@ -53,6 +53,6 @@ describe("settings store", () => {
   });
 
   it("migrates the single modelPath from before the team existed", () => {
-    expect(normalizeSettings({ modelPath: "C:/old.vrm" }).modelPaths).toEqual({ konan: "C:/old.vrm" });
+    expect(normalizeSettings({ modelPath: "C:/old.vrm" }).modelPaths).toEqual({ twob: "C:/old.vrm" });
   });
 });

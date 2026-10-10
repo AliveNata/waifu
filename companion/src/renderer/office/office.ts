@@ -163,7 +163,7 @@ class OfficePage {
   private tick(): void {
     const now = Date.now();
     const reaction = this.tracker.current(now);
-    this.stage.setKonanReaction(reaction);
+    this.stage.setTwobReaction(reaction);
     this.status.render(reaction, now);
     this.renderCaption();
   }

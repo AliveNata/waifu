@@ -185,7 +185,7 @@ export const screenScripts: Record<Exclude<MemberId, "rias" | "chizuru">, Screen
       },
     ],
   },
-  konan: {
+  twob: {
     theme: { background: "#f6f4ef", foreground: "#1f2433", accent: "#2f6fd6", muted: "#7a7f8c", header: "#e2ddd2" },
     keywords: ["Plan", "[x]", "[ ]", "->"],
     documents: [
@@ -201,6 +201,42 @@ export const screenScripts: Record<Exclude<MemberId, "rias" | "chizuru">, Screen
           "[ ] review -> Erza",
           "",
           "Nunggu approval lo",
+        ].join("\n"),
+      },
+    ],
+  },
+  mem: {
+    theme: { background: "#fff7fa", foreground: "#2b2230", accent: "#c8407a", muted: "#8a7884", header: "#f6dde8" },
+    keywords: ["#dataengineering", "#dbt", "#airflow", "Masalah", "Pendekatan", "Hasil", "Stack"],
+    documents: [
+      {
+        title: "drafts/linkedin-post.md",
+        text: [
+          "Minggu ini gua mindahin job order harian",
+          "dari cron ke Airflow + dbt.",
+          "",
+          "Yang berubah:",
+          "- tiap model dbt punya test freshness",
+          "- deploy selalu lewat dry-run dulu",
+          "- dashboard baca langsung dari mart",
+          "",
+          "Paling kepake: lineage dbt bikin",
+          "debugging jauh lebih cepet dirunut.",
+          "",
+          "#dataengineering #dbt #airflow",
+        ].join("\n"),
+      },
+      {
+        title: "drafts/notion-case-study.md",
+        text: [
+          "Masalah",
+          "  Job cron susah dipantau dan di-retry.",
+          "Pendekatan",
+          "  DAG Airflow, model dbt, test freshness.",
+          "Hasil",
+          "  (isi dari angka asli lo, jangan dikarang)",
+          "Stack",
+          "  Airflow, dbt, BigQuery, Kubernetes",
         ].join("\n"),
       },
     ],

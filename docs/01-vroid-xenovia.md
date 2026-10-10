@@ -1,6 +1,6 @@
 # 01. Bikin base model Xenovia di VRoid Studio
 
-> Cast PA sekarang Konan. Guide ini masih pakai Xenovia sebagai contoh, tapi langkah VRoid-nya sama buat karakter mana pun.
+> Cast PA sekarang 2B. Guide ini masih pakai Xenovia sebagai contoh, tapi langkah VRoid-nya sama buat karakter mana pun.
 
 Target fase ini: satu file `.vrm` Xenovia pakai seragam Kuoh Academy. File ini dipakai companion desktop dan nanti jadi bahan avatar VRChat.
 

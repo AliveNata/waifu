@@ -16,7 +16,7 @@ export interface Stage {
 type PanelState = { kind: "empty" } | { kind: "loading"; name: string } | { kind: "error"; message: string };
 
 /**
- * Page controller for the overlay: Konan's model with empty, loading and
+ * Page controller for the overlay: 2B's model with empty, loading and
  * error panels, the status chip and the menu button.
  */
 export class CompanionPage {
@@ -55,7 +55,7 @@ export class CompanionPage {
       }
     });
     this.bridge.onModelChanged((memberId) => {
-      if (memberId === "konan") {
+      if (memberId === "twob") {
         this.loadSaved();
       }
     });
@@ -79,9 +79,9 @@ export class CompanionPage {
   private loadSaved(): void {
     this.showPanel({ kind: "loading", name: "model tersimpan" });
     const generation = ++this.loadGeneration;
-    // Own .vrm first, then the anime base model in Konan's colors, then the empty state.
+    // Own .vrm first, then the anime base model in 2B's colors, then the empty state.
     this.models
-      .load("konan")
+      .load("twob")
       .then((loaded) => {
         if (generation !== this.loadGeneration) {
           if (loaded !== null) {
@@ -100,7 +100,7 @@ export class CompanionPage {
 
   private pickModel(): void {
     this.bridge
-      .pickModel("konan")
+      .pickModel("twob")
       .then((file) => (file === null ? undefined : this.loadModel(file)))
       .catch((error: unknown) => this.fail(error));
   }
@@ -139,7 +139,7 @@ export class CompanionPage {
       case "empty":
         this.panelTitle.textContent = "Belum ada model";
         this.panelBody.textContent =
-          "Pilih file .vrm Konan, dari VRoid Hub atau hasil export VRoid Studio. Model cadangan juga belum ada: jalanin npm run fetch-base-model.";
+          "Pilih file .vrm 2B, dari VRoid Hub atau hasil export VRoid Studio. Model cadangan juga belum ada: jalanin npm run fetch-base-model.";
         this.panelAction.hidden = false;
         this.panelAction.textContent = "Pilih file .vrm";
         break;

@@ -20,7 +20,7 @@ const delegation: CompanionSignal = {
 };
 
 describe("Conversation", () => {
-  it("has Konan hand over the task, then the member answers", () => {
+  it("has 2B hand over the task, then the member answers", () => {
     // Arrange
     const conversation = new Conversation(() => 0);
 
@@ -32,7 +32,7 @@ describe("Conversation", () => {
 
     // Assert
     expect(first?.line).toMatchObject({
-      memberId: "konan",
+      memberId: "twob",
       text: "Asuna, tolong bantu ya.",
       simulated: true,
       gesture: "point",

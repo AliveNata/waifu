@@ -1,9 +1,9 @@
 # waifu
 
-Konan (Naruto Shippuden) dan timnya sebagai avatar 3D. Isinya:
+2B (NieR:Automata) dan timnya sebagai avatar 3D. Isinya:
 
-1. **Desktop companion** di Windows: close-up Konan di kanan bawah, overlay tim yang ngobrol di kanan atas, dan kantor isometrik berisi tim chibi. Semuanya bereaksi ke hooks Claude Code.
-2. **Tim agent Claude Code**: Konan sebagai PA + PM, dibantu enam subagent dengan karakter masing-masing.
+1. **Desktop companion** di Windows: close-up 2B di kanan bawah, overlay tim yang ngobrol di kanan atas, dan kantor isometrik berisi tim chibi. Semuanya bereaksi ke hooks Claude Code.
+2. **Tim agent Claude Code**: 2B sebagai PA + PM, dibantu tujuh subagent dengan karakter masing-masing.
 3. **Avatar VRChat**, upload private.
 
 Ini fan project buat pemakaian pribadi. Semua karakter milik pemegang hak cipta masing-masing, jadi model dan avatar jangan dijual, didistribusikan, atau di-upload public.
@@ -15,9 +15,9 @@ Ini fan project buat pemakaian pribadi. Semua karakter milik pemegang hak cipta 
 | 1 | Base model di VRoid Studio | Guide: [docs/01-vroid-xenovia.md](docs/01-vroid-xenovia.md), contohnya masih Xenovia |
 | 2 | Texturing | Guide: [docs/02-texturing.md](docs/02-texturing.md) |
 | 3 | Desktop companion (overlay, overlay tim, kantor chibi) | Jalan. Setup: [docs/03-companion.md](docs/03-companion.md) |
-| 4 | Tim agent (Konan + 6) | Jalan. Setup: [docs/04-tim.md](docs/04-tim.md) |
+| 4 | Tim agent (2B + 7) | Jalan. Setup: [docs/04-tim.md](docs/04-tim.md) |
 | 5 | Model jadi dari VRoid Hub/BOOTH + cek lisensi | Guide dan kandidat: [docs/05-cari-model.md](docs/05-cari-model.md) |
-| 6 | Pipeline VRChat (script Blender + Unity SDK) | Belum, nunggu `.vrm` Konan |
+| 6 | Pipeline VRChat (script Blender + Unity SDK) | Belum, nunggu `.vrm` 2B |
 
 ## Struktur
 
@@ -31,7 +31,7 @@ companion/          Electron app: overlay, kantor, server hook, bridge hook
   src/team/         Installer tim agent ke ~/.claude
   src/tools/        inspect-vrm (cek lisensi .vrm) dan fetch-base-model
   test/, e2e/       Unit test (vitest) dan e2e (Playwright)
-team/               Definisi subagent dan blok Konan buat CLAUDE.md
+team/               Definisi subagent dan blok 2B buat CLAUDE.md
 docs/               Guide per fase
 models/             Tempat file .vrm dan .vroid lo, plus base/ buat model cadangan. Di-gitignore
 ```

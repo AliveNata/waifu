@@ -23,10 +23,10 @@ import { PoseApplier } from "../common/pose.js";
 import type { OfficeAvatar } from "./avatar.js";
 import { solveCcd } from "./ik.js";
 import { type ActorState, initialActor, isWalking, stepActor } from "./office-actor.js";
-import { konanPlan, type MemberPlan, memberPlan, type OfficeAction, usesHandIk } from "./office-director.js";
+import { type MemberPlan, memberPlan, type OfficeAction, twobPlan, usesHandIk } from "./office-director.js";
 import { homeStations } from "./office-layout.js";
 import { officePose } from "./office-pose.js";
-import { buildOffice, type CloseupShot, type DeskMember, konanBoardShot } from "./office-scene.js";
+import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
 import { PlaceholderAvatar } from "./placeholder.js";
 import type { Vec2 } from "./surfaces/drawing.js";
 import { applyMemberSignal, emptyTeamRuntime, memberBehavior, type TeamRuntime } from "./team-state.js";
@@ -92,7 +92,7 @@ export class OfficeStage {
   private readonly rigs: Record<MemberId, MemberRig>;
 
   private team: TeamRuntime = emptyTeamRuntime();
-  private konanReaction: Reaction = idleReaction(Date.now());
+  private twobReaction: Reaction = idleReaction(Date.now());
   private elapsed = 0;
   private closeupEnabled = true;
   private focus: CloseupFocus | null = null;
@@ -146,12 +146,12 @@ export class OfficeStage {
     return new PlaceholderAvatar(memberLooks[memberId]);
   }
 
-  setKonanReaction(reaction: Reaction): void {
-    this.konanReaction = reaction;
+  setTwobReaction(reaction: Reaction): void {
+    this.twobReaction = reaction;
   }
 
   applyMemberSignal(signal: MemberSignal): void {
-    if (signal.memberId === "konan") {
+    if (signal.memberId === "twob") {
       return;
     }
     this.team = { ...this.team, [signal.memberId]: applyMemberSignal(this.team[signal.memberId], signal) };
@@ -167,8 +167,8 @@ export class OfficeStage {
   }
 
   private createRig(memberId: MemberId, avatar: OfficeAvatar): MemberRig {
-    const plan = memberId === "konan" ? konanPlan("idle") : memberPlan(memberId, "idle");
-    const station = memberId === "konan" ? plan.station : homeStations[memberId];
+    const plan = memberId === "twob" ? twobPlan("idle") : memberPlan(memberId, "idle");
+    const station = memberId === "twob" ? plan.station : homeStations[memberId];
     this.scene.add(avatar.root);
     return {
       avatar,
@@ -198,8 +198,8 @@ export class OfficeStage {
   }
 
   private planFor(memberId: MemberId, now: number): MemberPlan {
-    if (memberId === "konan") {
-      return konanPlan(this.konanReaction.mood);
+    if (memberId === "twob") {
+      return twobPlan(this.twobReaction.mood);
     }
     return memberPlan(memberId, memberBehavior(this.team[memberId], now));
   }
@@ -220,7 +220,7 @@ export class OfficeStage {
     let pen: Vec2 | null = null;
     if (memberId === "rias") {
       pen = this.office.whiteboard.update(1, delta, action === "draw");
-    } else if (memberId === "konan") {
+    } else if (memberId === "twob") {
       pen = this.office.whiteboard.update(0, delta, action === "draw");
     } else if (memberId === "chizuru") {
       pen = this.office.ideaBoard.update(delta, action === "stick");
@@ -237,7 +237,7 @@ export class OfficeStage {
     const rig = this.rigs[memberId];
     const plan = this.planFor(memberId, now);
     rig.plan = plan;
-    if (memberId === "konan") {
+    if (memberId === "twob") {
       rig.actor = stepActor(rig.actor, plan.station, delta);
     }
     const action = isWalking(rig.actor) ? null : plan.action;
@@ -280,7 +280,7 @@ export class OfficeStage {
   private chooseFocus(now: number): CloseupFocus | null {
     let best: { memberId: MemberId; at: number } | null = null;
     for (const memberId of memberIds) {
-      if (memberId === "konan") {
+      if (memberId === "twob") {
         continue;
       }
       const runtime = this.team[memberId];
@@ -288,9 +288,9 @@ export class OfficeStage {
         best = { memberId, at: runtime.lastSignalAt };
       }
     }
-    const konan = this.rigs.konan;
-    if (best === null && (konan.action === "type" || konan.action === "draw")) {
-      best = { memberId: "konan", at: now };
+    const twob = this.rigs.twob;
+    if (best === null && (twob.action === "type" || twob.action === "draw")) {
+      best = { memberId: "twob", at: now };
     }
     if (best === null) {
       return null;
@@ -298,14 +298,14 @@ export class OfficeStage {
     const rig = this.rigs[best.memberId];
     const profile = roster[best.memberId];
     const activity = rig.action === null ? "jalan" : actionLabels[rig.action];
-    const tool = best.memberId === "konan" ? null : this.team[best.memberId].lastTool;
+    const tool = best.memberId === "twob" ? null : this.team[best.memberId].lastTool;
     const label = `${profile.displayName} · ${profile.role} · ${activity}${tool === null ? "" : ` (${tool})`}`;
     return { memberId: best.memberId, label };
   }
 
   private closeupShot(memberId: MemberId): CloseupShot {
-    if (memberId === "konan" && this.rigs.konan.action === "draw") {
-      return konanBoardShot(this.office);
+    if (memberId === "twob" && this.rigs.twob.action === "draw") {
+      return twobBoardShot(this.office);
     }
     return this.office.closeups[memberId];
   }

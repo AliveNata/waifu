@@ -19,7 +19,7 @@ export const transientMoodDurationMs: Partial<Record<Mood, number>> = {
   done: 5000,
 };
 
-/** Konan's reaction. Only main-session events count: anything carrying an agent_id came from a subagent. */
+/** 2B's reaction. Only main-session events count: anything carrying an agent_id came from a subagent. */
 export function reactionForHook(payload: CompanionHookPayload, receivedAt: number): Reaction | null {
   if (payload.agent_id !== undefined) {
     return null;
@@ -45,7 +45,7 @@ export function reactionForHook(payload: CompanionHookPayload, receivedAt: numbe
       return { mood: "idle", detail: null, receivedAt };
     case "SubagentStart":
     case "SubagentStop":
-      // The main agent keeps working while a subagent runs, so Konan's mood holds.
+      // The main agent keeps working while a subagent runs, so 2B's mood holds.
       return null;
   }
 }
@@ -63,7 +63,7 @@ export interface MemberSignal {
   receivedAt: number;
 }
 
-/** Konan handing a task to a team member, from the main session's Agent tool call. */
+/** 2B handing a task to a team member, from the main session's Agent tool call. */
 export interface Delegation {
   /** Null for subagents outside the roster (Explore, Plan, ...). */
   memberId: MemberId | null;

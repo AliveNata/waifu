@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
+import { memberIds } from "../src/shared/team.js";
 
 const sampleModelPath = process.env.WAIFU_SAMPLE_VRM;
 
@@ -156,7 +157,8 @@ test.describe("office", () => {
     // Assert
     const dialog = page.getByRole("dialog", { name: "Pilih model .vrm" });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole("button")).toHaveCount(8);
+    // One button per member plus the close button.
+    await expect(dialog.getByRole("button")).toHaveCount(memberIds.length + 1);
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
   });
@@ -195,7 +197,7 @@ test.describe("team overlay", () => {
     expect(errors).toEqual([]);
   });
 
-  test("shows a simulated line by default when Konan delegates", async ({ page }) => {
+  test("shows a simulated line by default when 2B delegates", async ({ page }) => {
     // Arrange
     await openPage(page, "/team-overlay/");
 
@@ -208,7 +210,7 @@ test.describe("team overlay", () => {
     });
 
     // Assert
-    await expect(page.locator("#dialog-name")).toContainText("Konan");
+    await expect(page.locator("#dialog-name")).toContainText("2B");
     await expect(page.locator("#dialog-text")).toHaveText("Erza, tolong bantu ya.", { timeout: 15_000 });
     await expect(page.locator("#dialog-tag")).toBeVisible();
   });

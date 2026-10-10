@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { angleDelta, initialActor, isWalking, stepActor } from "../src/renderer/office/office-actor.js";
-import { konanPlan, memberPlan, usesHandIk } from "../src/renderer/office/office-director.js";
+import { memberPlan, twobPlan, usesHandIk } from "../src/renderer/office/office-director.js";
 import { distance, laneCorner, planPath, type StationId, stations } from "../src/renderer/office/office-layout.js";
 
 function simulate(seconds: number, desired: StationId, start = initialActor("sofa")) {
@@ -14,16 +14,16 @@ function simulate(seconds: number, desired: StationId, start = initialActor("sof
 describe("planPath", () => {
   it("turns at the lane corner when going from the left-wall lane to the desk row lane", () => {
     // Act
-    const path = planPath(stations.sofa.spot, "desk-konan");
+    const path = planPath(stations.sofa.spot, "desk-twob");
 
     // Assert
     expect(path).toContainEqual(laneCorner);
-    expect(path.at(-1)).toEqual(stations["desk-konan"].spot);
+    expect(path.at(-1)).toEqual(stations["desk-twob"].spot);
   });
 
   it("stays on one lane between stations on the same wall", () => {
     // Act
-    const path = planPath(stations["board-konan"].spot, "sofa");
+    const path = planPath(stations["board-twob"].spot, "sofa");
 
     // Assert
     expect(path).not.toContainEqual(laneCorner);
@@ -34,26 +34,26 @@ describe("planPath", () => {
   });
 });
 
-describe("Konan walking", () => {
+describe("2B walking", () => {
   it("walks from the sofa to her desk and faces it", () => {
     // Act
-    const state = simulate(20, "desk-konan");
+    const state = simulate(20, "desk-twob");
 
     // Assert
-    expect(distance(state.position, stations["desk-konan"].spot)).toBeLessThan(0.01);
-    expect(Math.abs(angleDelta(state.yaw, stations["desk-konan"].facing))).toBeLessThan(0.01);
+    expect(distance(state.position, stations["desk-twob"].spot)).toBeLessThan(0.01);
+    expect(Math.abs(angleDelta(state.yaw, stations["desk-twob"].facing))).toBeLessThan(0.01);
     expect(isWalking(state)).toBe(false);
   });
 
   it("re-plans when the mood changes mid-walk", () => {
     // Arrange
-    const halfway = simulate(2, "desk-konan");
+    const halfway = simulate(2, "desk-twob");
 
     // Act
-    const state = simulate(20, "board-konan", halfway);
+    const state = simulate(20, "board-twob", halfway);
 
     // Assert
-    expect(distance(state.position, stations["board-konan"].spot)).toBeLessThan(0.01);
+    expect(distance(state.position, stations["board-twob"].spot)).toBeLessThan(0.01);
   });
 
   it.each([
@@ -66,12 +66,12 @@ describe("Konan walking", () => {
 
 describe("office director", () => {
   it.each([
-    ["working", "desk-konan", "type"],
-    ["thinking", "board-konan", "draw"],
+    ["working", "desk-twob", "type"],
+    ["thinking", "board-twob", "draw"],
     ["idle", "sofa", "relax"],
     ["waiting", "front", "wave"],
-  ] as const)("sends Konan to work on %s", (mood, station, action) => {
-    expect(konanPlan(mood)).toMatchObject({ station, action });
+  ] as const)("sends 2B to work on %s", (mood, station, action) => {
+    expect(twobPlan(mood)).toMatchObject({ station, action });
   });
 
   it("keeps members at their own station and switches action by behavior", () => {

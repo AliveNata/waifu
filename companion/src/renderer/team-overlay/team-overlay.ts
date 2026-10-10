@@ -11,13 +11,14 @@ import { disposeVrm } from "../common/vrm-loader.js";
 import { TeamOverlayStage } from "./team-overlay-stage.js";
 
 const speakerColors: Record<MemberId, string> = {
-  konan: "#a9b4ff",
+  twob: "#d9dde6",
   chizuru: "#e8c39a",
   rias: "#ff9ec4",
   asuna: "#f4b07a",
   kobayashi: "#f09a84",
   yor: "#f2d27a",
   erza: "#f58f8f",
+  mem: "#f3a6e0",
 };
 
 /** Models are 10 MB each; keep only the few most recent speakers in memory. */

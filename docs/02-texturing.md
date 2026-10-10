@@ -1,6 +1,6 @@
 # 02. Texturing
 
-> Cast PA sekarang Konan. Guide ini masih pakai Xenovia sebagai contoh, tapi langkah VRoid-nya sama buat karakter mana pun.
+> Cast PA sekarang 2B. Guide ini masih pakai Xenovia sebagai contoh, tapi langkah VRoid-nya sama buat karakter mana pun.
 
 VRoid udah ngasih texture dasar buat tiap bagian (kulit, mata, rambut, baju). Yang perlu lo kerjain cuma ngubah warna dan nambah detail yang belum ada di preset, misalnya pita leher, garis capelet, atau lipatan rok.
 

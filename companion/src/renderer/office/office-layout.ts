@@ -30,9 +30,10 @@ export type StationId =
   | "desk-yor"
   | "desk-erza"
   | "board-rias"
-  | "board-konan"
+  | "board-twob"
   | "idea-board"
-  | "desk-konan"
+  | "desk-twob"
+  | "desk-mem"
   | "sofa"
   | "front";
 
@@ -67,6 +68,11 @@ function wallStation(id: StationId, z: number, seated = false): Station {
   };
 }
 
+/** Small laptop desk in the open floor, seat facing the camera side of the room. */
+function frontDeskStation(id: StationId, x: number): Station {
+  return { id, spot: { x, z: 1.15 }, facing: 0, approach: { x, z: laneH.z }, lane: "H", seated: true };
+}
+
 export const deskXs = { asuna: -3, kobayashi: -1, yor: 1, erza: 3 } as const;
 
 export const stations: Record<StationId, Station> = {
@@ -75,17 +81,12 @@ export const stations: Record<StationId, Station> = {
   "desk-yor": deskStation("desk-yor", deskXs.yor),
   "desk-erza": deskStation("desk-erza", deskXs.erza),
   "board-rias": wallStation("board-rias", -2.2),
-  "board-konan": wallStation("board-konan", -1.0),
+  "board-twob": wallStation("board-twob", -1.0),
   "idea-board": wallStation("idea-board", 1.0),
   sofa: wallStation("sofa", 2.7, true),
-  "desk-konan": {
-    id: "desk-konan",
-    spot: { x: 2.2, z: 1.15 },
-    facing: 0,
-    approach: { x: 2.2, z: laneH.z },
-    lane: "H",
-    seated: true,
-  },
+  "desk-twob": frontDeskStation("desk-twob", 2.2),
+  // Faces the room like 2B's desk, so MEM-cho looks into her ring light and "camera".
+  "desk-mem": frontDeskStation("desk-mem", -1.2),
   front: {
     id: "front",
     spot: { x: 0.9, z: 2.4 },
@@ -96,14 +97,15 @@ export const stations: Record<StationId, Station> = {
   },
 };
 
-/** Home station of every member who does not walk around. Konan moves with her mood instead. */
-export const homeStations: Record<Exclude<MemberId, "konan">, StationId> = {
+/** Home station of every member who does not walk around. 2B moves with her mood instead. */
+export const homeStations: Record<Exclude<MemberId, "twob">, StationId> = {
   chizuru: "idea-board",
   rias: "board-rias",
   asuna: "desk-asuna",
   kobayashi: "desk-kobayashi",
   yor: "desk-yor",
   erza: "desk-erza",
+  mem: "desk-mem",
 };
 
 export function distance(a: Point, b: Point): number {

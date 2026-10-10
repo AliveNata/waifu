@@ -31,9 +31,9 @@ export function normalizeSettings(input: unknown): CompanionSettings {
       }
     }
   }
-  // Settings from before the team existed stored only Konan's model.
-  if (modelPaths.konan === undefined && typeof record.modelPath === "string") {
-    modelPaths.konan = record.modelPath;
+  // Settings from before the team existed stored only 2B's model.
+  if (modelPaths.twob === undefined && typeof record.modelPath === "string") {
+    modelPaths.twob = record.modelPath;
   }
   return {
     modelPaths,

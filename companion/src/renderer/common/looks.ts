@@ -15,7 +15,7 @@ export interface MemberLook {
   socks: string;
   shoes: string;
   glasses?: boolean;
-  /** Short cape over the shoulders (Konan's capelet). */
+  /** Short cape over the shoulders (2B's capelet). */
   cape?: string;
   /** Breastplate color (Erza's armor). */
   armor?: string;
@@ -28,17 +28,17 @@ const skin = "#f3d9c6";
  * model and to build the low-poly fallback when no base model is available.
  */
 export const memberLooks: Record<MemberId, MemberLook> = {
-  konan: {
-    // Blue-violet bob and amber eyes, in the black Akatsuki cloak.
-    hair: "#6a72c9",
+  twob: {
+    // White bob and pale blue eyes, in the black YoRHa dress and thigh-high boots.
+    hair: "#e6e4df",
     hairStyle: "bob",
-    eyes: "#c58a3a",
+    eyes: "#7f9fbf",
     skin,
     top: "#1b1b22",
     sleeves: "#1b1b22",
     skirt: "#1b1b22",
-    legs: "#2a2a30",
-    socks: "#2a2a30",
+    legs: skin,
+    socks: "#1b1b22",
     shoes: "#1b1b22",
   },
   chizuru: {
@@ -117,5 +117,18 @@ export const memberLooks: Record<MemberId, MemberLook> = {
     socks: "#26262c",
     shoes: "#26262c",
     armor: "#c8ccd4",
+  },
+  mem: {
+    // Blonde hair and pink eyes, in her pastel streaming outfit.
+    hair: "#f0d58a",
+    hairStyle: "long",
+    eyes: "#d46a9f",
+    skin,
+    top: "#f7c6da",
+    sleeves: "#fbeef3",
+    skirt: "#5a4a7a",
+    legs: skin,
+    socks: "#f4f0f4",
+    shoes: "#d9779f",
   },
 };

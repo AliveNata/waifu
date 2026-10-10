@@ -24,5 +24,5 @@ if (dryRun) {
   for (const backup of backups) {
     console.log(`  backup    ${backup}`);
   }
-  console.log("Done. Restart Claude Code so it picks up the agents and the Konan block.");
+  console.log("Done. Restart Claude Code so it picks up the agents and the 2B block.");
 }
