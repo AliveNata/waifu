@@ -80,7 +80,7 @@ Convert + upload VRChat  : CEK DULU
 
 Cara baca kesimpulannya:
 - **Companion**: companion cuma ngubah ukuran bone pas jalan (buat chibi), file aslinya nggak diubah. Jadi yang penting model boleh dipakai sebagai avatar oleh orang lain.
-- **VRChat**: convert ke VRChat ngedit model di Blender, dan itu dihitung modifikasi. Hasilnya nggak pernah "BOLEH" polos, karena izin upload ke platform lain biasanya ditulis di halaman toko, bukan di file. Selalu cek halaman modelnya.
+- **VRChat**: convert ke VRChat ngedit model di Blender, dan itu dihitung modifikasi. Hasilnya cuma "BOLEH" kalau syaratnya kebaca dari URL lisensi VRoid Hub (baris `Sumber` muncul) dan modifikasinya diizinin, karena URL itu isinya sama dengan syarat di halaman modelnya. Model dari BOOTH atau tempat lain tetap "CEK DULU", karena izin upload ke platform lain biasanya ditulis di halaman toko, bukan di file.
 
 Dua hal yang tetap berlaku apa pun hasil script-nya:
 - Syarat di halaman VRoid Hub atau BOOTH yang dipakai, bukan metadata file.

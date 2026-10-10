@@ -7,6 +7,16 @@
 export type AvatarUse = "everyone" | "licensed-only" | "author-only" | "unknown";
 export type Modification = "allowed" | "allowed-with-redistribution" | "prohibited" | "unknown";
 
+/** Conditions of use as VRoid Hub encodes them in its license URL query string. */
+export interface VroidHubConditions {
+  avatarUse: AvatarUse;
+  modification: boolean | null;
+  redistribution: boolean | null;
+  creditRequired: boolean | null;
+  /** In the VRM 1.0 commercialUsage vocabulary, so the report can reuse its wording. */
+  commercial: string | null;
+}
+
 export interface VrmLicense {
   format: "VRM 1.0" | "VRM 0.x";
   title: string | null;
@@ -19,6 +29,8 @@ export interface VrmLicense {
   licenseName: string | null;
   licenseUrl: string | null;
   otherLicenseUrl: string | null;
+  /** Set when a license URL points at VRoid Hub, whose conditions mirror the model page. */
+  vroidHub: VroidHubConditions | null;
 }
 
 const glbMagic = 0x46546c67;
@@ -78,6 +90,7 @@ function fromVrm1(meta: Record<string, unknown>): VrmLicense {
     licenseName: null,
     licenseUrl: text(meta.licenseUrl),
     otherLicenseUrl: text(meta.otherLicenseUrl),
+    vroidHub: null,
   };
 }
 
@@ -111,6 +124,71 @@ function fromVrm0(meta: Record<string, unknown>): VrmLicense {
     licenseName,
     licenseUrl: text(meta.otherPermissionUrl),
     otherLicenseUrl: text(meta.otherLicenseUrl),
+    vroidHub: null,
+  };
+}
+
+function allowFlag(value: string | null): boolean | null {
+  return value === "allow" ? true : value === "disallow" ? false : null;
+}
+
+/**
+ * Decodes a VRoid Hub license URL such as
+ * `https://hub.vroid.com/license?modification=allow&credit=necessary&...`.
+ * Returns null for any other URL. Unknown or missing values stay null.
+ */
+export function parseVroidHubLicenseUrl(url: string): VroidHubConditions | null {
+  if (!URL.canParse(url)) {
+    return null;
+  }
+  const parsed = new URL(url);
+  // VRoid Hub serves the page with and without a language prefix, e.g. /license and /en/license.
+  if (parsed.hostname !== "hub.vroid.com" || !/^\/(?:[a-z]{2}\/)?license\/?$/.test(parsed.pathname)) {
+    return null;
+  }
+  const query = parsed.searchParams;
+  const avatarUse: Record<string, AvatarUse> = { everyone: "everyone", author: "author-only" };
+  const credit = query.get("credit");
+  const corporate = query.get("corporate_commercial_use");
+  const personal = query.get("personal_commercial_use");
+  let commercial: string | null = null;
+  if (corporate === "allow") {
+    commercial = "corporation";
+  } else if (personal === "profit") {
+    commercial = "personalProfit";
+  } else if (personal === "nonprofit") {
+    commercial = "personalNonProfit";
+  } else if (personal === "disallow") {
+    commercial = "Disallow";
+  }
+  return {
+    avatarUse: avatarUse[query.get("characterization_allowed_user") ?? ""] ?? "unknown",
+    modification: allowFlag(query.get("modification")),
+    redistribution: allowFlag(query.get("redistribution")),
+    creditRequired: credit === "necessary" ? true : credit === "unnecessary" ? false : null,
+    commercial,
+  };
+}
+
+/** Fills fields the meta left open from a VRoid Hub license URL, without overriding explicit meta values. */
+function withVroidHubConditions(license: VrmLicense): VrmLicense {
+  const urls = [license.licenseUrl, license.otherLicenseUrl].filter((url): url is string => url !== null);
+  const conditions = urls.map(parseVroidHubLicenseUrl).find((parsed) => parsed !== null) ?? null;
+  if (conditions === null) {
+    return license;
+  }
+  let modification = license.modification;
+  if (modification === "unknown" && conditions.modification !== null) {
+    modification = conditions.modification ? "allowed" : "prohibited";
+  }
+  return {
+    ...license,
+    avatarUse: license.avatarUse === "unknown" ? conditions.avatarUse : license.avatarUse,
+    commercial: license.commercial ?? conditions.commercial,
+    modification,
+    redistribution: license.redistribution ?? conditions.redistribution,
+    creditRequired: license.creditRequired ?? conditions.creditRequired,
+    vroidHub: conditions,
   };
 }
 
@@ -118,11 +196,11 @@ export function readVrmLicense(gltf: unknown): VrmLicense {
   const extensions = record(record(gltf)?.extensions);
   const vrm1Meta = record(record(extensions?.VRMC_vrm)?.meta);
   if (vrm1Meta !== null) {
-    return fromVrm1(vrm1Meta);
+    return withVroidHubConditions(fromVrm1(vrm1Meta));
   }
   const vrm0Meta = record(record(extensions?.VRM)?.meta);
   if (vrm0Meta !== null) {
-    return fromVrm0(vrm0Meta);
+    return withVroidHubConditions(fromVrm0(vrm0Meta));
   }
   throw new Error("File ini glTF biasa tanpa metadata VRM, jadi lisensinya tidak bisa dibaca.");
 }
@@ -139,9 +217,14 @@ export interface Verdicts {
 export function verdicts(license: VrmLicense): Verdicts {
   const companion: Verdict =
     license.avatarUse === "everyone" ? "boleh" : license.avatarUse === "author-only" ? "tidak boleh" : "cek dulu";
-  // Never a plain "boleh" for VRChat: upload rules live on the model's store page, not in the file.
-  const vrchat: Verdict =
-    companion === "tidak boleh" || license.modification === "prohibited" ? "tidak boleh" : "cek dulu";
+  let vrchat: Verdict = "cek dulu";
+  if (companion === "tidak boleh" || license.modification === "prohibited") {
+    vrchat = "tidak boleh";
+  } else if (companion === "boleh" && license.vroidHub?.modification === true) {
+    // VRoid Hub URL conditions are the same ones shown on the model page, so they settle it.
+    // Other sources stay "cek dulu": upload rules usually live on the store page, not in the file.
+    vrchat = "boleh";
+  }
   return { companion, vrchat };
 }
 
@@ -191,6 +274,9 @@ export function formatLicenseReport(license: VrmLicense): string {
   }
   if (license.otherLicenseUrl !== null) {
     lines.push(`Lisensi lain: ${license.otherLicenseUrl}`);
+  }
+  if (license.vroidHub !== null) {
+    lines.push("Sumber      : kolom yang kosong di metadata diisi dari URL lisensi VRoid Hub");
   }
   lines.push(
     "",

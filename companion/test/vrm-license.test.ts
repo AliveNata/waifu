@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatLicenseReport, readGlbJson, readVrmLicense, verdicts } from "../src/tools/vrm-license.js";
+import {
+  formatLicenseReport,
+  parseVroidHubLicenseUrl,
+  readGlbJson,
+  readVrmLicense,
+  verdicts,
+} from "../src/tools/vrm-license.js";
 
 /** Minimal GLB: 12-byte header plus one JSON chunk padded with spaces, as the spec requires. */
 function glb(json: unknown): Uint8Array {
@@ -92,6 +98,91 @@ describe("readVrmLicense", () => {
 
   it("rejects files that are not GLB", () => {
     expect(() => readGlbJson(new TextEncoder().encode("{ not a glb file at all }"))).toThrow(/Bukan file GLB/);
+  });
+});
+
+/** The URL VRoid Hub writes into VRM 0.x meta, here with modification and redistribution allowed. */
+const vroidHubUrl =
+  "https://hub.vroid.com/license?allowed_to_use_user=everyone&characterization_allowed_user=everyone" +
+  "&corporate_commercial_use=disallow&credit=necessary&modification=allow&personal_commercial_use=disallow" +
+  "&redistribution=allow&sexual_expression=allow&version=1&violent_expression=allow";
+
+describe("parseVroidHubLicenseUrl", () => {
+  it("decodes the conditions in the query string", () => {
+    // Act
+    const conditions = parseVroidHubLicenseUrl(vroidHubUrl);
+
+    // Assert
+    expect(conditions).toEqual({
+      avatarUse: "everyone",
+      modification: true,
+      redistribution: true,
+      creditRequired: true,
+      commercial: "Disallow",
+    });
+  });
+
+  it("accepts the language-prefixed path and maps disallowed values", () => {
+    // Arrange
+    const url = "https://hub.vroid.com/en/license?modification=disallow&redistribution=disallow&credit=unnecessary";
+
+    // Act
+    const conditions = parseVroidHubLicenseUrl(url);
+
+    // Assert
+    expect(conditions).toMatchObject({ modification: false, redistribution: false, creditRequired: false });
+  });
+
+  it("ignores URLs that are not VRoid Hub license pages", () => {
+    expect(parseVroidHubLicenseUrl("https://vrm.dev/licenses/1.0/")).toBeNull();
+    expect(parseVroidHubLicenseUrl("https://hub.vroid.com/en/characters/1/models/2")).toBeNull();
+    expect(parseVroidHubLicenseUrl("not a url")).toBeNull();
+  });
+});
+
+describe("readVrmLicense with a VRoid Hub license URL", () => {
+  it("fills the fields VRM 0.x leaves open and allows VRChat", () => {
+    // Arrange
+    const file = glb({
+      extensions: {
+        VRM: {
+          meta: {
+            title: "2B",
+            author: "Mikan",
+            allowedUserName: "Everyone",
+            commercialUssageName: "Disallow",
+            licenseName: "Other",
+            otherPermissionUrl: vroidHubUrl,
+          },
+        },
+      },
+    });
+
+    // Act
+    const license = readVrmLicense(readGlbJson(file));
+
+    // Assert
+    expect(license).toMatchObject({ modification: "allowed", redistribution: true, creditRequired: true });
+    expect(verdicts(license)).toEqual({ companion: "boleh", vrchat: "boleh" });
+    expect(formatLicenseReport(license)).toContain("diisi dari URL lisensi VRoid Hub");
+  });
+
+  it("keeps explicit meta values over the URL", () => {
+    // Arrange
+    const file = glb({
+      extensions: {
+        VRMC_vrm: {
+          meta: { avatarPermission: "everyone", modification: "prohibited", otherLicenseUrl: vroidHubUrl },
+        },
+      },
+    });
+
+    // Act
+    const license = readVrmLicense(readGlbJson(file));
+
+    // Assert
+    expect(license.modification).toBe("prohibited");
+    expect(verdicts(license).vrchat).toBe("tidak boleh");
   });
 });
 
