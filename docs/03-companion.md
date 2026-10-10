@@ -107,19 +107,30 @@ Overlay bisa digeser dengan drag di area mana aja selain tombol.
 
 ## Sambungin ke Claude Code
 
-1. Di folder `companion`, jalanin:
+1. Di folder `companion`, cek dulu apa yang bakal berubah:
    ```powershell
-   npm run build
-   npm run hooks:print
+   npm run hooks:install -- --dry-run
    ```
-   Perintah kedua nge-print blok `hooks` lengkap dengan path absolut ke script bridge di PC lo. Kalau sebelumnya lo udah pasang hooks dari versi lama, ulangi langkah ini, karena sekarang ada event `SubagentStart` dan `SubagentStop`.
-2. Buka `%USERPROFILE%\.claude\settings.json`. Kalau belum ada, bikin file baru isinya `{}`.
-3. Gabungin blok `hooks` dari langkah 1 ke file itu.
-   - Kalau file lo **belum punya** key `hooks`: tempel aja.
-   - Kalau **udah punya**: tambahin entry per event ke array yang udah ada. Jangan timpa hook lo yang lain.
-4. Restart Claude Code. Cek pakai command `/hooks`, harusnya ada entry `send-hook-event.js` di tiap event.
+   Perintah ini nampilin isi `%USERPROFILE%\.claude\settings.json` setelah diubah, tanpa nulis apa-apa.
+2. Kalau udah oke, pasang:
+   ```powershell
+   npm run hooks:install
+   ```
+   Yang dilakuin installer:
+   - File lama di-backup dulu jadi `settings.json.bak-<waktu>`.
+   - Setting dan hook lo yang lain nggak disentuh. Yang diganti cuma entry `send-hook-event.js` punya companion, termasuk yang path-nya udah basi karena folder repo pindah.
+   - Aman dijalanin ulang. Kalau udah kepasang, hasilnya `unchanged` dan nggak ada yang ditulis.
+   - Kalau `settings.json` lo bukan JSON valid, installer berhenti tanpa ngubah apa-apa.
+3. Restart Claude Code. Cek pakai command `/hooks`, harusnya ada entry `send-hook-event.js` di tiap event.
 
-Hook-nya jalan dengan `"async": true`, jadi Claude Code nggak nungguin companion. Kalau companion lagi ditutup, hook cuma nulis satu baris log ke stderr dan exit 0. Kerjaan gua nggak keganggu.
+Mau masang manual? `npm run build`, lalu `npm run hooks:print` buat nge-print blok `hooks`, terus gabungin sendiri ke `settings.json`.
+
+Buat nyopot hooks companion aja (hook lain tetap aman):
+```powershell
+npm run hooks:install -- --uninstall
+```
+
+Hook-nya jalan dengan `"async": true`, jadi Claude Code nggak nungguin companion. Kalau companion lagi ditutup, hook cuma nulis satu baris log ke stderr dan exit 0. Kerjaan lo di Claude Code nggak keganggu.
 
 ## Data apa yang dikirim
 

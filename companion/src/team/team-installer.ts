@@ -1,3 +1,4 @@
+import { constants } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -32,7 +33,7 @@ export interface PlannedChange {
   content: string;
 }
 
-async function readOptional(path: string): Promise<string | null> {
+export async function readOptional(path: string): Promise<string | null> {
   try {
     return await readFile(path, "utf8");
   } catch (error) {
@@ -71,6 +72,24 @@ export async function planInstall(teamDir: string, configDir: string): Promise<P
 }
 
 /**
+ * Copies `path` to `<path>.bak-<timestamp>`, adding -2, -3, ... when that name is
+ * taken, so two runs in the same second never overwrite the older backup.
+ */
+async function backupFile(path: string, timestamp: string): Promise<string> {
+  for (let attempt = 1; ; attempt++) {
+    const backupPath = `${path}.bak-${timestamp}${attempt === 1 ? "" : `-${attempt}`}`;
+    try {
+      await copyFile(path, backupPath, constants.COPYFILE_EXCL);
+      return backupPath;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+        throw error;
+      }
+    }
+  }
+}
+
+/**
  * Applies planned changes. Files that already exist with different content are
  * copied to `<file>.bak-<timestamp>` first, so a hand-edited agent is never lost.
  */
@@ -82,9 +101,7 @@ export async function applyInstall(changes: PlannedChange[], timestamp: string):
     }
     await mkdir(join(change.target, ".."), { recursive: true });
     if (change.action === "update") {
-      const backupPath = `${change.target}.bak-${timestamp}`;
-      await copyFile(change.target, backupPath);
-      backups.push(backupPath);
+      backups.push(await backupFile(change.target, timestamp));
     }
     await writeFile(change.target, change.content, "utf8");
   }

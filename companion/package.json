@@ -12,6 +12,7 @@
     "start": "npm run build && electron .",
     "web": "npm run build && node dist/node/server/web-server.js",
     "hooks:print": "node dist/node/bridge/print-hooks-config.js",
+    "hooks:install": "npm run build:node && node dist/node/bridge/install-hooks.js",
     "team:install": "npm run build:node && node dist/node/team/install-team.js",
     "inspect-vrm": "npm run build:node --silent && node dist/node/tools/inspect-vrm.js",
     "fetch-base-model": "npm run build:node --silent && node dist/node/tools/fetch-base-model.js",
