@@ -58,12 +58,13 @@ Event yang terjadi di dalam subagent (misalnya Asuna ngejalanin `Edit`) cuma nge
 
 ## Kantor AlyxLabs
 
-Ruangannya terang dengan aksen ungu dari logo AlyxLabs: strip LED di atas dinding, lampu di bawah meja, dan papan nama di dinding belakang. Zonanya:
+Ruangannya terang dengan aksen ungu dari logo AlyxLabs: LED neon yang "lari" di atas dinding dan di sepanjang lis bawah, lampu di bawah meja, dan papan nama di dinding belakang. Semua furnitur diukur pakai tinggi chibi (sekitar 1,05 m), jadi meja setinggi pinggang, monitor sejajar mata pas duduk, dan papan tulis masih kejangkau tangan. Zonanya:
 
 | Zona | Isi |
 |---|---|
-| Deretan meja belakang | Meja Asuna, Kobayashi, Erza, dan Yor, plus rak server di sebelah Yor |
-| Depan | Meja komando 2B dengan papan kanban, dan pojok konten Ruby dengan backdrop logo, ring light, kamera, dan mic |
+| Deretan meja belakang | Meja Asuna, Kobayashi, Erza, dan Yor, lemari printer, plus rak server di sebelah Yor |
+| Tengah | Meja meeting empat kursi dengan laptop, meja pingpong, tanaman |
+| Depan | Meja komando 2B dengan papan kanban dan printer di samping, dan pojok konten Ruby dengan backdrop logo, ring light, kamera, dan mic |
 | Dinding kiri | Papan tulis (2B dan Rias), papan ide dan beanbag Chizuru, TV lounge |
 | Lounge | Sofa menghadap TV, meja kopi, beanbag |
 | Pantry | Mesin kopi, kulkas, meja bar dengan dua stool |
@@ -73,25 +74,31 @@ Setup meja sesuai role:
 
 | Anggota | Setup | Pas kerja |
 |---|---|---|
-| Asuna | Tiga monitor: SQL, DAG pipeline, dashboard | Ngetik SQL, teks muncul per karakter dan tuts yang dipencet nyala |
-| Kobayashi | Monitor ultrawide, boneka naga kecil | Ngetik kode aplikasi |
-| Erza | Dua monitor vertikal: diff dan checklist review, sepotong kue stroberi | Ngetik catatan review |
-| Yor | Terminal dan monitoring, mawar di meja | Ngetik command read-only |
-| 2B | Dua monitor dan kanban tim | Ngetik plan, atau nulis di papan tulis pas mikir |
+| Asuna | Monitor SQL, DAG pipeline, monitor vertikal job run, PC tower | Ngetik SQL, teks muncul per karakter dan tuts yang dipencet nyala |
+| Kobayashi | Monitor ultrawide, monitor vertikal daftar PR, konsol handheld di dock, boneka naga, PC tower | Ngetik kode aplikasi |
+| Erza | Monitor diff horizontal, checklist review di monitor vertikal, kue stroberi, PC tower | Ngetik catatan review |
+| Yor | Terminal dan monitoring, stand headset, mawar, PC tower | Ngetik command read-only |
+| 2B | Dua monitor dan kanban tim, PC tower | Ngetik plan, atau nulis di papan tulis pas mikir |
 | Ruby | Laptop, mic, ring light | Ngetik draft post |
 | Rias | Papan tulis | Gambar diagram, tangannya ngikutin ujung spidol |
 | Chizuru | Papan ide | Nempel sticky note satu-satu |
 
-**Pas nggak ada tugas**, tiap cast milih kegiatan sendiri dan jalan ke sana tanpa nembus furnitur: kerja santai di meja, bikin kopi, ngemil di kulkas, nonton TV, main game di sofa, main arcade, nyiram tanaman, rebahan di beanbag, baca, atau ngobrol di meja bar. Kira-kira setengah waktunya di meja, setengahnya istirahat. Biar nggak monoton:
+**Pas nggak ada tugas**, tiap cast milih kegiatan sendiri dan jalan ke sana tanpa nembus furnitur atau cast lain: kerja santai di meja, bikin kopi, ngemil di kulkas, nonton TV, main game di sofa, main arcade, nyiram tanaman, rebahan di beanbag, baca, ngobrol di meja bar, meeting di meja tengah, atau main pingpong. Kira-kira setengah waktunya di meja, setengahnya istirahat. Biar nggak monoton:
 - Kegiatan yang sama nggak dipilih dua kali berturut-turut, dan tiap kegiatan punya jeda sebelum bisa diulang.
 - Tiap cast punya kesukaan sendiri. Kobayashi sering main arcade, Erza sering ngemil, Rias sering baca, Yor sering ngecek rak server, Ruby sering selfie di depan ring light.
-- Satu tempat cuma dipakai satu orang. Kalau ada yang udah duduk di bar, yang lain lebih mungkin nyamperin buat ngobrol.
+- Satu tempat cuma dipakai satu orang. Kalau ada yang udah di bar, meja meeting, atau meja pingpong, yang lain lebih mungkin nyamperin.
+- Yang punya meja bawa gelasnya ke pantry, bikin kopi, terus balik naruh gelasnya di samping keyboard. Rias dan Chizuru minum kopinya di tempat tujuan berikutnya.
+- Barang di tangan ngikutin kegiatan: HP pas rebahan atau selfie, buku pas baca, stik pas main game, raket pas pingpong, penyiram pas nyiram tanaman.
 - Abis kelar tugas, cast istirahat dulu, nggak langsung balik ke meja.
 - Begitu dipanggil Claude Code, cast langsung ninggalin kegiatannya dan jalan ke mejanya.
 
+Kursi, stool, dan beanbag nggak bisa dilewatin. Yang duduk keluar lewat jalur yang sama waktu masuk. Kalau dua cast papasan, keduanya minggir ke kanan.
+
 TV nyala sendiri pas ada yang nonton atau main game, layar arcade makin rame pas dimainin, dan lampu rak server kedip cepat pas Yor ngecek.
 
-Pose duduk diukur dari panjang kaki tiap model. Di kursi rendah lututnya naik dan telapak kakinya napak, di stool tinggi kakinya menggantung. Sandaran kursi dan sofa dibikin rendah, terus ujung atasnya, sandaran sofa, dan lantai jadi penghalang buat physics rambut, jadi rambut panjang jatuh ke balik sandaran, bukan nembus.
+Pose duduk diukur dari panjang kaki tiap model. Di kursi rendah lututnya naik dan telapak kakinya napak, di stool tinggi kakinya menggantung. Sandaran kursi dan sofa dibikin rendah, terus ujung atasnya, sandaran sofa, dudukan stool, punggung beanbag, dan lantai jadi penghalang buat physics rambut, jadi rambut panjang jatuh ke balik sandaran, bukan nembus. Langkah jalannya pendek dengan goyang pinggul kecil, biar rok dan dress panjang (misalnya dress hitam Yor) tetap jatuh natural.
+
+**Mode malam** ngikutin jam PC. Mulai sekitar 17.30 lampu meredup pelan sampai gelap penuh jam 19.00, jendela berubah jadi pemandangan kota malam, dan LED neon jadi sumber cahaya utama. Pagi kebalikannya, terang lagi antara 05.00 dan 06.30. Di mode browser, tambahin `?clock=21:30` di URL kantor buat lihat jam lain tanpa nunggu malam.
 
 **Kamera**: drag buat muter, scroll buat zoom, klik dua kali buat balik ke tampilan awal. Pakai keyboard: Tab ke ruangan, panah buat muter, `+` dan `-` buat zoom, `0` buat reset. Kalau lama nggak disentuh, kameranya goyang pelan sendiri.
 

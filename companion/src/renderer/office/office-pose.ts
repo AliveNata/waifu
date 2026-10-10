@@ -13,6 +13,8 @@ export interface OfficePoseInput {
   seat: SeatFit | null;
   /** Increments on every key press, so typing hands alternate with the text on screen. */
   keystrokes: number;
+  /** Something held in the right hand while walking, such as a mug: that arm stays bent instead of swinging. */
+  carrying: boolean;
 }
 
 /** Upper body of one action. Legs and hips come from the posture, so any action works standing or seated. */
@@ -33,22 +35,27 @@ function seatedLegs(seat: SeatFit): PoseBones {
   };
 }
 
+/**
+ * Short steps with a small hip sway. A wide stride drags long skirts and dresses
+ * (skinned to the thighs) into stretched shapes; small swings keep them hanging naturally.
+ */
 function walkPose(phase: number): Pose {
   const swing = Math.sin(phase);
   const bob = Math.abs(Math.cos(phase));
   return {
     bones: {
       ...armsRelaxed,
-      leftUpperArm: addRotation(armsRelaxed.leftUpperArm, { x: 0.45 * swing }),
-      rightUpperArm: addRotation(armsRelaxed.rightUpperArm, { x: -0.45 * swing }),
-      leftUpperLeg: { x: -0.55 * swing, y: 0, z: 0 },
-      rightUpperLeg: { x: 0.55 * swing, y: 0, z: 0 },
+      leftUpperArm: addRotation(armsRelaxed.leftUpperArm, { x: 0.3 * swing }),
+      rightUpperArm: addRotation(armsRelaxed.rightUpperArm, { x: -0.3 * swing }),
+      hips: { x: 0, y: 0.06 * swing, z: 0.025 * swing },
+      leftUpperLeg: { x: -0.32 * swing, y: 0, z: 0 },
+      rightUpperLeg: { x: 0.32 * swing, y: 0, z: 0 },
       // Knees only bend backward, on the leg that is swinging through.
-      leftLowerLeg: { x: 0.7 * Math.max(0, -Math.cos(phase)), y: 0, z: 0 },
-      rightLowerLeg: { x: 0.7 * Math.max(0, Math.cos(phase)), y: 0, z: 0 },
-      spine: { x: 0.05, y: 0, z: 0 },
+      leftLowerLeg: { x: 0.45 * Math.max(0, -Math.cos(phase)), y: 0, z: 0 },
+      rightLowerLeg: { x: 0.45 * Math.max(0, Math.cos(phase)), y: 0, z: 0 },
+      spine: { x: 0.04, y: -0.04 * swing, z: 0 },
     },
-    hipsOffsetY: 0.025 * bob,
+    hipsOffsetY: 0.014 * bob,
   };
 }
 
@@ -316,6 +323,38 @@ function chatBody(input: OfficePoseInput): UpperBody {
   };
 }
 
+function meetingBody(input: OfficePoseInput): UpperBody {
+  // Laptop work at the team table, looking up to talk every so often.
+  const talking = Math.sin(input.time * 0.33) > 0.4;
+  if (talking) {
+    return chatBody(input);
+  }
+  const typing = typeBody(input);
+  return { bones: { ...typing.bones, head: { x: 0.2, y: 0.05 * Math.sin(input.time * 0.5), z: 0 } } };
+}
+
+function pingpongBody(input: OfficePoseInput): UpperBody {
+  // Ready stance, paddle out front, a forehand swing about once a second and a hop on the return.
+  const cycle = (input.time * 1.1) % 1;
+  const swing = cycle < 0.3 ? Math.sin((cycle / 0.3) * Math.PI) : 0;
+  return {
+    bones: {
+      ...armsRelaxed,
+      spine: { x: 0.18, y: -0.35 * swing, z: 0 },
+      head: { x: -0.1, y: 0.25 * swing, z: 0 },
+      rightUpperArm: { x: -0.7 - 0.3 * swing, y: -0.6 * swing, z: 0.9 },
+      rightLowerArm: { x: 0, y: 0.9 - 0.6 * swing, z: 0 },
+      leftUpperArm: { x: -0.4, y: 0, z: -1.1 },
+      leftLowerArm: { x: 0, y: -0.8, z: 0 },
+      leftUpperLeg: { x: -0.25, y: 0, z: 0.12 },
+      rightUpperLeg: { x: -0.25, y: 0, z: -0.12 },
+      leftLowerLeg: { x: 0.45, y: 0, z: 0 },
+      rightLowerLeg: { x: 0.45, y: 0, z: 0 },
+    },
+    standingHipsY: -0.03 + 0.02 * Math.abs(Math.sin(input.time * 6.9)),
+  };
+}
+
 function upperBody(action: OfficeAction, input: OfficePoseInput): UpperBody {
   switch (action) {
     case "type":
@@ -357,6 +396,10 @@ function upperBody(action: OfficeAction, input: OfficePoseInput): UpperBody {
       return rackBody(input);
     case "chat":
       return chatBody(input);
+    case "meeting":
+      return meetingBody(input);
+    case "pingpong":
+      return pingpongBody(input);
   }
 }
 
@@ -364,6 +407,10 @@ export function officePose(input: OfficePoseInput): Pose {
   let pose: Pose;
   if (input.action === null) {
     pose = walkPose(input.walkPhase);
+    if (input.carrying) {
+      pose.bones.rightUpperArm = { x: -0.3, y: 0, z: 1.3 };
+      pose.bones.rightLowerArm = { x: 0, y: 1.4, z: 0 };
+    }
   } else {
     const body = upperBody(input.action, input);
     pose =

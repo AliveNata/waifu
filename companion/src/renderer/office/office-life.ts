@@ -21,7 +21,9 @@ export type ActivityId =
   | "chat"
   | "read"
   | "selfie"
-  | "rack";
+  | "rack"
+  | "meeting"
+  | "pingpong";
 
 interface Activity {
   /** Null means the member's own idle spot. */
@@ -32,6 +34,8 @@ interface Activity {
   cooldownSeconds: number;
   /** Restricts an activity to members whose job or habits it belongs to. */
   only?: readonly MemberId[];
+  /** Done together: much more likely when someone is already at one of its stations. */
+  social?: boolean;
 }
 
 const sofaSeats: readonly StationId[] = ["sofa-1", "sofa-2", "sofa-3"];
@@ -48,7 +52,7 @@ const activities: Record<ActivityId, Activity> = {
   console: { stations: sofaSeats, action: "game", durationSeconds: [20, 35], weight: 0.6, cooldownSeconds: 90 },
   arcade: { stations: ["arcade"], action: "arcade", durationSeconds: [15, 30], weight: 0.7, cooldownSeconds: 90 },
   plants: {
-    stations: ["plant-lounge", "plant-corner", "plant-desks"],
+    stations: ["plant-lounge", "plant-corner", "plant-desks", "plant-center"],
     action: "water",
     durationSeconds: [6, 10],
     weight: 0.6,
@@ -67,6 +71,24 @@ const activities: Record<ActivityId, Activity> = {
     durationSeconds: [15, 30],
     weight: 0.8,
     cooldownSeconds: 60,
+    social: true,
+  },
+  meeting: {
+    stations: ["meeting-1", "meeting-2", "meeting-3", "meeting-4"],
+    action: "meeting",
+    durationSeconds: [20, 40],
+    weight: 0.7,
+    cooldownSeconds: 90,
+    social: true,
+  },
+  pingpong: {
+    stations: ["pingpong-west", "pingpong-east"],
+    action: "pingpong",
+    durationSeconds: [15, 30],
+    // Rarely started alone; the boost makes a second player likely to join the first.
+    weight: 0.3,
+    cooldownSeconds: 120,
+    social: true,
   },
   read: {
     stations: [...sofaSeats, "beanbag-lounge"],
@@ -97,13 +119,13 @@ export const activityIds = Object.keys(activities) as ActivityId[];
 
 /** Character habits as weight multipliers. Missing entries count as 1. */
 const preferences: Record<MemberId, Partial<Record<ActivityId, number>>> = {
-  twob: { plants: 1.5, coffee: 1.2, arcade: 0.6, console: 0.7 },
-  chizuru: { beanbag: 2, chat: 1.6, tv: 1.2, arcade: 0.7 },
-  rias: { read: 2, coffee: 1.4, chat: 1.2, arcade: 0.5 },
-  asuna: { coffee: 1.6, console: 1.3, plants: 0.8 },
+  twob: { plants: 1.5, coffee: 1.2, meeting: 1.6, arcade: 0.6, console: 0.7 },
+  chizuru: { beanbag: 2, chat: 1.6, tv: 1.2, pingpong: 1.4, arcade: 0.7 },
+  rias: { read: 2, coffee: 1.4, chat: 1.2, meeting: 1.5, arcade: 0.5 },
+  asuna: { coffee: 1.6, console: 1.3, pingpong: 1.5, plants: 0.8 },
   kobayashi: { arcade: 1.8, console: 1.5, rack: 0.6 },
-  yor: { rack: 2, plants: 1.3, snack: 1.2, arcade: 0.6 },
-  erza: { snack: 1.8, read: 1.2, console: 0.7 },
+  yor: { rack: 2, plants: 1.3, snack: 1.2, pingpong: 1.3, arcade: 0.6 },
+  erza: { snack: 1.8, read: 1.2, meeting: 1.3, console: 0.7 },
   ruby: { chat: 1.5, tv: 1.2, read: 0.6 },
 };
 
@@ -131,7 +153,7 @@ export interface LifeChoice {
 
 /** A walk that never arrives (blocked or interrupted) is given up after this long. */
 const arrivalTimeoutMs = 60_000;
-/** Chat is much more likely when someone already sits at the bar to talk to. */
+/** Social activities are much more likely when someone is already there to join. */
 const companyBoost = 4;
 
 export class OfficeLife {
@@ -226,7 +248,7 @@ export class OfficeLife {
       return 0;
     }
     let weight = activity.weight * (preferences[memberId][id] ?? 1);
-    if (id === "chat" && activity.stations?.some((station) => this.reserved.has(station))) {
+    if (activity.social === true && activity.stations?.some((station) => this.reserved.has(station))) {
       weight *= companyBoost;
     }
     return weight;
@@ -236,8 +258,11 @@ export class OfficeLife {
     const weights = activityIds.map((id) => [id, this.weightOf(memberId, id, previous, now)] as const);
     const total = weights.reduce((sum, [, weight]) => sum + weight, 0);
     let picked: ActivityId = "desk";
-    if (total > 0) {
-      let roll = this.random() * total;
+    // A fresh coffee goes back to the desk it was made for, so the mug ends up next to the keyboard.
+    const carriesCoffeeHome = previous === "coffee" && idleHome[memberId].action === "desk-idle";
+    // Roll even when the coffee decides, so one forced choice does not shift every later draw.
+    let roll = this.random() * total;
+    if (total > 0 && !carriesCoffeeHome) {
       for (const [id, weight] of weights) {
         roll -= weight;
         if (weight > 0 && roll < 0) {

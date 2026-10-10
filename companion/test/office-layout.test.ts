@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { angleDelta, initialActor, isWalking, stepActor } from "../src/renderer/office/office-actor.js";
-import { memberPlan, twobPlan, usesHandIk } from "../src/renderer/office/office-director.js";
+import { memberPlan, propForAction, twobPlan, usesHandIk } from "../src/renderer/office/office-director.js";
 import { homeStations } from "../src/renderer/office/office-layout.js";
 import { OfficeLife } from "../src/renderer/office/office-life.js";
 import { bodyRadius, navGrid, planPath } from "../src/renderer/office/office-nav.js";
@@ -80,6 +80,14 @@ describe("planPath", () => {
     expect(path.at(-1)).toEqual(stations[to].spot);
   });
 
+  it("steps out of a seat over its approach point before walking anywhere", () => {
+    // Act
+    const path = planPath(stations["desk-asuna"].spot, "coffee");
+
+    // Assert: chairs block walking, so leaving one must go the way the sitter came in.
+    expect(path[0]).toEqual(stations["desk-asuna"].approach);
+  });
+
   it("is empty when already at the station", () => {
     expect(planPath(stations.front.spot, "front")).toEqual([]);
   });
@@ -105,6 +113,27 @@ describe("walking", () => {
 
     // Assert
     expect(distance(state.position, stations.arcade.spot)).toBeLessThan(0.01);
+  });
+
+  it("lets two people walking head-on pass each other instead of through each other", () => {
+    // Arrange: one walks from the front of the room to the corner plant, the other the opposite way.
+    let east = initialActor("front");
+    let west = initialActor("plant-corner");
+    let closest = Number.POSITIVE_INFINITY;
+
+    // Act
+    for (let t = 0; t < 20; t += 1 / 60) {
+      const nextEast = stepActor(east, "plant-corner", 1 / 60, [west.position]);
+      const nextWest = stepActor(west, "front", 1 / 60, [east.position]);
+      east = nextEast;
+      west = nextWest;
+      closest = Math.min(closest, distance(east.position, west.position));
+    }
+
+    // Assert
+    expect(closest).toBeGreaterThan(0.3);
+    expect(distance(east.position, stations["plant-corner"].spot)).toBeLessThan(0.01);
+    expect(distance(west.position, stations.front.spot)).toBeLessThan(0.01);
   });
 
   it.each([
@@ -189,6 +218,29 @@ describe("office life", () => {
     expect(choice.activity).not.toBe("desk");
   });
 
+  it("carries a fresh coffee back to the desk", () => {
+    // Arrange
+    const life = new OfficeLife(Math.random);
+    let now = 0;
+    let previous: string | null = null;
+    const afterCoffee: string[] = [];
+
+    // Act
+    for (let turn = 0; turn < 300; turn++) {
+      const choice = life.planFor("asuna", now);
+      life.arrived("asuna", now);
+      if (previous === "coffee") {
+        afterCoffee.push(choice.activity);
+      }
+      previous = choice.activity;
+      now += choice.durationMs + 1;
+    }
+
+    // Assert
+    expect(afterCoffee.length).toBeGreaterThan(0);
+    expect(new Set(afterCoffee)).toEqual(new Set(["desk"]));
+  });
+
   it("keeps role activities to their owners", () => {
     // Arrange
     const life = new OfficeLife(Math.random);
@@ -240,6 +292,17 @@ describe("office director", () => {
     });
     expect(memberPlan("chizuru", "working", null).action).toBe("stick");
     expect(memberPlan("ruby", "idle", idle)).toEqual({ station: "sofa-2", action: "watch", mood: "idle" });
+  });
+
+  it.each([
+    ["brew", "mug"],
+    ["pingpong", "paddle"],
+    ["lounge", "phone"],
+    ["read", "book"],
+    ["type", null],
+    [null, null],
+  ] as const)("puts the right prop in hand for %s", (action, prop) => {
+    expect(propForAction(action)).toBe(prop);
   });
 
   it("uses hand IK only for board work", () => {

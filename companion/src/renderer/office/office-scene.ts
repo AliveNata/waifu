@@ -1,5 +1,14 @@
 import { VRMSpringBoneCollider, VRMSpringBoneColliderShapePlane } from "@pixiv/three-vrm";
-import { Group, Mesh, PlaneGeometry, SRGBColorSpace, type Texture, TextureLoader, Vector3 } from "three";
+import {
+  Group,
+  Mesh,
+  type MeshBasicMaterial,
+  PlaneGeometry,
+  SRGBColorSpace,
+  type Texture,
+  TextureLoader,
+  Vector3,
+} from "three";
 import type { MemberId } from "../../shared/team.js";
 import logoUrl from "./assets/alyxlabs-logo.png";
 import { chairSeatHeight, type Furniture, furniture, room, stations } from "./office-plan.js";
@@ -15,8 +24,11 @@ import {
   buildCoffeeTable,
   buildFridge,
   buildKanban,
+  buildMeetingTable,
   buildPantryCounter,
+  buildPingpongTable,
   buildPlant,
+  buildPrinterCabinet,
   buildRingLight,
   buildRug,
   buildServerRack,
@@ -25,7 +37,8 @@ import {
   buildTvConsole,
   buildTvWall,
 } from "./scene/furniture.js";
-import { box, glow, mesh, palette, standard, unlit } from "./scene/palette.js";
+import { NeonStrips } from "./scene/neon.js";
+import { box, glow, mesh, palette, printed, standard, unlit } from "./scene/palette.js";
 import { floorTexture, kanbanTexture, signTextTexture, windowTexture } from "./scene/textures.js";
 import { IdeaBoard } from "./surfaces/idea-board.js";
 import { riasDiagrams, twobDiagrams, Whiteboard } from "./surfaces/whiteboard.js";
@@ -52,6 +65,9 @@ export interface OfficeProps {
   tv: TvScreen;
   arcade: ArcadeScreen;
   rackLights: RackLights;
+  neon: NeonStrips;
+  /** Cross-fades the window view between day (0) and night (1). */
+  setNight(night: number): void;
 }
 
 interface BoardSpec {
@@ -91,14 +107,14 @@ function leftWallPlane(map: Texture, spec: BoardSpec, frameColor: string): Group
       spec.centerZ,
     ),
   );
-  const plane = mesh(new PlaneGeometry(spec.width, spec.height), unlit(map), false);
+  const plane = mesh(new PlaneGeometry(spec.width, spec.height), printed(map), false);
   plane.rotation.y = Math.PI / 2;
   plane.position.set(wallSurfaceX, spec.bottom + spec.height / 2, spec.centerZ);
   group.add(plane);
   return group;
 }
 
-function buildRoomShell(root: Group, logo: Texture): void {
+function buildRoomShell(root: Group, logo: Texture): { nightGlass: MeshBasicMaterial[] } {
   const width = room.maxX - room.minX;
   const depth = room.maxZ - room.minZ;
   const centerX = (room.minX + room.maxX) / 2;
@@ -135,12 +151,13 @@ function buildRoomShell(root: Group, logo: Texture): void {
     ),
     box(width, 0.1, 0.03, standard(palette.skirting, 0.7), centerX, 0, room.minZ + 0.015),
     box(0.03, 0.1, depth, standard(palette.skirting, 0.7), room.minX + 0.015, 0, centerZ),
-    // LED cove along the top of both walls: the gaming accent framing the room, kept thin so it reads as trim.
-    box(width, 0.025, 0.03, glow(palette.accent, 1.3), centerX, room.wallHeight - 0.12, room.minZ + 0.02),
-    box(0.03, 0.025, depth, glow(palette.accent, 1.3), room.minX + 0.02, room.wallHeight - 0.12, centerZ),
   );
 
   // Two windows over the desks with the sign between them, so the brand sits at the room's focal point.
+  // The sills clear the monitors and the tops stay under a chibi-scaled 2.2 m wall.
+  const sill = 1.0;
+  const windowHeight = 0.85;
+  const nightGlass: MeshBasicMaterial[] = [];
   for (const [index, [left, right]] of (
     [
       [-3.6, -1.05],
@@ -149,31 +166,61 @@ function buildRoomShell(root: Group, logo: Texture): void {
   ).entries()) {
     const windowWidth = right - left;
     const x = (left + right) / 2;
-    const glass = mesh(new PlaneGeometry(windowWidth, 1.15), unlit(windowTexture(index * 7 + 3)), false);
-    glass.position.set(x, 1.9, room.minZ + 0.012);
+    const glass = mesh(new PlaneGeometry(windowWidth, windowHeight), unlit(windowTexture(index * 7 + 3)), false);
+    glass.position.set(x, sill + windowHeight / 2, room.minZ + 0.012);
+    // The night view sits just in front and fades in, so dusk blends instead of switching.
+    const nightMaterial = unlit(windowTexture(index * 7 + 3, true), true);
+    nightMaterial.opacity = 0;
+    nightMaterial.depthWrite = false;
+    nightGlass.push(nightMaterial);
+    const nightPane = mesh(new PlaneGeometry(windowWidth, windowHeight), nightMaterial, false);
+    nightPane.position.set(x, sill + windowHeight / 2, room.minZ + 0.014);
     const frame = standard(palette.laminate, 0.5);
     root.add(
       glass,
-      box(windowWidth + 0.08, 0.05, 0.05, frame, x, 1.3, room.minZ + 0.02),
-      box(windowWidth + 0.08, 0.05, 0.05, frame, x, 2.47, room.minZ + 0.02),
-      box(0.05, 1.2, 0.05, frame, left - 0.02, 1.3, room.minZ + 0.02),
-      box(0.05, 1.2, 0.05, frame, right + 0.02, 1.3, room.minZ + 0.02),
-      box(0.03, 1.15, 0.04, frame, x, 1.32, room.minZ + 0.02),
+      box(windowWidth + 0.08, 0.05, 0.05, frame, x, sill - 0.05, room.minZ + 0.02),
+      box(windowWidth + 0.08, 0.05, 0.05, frame, x, sill + windowHeight, room.minZ + 0.02),
+      box(0.05, windowHeight + 0.05, 0.05, frame, left - 0.02, sill - 0.025, room.minZ + 0.02),
+      box(0.05, windowHeight + 0.05, 0.05, frame, right + 0.02, sill - 0.025, room.minZ + 0.02),
+      box(0.03, windowHeight, 0.04, frame, x, sill, room.minZ + 0.02),
+      nightPane,
     );
   }
 
-  const logoMark = mesh(new PlaneGeometry(0.62, 0.62), unlit(logo, true), false);
-  logoMark.position.set(-0.32, 1.95, room.minZ + 0.015);
-  const lettering = mesh(new PlaneGeometry(1.36, 0.34), unlit(signTextTexture(), true), false);
-  lettering.position.set(0.78, 1.93, room.minZ + 0.015);
-  root.add(logoMark, lettering, box(1.9, 0.02, 0.03, glow(palette.accent, 1.6), 0.25, 1.55, room.minZ + 0.02));
+  const signY = 1.45;
+  const logoMark = mesh(new PlaneGeometry(0.5, 0.5), unlit(logo, true), false);
+  logoMark.position.set(-0.28, signY, room.minZ + 0.015);
+  const lettering = mesh(new PlaneGeometry(1.1, 0.275), unlit(signTextTexture(), true), false);
+  lettering.position.set(0.66, signY - 0.02, room.minZ + 0.015);
+  root.add(logoMark, lettering, box(1.6, 0.02, 0.03, glow(palette.accent, 1.6), 0.25, signY - 0.33, room.minZ + 0.02));
+  return { nightGlass };
+}
+
+/**
+ * Neon along the top of both walls and along the skirting. The two levels run in opposite
+ * directions, so the room frames itself in moving light: the "tech-gaming" layer over a calm office.
+ */
+function buildNeon(): NeonStrips {
+  const back = room.minZ + 0.03;
+  const left = room.minX + 0.03;
+  const corner = { x: left, z: back };
+  const top = room.wallHeight - 0.1;
+  const low = 0.12;
+  return new NeonStrips([
+    { from: { x: room.maxX, z: back }, to: corner, y: top },
+    { from: corner, to: { x: left, z: room.maxZ }, y: top },
+    { from: { x: room.maxX, z: back }, to: corner, y: low, direction: -1 },
+    { from: corner, to: { x: left, z: room.maxZ }, y: low, direction: -1 },
+  ]);
 }
 
 export function buildOffice(): OfficeProps {
   const root = new Group();
   const logo = new TextureLoader().load(logoUrl);
   logo.colorSpace = SRGBColorSpace;
-  buildRoomShell(root, logo);
+  const { nightGlass } = buildRoomShell(root, logo);
+  const neon = buildNeon();
+  root.add(neon.mesh);
 
   const hairColliders: VRMSpringBoneCollider[] = [];
   const kanban = kanbanTexture();
@@ -207,10 +254,27 @@ export function buildOffice(): OfficeProps {
         break;
       }
       case "beanbag":
-        root.add(buildBeanbag(piece, piece.id === "beanbag-chizuru" ? "#d9b48f" : palette.inkSoft).root);
+      case "stool": {
+        const built =
+          piece.kind === "beanbag"
+            ? buildBeanbag(
+                piece,
+                piece.id === "beanbag-chizuru" ? "#d9b48f" : palette.inkSoft,
+                stations["beanbag-lounge"].seatHeight ?? 0.17,
+              )
+            : buildStool(piece, stations["bar-left"].seatHeight ?? 0.42);
+        root.add(built.root);
+        hairColliders.push(...built.hairColliders);
         break;
-      case "stool":
-        root.add(buildStool(piece, stations["bar-left"].seatHeight ?? 0.42).root);
+      }
+      case "meeting-table":
+        root.add(buildMeetingTable(piece));
+        break;
+      case "pingpong-table":
+        root.add(buildPingpongTable(piece));
+        break;
+      case "printer-cabinet":
+        root.add(buildPrinterCabinet(piece));
         break;
       case "bar-table":
         root.add(buildBarTable(piece));
@@ -277,8 +341,9 @@ export function buildOffice(): OfficeProps {
   const whiteboardSpec: BoardSpec = {
     centerZ: whiteboardPiece.z,
     width: whiteboardPiece.depth,
-    bottom: 0.34,
-    height: 0.92,
+    // Lower edge near a chibi's waist, upper edge inside its reach, so writing never needs a ladder.
+    bottom: 0.25,
+    height: 0.85,
   };
   // Left half (+z side) for 2B's planning, right half for Rias's architecture sketches.
   const whiteboard = new Whiteboard([
@@ -288,7 +353,7 @@ export function buildOffice(): OfficeProps {
   root.add(leftWallPlane(whiteboard.texture, whiteboardSpec, palette.frame));
 
   const ideaPiece = pieceById("idea-board");
-  const ideaSpec: BoardSpec = { centerZ: ideaPiece.z, width: ideaPiece.depth, bottom: 0.36, height: 0.92 };
+  const ideaSpec: BoardSpec = { centerZ: ideaPiece.z, width: ideaPiece.depth, bottom: 0.28, height: 0.78 };
   const ideaBoard = new IdeaBoard();
   root.add(leftWallPlane(ideaBoard.texture, ideaSpec, palette.skirting));
 
@@ -316,6 +381,12 @@ export function buildOffice(): OfficeProps {
     tv,
     arcade,
     rackLights,
+    neon,
+    setNight: (night) => {
+      for (const material of nightGlass) {
+        material.opacity = night;
+      }
+    },
   };
 }
 
@@ -324,22 +395,23 @@ function buildCloseups(whiteboard: BoardSpec, idea: BoardSpec): Record<MemberId,
   const backRowShot = (station: "desk-asuna" | "desk-kobayashi" | "desk-erza" | "desk-yor"): CloseupShot => {
     const seat = stations[station].spot;
     return {
-      eye: new Vector3(seat.x + 0.55, 1.3, seat.z + 0.9),
-      target: new Vector3(seat.x - 0.02, deskTop + 0.32, seat.z - 0.95),
+      eye: new Vector3(seat.x + 0.5, 1.12, seat.z + 0.8),
+      target: new Vector3(seat.x - 0.02, deskTop + 0.18, seat.z - 0.9),
     };
   };
-  // Front desks face the camera with a backdrop or board behind the chair, so the shot comes from
-  // the right-hand side: her profile and the screen both in frame, the camera clear of the panel.
+  // Front desks face the camera with a backdrop or board behind the chair. The gap between chair
+  // and panel is just wide enough for an over-the-shoulder shot from the right, so the screen
+  // shows face-on and the camera stays clear of the panel.
   const frontShot = (station: "desk-twob" | "desk-ruby"): CloseupShot => {
     const seat = stations[station].spot;
     return {
-      eye: new Vector3(seat.x + 1.25, 1.2, seat.z + 0.2),
-      target: new Vector3(seat.x - 0.1, deskTop + 0.12, seat.z + 0.35),
+      eye: new Vector3(seat.x + 0.75, 1.02, seat.z - 0.28),
+      target: new Vector3(seat.x - 0.05, deskTop + 0.12, seat.z + 0.5),
     };
   };
   // Board shots come from the right-hand side (-Z when facing the left wall) so the writing hand shows.
   const boardShot = (spec: BoardSpec, standZ: number, u: number): CloseupShot => ({
-    eye: new Vector3(room.minX + 1.3, 1.15, standZ - 0.8),
+    eye: new Vector3(room.minX + 1.3, 1.0, standZ - 0.8),
     target: leftWallPoint(spec, u, 0.5),
   });
   return {
@@ -357,7 +429,7 @@ function buildCloseups(whiteboard: BoardSpec, idea: BoardSpec): Record<MemberId,
 /** Shot used when 2B is at the whiteboard instead of her desk. */
 export function twobBoardShot(props: OfficeProps): CloseupShot {
   return {
-    eye: new Vector3(room.minX + 1.3, 1.15, stations["board-twob"].spot.z - 0.8),
+    eye: new Vector3(room.minX + 1.3, 1.0, stations["board-twob"].spot.z - 0.8),
     target: props.whiteboardPoint(0.26, 0.5),
   };
 }

@@ -248,22 +248,35 @@ export class NavGrid {
 
 export const navGrid = new NavGrid(furniture);
 
+/** The station whose spot `point` sits on, if any: where a walker starts when leaving a seat. */
+function stationAt(point: Point): StationId | null {
+  for (const station of Object.values(stations)) {
+    if (distance(point, station.spot) < 0.05) {
+      return station.id;
+    }
+  }
+  return null;
+}
+
 /**
- * Waypoints from `from` to a station: step out of any seat onto open floor,
- * walk the grid to the station's approach point, then step onto the spot.
+ * Waypoints from `from` to a station: leave the current station the way it was entered
+ * (seats block walking, so a sitter steps back out over their approach point), walk the
+ * grid to the target's approach point, then step onto the spot.
  */
 export function planPath(from: Point, stationId: StationId, grid: NavGrid = navGrid): Point[] {
   const station = stations[stationId];
   if (distance(from, station.spot) < 0.05) {
     return [];
   }
-  const start = grid.isFree(from) ? from : grid.nearestFree(from);
+  const leaving = stationAt(from);
+  const exit = leaving === null ? from : stations[leaving].approach;
+  const start = grid.isFree(exit) ? exit : grid.nearestFree(exit);
   const goal = grid.isFree(station.approach) ? station.approach : grid.nearestFree(station.approach);
   // No route only happens if the plan walls someone in; walking straight beats freezing in place.
   const route = grid.findPath(start, goal) ?? [goal];
   const path: Point[] = [];
   let previous = from;
-  for (const point of [start, ...route, station.approach, station.spot]) {
+  for (const point of [exit, start, ...route, station.approach, station.spot]) {
     if (distance(previous, point) > 0.05) {
       path.push(point);
       previous = point;

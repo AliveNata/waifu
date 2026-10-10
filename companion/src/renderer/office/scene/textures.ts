@@ -53,13 +53,16 @@ export function floorTexture(): CanvasTexture {
   return result;
 }
 
-/** Daylight through the back windows: a soft sky over a low skyline, no detail to compete with the room. */
-export function windowTexture(seed: number): CanvasTexture {
+/**
+ * The view through the back windows: a soft sky over a low skyline, no detail to compete with the
+ * room. At night the sky goes navy and a scatter of lit office windows shows in the towers.
+ */
+export function windowTexture(seed: number, night = false): CanvasTexture {
   const { canvas: element, ctx } = canvas(512, 256);
   const sky = ctx.createLinearGradient(0, 0, 0, 256);
-  sky.addColorStop(0, "#b9d7f0");
-  sky.addColorStop(0.75, "#eaf2f7");
-  sky.addColorStop(1, "#f6efe4");
+  sky.addColorStop(0, night ? "#0d1230" : "#b9d7f0");
+  sky.addColorStop(0.75, night ? "#24204a" : "#eaf2f7");
+  sky.addColorStop(1, night ? "#3a2a5c" : "#f6efe4");
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, 512, 256);
   let x = 0;
@@ -68,8 +71,23 @@ export function windowTexture(seed: number): CanvasTexture {
     step = (step * 9301 + 49297) % 233280;
     const towerWidth = 30 + (step % 50);
     const towerHeight = 40 + (step % 90);
-    ctx.fillStyle = step % 3 === 0 ? "#c4cbd6" : "#d2d8e0";
-    ctx.fillRect(x, 256 - towerHeight, towerWidth - 4, towerHeight);
+    const towerTop = 256 - towerHeight;
+    if (night) {
+      ctx.fillStyle = step % 3 === 0 ? "#151632" : "#1c1b3d";
+      ctx.fillRect(x, towerTop, towerWidth - 4, towerHeight);
+      for (let wy = towerTop + 8; wy < 250; wy += 12) {
+        for (let wx = x + 5; wx < x + towerWidth - 9; wx += 9) {
+          step = (step * 9301 + 49297) % 233280;
+          if (step % 5 === 0) {
+            ctx.fillStyle = step % 2 === 0 ? "#ffd98a" : "#cfa0ff";
+            ctx.fillRect(wx, wy, 4, 5);
+          }
+        }
+      }
+    } else {
+      ctx.fillStyle = step % 3 === 0 ? "#c4cbd6" : "#d2d8e0";
+      ctx.fillRect(x, towerTop, towerWidth - 4, towerHeight);
+    }
     x += towerWidth;
   }
   return texture(element);
@@ -135,37 +153,6 @@ export function pipelineTexture(): CanvasTexture {
     ctx.textBaseline = "middle";
     ctx.fillText(label, x + 30, y + 22);
   }
-  return texture(element);
-}
-
-/** Asuna's other monitor: chart shapes for a dashboard she is building. Bars and a line, no axis values. */
-export function dashboardTexture(): CanvasTexture {
-  const { canvas: element, ctx } = canvas(640, 400);
-  ctx.fillStyle = "#f4f5f8";
-  ctx.fillRect(0, 0, 640, 400);
-  ctx.fillStyle = "#1f2433";
-  ctx.font = `bold 18px ${uiFont}`;
-  ctx.textBaseline = "top";
-  ctx.fillText("dashboard: revenue per hari", 16, 12);
-  simulatedTag(ctx, 640, "#7a7f8c");
-  const bars = [0.45, 0.6, 0.52, 0.7, 0.66, 0.82, 0.74];
-  bars.forEach((value, index) => {
-    ctx.fillStyle = "#f0a35e";
-    ctx.fillRect(40 + index * 80, 360 - value * 260, 50, value * 260);
-  });
-  ctx.strokeStyle = "#2f6fd6";
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  bars.forEach((value, index) => {
-    const x = 65 + index * 80;
-    const y = 340 - value * 240;
-    if (index === 0) {
-      ctx.moveTo(x, y);
-    } else {
-      ctx.lineTo(x, y);
-    }
-  });
-  ctx.stroke();
   return texture(element);
 }
 
@@ -295,4 +282,55 @@ export function kanbanTexture(): CanvasTexture {
     });
   });
   return texture(element);
+}
+
+/** Portrait side monitor: a scrolling list, the kind of thing people keep on a vertical screen. */
+function feedTexture(title: string, rows: readonly string[], background: string, text: string, mark: string) {
+  const { canvas: element, ctx } = canvas(400, 640);
+  ctx.fillStyle = background;
+  ctx.fillRect(0, 0, 400, 640);
+  ctx.fillStyle = text;
+  ctx.font = `bold 22px ${uiFont}`;
+  ctx.textBaseline = "top";
+  ctx.fillText(title, 18, 18);
+  simulatedTag(ctx, 400, mark);
+  ctx.font = `17px ${uiFont}`;
+  rows.forEach((row, index) => {
+    const y = 72 + index * 52;
+    ctx.fillStyle = mark;
+    ctx.fillRect(18, y + 4, 6, 26);
+    ctx.fillStyle = text;
+    ctx.fillText(row, 36, y + 8);
+  });
+  return texture(element);
+}
+
+/** Asuna's vertical monitor: recent job runs, newest on top. */
+export function jobRunsTexture(): CanvasTexture {
+  return feedTexture(
+    "Job runs",
+    [
+      "dbt run  ok",
+      "airflow dag  ok",
+      "kafka lag  12",
+      "bq load  ok",
+      "spark job  jalan",
+      "dbt test  ok",
+      "backfill  antri",
+    ],
+    "#101722",
+    "#d9e4f2",
+    "#5fa8d3",
+  );
+}
+
+/** Kobayashi's vertical monitor: docs and the open PR list beside the ultrawide. */
+export function pullRequestsTexture(): CanvasTexture {
+  return feedTexture(
+    "Pull requests",
+    ["feat: chart API", "fix: form validasi", "chore: deps", "docs: README", "test: e2e login", "refactor: hooks"],
+    "#14121c",
+    "#ece8f4",
+    "#b45cff",
+  );
 }

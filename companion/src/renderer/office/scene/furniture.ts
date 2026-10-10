@@ -1,4 +1,8 @@
-import { VRMSpringBoneCollider, VRMSpringBoneColliderShapeCapsule } from "@pixiv/three-vrm";
+import {
+  VRMSpringBoneCollider,
+  VRMSpringBoneColliderShapeCapsule,
+  VRMSpringBoneColliderShapeSphere,
+} from "@pixiv/three-vrm";
 import {
   CylinderGeometry,
   Group,
@@ -10,14 +14,14 @@ import {
   TorusGeometry,
   Vector3,
 } from "three";
-import type { Furniture } from "../office-plan.js";
+import { chibi, type Furniture, surface } from "../office-plan.js";
 import { ArcadeScreen, RackLights, TvScreen } from "./animated.js";
-import { box, glow, mesh, palette, standard, unlit } from "./palette.js";
+import { box, glow, mesh, palette, printed, standard, unlit } from "./palette.js";
 import { kanbanTexture } from "./textures.js";
 
 export interface BuiltPiece {
   root: Group;
-  /** Spring bone colliders that keep long hair on the right side of backrests. */
+  /** Spring bone colliders that keep long hair outside seats and backrests. */
   hairColliders: VRMSpringBoneCollider[];
 }
 
@@ -38,7 +42,7 @@ function placed(piece: Furniture): Group {
  * A capsule along a backrest's top edge, in the piece's frame. Hair that falls
  * behind the sitter drapes over it instead of slicing through the backrest.
  */
-function backrestCollider(root: Group, width: number, y: number, z: number, radius: number): VRMSpringBoneCollider {
+function capsuleCollider(root: Group, width: number, y: number, z: number, radius: number): VRMSpringBoneCollider {
   const collider = new VRMSpringBoneCollider(
     new VRMSpringBoneColliderShapeCapsule({
       offset: new Vector3(-width / 2, 0, 0),
@@ -51,6 +55,14 @@ function backrestCollider(root: Group, width: number, y: number, z: number, radi
   return collider;
 }
 
+/** A sphere standing in for a rounded seat or cushion, so hair slides off it. */
+function sphereCollider(root: Group, x: number, y: number, z: number, radius: number): VRMSpringBoneCollider {
+  const collider = new VRMSpringBoneCollider(new VRMSpringBoneColliderShapeSphere({ radius }));
+  collider.position.set(x, y, z);
+  root.add(collider);
+  return collider;
+}
+
 /** Gaming chair with a deliberately low back, so long chibi hair falls over it rather than through it. */
 export function buildChair(piece: Furniture, seatHeight: number): BuiltPiece {
   const root = placed(piece);
@@ -59,21 +71,28 @@ export function buildChair(piece: Furniture, seatHeight: number): BuiltPiece {
   const backTop = seatHeight + 0.24;
   for (let spoke = 0; spoke < 5; spoke++) {
     const angle = (spoke / 5) * Math.PI * 2;
-    const leg = box(0.03, 0.03, 0.24, ink, Math.sin(angle) * 0.1, 0.03, Math.cos(angle) * 0.1);
+    const leg = box(0.03, 0.03, 0.22, ink, Math.sin(angle) * 0.09, 0.02, Math.cos(angle) * 0.09);
     leg.rotation.y = angle;
     root.add(leg);
   }
   const columnHeight = seatHeight - seatThickness - 0.05;
-  const column = mesh(new CylinderGeometry(0.025, 0.025, columnHeight, 8), ink);
+  const column = mesh(new CylinderGeometry(0.022, 0.022, columnHeight, 8), ink);
   column.position.y = 0.05 + columnHeight / 2;
   root.add(
     column,
-    box(0.44, seatThickness, 0.42, ink, 0, seatHeight - seatThickness, 0),
-    box(0.4, backTop - seatHeight, 0.06, ink, 0, seatHeight, -0.22),
+    box(0.4, seatThickness, 0.38, ink, 0, seatHeight - seatThickness, 0),
+    box(0.36, backTop - seatHeight, 0.05, ink, 0, seatHeight, -0.2),
     // Accent piping on the backrest: the one gaming cue on furniture people sit in all day.
-    box(0.41, 0.02, 0.065, glow(palette.accent, 1.1), 0, backTop - 0.03, -0.22),
+    box(0.37, 0.018, 0.055, glow(palette.accent, 1.1), 0, backTop - 0.03, -0.2),
   );
-  return { root, hairColliders: [backrestCollider(root, 0.4, backTop, -0.22, 0.045)] };
+  return {
+    root,
+    hairColliders: [
+      capsuleCollider(root, 0.36, backTop, -0.2, 0.04),
+      // The seat's back edge, so hair pooling behind the hips stays on top of the cushion.
+      capsuleCollider(root, 0.36, seatHeight - 0.02, -0.16, 0.035),
+    ],
+  };
 }
 
 export function buildSofa(piece: Furniture, seatHeight: number): BuiltPiece {
@@ -82,102 +101,124 @@ export function buildSofa(piece: Furniture, seatHeight: number): BuiltPiece {
   const body = standard(palette.fabric, 0.95);
   const backTop = seatHeight + 0.22;
   root.add(
-    box(width, seatHeight - 0.1, depth, body, 0, 0, 0),
-    box(width, backTop, 0.18, body, 0, 0, -depth / 2 + 0.09),
-    box(0.16, seatHeight + 0.1, depth, body, -width / 2 + 0.08, 0, 0),
-    box(0.16, seatHeight + 0.1, depth, body, width / 2 - 0.08, 0, 0),
+    box(width, seatHeight - 0.08, depth, body, 0, 0, 0),
+    box(width, backTop, 0.16, body, 0, 0, -depth / 2 + 0.08),
+    box(0.14, seatHeight + 0.09, depth, body, -width / 2 + 0.07, 0, 0),
+    box(0.14, seatHeight + 0.09, depth, body, width / 2 - 0.07, 0, 0),
   );
-  const cushionWidth = (width - 0.36) / 3;
+  const cushionWidth = (width - 0.32) / 3;
   for (let seat = 0; seat < 3; seat++) {
-    const x = -width / 2 + 0.18 + cushionWidth * (seat + 0.5);
-    root.add(box(cushionWidth - 0.03, 0.1, depth - 0.24, standard(palette.cushion, 0.95), x, seatHeight - 0.1, 0.06));
+    const x = -width / 2 + 0.16 + cushionWidth * (seat + 0.5);
+    root.add(box(cushionWidth - 0.03, 0.08, depth - 0.2, standard(palette.cushion, 0.95), x, seatHeight - 0.08, 0.05));
   }
-  return { root, hairColliders: [backrestCollider(root, width - 0.3, backTop, -depth / 2 + 0.09, 0.09)] };
+  return { root, hairColliders: [capsuleCollider(root, width - 0.28, backTop, -depth / 2 + 0.08, 0.08)] };
 }
 
-export function buildBeanbag(piece: Furniture, tint: string): BuiltPiece {
+/**
+ * Beanbag with a sunken seat and a raised back. The cushion surface is the station's seat
+ * height, so a sitter rests on it; the back bump carries a collider so hair drapes over it.
+ */
+export function buildBeanbag(piece: Furniture, tint: string, seatHeight: number): BuiltPiece {
   const root = placed(piece);
-  const bag = mesh(new SphereGeometry(0.34, 16, 10), standard(tint, 1));
-  bag.scale.set(1, 0.5, 1);
-  bag.position.y = 0.16;
-  const dent = mesh(new SphereGeometry(0.22, 12, 8), standard(tint, 1));
-  dent.scale.set(1, 0.6, 0.8);
-  dent.position.set(0, 0.25, -0.16);
-  root.add(bag, dent);
-  return { root, hairColliders: [] };
+  const material = standard(tint, 1);
+  const base = mesh(new SphereGeometry(0.34, 18, 10), material);
+  base.scale.set(1, seatHeight / 0.34, 1);
+  base.position.y = seatHeight / 2;
+  const back = mesh(new SphereGeometry(0.26, 16, 10), material);
+  back.scale.set(1.05, 0.9, 0.55);
+  back.position.set(0, seatHeight + 0.1, -0.2);
+  root.add(base, back);
+  return { root, hairColliders: [sphereCollider(root, 0, seatHeight + 0.1, -0.2, 0.17)] };
 }
 
 export function buildStool(piece: Furniture, seatHeight: number): BuiltPiece {
   const root = placed(piece);
   const ink = standard(palette.ink, 0.5);
-  const leg = mesh(new CylinderGeometry(0.02, 0.02, seatHeight, 8), ink);
+  const leg = mesh(new CylinderGeometry(0.018, 0.018, seatHeight, 8), ink);
   leg.position.y = seatHeight / 2;
-  const foot = mesh(new CylinderGeometry(0.14, 0.15, 0.02, 16), ink);
+  const foot = mesh(new CylinderGeometry(0.12, 0.13, 0.02, 16), ink);
   foot.position.y = 0.01;
-  const seat = mesh(new CylinderGeometry(0.16, 0.15, 0.05, 20), standard(palette.oak, 0.7));
-  seat.position.y = seatHeight - 0.025;
-  root.add(leg, foot, seat);
-  return { root, hairColliders: [] };
+  const ring = mesh(new TorusGeometry(0.09, 0.008, 6, 20), ink);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = seatHeight * 0.45;
+  const seat = mesh(new CylinderGeometry(0.15, 0.14, 0.045, 20), standard(palette.oak, 0.7));
+  seat.position.y = seatHeight - 0.0225;
+  root.add(leg, foot, ring, seat);
+  // A sphere just under the round seat: hair hanging behind the sitter slides around the stool.
+  return { root, hairColliders: [sphereCollider(root, 0, seatHeight - 0.15, 0, 0.16)] };
 }
 
 export function buildBarTable(piece: Furniture): Group {
   const root = placed(piece);
   const ink = standard(palette.ink, 0.5);
-  const post = mesh(new CylinderGeometry(0.04, 0.04, 0.95, 10), ink);
-  post.position.y = 0.475;
-  const top = mesh(new CylinderGeometry(0.32, 0.32, 0.04, 28), standard(palette.laminate, 0.5));
-  top.position.y = 0.97;
-  const base = mesh(new CylinderGeometry(0.22, 0.24, 0.03, 20), ink);
-  base.position.y = 0.015;
-  root.add(post, top, base, mug(0.1, 0.99, 0.05), mug(-0.12, 0.99, -0.06));
+  const top = surface.barTable;
+  const post = mesh(new CylinderGeometry(0.035, 0.035, top - 0.04, 10), ink);
+  post.position.y = (top - 0.04) / 2;
+  const tabletop = mesh(new CylinderGeometry(0.3, 0.3, 0.035, 28), standard(palette.laminate, 0.5));
+  tabletop.position.y = top - 0.0175;
+  const base = mesh(new CylinderGeometry(0.2, 0.22, 0.025, 20), ink);
+  base.position.y = 0.0125;
+  root.add(post, tabletop, base, mug(0.1, top, 0.05), mug(-0.12, top, -0.06));
   return root;
 }
 
-function mug(x: number, y: number, z: number): Group {
+/** A coffee mug sized for chibi hands. */
+export function mug(x = 0, y = 0, z = 0): Group {
   const group = new Group();
-  const cup = mesh(new CylinderGeometry(0.035, 0.03, 0.08, 12), standard(palette.laminate, 0.4));
-  cup.position.y = 0.04;
-  const handle = mesh(new TorusGeometry(0.022, 0.007, 6, 12), standard(palette.laminate, 0.4));
-  handle.position.set(0.04, 0.045, 0);
-  group.add(cup, handle);
+  const material = standard(palette.laminate, 0.4);
+  const cup = mesh(new CylinderGeometry(0.028, 0.024, 0.06, 12), material);
+  cup.position.y = 0.03;
+  const handle = mesh(new TorusGeometry(0.017, 0.006, 6, 12), material);
+  handle.position.set(0.032, 0.033, 0);
+  const coffee = mesh(new CylinderGeometry(0.024, 0.024, 0.004, 12), standard("#5b3a22", 0.4));
+  coffee.position.y = 0.056;
+  group.add(cup, handle, coffee);
   group.position.set(x, y, z);
   return group;
 }
 
-/** Pantry counter with the coffee machine at its middle, where the "coffee" station stands. */
+/** Pantry counter at chibi working height, with the coffee machine where the "coffee" station stands. */
 export function buildPantryCounter(piece: Furniture, coffeeX: number): Group {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const ink = standard(palette.ink, 0.6);
+  const top = surface.counter;
   root.add(
-    box(width, 0.86, depth - 0.04, ink, 0, 0, 0),
-    box(width + 0.02, 0.04, depth, standard(palette.laminate, 0.4), 0, 0.86, 0),
-    box(width, 0.5, 0.02, standard(palette.backWall, 0.9), 0, 0.9, -depth / 2 + 0.01),
+    box(width, top - 0.03, depth - 0.04, ink, 0, 0, 0),
+    box(width + 0.02, 0.03, depth, standard(palette.laminate, 0.4), 0, top - 0.03, 0),
+    box(width, 0.36, 0.02, standard(palette.backWall, 0.9), 0, top, -depth / 2 + 0.01),
+    // Open shelf above the counter with mugs and jars, within a chibi's reach.
+    box(width * 0.8, 0.025, 0.18, standard(palette.oak, 0.6), 0, top + 0.42, -depth / 2 + 0.1),
   );
   for (let door = 0; door < 4; door++) {
     root.add(
       box(
-        0.02,
-        0.6,
+        0.015,
+        top * 0.6,
         0.01,
         standard(palette.inkSoft, 0.5),
         -width / 2 + (width / 4) * (door + 0.5),
-        0.12,
+        0.08,
         depth / 2 - 0.015,
       ),
     );
   }
   const machineX = coffeeX - piece.x;
   root.add(
-    box(0.3, 0.42, 0.3, standard(palette.inkDeep, 0.35, 0.3), machineX, 0.9, -0.08),
-    box(0.22, 0.04, 0.12, standard(palette.steel, 0.3, 0.6), machineX, 0.98, 0.05),
-    box(0.06, 0.012, 0.012, glow(), machineX + 0.08, 1.22, 0.075),
-    mug(machineX, 1.02, 0.04),
-    mug(machineX + 0.6, 0.9, 0.05),
-    mug(machineX + 0.72, 0.9, -0.04),
+    box(0.22, 0.28, 0.22, standard(palette.inkDeep, 0.35, 0.3), machineX, top, -0.08),
+    box(0.16, 0.025, 0.09, standard(palette.steel, 0.3, 0.6), machineX, top + 0.04, 0.05),
+    box(0.05, 0.01, 0.01, glow(), machineX + 0.06, top + 0.24, 0.031),
+    mug(machineX, top + 0.065, 0.04),
+    mug(machineX + 0.55, top, 0.05),
+    mug(machineX + 0.65, top, -0.04),
   );
-  const kettle = mesh(new CylinderGeometry(0.07, 0.09, 0.2, 14), standard(palette.steel, 0.25, 0.7));
-  kettle.position.set(machineX - 0.55, 1.0, -0.05);
+  for (let jar = 0; jar < 4; jar++) {
+    const glass = mesh(new CylinderGeometry(0.035, 0.035, 0.1, 12), standard(palette.glass, 0.15));
+    glass.position.set(-width * 0.3 + jar * 0.14, top + 0.495, -depth / 2 + 0.1);
+    root.add(glass);
+  }
+  const kettle = mesh(new CylinderGeometry(0.05, 0.065, 0.14, 14), standard(palette.steel, 0.25, 0.7));
+  kettle.position.set(machineX - 0.5, top + 0.07, -0.05);
   root.add(kettle);
   return root;
 }
@@ -186,27 +227,31 @@ export function buildFridge(piece: Furniture): Group {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const body = standard(palette.steel, 0.35, 0.4);
+  const height = 1.1;
   root.add(
-    box(width, 1.75, depth, body, 0, 0, 0),
-    box(width - 0.02, 0.012, 0.01, standard(palette.frame, 0.5), 0, 1.15, depth / 2),
-    box(0.025, 0.4, 0.04, standard(palette.ink, 0.4), width / 2 - 0.1, 1.25, depth / 2 + 0.02),
-    box(0.025, 0.3, 0.04, standard(palette.ink, 0.4), width / 2 - 0.1, 0.75, depth / 2 + 0.02),
+    box(width - 0.06, height, depth - 0.06, body, 0, 0, 0),
+    box(width - 0.08, 0.01, 0.01, standard(palette.frame, 0.5), 0, height * 0.66, depth / 2 - 0.03),
+    box(0.02, 0.22, 0.03, standard(palette.ink, 0.4), width / 2 - 0.1, height * 0.72, depth / 2 - 0.02),
+    box(0.02, 0.18, 0.03, standard(palette.ink, 0.4), width / 2 - 0.1, height * 0.38, depth / 2 - 0.02),
   );
   return root;
 }
 
+/** A compact rack, chest-to-head height for a chibi: Yor checks the lights at eye level. */
 export function buildServerRack(piece: Furniture): { root: Group; lights: RackLights } {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
-  root.add(box(width, 1.85, depth, standard(palette.inkDeep, 0.5, 0.2), 0, 0, 0));
+  const height = 1.15;
+  root.add(box(width - 0.1, height, depth - 0.1, standard(palette.inkDeep, 0.5, 0.2), 0, 0, 0));
   const lights: { mesh: ReturnType<typeof box>; material: MeshStandardMaterial }[] = [];
-  for (let unit = 0; unit < 7; unit++) {
-    const y = 0.2 + unit * 0.22;
-    root.add(box(width - 0.08, 0.16, 0.02, standard(palette.ink, 0.4, 0.3), 0, y, depth / 2));
+  const front = (depth - 0.1) / 2;
+  for (let unit = 0; unit < 5; unit++) {
+    const y = 0.14 + unit * 0.19;
+    root.add(box(width - 0.16, 0.14, 0.02, standard(palette.ink, 0.4, 0.3), 0, y, front));
     for (let led = 0; led < 3; led++) {
       // Status lights: the accent for activity, white for link, the colors gear actually uses.
       const material = glow(led === 0 ? "#ffffff" : palette.accent, 1.5);
-      const light = box(0.025, 0.02, 0.01, material, -width / 2 + 0.1 + led * 0.05, y + 0.07, depth / 2 + 0.012);
+      const light = box(0.02, 0.016, 0.01, material, -width / 2 + 0.13 + led * 0.04, y + 0.06, front + 0.012);
       root.add(light);
       lights.push({ mesh: light, material });
     }
@@ -214,46 +259,54 @@ export function buildServerRack(piece: Furniture): { root: Group; lights: RackLi
   return { root, lights: new RackLights(lights) };
 }
 
+/** Arcade cabinet at chibi scale: controls at hand height, screen at eye height. */
 export function buildArcade(piece: Furniture): { root: Group; screen: ArcadeScreen } {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const body = standard(palette.ink, 0.55);
   const screen = new ArcadeScreen();
+  const cabinetWidth = width - 0.16;
+  const panelTop = 0.56;
   root.add(
-    box(width, 1.0, depth, body, 0, 0, 0),
-    box(width, 0.75, depth * 0.55, body, 0, 1.0, -depth * 0.22),
-    box(width, 0.22, depth * 0.6, body, 0, 1.75, -depth * 0.2),
+    box(cabinetWidth, panelTop, depth * 0.7, body, 0, 0, -depth * 0.05),
+    box(cabinetWidth, 0.44, depth * 0.45, body, 0, panelTop, -depth * 0.18),
+    box(cabinetWidth, 0.14, depth * 0.5, body, 0, panelTop + 0.44, -depth * 0.15),
     // Marquee: the brightest accent in the room, the arcade's whole reason to exist is to call you over.
-    box(width - 0.06, 0.14, 0.02, glow(palette.accent, 2), 0, 1.79, depth * 0.11),
-    box(width, 0.06, depth * 0.45, standard(palette.inkSoft, 0.5), 0, 0.98, depth * 0.27),
+    box(cabinetWidth - 0.04, 0.09, 0.02, glow(palette.accent, 2), 0, panelTop + 0.465, depth * 0.1),
+    box(cabinetWidth, 0.04, depth * 0.36, standard(palette.inkSoft, 0.5), 0, panelTop - 0.02, depth * 0.24),
   );
-  const display = mesh(new PlaneGeometry(width - 0.16, 0.5), unlit(screen.texture), false);
-  display.position.set(0, 1.4, depth * 0.06);
+  const display = mesh(new PlaneGeometry(cabinetWidth - 0.1, 0.34), unlit(screen.texture), false);
+  display.position.set(0, panelTop + 0.23, depth * 0.05);
   display.rotation.x = -0.18;
   root.add(display);
-  const stick = mesh(new CylinderGeometry(0.01, 0.01, 0.08, 6), standard(palette.ink, 0.4));
-  stick.position.set(-0.15, 1.08, depth * 0.3);
-  const knob = mesh(new SphereGeometry(0.025, 10, 8), glow(palette.accent, 0.8));
-  knob.position.set(-0.15, 1.13, depth * 0.3);
+  const stick = mesh(new CylinderGeometry(0.008, 0.008, 0.05, 6), standard(palette.ink, 0.4));
+  stick.position.set(-0.1, panelTop + 0.045, depth * 0.27);
+  const knob = mesh(new SphereGeometry(0.018, 10, 8), glow(palette.accent, 0.8));
+  knob.position.set(-0.1, panelTop + 0.075, depth * 0.27);
   root.add(stick, knob);
   for (let button = 0; button < 3; button++) {
     const cap = mesh(
-      new CylinderGeometry(0.02, 0.02, 0.015, 12),
+      new CylinderGeometry(0.014, 0.014, 0.012, 12),
       standard(button === 0 ? palette.accent : palette.laminate, 0.4),
     );
-    cap.position.set(0.05 + button * 0.07, 1.05, depth * 0.3);
+    cap.position.set(0.03 + button * 0.05, panelTop + 0.026, depth * 0.27);
     root.add(cap);
   }
   return { root, screen };
 }
 
+/** TV centered at seated eye height for the sofa, on a low console. */
 export function buildTvWall(piece: Furniture): { root: Group; screen: TvScreen } {
   const root = placed(piece);
-  const { width } = localSize(piece);
   const screen = new TvScreen();
-  root.add(box(width, 0.9, 0.05, standard(palette.inkDeep, 0.3, 0.2), 0, 0.85, 0));
-  const display = mesh(new PlaneGeometry(width - 0.08, 0.82), unlit(screen.texture), false);
-  display.position.set(0, 1.3, 0.03);
+  const width = 1.15;
+  const height = width * (9 / 16);
+  const centerY = chibi.seatedEye + 0.08;
+  root.add(
+    box(width + 0.05, height + 0.05, 0.04, standard(palette.inkDeep, 0.3, 0.2), 0, centerY - height / 2 - 0.025, 0),
+  );
+  const display = mesh(new PlaneGeometry(width, height), unlit(screen.texture), false);
+  display.position.set(0, centerY, 0.025);
   root.add(display);
   return { root, screen };
 }
@@ -262,10 +315,10 @@ export function buildTvConsole(piece: Furniture): Group {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   root.add(
-    box(width, 0.38, depth, standard(palette.oak, 0.7), 0, 0, 0),
-    box(width - 0.04, 0.015, 0.01, glow(), 0, 0.05, depth / 2 + 0.005),
-    box(0.3, 0.07, 0.22, standard(palette.inkDeep, 0.3, 0.2), -0.3, 0.38, 0),
-    box(0.012, 0.012, 0.01, glow(), -0.2, 0.42, 0.111),
+    box(width - 0.1, 0.26, depth - 0.1, standard(palette.oak, 0.7), 0, 0, 0),
+    box(width - 0.14, 0.012, 0.01, glow(), 0, 0.04, (depth - 0.1) / 2 + 0.005),
+    box(0.22, 0.05, 0.16, standard(palette.inkDeep, 0.3, 0.2), -0.25, 0.26, 0),
+    box(0.01, 0.01, 0.01, glow(), -0.17, 0.29, 0.081),
   );
   return root;
 }
@@ -284,15 +337,18 @@ export function buildRug(piece: Furniture): Group {
 export function buildCoffeeTable(piece: Furniture): Group {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
-  root.add(
-    box(width, 0.04, depth, standard(palette.oak, 0.6), 0, 0.3, 0),
-    box(0.04, 0.3, 0.04, standard(palette.ink, 0.5), -width / 2 + 0.06, 0, -depth / 2 + 0.06),
-    box(0.04, 0.3, 0.04, standard(palette.ink, 0.5), width / 2 - 0.06, 0, -depth / 2 + 0.06),
-    box(0.04, 0.3, 0.04, standard(palette.ink, 0.5), -width / 2 + 0.06, 0, depth / 2 - 0.06),
-    box(0.04, 0.3, 0.04, standard(palette.ink, 0.5), width / 2 - 0.06, 0, depth / 2 - 0.06),
-    mug(0.1, 0.34, 0.15),
-    box(0.16, 0.03, 0.08, standard(palette.inkDeep, 0.4), -0.1, 0.34, -0.15),
-  );
+  const top = surface.coffeeTable;
+  const legs = standard(palette.ink, 0.5);
+  root.add(box(width, 0.035, depth, standard(palette.oak, 0.6), 0, top - 0.035, 0));
+  for (const [x, z] of [
+    [-1, -1],
+    [1, -1],
+    [-1, 1],
+    [1, 1],
+  ] as const) {
+    root.add(box(0.035, top - 0.035, 0.035, legs, x * (width / 2 - 0.05), 0, z * (depth / 2 - 0.05)));
+  }
+  root.add(mug(0.1, top, 0.15), box(0.14, 0.025, 0.07, standard(palette.inkDeep, 0.4), -0.1, top, -0.15));
   return root;
 }
 
@@ -300,17 +356,17 @@ export function buildCoffeeTable(piece: Furniture): Group {
 export function buildPlant(piece: Furniture): Group {
   const root = placed(piece);
   const radius = Math.min(piece.width, piece.depth) / 2;
-  const potHeight = radius * 1.3;
+  const potHeight = radius * 1.2;
   const pot = mesh(new CylinderGeometry(radius * 0.8, radius * 0.62, potHeight, 16), standard(palette.pot, 0.6));
   pot.position.y = potHeight / 2;
-  const band = mesh(new CylinderGeometry(radius * 0.81, radius * 0.81, 0.03, 16), standard(palette.ink, 0.5));
+  const band = mesh(new CylinderGeometry(radius * 0.81, radius * 0.81, 0.025, 16), standard(palette.ink, 0.5));
   band.position.y = potHeight * 0.8;
   root.add(pot, band);
   const leaves = [palette.leaf, palette.leafDark];
   const count = Math.round(5 + radius * 10);
   for (let leaf = 0; leaf < count; leaf++) {
     const angle = leaf * 2.4;
-    const height = potHeight + 0.15 + (leaf % 4) * radius * 0.45;
+    const height = potHeight + 0.12 + (leaf % 4) * radius * 0.4;
     const spread = radius * (0.35 + (leaf % 3) * 0.25);
     const blob = mesh(
       new IcosahedronGeometry(radius * (0.5 + (leaf % 2) * 0.15), 0),
@@ -324,65 +380,137 @@ export function buildPlant(piece: Furniture): Group {
   return root;
 }
 
+/** Standing kanban, its cards between waist and eye height where a chibi reads them. */
 export function buildKanban(piece: Furniture): Group {
   const root = placed(piece);
   const { width } = localSize(piece);
   const ink = standard(palette.ink, 0.5);
+  const bottom = 0.32;
+  const height = 0.62;
   root.add(
-    box(0.04, 1.15, 0.04, ink, -width / 2 + 0.05, 0, 0),
-    box(0.04, 1.15, 0.04, ink, width / 2 - 0.05, 0, 0),
-    box(0.26, 0.03, 0.26, ink, -width / 2 + 0.05, 0, 0),
-    box(0.26, 0.03, 0.26, ink, width / 2 - 0.05, 0, 0),
-    box(width, 0.78, 0.03, standard(palette.frame, 0.5), 0, 0.42, 0),
+    box(0.035, bottom + height + 0.04, 0.035, ink, -width / 2 + 0.04, 0, 0),
+    box(0.035, bottom + height + 0.04, 0.035, ink, width / 2 - 0.04, 0, 0),
+    box(0.22, 0.025, 0.22, ink, -width / 2 + 0.04, 0, 0),
+    box(0.22, 0.025, 0.22, ink, width / 2 - 0.04, 0, 0),
+    box(width, height + 0.06, 0.025, standard(palette.frame, 0.5), 0, bottom - 0.03, 0),
   );
-  const board = mesh(new PlaneGeometry(width - 0.06, 0.72), unlit(kanbanTexture()), false);
-  board.position.set(0, 0.81, 0.02);
+  const board = mesh(new PlaneGeometry(width - 0.06, height), printed(kanbanTexture()), false);
+  board.position.set(0, bottom + height / 2, 0.016);
   root.add(board);
   return root;
 }
 
+/** Ring light with the ring at a chibi's eye height, where it would actually light a face. */
 export function buildRingLight(piece: Furniture): Group {
   const root = placed(piece);
   const ink = standard(palette.ink, 0.5);
-  root.add(box(0.26, 0.02, 0.26, ink, 0, 0, 0), box(0.025, 1.2, 0.025, ink, 0, 0, 0));
+  const ringY = chibi.eye;
+  root.add(box(0.2, 0.02, 0.2, ink, 0, 0, 0), box(0.02, ringY - 0.12, 0.02, ink, 0, 0, 0));
   // Warm white, not the accent: a ring light's job is lighting faces.
-  const ring = mesh(new TorusGeometry(0.17, 0.022, 8, 32), glow("#fff3e6", 1.2));
-  ring.position.y = 1.32;
+  const ring = mesh(new TorusGeometry(0.12, 0.016, 8, 32), glow("#fff3e6", 1.2));
+  ring.position.y = ringY;
   root.add(ring);
   return root;
 }
 
+/** Camera on a tripod with the lens at a seated chibi's eye height, framing Ruby at her desk. */
 export function buildCameraTripod(piece: Furniture): Group {
   const root = placed(piece);
   const ink = standard(palette.ink, 0.5);
-  const head = new Vector3(0, 0.95, 0);
+  const headY = chibi.seatedEye - 0.04;
+  const head = new Vector3(0, headY, 0);
   const up = new Vector3(0, 1, 0);
   for (let leg = 0; leg < 3; leg++) {
     const angle = (leg / 3) * Math.PI * 2;
-    const foot = new Vector3(Math.sin(angle) * 0.22, 0, Math.cos(angle) * 0.22);
+    const foot = new Vector3(Math.sin(angle) * 0.16, 0, Math.cos(angle) * 0.16);
     const length = head.distanceTo(foot);
-    const rod = mesh(new CylinderGeometry(0.008, 0.008, length, 6), ink);
+    const rod = mesh(new CylinderGeometry(0.006, 0.006, length, 6), ink);
     rod.position.copy(head).add(foot).multiplyScalar(0.5);
     rod.quaternion.setFromUnitVectors(up, new Vector3().subVectors(head, foot).normalize());
     root.add(rod);
   }
-  const body = box(0.16, 0.1, 0.09, standard(palette.inkDeep, 0.4), 0, 1.0, 0);
-  const lens = mesh(new CylinderGeometry(0.035, 0.035, 0.08, 14), standard(palette.ink, 0.3, 0.4));
+  const body = box(0.12, 0.075, 0.07, standard(palette.inkDeep, 0.4), 0, headY, 0);
+  const lens = mesh(new CylinderGeometry(0.026, 0.026, 0.06, 14), standard(palette.ink, 0.3, 0.4));
   lens.rotation.x = Math.PI / 2;
-  lens.position.set(0, 1.05, 0.08);
-  const tally = box(0.015, 0.015, 0.01, glow(palette.accent, 1.8), 0.06, 1.08, 0.046);
+  lens.position.set(0, headY + 0.04, 0.06);
+  const tally = box(0.012, 0.012, 0.008, glow(palette.accent, 1.8), 0.045, headY + 0.06, 0.036);
   root.add(body, lens, tally);
   return root;
 }
 
-/** Ruby's brand wall: the AlyxLabs logo behind her, the same mark as the wall sign, so the room has one motif. */
+/** Ruby's brand wall: the AlyxLabs logo at her head height, the same mark as the wall sign. */
 export function buildBackdrop(piece: Furniture, logo: Texture): Group {
   const root = placed(piece);
   const { width } = localSize(piece);
   const ink = standard(palette.inkDeep, 0.7);
-  root.add(box(width, 1.7, 0.06, ink, 0, 0, 0), box(width, 0.02, 0.07, glow(), 0, 1.68, 0));
-  const mark = mesh(new PlaneGeometry(0.55, 0.55), unlit(logo, true), false);
-  mark.position.set(0, 1.2, 0.035);
+  const height = 1.25;
+  root.add(box(width, height, 0.05, ink, 0, 0, 0), box(width, 0.018, 0.06, glow(), 0, height - 0.02, 0));
+  const mark = mesh(new PlaneGeometry(0.42, 0.42), unlit(logo, true), false);
+  mark.position.set(0, chibi.eye + 0.05, 0.03);
   root.add(mark);
+  return root;
+}
+
+/** Team table at desk height with two laptops and notes, where standups and casual work happen. */
+export function buildMeetingTable(piece: Furniture): Group {
+  const root = placed(piece);
+  const { width, depth } = localSize(piece);
+  const top = surface.desk;
+  const legs = standard(palette.ink, 0.6);
+  root.add(
+    box(width, 0.035, depth, standard(palette.oak, 0.55), 0, top - 0.035, 0),
+    box(0.05, top - 0.035, depth - 0.2, legs, -width / 2 + 0.12, 0, 0),
+    box(0.05, top - 0.035, depth - 0.2, legs, width / 2 - 0.12, 0, 0),
+    box(width - 0.3, 0.012, 0.01, glow(), 0, top - 0.045, depth / 2 - 0.01),
+  );
+  for (const [x, z, yaw] of [
+    [-0.5, -0.18, 0],
+    [0.5, 0.18, Math.PI],
+  ] as const) {
+    const laptop = new Group();
+    laptop.add(
+      box(0.26, 0.012, 0.18, standard("#d9d4cc", 0.5), 0, top, 0),
+      box(0.26, 0.17, 0.01, standard("#d9d4cc", 0.5), 0, top + 0.012, -0.09),
+    );
+    laptop.position.set(x, 0, z);
+    laptop.rotation.y = yaw;
+    root.add(laptop);
+  }
+  root.add(box(0.14, 0.004, 0.2, standard("#fbfaf7", 0.9), 0.05, top, -0.05), mug(-0.1, top, 0.2));
+  return root;
+}
+
+/** Chibi-scale ping-pong table: ink top with white lines and a net, accent paddles at each end. */
+export function buildPingpongTable(piece: Furniture): Group {
+  const root = placed(piece);
+  const { width, depth } = localSize(piece);
+  const top = surface.pingpong;
+  const ink = standard(palette.ink, 0.6);
+  root.add(
+    box(width, 0.03, depth, standard(palette.inkSoft, 0.5), 0, top - 0.03, 0),
+    box(width, 0.004, 0.012, standard("#ffffff", 0.6), 0, top, 0),
+    box(0.012, 0.004, depth, standard("#ffffff", 0.6), -width / 2 + 0.006, top, 0),
+    box(0.012, 0.004, depth, standard("#ffffff", 0.6), width / 2 - 0.006, top, 0),
+    box(0.012, 0.09, depth + 0.04, standard("#f4f1ec", 0.8), 0, top, 0),
+  );
+  for (const x of [-1, 1]) {
+    for (const z of [-1, 1]) {
+      root.add(box(0.035, top - 0.03, 0.035, ink, x * (width / 2 - 0.08), 0, z * (depth / 2 - 0.08)));
+    }
+  }
+  return root;
+}
+
+/** Low cabinet with a printer on top, at desk height so it reads as part of the workspace. */
+export function buildPrinterCabinet(piece: Furniture): Group {
+  const root = placed(piece);
+  const { width, depth } = localSize(piece);
+  const cabinetHeight = surface.desk - 0.12;
+  root.add(
+    box(width - 0.04, cabinetHeight, depth - 0.06, standard(palette.ink, 0.6), 0, 0, 0),
+    box(width - 0.08, 0.13, depth - 0.14, standard(palette.laminate, 0.5), 0, cabinetHeight, 0),
+    box(width - 0.14, 0.015, 0.1, standard("#fbfaf7", 0.9), 0, cabinetHeight + 0.13, 0.04),
+    box(0.012, 0.012, 0.01, glow(), width / 2 - 0.09, cabinetHeight + 0.1, (depth - 0.14) / 2 + 0.005),
+  );
   return root;
 }

@@ -3,8 +3,10 @@ import {
   Color,
   DirectionalLight,
   HemisphereLight,
+  type Object3D,
   PCFShadowMap,
   PerspectiveCamera,
+  PointLight,
   Scene,
   Spherical,
   Timer,
@@ -23,14 +25,24 @@ import {
 import { memberLooks } from "../common/looks.js";
 import { PoseApplier } from "../common/pose.js";
 import type { OfficeAvatar } from "./avatar.js";
+import { nightFactor } from "./daylight.js";
 import { solveCcd } from "./ik.js";
 import { type ActorState, initialActor, isWalking, stepActor } from "./office-actor.js";
-import { type MemberPlan, memberPlan, type OfficeAction, twobPlan, usesHandIk } from "./office-director.js";
+import {
+  type MemberPlan,
+  memberPlan,
+  type OfficeAction,
+  propForAction,
+  twobPlan,
+  usesHandIk,
+} from "./office-director.js";
 import { OfficeLife } from "./office-life.js";
-import { stations } from "./office-plan.js";
+import { initialMug, type MugState, stepMug } from "./office-mug.js";
+import { type StationId, stations } from "./office-plan.js";
 import { officePose } from "./office-pose.js";
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
 import { PlaceholderAvatar } from "./placeholder.js";
+import { HandProps } from "./scene/hand-props.js";
 import { fitSeat } from "./seating.js";
 import type { Vec2 } from "./surfaces/drawing.js";
 import { applyMemberSignal, emptyTeamRuntime, memberBehavior, type TeamRuntime } from "./team-state.js";
@@ -55,6 +67,30 @@ const viewLimits = {
 /** After this long without input the camera drifts slowly, so a parked office still feels alive. */
 const idleDriftAfterMs = 25_000;
 
+/** Light levels at full day and full night; dusk and dawn blend between them. */
+const lighting = {
+  day: { hemisphere: 1.5, sun: 2.3, windowFill: 0.55, neonGlow: 0, exposure: 1.05 },
+  night: { hemisphere: 0.32, sun: 0.25, windowFill: 0.12, neonGlow: 2.2, exposure: 0.95 },
+} as const;
+const sunDay = new Color(0xfff2e2);
+const sunNight = new Color(0x9fb0ff);
+
+/**
+ * `?clock=21:30` on the office page previews another time of day; otherwise the PC clock decides.
+ * Handy for checking night mode without waiting for the evening.
+ */
+function officeClock(): () => Date {
+  const preview = /^(\d{1,2}):(\d{2})$/.exec(new URLSearchParams(window.location.search).get("clock") ?? "");
+  if (preview === null) {
+    return () => new Date();
+  }
+  return () => {
+    const date = new Date();
+    date.setHours(Number(preview[1]), Number(preview[2]), 0, 0);
+    return date;
+  };
+}
+
 interface MemberRig {
   avatar: OfficeAvatar;
   actor: ActorState;
@@ -67,6 +103,10 @@ interface MemberRig {
   plan: MemberPlan;
   /** Whether the last frame was real work, to hand the member back to their routine exactly once. */
   wasWorking: boolean;
+  props: HandProps;
+  /** The avatar's right hand bone, which hand props follow. */
+  hand: Object3D | null;
+  mug: MugState;
 }
 
 export interface CloseupRect {
@@ -109,6 +149,8 @@ const actionLabels: Record<OfficeAction, string> = {
   selfie: "selfie",
   rack: "ngecek server",
   chat: "ngobrol",
+  meeting: "meeting",
+  pingpong: "main pingpong",
 };
 
 export class OfficeStage {
@@ -130,6 +172,14 @@ export class OfficeStage {
   private heldFocus: { memberId: MemberId; until: number } | null = null;
   private lastInputAt = Date.now();
   private driftPhase = 0;
+  private night = 0;
+  private lastDaylightAt = 0;
+  private readonly clock = officeClock();
+  private readonly hemisphere = new HemisphereLight(0xfff8ee, 0xb7a68a, lighting.day.hemisphere);
+  private readonly sun = new DirectionalLight(sunDay, lighting.day.sun);
+  private readonly windowFill = new DirectionalLight(0xdfeaff, lighting.day.windowFill);
+  /** Purple wash from the neon onto floor and walls, only noticeable once it is dark. */
+  private readonly neonGlow = [new PointLight(0xb45cff, 0, 9, 1.6), new PointLight(0x6f7fdc, 0, 9, 1.6)];
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -146,7 +196,7 @@ export class OfficeStage {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
 
-    const sun = new DirectionalLight(0xfff2e2, 2.3);
+    const sun = this.sun;
     sun.position.set(6, 11, 8);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -156,9 +206,12 @@ export class OfficeStage {
     sun.shadow.camera.bottom = -9;
     sun.shadow.bias = -0.0004;
     // Cool fill from the back windows, so faces at the back-row desks are not lit by the sun alone.
-    const windowFill = new DirectionalLight(0xdfeaff, 0.55);
-    windowFill.position.set(0, 4, -10);
-    this.scene.add(new HemisphereLight(0xfff8ee, 0xb7a68a, 1.5), sun, windowFill, this.office.root);
+    this.windowFill.position.set(0, 4, -10);
+    const [backGlow, sideGlow] = this.neonGlow as [PointLight, PointLight];
+    backGlow.position.set(0, 1.6, -4.3);
+    sideGlow.position.set(-6.3, 1.6, 0);
+    this.scene.add(this.hemisphere, sun, this.windowFill, backGlow, sideGlow, this.office.root);
+    this.applyDaylight();
 
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.target.copy(viewTarget);
@@ -194,6 +247,7 @@ export class OfficeStage {
     rig.avatar = avatar;
     rig.poseApplier.reset();
     rig.expressions = {};
+    rig.hand = avatar.rightArm()?.effector ?? null;
     avatar.addHairColliders(this.office.hairColliders);
     this.scene.add(avatar.root);
   }
@@ -269,12 +323,13 @@ export class OfficeStage {
   private fitDistance(): number {
     const aspect = this.camera.aspect;
     // Tuned so a 16:10 window shows wall to wall; narrower windows back off to keep the width.
-    return Math.min(viewLimits.maxDistance, 14 * Math.max(1, 1.6 / aspect));
+    return Math.min(viewLimits.maxDistance, 15 * Math.max(1, 1.6 / aspect));
   }
 
   private createRig(memberId: MemberId, avatar: OfficeAvatar): MemberRig {
     const plan = this.planFor(memberId, Date.now(), null);
-    this.scene.add(avatar.root);
+    const props = new HandProps();
+    this.scene.add(avatar.root, props.root);
     return {
       avatar,
       actor: initialActor(plan.station),
@@ -286,6 +341,9 @@ export class OfficeStage {
       keystrokes: 0,
       plan,
       wasWorking: false,
+      props,
+      hand: avatar.rightArm()?.effector ?? null,
+      mug: initialMug,
     };
   }
 
@@ -364,11 +422,16 @@ export class OfficeStage {
     const rig = this.rigs[memberId];
     const plan = this.planFor(memberId, now, rig);
     rig.plan = plan;
-    rig.actor = stepActor(rig.actor, plan.station, delta);
+    const previousTarget = rig.actor.target;
+    const wasAt = isWalking(rig.actor) ? null : previousTarget;
+    const others = memberIds.filter((other) => other !== memberId).map((other) => this.rigs[other].actor.position);
+    rig.actor = stepActor(rig.actor, plan.station, delta, others);
     const walking = isWalking(rig.actor);
-    if (!walking && rig.actor.target === plan.station) {
+    const arrived = !walking && rig.actor.target === plan.station;
+    if (arrived) {
       this.life.arrived(memberId, now);
     }
+    this.updateMug(memberId, rig, arrived, rig.actor.target === previousTarget ? null : wasAt);
     const action = walking ? null : plan.action;
     if (action !== rig.action) {
       rig.action = action;
@@ -390,6 +453,7 @@ export class OfficeStage {
       actionElapsed: this.elapsed - rig.actionStartedAt,
       seat: action === null || seatHeight === null ? null : fitSeat(avatar.legs, seatHeight),
       keystrokes: rig.keystrokes,
+      carrying: rig.mug.inHand,
     });
     rig.poseApplier.apply(avatar.poseTarget, pose, delta);
 
@@ -405,6 +469,25 @@ export class OfficeStage {
     const happy = rig.expressions.happy ?? 0;
     avatar.setExpressions(rig.expressions, rig.blink.weightAt(this.elapsed + phaseOffset) * (1 - happy));
     avatar.update(delta);
+
+    // Board work needs the hand free; otherwise the action's own prop wins over a carried mug.
+    const held =
+      action !== null && usesHandIk(action) ? null : (propForAction(action) ?? (rig.mug.inHand ? "mug" : null));
+    rig.props.show(held);
+    rig.props.follow(rig.hand, actor.yaw);
+  }
+
+  private updateMug(memberId: MemberId, rig: MemberRig, arrived: boolean, departedFrom: StationId | null): void {
+    const workstation = memberId in this.office.workstations ? this.office.workstations[memberId as DeskMember] : null;
+    rig.mug = stepMug(rig.mug, {
+      desk: workstation === null ? null : (`desk-${memberId}` as StationId),
+      target: rig.actor.target,
+      arrived,
+      departedFrom,
+    });
+    if (workstation !== null) {
+      workstation.mug.visible = rig.mug.onDesk;
+    }
   }
 
   /** TV, arcade and rack react to whoever is using them, so the props look switched on by people. */
@@ -459,6 +542,23 @@ export class OfficeStage {
     return this.office.closeups[memberId];
   }
 
+  /** Dims the room toward night and lets the neon take over, following the clock. */
+  private applyDaylight(): void {
+    const night = nightFactor(this.clock());
+    const mix = (key: keyof typeof lighting.day): number =>
+      lighting.day[key] + (lighting.night[key] - lighting.day[key]) * night;
+    this.hemisphere.intensity = mix("hemisphere");
+    this.sun.intensity = mix("sun");
+    this.sun.color.copy(sunDay).lerp(sunNight, night);
+    this.windowFill.intensity = mix("windowFill");
+    for (const light of this.neonGlow) {
+      light.intensity = mix("neonGlow");
+    }
+    this.renderer.toneMappingExposure = mix("exposure");
+    this.office.setNight(night);
+    this.night = night;
+  }
+
   /** A slow sway around the default angle once nobody has touched the camera for a while. */
   private drift(delta: number, now: number): void {
     if (now - this.lastInputAt < idleDriftAfterMs) {
@@ -480,6 +580,11 @@ export class OfficeStage {
       this.updateMember(memberId, delta, now);
     }
     this.updateProps(delta);
+    if (now - this.lastDaylightAt > 1000) {
+      this.lastDaylightAt = now;
+      this.applyDaylight();
+    }
+    this.office.neon.update(this.elapsed, this.night);
     this.focus = this.chooseFocus(now);
     this.drift(delta, now);
     this.controls.update(delta);

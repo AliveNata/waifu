@@ -61,6 +61,20 @@ export function unlit(map: Texture, transparent = false): MeshBasicMaterial {
   return new MeshBasicMaterial({ map, toneMapped: false, transparent });
 }
 
+/**
+ * Printed or written surfaces (boards, sticky notes): lit by the room like paper, with a faint
+ * self-glow so the writing stays legible in shade. Unlike screens they dim when the room goes dark.
+ */
+export function printed(map: Texture): MeshStandardMaterial {
+  return new MeshStandardMaterial({
+    map,
+    roughness: 0.85,
+    emissive: new Color("#ffffff"),
+    emissiveMap: map,
+    emissiveIntensity: 0.3,
+  });
+}
+
 export function mesh(geometry: BufferGeometry, material: Material, castShadow = true): Mesh {
   const part = new Mesh(geometry, material);
   part.castShadow = castShadow;

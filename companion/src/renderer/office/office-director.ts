@@ -24,7 +24,9 @@ export type OfficeAction =
   | "lounge"
   | "selfie"
   | "rack"
-  | "chat";
+  | "chat"
+  | "meeting"
+  | "pingpong";
 
 export interface MemberPlan {
   station: StationId;
@@ -73,4 +75,27 @@ export function memberPlan(
 /** Actions where the right hand is placed by IK onto a board instead of by the pose. */
 export function usesHandIk(action: OfficeAction): boolean {
   return action === "draw" || action === "stick";
+}
+
+export type HandPropKind = "mug" | "paddle" | "phone" | "book" | "can" | "controller";
+
+/** The prop an action puts in the right hand, or null for empty-handed actions. */
+export function propForAction(action: OfficeAction | null): HandPropKind | null {
+  switch (action) {
+    case "brew":
+      return "mug";
+    case "read":
+      return "book";
+    case "lounge":
+    case "selfie":
+      return "phone";
+    case "water":
+      return "can";
+    case "game":
+      return "controller";
+    case "pingpong":
+      return "paddle";
+    default:
+      return null;
+  }
 }

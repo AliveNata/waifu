@@ -13,7 +13,19 @@ export interface Point {
   z: number;
 }
 
-export const room = { minX: -7, maxX: 7, minZ: -5, maxZ: 4, wallHeight: 3 } as const;
+/** Walls are 2.2 m: tall for a chibi, but not so tall the room swallows them like a warehouse. */
+export const room = { minX: -7, maxX: 7, minZ: -5, maxZ: 4, wallHeight: 2.2 } as const;
+
+/**
+ * Everything is sized for chibi people, not adults. A standing chibi is about 1.05 m with its
+ * eyes near 0.88 m; seated, the eyes sit near 0.72 m and the hands reach up to about 1.0 m.
+ * Work surfaces, screens and boards are placed against these numbers, so nobody types into a
+ * counter at chin height or watches a screen above their head.
+ */
+export const chibi = { standing: 1.05, eye: 0.88, seatedEye: 0.72, reach: 1.0 } as const;
+
+/** Heights of the surfaces people use, scaled from adult furniture by roughly 0.65. */
+export const surface = { desk: 0.55, counter: 0.58, barTable: 0.72, pingpong: 0.48, coffeeTable: 0.26 } as const;
 
 /** Yaw that faces the camera, which looks in along the +x/+z diagonal. */
 export const facingCamera = Math.PI / 4;
@@ -47,7 +59,10 @@ export type FurnitureKind =
   | "kanban"
   | "ring-light"
   | "camera-tripod"
-  | "backdrop";
+  | "backdrop"
+  | "meeting-table"
+  | "pingpong-table"
+  | "printer-cabinet";
 
 export interface Furniture {
   id: string;
@@ -60,7 +75,10 @@ export interface Furniture {
   depth: number;
   /** Yaw the piece faces (its "front"), same convention as stations. */
   yaw: number;
-  /** False for things people walk over or through: rugs, wall-mounted boards, seats they sit in. */
+  /**
+   * False only for things people walk over, such as rugs. Seats block too: their sitter steps
+   * onto the spot from the approach point as the last move, everybody else walks around.
+   */
   blocksWalking: boolean;
 }
 
@@ -89,7 +107,14 @@ export type StationId =
   | "selfie"
   | "plant-lounge"
   | "plant-corner"
-  | "plant-desks";
+  | "plant-desks"
+  | "plant-center"
+  | "meeting-1"
+  | "meeting-2"
+  | "meeting-3"
+  | "meeting-4"
+  | "pingpong-west"
+  | "pingpong-east";
 
 export interface Station {
   id: StationId;
@@ -108,7 +133,8 @@ const deskRowAisleZ = -3.0;
 export const chairSeatHeight = 0.28;
 const sofaSeatHeight = 0.26;
 const stoolSeatHeight = 0.42;
-const beanbagSeatHeight = 0.14;
+/** The cushion surface of the reshaped beanbag, so sitters rest on it instead of sinking in. */
+const beanbagSeatHeight = 0.17;
 
 /** x of each back-row desk, left to right. Yor sits next to her server rack. */
 export const deskRowX = { asuna: -2.7, kobayashi: -0.7, erza: 1.3, yor: 3.3 } as const;
@@ -133,11 +159,19 @@ const deskRow: Furniture[] = (Object.entries(deskRowX) as [keyof typeof deskRowX
     width: 0.5,
     depth: 0.5,
     yaw: facing.backWall,
-    blocksWalking: false,
+    blocksWalking: true,
   },
 ]);
 
 const frontDeskZ = 1.95;
+
+/** Chairs around the meeting table: two on the back side facing the camera, two on the front side. */
+const meetingSeats = [
+  { x: -1.1, z: -2.05, yaw: facing.camera },
+  { x: -0.1, z: -2.05, yaw: facing.camera },
+  { x: -1.1, z: -0.55, yaw: facing.backWall },
+  { x: -0.1, z: -0.55, yaw: facing.backWall },
+] as const;
 
 export const furniture: readonly Furniture[] = [
   ...deskRow,
@@ -160,7 +194,7 @@ export const furniture: readonly Furniture[] = [
     width: 0.5,
     depth: 0.5,
     yaw: facing.camera,
-    blocksWalking: false,
+    blocksWalking: true,
   },
   {
     id: "backdrop",
@@ -202,7 +236,7 @@ export const furniture: readonly Furniture[] = [
     yaw: facing.backWall,
     blocksWalking: true,
   },
-  { id: "chair-twob", kind: "chair", x: 2.4, z: 1.4, width: 0.5, depth: 0.5, yaw: facing.camera, blocksWalking: false },
+  { id: "chair-twob", kind: "chair", x: 2.4, z: 1.4, width: 0.5, depth: 0.5, yaw: facing.camera, blocksWalking: true },
   { id: "kanban", kind: "kanban", x: 2.4, z: 0.55, width: 1.3, depth: 0.12, yaw: facing.camera, blocksWalking: true },
 
   {
@@ -246,7 +280,7 @@ export const furniture: readonly Furniture[] = [
     width: 0.36,
     depth: 0.36,
     yaw: facing.right,
-    blocksWalking: false,
+    blocksWalking: true,
   },
   {
     id: "stool-right",
@@ -256,7 +290,7 @@ export const furniture: readonly Furniture[] = [
     width: 0.36,
     depth: 0.36,
     yaw: facing.leftWall,
-    blocksWalking: false,
+    blocksWalking: true,
   },
 
   {
@@ -265,7 +299,8 @@ export const furniture: readonly Furniture[] = [
     x: -6.95,
     z: -2.0,
     width: 0.1,
-    depth: 2.6,
+    // 2.2 x 0.85 m keeps the canvas aspect while the top edge stays inside a chibi's reach.
+    depth: 2.2,
     yaw: facing.right,
     blocksWalking: true,
   },
@@ -275,19 +310,19 @@ export const furniture: readonly Furniture[] = [
     x: -6.95,
     z: 0.55,
     width: 0.1,
-    depth: 1.6,
+    depth: 1.3,
     yaw: facing.right,
     blocksWalking: true,
   },
   {
     id: "beanbag-chizuru",
     kind: "beanbag",
-    x: -5.6,
-    z: 0.95,
+    x: -5.55,
+    z: 0.85,
     width: 0.7,
     depth: 0.7,
     yaw: facingCamera,
-    blocksWalking: false,
+    blocksWalking: true,
   },
 
   { id: "tv-wall", kind: "tv-wall", x: -6.95, z: 2.95, width: 0.1, depth: 1.7, yaw: facing.right, blocksWalking: true },
@@ -316,12 +351,12 @@ export const furniture: readonly Furniture[] = [
   {
     id: "beanbag-lounge",
     kind: "beanbag",
-    x: -5.5,
+    x: -5.4,
     z: 1.9,
     width: 0.7,
     depth: 0.7,
     yaw: facing.leftWall,
-    blocksWalking: false,
+    blocksWalking: true,
   },
 
   {
@@ -352,6 +387,70 @@ export const furniture: readonly Furniture[] = [
     width: 0.4,
     depth: 0.4,
     yaw: facing.camera,
+    blocksWalking: true,
+  },
+  {
+    id: "plant-center",
+    kind: "plant",
+    x: 1.45,
+    z: -0.35,
+    width: 0.5,
+    depth: 0.5,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  // Center of the room: a team table for standups and laptop work, and a ping-pong table for two.
+  {
+    id: "meeting-table",
+    kind: "meeting-table",
+    x: -0.6,
+    z: -1.3,
+    width: 2.0,
+    depth: 0.9,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  ...meetingSeats.map(
+    (seat, index): Furniture => ({
+      id: `chair-meeting-${index + 1}`,
+      kind: "chair",
+      x: seat.x,
+      z: seat.z,
+      width: 0.5,
+      depth: 0.5,
+      yaw: seat.yaw,
+      blocksWalking: true,
+    }),
+  ),
+  {
+    id: "pingpong-table",
+    kind: "pingpong-table",
+    x: 3.3,
+    z: -1.2,
+    width: 1.5,
+    depth: 0.85,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  // Printer cabinets: one in the back row next to Erza, one beside 2B's desk.
+  {
+    id: "printer-back",
+    kind: "printer-cabinet",
+    x: 0.3,
+    z: -4.6,
+    width: 0.36,
+    depth: 0.6,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  {
+    id: "printer-twob",
+    kind: "printer-cabinet",
+    x: 1.15,
+    z: 1.95,
+    width: 0.45,
+    depth: 0.5,
+    yaw: facing.backWall,
     blocksWalking: true,
   },
   {
@@ -412,9 +511,9 @@ export const stations: Record<StationId, Station> = {
   "idea-board": standing("idea-board", { x: boardStandX, z: 0.4 }, facing.leftWall),
   "beanbag-chizuru": {
     id: "beanbag-chizuru",
-    spot: { x: -5.6, z: 0.95 },
+    spot: { x: -5.55, z: 0.85 },
     facing: facingCamera,
-    approach: { x: -5.0, z: 0.7 },
+    approach: { x: -4.95, z: 0.6 },
     seatHeight: beanbagSeatHeight,
   },
   front: standing("front", { x: 0.4, z: 3.0 }, facingCamera),
@@ -457,9 +556,9 @@ export const stations: Record<StationId, Station> = {
   },
   "beanbag-lounge": {
     id: "beanbag-lounge",
-    spot: { x: -5.5, z: 1.9 },
+    spot: { x: -5.4, z: 1.9 },
     facing: facing.leftWall,
-    approach: { x: -4.9, z: 1.7 },
+    approach: { x: -4.75, z: 1.7 },
     seatHeight: beanbagSeatHeight,
   },
   arcade: standing("arcade", { x: 6.35, z: -3.8 }, facing.backWall),
@@ -473,7 +572,32 @@ export const stations: Record<StationId, Station> = {
   ),
   "plant-corner": standing("plant-corner", { x: 5.85, z: 3.05 }, yawToward({ x: 5.85, z: 3.05 }, { x: 6.4, z: 3.4 })),
   "plant-desks": standing("plant-desks", { x: 4.55, z: -3.9 }, facing.backWall),
+  "plant-center": standing("plant-center", { x: 1.45, z: 0.25 }, facing.backWall),
+  ...meetingStations(),
+  // Players stand off each end of the table, facing each other across it.
+  "pingpong-west": standing("pingpong-west", { x: 2.2, z: -1.2 }, facing.right),
+  "pingpong-east": standing("pingpong-east", { x: 4.4, z: -1.2 }, facing.leftWall),
 };
+
+function meetingStations(): Record<"meeting-1" | "meeting-2" | "meeting-3" | "meeting-4", Station> {
+  const ids = ["meeting-1", "meeting-2", "meeting-3", "meeting-4"] as const;
+  return Object.fromEntries(
+    meetingSeats.map((seat, index) => {
+      const id = ids[index] as (typeof ids)[number];
+      const backSide = seat.yaw === facing.camera;
+      return [
+        id,
+        {
+          id,
+          spot: { x: seat.x, z: seat.z },
+          facing: seat.yaw,
+          approach: { x: seat.x, z: backSide ? seat.z - 0.55 : seat.z + 0.55 },
+          seatHeight: chairSeatHeight,
+        },
+      ];
+    }),
+  ) as Record<(typeof ids)[number], Station>;
+}
 
 export function distance(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.z - b.z);
