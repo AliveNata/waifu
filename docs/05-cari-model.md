@@ -36,7 +36,7 @@ Dicari lewat mesin pencari, karena halaman BOOTH dan VRoid Hub nggak bisa dibuka
    ```
    Kalau hasil script beda sama halaman VRoid Hub, ikutin halamannya.
 7. **Catat kredit** buat model yang wajib kredit di `models/CREDITS.md`: nama karakter, nama creator, dan link model. Kredit ini perlu ditampilin kalau lo nunjukin avatarnya ke orang lain, misalnya di screenshot atau video.
-8. **Pasang ke companion:** **Menu > Pilih model .vrm > nama anggota**. Di mode web, pakai tombol **Model** di halaman kantor.
+8. **Pasang ke companion:** cukup restart companion. File di `models/` yang namanya sesuai anggota (`2b.vrm`, `chizuru.vrm`, `rias.vrm`, `asuna.vrm`, `kobayashi.vrm`, `yor.vrm`, `erza.vrm`, `ruby.vrm`) langsung kepakai. Kalau mau pakai file dengan nama atau lokasi lain, pilih lewat **Menu > Pilih model .vrm > nama anggota**, dan pilihan dari menu ini yang dipakai.
 
 Urutan yang disaranin: 2B dulu, karena dia yang muncul di overlay utama. Abis itu Ruby dan anggota yang paling sering lo panggil.
 
@@ -88,8 +88,8 @@ Dua hal yang tetap berlaku apa pun hasil script-nya:
 
 ## Pasang model ke companion
 
-1. Simpan `.vrm` di folder `models/` di root repo. Folder itu udah di-gitignore.
-2. Di companion, buka **Menu > Pilih model .vrm**, lalu pilih anggota tim yang mau dipasangin model.
+1. Simpan `.vrm` di folder `models/` di root repo dengan nama anggota, misalnya `models/2b.vrm`. Folder itu udah di-gitignore. Companion otomatis makai file itu pas dibuka.
+2. Kalau file-nya di tempat lain, buka **Menu > Pilih model .vrm**, lalu pilih anggota tim yang mau dipasangin model. Pilihan dari menu menang atas file di `models/`.
 3. Overlay pakai model 2B. Kantor pakai model semua anggota, dan yang belum punya tetap tampil sebagai placeholder.
 
 Kalau model gagal dimuat, kantor nampilin pesan di chip status dan anggota itu balik ke placeholder.

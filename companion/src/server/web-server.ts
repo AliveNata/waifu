@@ -8,6 +8,7 @@ import { resolve } from "node:path";
 import { resolveHookPort } from "../shared/protocol.js";
 import { type MemberId, memberIds } from "../shared/team.js";
 import { findBaseModel, repoRootFrom } from "../tools/base-model.js";
+import { findMemberModel } from "../tools/member-models.js";
 import { HookServer } from "./hook-server.js";
 
 const staticDir = resolve(import.meta.dirname, "../../renderer");
@@ -21,6 +22,10 @@ for (const memberId of memberIds) {
   const envVar = modelEnvVar(memberId);
   const path = process.env[envVar];
   if (path === undefined || path === "") {
+    const dropped = findMemberModel(repoRootFrom(import.meta.dirname), memberId);
+    if (dropped !== null) {
+      modelPaths[memberId] = dropped;
+    }
     continue;
   }
   if (!existsSync(path)) {

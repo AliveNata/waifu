@@ -13,6 +13,7 @@ import {
 import type { CompanionSignal } from "../shared/reaction.js";
 import { isMemberId, type MemberId, memberIds, roster } from "../shared/team.js";
 import { findBaseModel, repoRootFrom } from "../tools/base-model.js";
+import { findMemberModel } from "../tools/member-models.js";
 import { type CompanionSettings, loadSettings, saveSettings } from "./settings-store.js";
 
 const overlaySize = { width: 340, height: 440 };
@@ -205,7 +206,7 @@ function showMenu(window: BrowserWindow): void {
     {
       label: "Pilih model .vrm",
       submenu: memberIds.map((memberId) => ({
-        label: `${roster[memberId].displayName} (${roster[memberId].role})${settings.modelPaths[memberId] === undefined ? "" : "  \u2713"}`,
+        label: `${roster[memberId].displayName} (${roster[memberId].role})${modelPathFor(memberId) === null ? "" : "  \u2713"}`,
         click: () => {
           pickModelFile(window, memberId)
             .then((selected) => {
@@ -277,13 +278,18 @@ function startCursorTracking(): NodeJS.Timeout {
   }, cursorPollMs);
 }
 
+/** A model picked in the menu wins over one dropped into models/ under the member's name. */
+function modelPathFor(memberId: MemberId): string | null {
+  return settings.modelPaths[memberId] ?? findMemberModel(repoRootFrom(import.meta.dirname), memberId);
+}
+
 function registerIpc(): void {
   ipcMain.handle(ipcChannels.loadSavedModel, async (_event, memberId: unknown) => {
     if (!isMemberId(memberId)) {
       throw new Error(`unknown member: ${String(memberId)}`);
     }
-    const modelPath = settings.modelPaths[memberId];
-    return modelPath === undefined ? null : readModel(modelPath);
+    const modelPath = modelPathFor(memberId);
+    return modelPath === null ? null : readModel(modelPath);
   });
   ipcMain.handle(ipcChannels.pickModel, async (event, memberId: unknown) => {
     if (!isMemberId(memberId)) {
