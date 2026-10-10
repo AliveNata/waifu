@@ -108,6 +108,29 @@ Pas ada yang kerja, panel **close-up** muncul sendiri di pojok kanan bawah dan n
 
 Obrolan tim yang sama dengan overlay kanan atas juga tampil di kantor, nempel di atas panel close-up. Kalau close-up lagi nggak tampil, kotak obrolannya turun ke posisi close-up.
 
+## Chat ke 2B dari kantor
+
+Lo bisa ngasih tugas langsung dari kantor tanpa buka terminal. Panel **Chat ke 2B** ada di kiri bawah.
+
+1. Klik **Pilih folder**, terus pilih folder project lo. 2B cuma kerja di folder itu.
+2. Ketik tugasnya, tekan Enter (Shift+Enter buat baris baru).
+3. Balasan 2B muncul sambil diketik. Tiap tool yang dipakai muncul sebagai baris kecil, misalnya `Bash: npm test`.
+4. Kalau 2B butuh izin, muncul **kartu hijau** isinya nama tool dan command lengkapnya. Klik **Izinkan** atau **Tolak**. Pakai keyboard: kartunya langsung dapat fokus, Tab sekali ke Izinkan, dua kali ke Tolak.
+5. **Stop** ngehentiin kerjaan yang lagi jalan. **Chat baru** mulai obrolan dari nol di folder yang sama.
+
+Tombol **Tutup chat** dan **Buka chat** di kanan bawah buat nyembunyiin atau nampilin panelnya. Bisa juga lewat **Menu > Chat ke Claude di kantor**.
+
+Cara kerjanya:
+- Tiap pesan ngejalanin `claude -p` (Claude Code yang sudah ke-install di PC lo) di folder yang dipilih, lalu nyambung obrolan sebelumnya lewat `--resume`. Jadi pakai **login dan kuota Claude Code lo sendiri**, nggak ada API key atau tagihan terpisah.
+- Mode izinnya dikunci ke `default`, jadi tiap tool yang biasanya nanya izin di terminal bakal muncul sebagai kartu. Allow rules di `settings.json` lo tetap berlaku, jadi command yang sudah lo izinkan permanen nggak nanya lagi.
+- Kartu izin dikirim lewat hook `PermissionRequest` khusus sesi ini, ke server lokal companion, pakai token acak yang baru tiap companion jalan. Session Claude Code di terminal nggak kena hook ini.
+- Hooks lo yang biasa tetap jalan, jadi 2B dan tim di kantor tetap gerak sesuai kerjaan.
+- Kalau kantor ditutup, chat dimatiin, atau 2B nunggu izin lebih dari 10 menit, permintaan izin otomatis ditolak.
+
+Batasannya:
+- Cuma ada di aplikasi Electron (`npm start`). Mode browser nggak punya chat, soalnya chat ini ngejalanin Claude Code di PC lo, dan itu nggak aman dibuka lewat halaman web.
+- Mode `-p` nggak nampilin dialog trust folder. Hooks dan `.mcp.json` di folder yang lo pilih langsung jalan, jadi **pilih folder project lo sendiri aja**, jangan folder hasil download orang.
+
 ## Kebutuhan
 
 - Windows 10 atau 11.
@@ -209,6 +232,9 @@ Lalu buka `http://127.0.0.1:47823/overlay/`, `http://127.0.0.1:47823/team-overla
 | Pose aneh (tangan nembus badan, duduk melayang) | Proporsi model beda jauh dari default VRoid | Kasih tau gua, angka pose bisa diatur |
 | Kantor masih kotak-kotak, ada chip "Model anime belum ada" | Model cadangan belum didownload | `npm run fetch-base-model`, lalu buka ulang companion |
 | Overlay tim nggak pernah muncul | Nggak ada subagent yang dipanggil, atau hooks lama tanpa `SubagentStart` | Minta 2B delegasi, atau jalanin `npm run hooks:install` |
+| Chat bilang "Claude Code nggak ketemu" | `claude` nggak ada di PATH | Jalanin `claude --version` di PowerShell. Kalau install-nya di tempat lain, set `WAIFU_CLAUDE_COMMAND` ke path lengkap `claude.exe` |
+| Chat bilang "belum login" | Claude Code belum pernah login di PC ini | Jalanin `claude` sekali di terminal dan login |
+| Semua izin langsung ditolak tanpa kartu | `allowedHttpHookUrls` di settings lo nggak masukin server companion | Tambahin `http://127.0.0.1:47823/*` (atau port lo) ke daftar itu |
 
 ## Buat developer
 

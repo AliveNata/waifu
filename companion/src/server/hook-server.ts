@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
@@ -8,6 +9,19 @@ import { type CompanionSignal, signalsForHook } from "../shared/reaction.js";
 import { isMemberId, type MemberId } from "../shared/team.js";
 
 const maxBodyBytes = 16 * 1024;
+/** Permission requests carry the tool input, and a Write call holds the whole file. */
+const maxPermissionBodyBytes = 2 * 1024 * 1024;
+export const permissionPath = "/office-permission";
+export const permissionTokenHeader = "x-office-token";
+
+/**
+ * Answers a PermissionRequest hook from a chat run the office started. Resolves
+ * with the hook's JSON response; the signal aborts when the CLI stops waiting.
+ */
+export interface PermissionEndpoint {
+  token: string;
+  handle(toolName: string, input: unknown, signal: AbortSignal): Promise<unknown>;
+}
 
 export interface WebModeOptions {
   /** Built renderer directory (dist/renderer). */
@@ -29,6 +43,8 @@ export interface HookServerOptions {
    * so the terminal shows whether Claude Code reaches the companion. Never content.
    */
   log?: (line: string) => void;
+  /** Only set by Electron, which runs the office chat. */
+  permissions?: PermissionEndpoint;
 }
 
 interface HookServerEvents {
@@ -107,6 +123,10 @@ export class HookServer extends EventEmitter<HookServerEvents> {
       await this.handleHook(request, response);
       return;
     }
+    if (request.method === "POST" && url.pathname === permissionPath && this.options.permissions !== undefined) {
+      await this.handlePermission(request, response, this.options.permissions);
+      return;
+    }
     if (request.method === "GET" && url.pathname === "/healthz") {
       sendJson(response, 200, { ok: true });
       return;
@@ -178,6 +198,44 @@ export class HookServer extends EventEmitter<HookServerEvents> {
     sendJson(response, 202, { ok: true, signals: signals.map((signal) => signal.kind) });
   }
 
+  private async handlePermission(
+    request: IncomingMessage,
+    response: ServerResponse,
+    endpoint: PermissionEndpoint,
+  ): Promise<void> {
+    if (!tokenMatches(request.headers[permissionTokenHeader], endpoint.token)) {
+      sendJson(response, 403, { ok: false, error: "unknown chat session" });
+      return;
+    }
+    const body = await readBody(request, maxPermissionBodyBytes);
+    if (body === null) {
+      sendJson(response, 413, { ok: false, error: `body larger than ${maxPermissionBodyBytes} bytes` });
+      return;
+    }
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(body) as Record<string, unknown>;
+    } catch (error) {
+      sendJson(response, 400, { ok: false, error: `invalid JSON: ${(error as Error).message}` });
+      return;
+    }
+    if (typeof payload !== "object" || payload === null || typeof payload.tool_name !== "string") {
+      sendJson(response, 400, { ok: false, error: "tool_name is required" });
+      return;
+    }
+    // The CLI closes the request when its hook timeout runs out; the card then turns into a deny.
+    const aborter = new AbortController();
+    response.on("close", () => {
+      if (!response.writableEnded) {
+        aborter.abort();
+      }
+    });
+    const decision = await endpoint.handle(payload.tool_name, payload.tool_input, aborter.signal);
+    if (!aborter.signal.aborted) {
+      sendJson(response, 200, decision);
+    }
+  }
+
   private openEventStream(response: ServerResponse): void {
     response.writeHead(200, {
       "content-type": "text/event-stream",
@@ -195,6 +253,15 @@ export class HookServer extends EventEmitter<HookServerEvents> {
       client.write(frame);
     }
   }
+}
+
+function tokenMatches(header: string | string[] | undefined, token: string): boolean {
+  if (typeof header !== "string") {
+    return false;
+  }
+  const given = Buffer.from(header);
+  const expected = Buffer.from(token);
+  return given.length === expected.length && timingSafeEqual(given, expected);
 }
 
 function sendJson(response: ServerResponse, status: number, body: unknown): void {

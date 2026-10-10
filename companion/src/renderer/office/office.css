@@ -86,3 +86,242 @@
   outline: 2px solid var(--focus-halo);
   outline-offset: -4px;
 }
+
+/*
+ * Office chat (antislop R-31):
+ * - Bottom-left, opposite the close-up, so the speaker's screen and your chat never cover each other.
+ * - Light panel like the other dialogs: it is a tool you read, not a character speaking (that is the navy box).
+ * - Green stays the "2B needs you" signal: only the permission card uses it.
+ * - Dial ENERGY 1 / RHYTHM 1 / MOTION 1: a work tool, no animation beyond the reply text streaming in.
+ */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.chat {
+  position: absolute;
+  left: 16px;
+  bottom: 76px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* Leaves room for the close-up, which takes up to 42% of the width on the right. */
+  width: min(380px, calc(58vw - 40px));
+  max-height: min(560px, calc(100% - 100px));
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--panel-bg);
+  color: var(--panel-ink);
+  font-size: 13px;
+}
+
+.chat[hidden] {
+  display: none;
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.chat-title {
+  margin: 0 auto 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* In a small window the folder button already says where 2B works; the title stays for screen readers. */
+@media (max-width: 640px) {
+  .chat-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .chat-header {
+    justify-content: space-between;
+  }
+}
+
+/* Quiet text buttons: still 44px tall to hit, but they should not compete with Kirim. */
+.chat-link {
+  min-height: 44px;
+  max-width: 50%;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--panel-ink);
+  font: 600 12px var(--font-ui);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chat-link:disabled {
+  color: var(--panel-muted);
+  cursor: not-allowed;
+}
+
+.chat-link:focus-visible,
+.chat-input:focus-visible,
+.chat-permission:focus-visible {
+  outline: 2px solid var(--focus-halo);
+  outline-offset: 2px;
+}
+
+.chat-problem,
+.chat-empty,
+.chat-working {
+  margin: 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.chat-problem {
+  color: var(--error-bg);
+  font-weight: 600;
+}
+
+.chat-empty,
+.chat-working {
+  color: var(--panel-muted);
+}
+
+.chat-problem[hidden],
+.chat-empty[hidden],
+.chat-working[hidden] {
+  display: none;
+}
+
+.chat-log {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.chat-log:empty {
+  display: none;
+}
+
+.chat-entry {
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-speaker {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--panel-muted);
+}
+
+.chat-note {
+  color: var(--panel-muted);
+  font-size: 12px;
+}
+
+.chat-note[data-tone="error"] {
+  color: var(--error-bg);
+  font-weight: 600;
+}
+
+.chat-permission {
+  padding: 10px;
+  border: 2px solid var(--attention-bg);
+  border-radius: var(--radius);
+}
+
+.chat-permission-title {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+
+.chat-permission pre {
+  max-height: 160px;
+  margin: 0 0 8px;
+  padding: 8px;
+  overflow: auto;
+  border-radius: var(--radius);
+  background: rgb(0 0 0 / 0.06);
+  font:
+    12px / 1.4 Consolas,
+    "Cascadia Mono",
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-permission-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-permission .allow {
+  background: var(--attention-bg);
+  color: #ffffff;
+}
+
+.chat-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.chat-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  max-height: 120px;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-muted);
+  border-radius: var(--radius);
+  background: var(--panel-bg);
+  color: var(--panel-ink);
+  font: 13px / 1.4 var(--font-ui);
+  resize: vertical;
+}
+
+.chat-input::placeholder {
+  color: var(--panel-muted);
+}
+
+.chat-stop {
+  background: var(--error-bg);
+  color: #ffffff;
+}
+
+.hud-button {
+  flex-shrink: 0;
+  background: var(--chip-bg);
+  color: var(--chip-ink);
+}
+
+@media (prefers-color-scheme: dark) {
+  .chat-problem,
+  .chat-note[data-tone="error"] {
+    color: #f0a3a3;
+  }
+
+  .chat-permission pre {
+    background: rgb(255 255 255 / 0.08);
+  }
+}

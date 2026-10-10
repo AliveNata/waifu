@@ -11,6 +11,7 @@ import { ReactionTracker } from "../common/reaction-tracker.js";
 import { requireElement, StatusChip } from "../common/status-chip.js";
 import { loadVrm } from "../common/vrm-loader.js";
 import { VrmOfficeAvatar } from "./avatar.js";
+import { ChatPanel } from "./chat-panel.js";
 import { closeupRect, OfficeStage } from "./office-stage.js";
 
 class OfficePage {
@@ -244,4 +245,6 @@ const canvas = document.getElementById("scene");
 if (!(canvas instanceof HTMLCanvasElement)) {
   throw new Error("#scene canvas is missing");
 }
+// Started before the 3D scene, so the chat still works on a machine where WebGL fails.
+new ChatPanel(bridge).start();
 new OfficePage(bridge, canvas).start();

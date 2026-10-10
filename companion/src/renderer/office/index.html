@@ -25,8 +25,29 @@
         <p class="dialog-text"></p>
         <p class="dialog-tag" hidden>simulasi</p>
       </section>
+      <section class="chat" id="chat" aria-labelledby="chat-title" hidden>
+        <header class="chat-header">
+          <h2 class="chat-title" id="chat-title">Chat ke 2B</h2>
+          <button class="chat-link" id="chat-folder" type="button">Pilih folder</button>
+          <button class="chat-link" id="chat-new" type="button">Chat baru</button>
+        </header>
+        <p class="chat-problem" id="chat-problem" hidden></p>
+        <p class="chat-empty" id="chat-empty"></p>
+        <ol class="chat-log" id="chat-log" aria-label="Isi obrolan"></ol>
+        <p class="chat-working" id="chat-working" hidden></p>
+        <form class="chat-form" id="chat-form">
+          <label class="visually-hidden" for="chat-input">Pesan buat 2B</label>
+          <textarea class="chat-input" id="chat-input" rows="2" placeholder="Tugas buat 2B"></textarea>
+          <button class="button" id="chat-send" type="submit">Kirim</button>
+          <button class="button chat-stop" id="chat-stop" type="button" hidden>Stop</button>
+        </form>
+        <p class="visually-hidden" id="chat-announce" aria-live="polite"></p>
+      </section>
       <div class="hud">
         <p class="status" id="status" role="status" hidden></p>
+        <button class="button hud-button" id="chat-toggle" type="button" aria-expanded="false" aria-controls="chat" hidden>
+          Buka chat
+        </button>
         <button class="button menu-button" id="menu-button" type="button">Menu</button>
       </div>
       <dialog class="model-dialog" id="model-dialog" aria-labelledby="model-dialog-title">

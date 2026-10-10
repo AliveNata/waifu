@@ -25,6 +25,9 @@ describe("settings store", () => {
       officeOpen: true,
       conversationMode: "real" as const,
       closeupEnabled: false,
+      chatEnabled: false,
+      chatProjectDir: "C:/work/waifu",
+      chatSessionId: "session-1",
     };
 
     // Act

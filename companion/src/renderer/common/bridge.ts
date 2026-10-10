@@ -162,6 +162,44 @@ function createWebBridge(): RendererBridge {
       closeupListeners.add(listener);
       return () => closeupListeners.delete(listener);
     },
+    // The chat runs Claude Code on this machine, so it lives in Electron only: a browser
+    // tab talking to it over HTTP would be one DNS-rebinding page away from a stranger.
+    async getChatEnabled() {
+      return false;
+    },
+    setChatEnabled() {
+      console.warn("[bridge] the office chat is only available in the Electron app");
+    },
+    onChatEnabled() {
+      return () => undefined;
+    },
+    async getChatStatus() {
+      return { state: "unavailable", projectDir: null, problem: "Chat ke Claude cuma ada di aplikasi Electron." };
+    },
+    onChatStatus() {
+      return () => undefined;
+    },
+    onChatEvent() {
+      return () => undefined;
+    },
+    async getChatHistory() {
+      return [];
+    },
+    sendChat() {
+      throw new Error("the office chat is only available in the Electron app");
+    },
+    stopChat() {
+      throw new Error("the office chat is only available in the Electron app");
+    },
+    newChat() {
+      throw new Error("the office chat is only available in the Electron app");
+    },
+    async pickChatProject() {
+      throw new Error("the office chat is only available in the Electron app");
+    },
+    answerPermission() {
+      throw new Error("the office chat is only available in the Electron app");
+    },
     setTeamOverlayVisible() {
       // A browser tab has no window to hide; the page hides its own content instead.
     },

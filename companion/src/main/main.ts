@@ -1,7 +1,10 @@
+import { randomBytes } from "node:crypto";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { app, BrowserWindow, dialog, ipcMain, Menu, screen } from "electron";
-import { HookServer } from "../server/hook-server.js";
+import { HookServer, permissionPath } from "../server/hook-server.js";
+import type { ChatEvent } from "../shared/office-chat.js";
 import {
   type CursorOffset,
   type HookServerStatus,
@@ -14,6 +17,9 @@ import type { CompanionSignal } from "../shared/reaction.js";
 import { isMemberId, type MemberId, memberIds, roster } from "../shared/team.js";
 import { findBaseModel, repoRootFrom } from "../tools/base-model.js";
 import { findMemberModel } from "../tools/member-models.js";
+import { resolveClaudeCommand } from "./chat/claude-command.js";
+import { OfficeChat } from "./chat/office-chat.js";
+import { hookResponse, PermissionGate } from "./chat/permission-gate.js";
 import { type CompanionSettings, loadSettings, saveSettings } from "./settings-store.js";
 
 const overlaySize = { width: 340, height: 440 };
@@ -31,6 +37,13 @@ let officeWindow: BrowserWindow | null = null;
 let teamOverlayWindow: BrowserWindow | null = null;
 let serverStatus: HookServerStatus;
 let isQuitting = false;
+const permissionGate = new PermissionGate();
+/** Proves a permission request came from a chat run this app started. New every launch. */
+const permissionToken = randomBytes(24).toString("hex");
+let officeChat: OfficeChat | null = null;
+/** The visible conversation, replayed when the office window opens again. */
+let chatHistory: ChatEvent[] = [];
+const maxChatHistory = 400;
 
 function rendererWindows(): BrowserWindow[] {
   return [overlayWindow, officeWindow, teamOverlayWindow].filter(
@@ -184,11 +197,16 @@ function openOfficeWindow(): void {
     webPreferences,
   });
   watchRenderer(officeWindow, "office");
+  // Claude Code may have been installed or logged in since the last check.
+  officeChat?.checkCli().catch((error: unknown) => console.error("[main] claude CLI check failed", error));
   officeWindow.loadFile(join(rendererDir, "office/index.html")).catch((error: unknown) => {
     console.error("[main] failed to load office page", error);
   });
   officeWindow.on("closed", () => {
     officeWindow = null;
+    // Nobody can see a permission card any more, so the run stops and open cards become denies.
+    officeChat?.stop();
+    permissionGate.denyAll("Kantor ditutup.");
     if (!isQuitting) {
       updateSettings({ officeOpen: false }).catch((error: unknown) => {
         console.error("[main] failed to save settings", error);
@@ -257,6 +275,12 @@ function showMenu(window: BrowserWindow): void {
       checked: settings.closeupEnabled,
       click: (item) => setCloseupEnabled(item.checked),
     },
+    {
+      label: "Chat ke Claude di kantor",
+      type: "checkbox",
+      checked: settings.chatEnabled,
+      click: (item) => setChatEnabled(item.checked),
+    },
     { type: "separator" },
     { label: "Keluar", click: () => app.quit() },
   ]);
@@ -295,7 +319,123 @@ function setCloseupEnabled(enabled: boolean): void {
     .catch((error: unknown) => console.error("[main] failed to save settings", error));
 }
 
+function sendToOffice(channel: string, value?: unknown): void {
+  if (officeWindow !== null && !officeWindow.isDestroyed()) {
+    officeWindow.webContents.send(channel, value);
+  }
+}
+
+function setChatEnabled(enabled: boolean): void {
+  if (!enabled) {
+    officeChat?.stop();
+    permissionGate.denyAll("Chat kantor dimatiin.");
+  }
+  updateSettings({ chatEnabled: enabled })
+    .then(() => broadcast(ipcChannels.chatEnabled, enabled))
+    .catch((error: unknown) => console.error("[main] failed to save settings", error));
+}
+
+function recordChatEvent(event: ChatEvent): void {
+  chatHistory.push(event);
+  if (chatHistory.length > maxChatHistory) {
+    chatHistory = chatHistory.slice(-maxChatHistory);
+  }
+  sendToOffice(ipcChannels.chatEvent, event);
+}
+
+function requireChat(): OfficeChat {
+  if (officeChat === null) {
+    throw new Error("office chat is not ready yet");
+  }
+  return officeChat;
+}
+
+function startOfficeChat(): void {
+  const permissionUrl =
+    serverStatus.state === "listening" ? `http://127.0.0.1:${serverStatus.port}${permissionPath}` : null;
+  const chat = new OfficeChat(
+    {
+      findCommand: () => resolveClaudeCommand(process.env, process.platform, existsSync),
+      settingsDir: app.getPath("userData"),
+      permissionUrl,
+      token: permissionToken,
+      gate: permissionGate,
+    },
+    settings.chatProjectDir,
+    settings.chatSessionId,
+  );
+  chat.on("event", recordChatEvent);
+  chat.on("status", (status) => sendToOffice(ipcChannels.chatStatus, status));
+  chat.on("session", (sessionId) => {
+    updateSettings({ chatSessionId: sessionId }).catch((error: unknown) =>
+      console.error("[main] failed to save the chat session", error),
+    );
+  });
+  permissionGate.on("ask", (ask) => recordChatEvent({ kind: "permission", ask }));
+  permissionGate.on("settled", (id, allowed) => recordChatEvent({ kind: "permission-settled", id, allowed }));
+  officeChat = chat;
+  chat.checkCli().catch((error: unknown) => console.error("[main] claude CLI check failed", error));
+}
+
+function registerChatIpc(): void {
+  ipcMain.handle(ipcChannels.getChatEnabled, () => settings.chatEnabled);
+  ipcMain.on(ipcChannels.setChatEnabled, (_event, enabled: unknown) => {
+    if (typeof enabled !== "boolean") {
+      console.error(`[main] ignoring non-boolean chat setting: ${String(enabled)}`);
+      return;
+    }
+    setChatEnabled(enabled);
+  });
+  ipcMain.handle(ipcChannels.getChatStatus, () => requireChat().status());
+  ipcMain.handle(ipcChannels.getChatHistory, () => chatHistory);
+  ipcMain.on(ipcChannels.sendChat, (_event, text: unknown) => {
+    if (typeof text !== "string") {
+      console.error("[main] ignoring a non-text chat message");
+      return;
+    }
+    if (!settings.chatEnabled) {
+      recordChatEvent({ kind: "error", message: "Chat kantor lagi dimatiin." });
+      return;
+    }
+    requireChat().send(text);
+  });
+  ipcMain.on(ipcChannels.stopChat, () => requireChat().stop());
+  ipcMain.on(ipcChannels.newChat, () => {
+    requireChat().newConversation();
+    chatHistory = [];
+  });
+  ipcMain.handle(ipcChannels.pickChatProject, async (event) => {
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    const options: Electron.OpenDialogOptions = {
+      title: "Pilih folder project buat chat kantor (cuma folder project lo sendiri)",
+      properties: ["openDirectory"],
+    };
+    const result =
+      parent === null ? await dialog.showOpenDialog(options) : await dialog.showOpenDialog(parent, options);
+    const [selected] = result.filePaths;
+    if (result.canceled || selected === undefined) {
+      return null;
+    }
+    const chat = requireChat();
+    const changed = chat.status().projectDir !== selected;
+    chat.setProjectDir(selected);
+    if (changed) {
+      chatHistory = [];
+    }
+    await updateSettings({ chatProjectDir: selected });
+    return selected;
+  });
+  ipcMain.on(ipcChannels.answerPermission, (_event, id: unknown, allowed: unknown) => {
+    if (typeof id !== "string" || typeof allowed !== "boolean") {
+      console.error("[main] ignoring a malformed permission answer");
+      return;
+    }
+    permissionGate.answer(id, allowed);
+  });
+}
+
 function registerIpc(): void {
+  registerChatIpc();
   ipcMain.handle(ipcChannels.loadSavedModel, async (_event, memberId: unknown) => {
     if (!isMemberId(memberId)) {
       throw new Error(`unknown member: ${String(memberId)}`);
@@ -362,7 +502,15 @@ function registerIpc(): void {
 
 async function startHookServer(): Promise<HookServer> {
   const port = resolveHookPort(process.env);
-  const server = new HookServer({ host: "127.0.0.1", port, log: (line) => console.log(line) });
+  const server = new HookServer({
+    host: "127.0.0.1",
+    port,
+    log: (line) => console.log(line),
+    permissions: {
+      token: permissionToken,
+      handle: async (toolName, input, signal) => hookResponse(await permissionGate.request(toolName, input, signal)),
+    },
+  });
   server.on("signal", (signal: CompanionSignal) => broadcast(ipcChannels.signal, signal));
   try {
     const boundPort = await server.listen();
@@ -384,6 +532,7 @@ async function bootstrap(): Promise<void> {
   settings = await loadSettings(settingsPath);
   registerIpc();
   const server = await startHookServer();
+  startOfficeChat();
   overlayWindow = createOverlayWindow();
   teamOverlayWindow = createTeamOverlayWindow();
   if (settings.officeOpen) {
@@ -394,8 +543,16 @@ async function bootstrap(): Promise<void> {
   app.on("before-quit", () => {
     isQuitting = true;
     clearInterval(cursorTimer);
+    officeChat?.stop();
+    permissionGate.denyAll("Companion ditutup.");
     server.close().catch((error: unknown) => console.error("[main] failed to close hook server", error));
   });
+}
+
+// Lets tests (and a second profile) run with their own settings instead of the user's.
+const userDataOverride = process.env.WAIFU_USER_DATA_DIR;
+if (userDataOverride !== undefined && userDataOverride !== "") {
+  app.setPath("userData", userDataOverride);
 }
 
 // A second instance would fail to bind the hook port, so focus the first one instead.

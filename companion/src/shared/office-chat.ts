@@ -1,0 +1,80 @@
+/**
+ * Chat with Claude from the office: the user types a task, a headless `claude -p`
+ * run in their project works on it, and every tool call that needs permission
+ * comes back to the office as a card to allow or deny.
+ */
+
+/** A tool call waiting for the user's decision. */
+export interface PermissionAsk {
+  id: string;
+  toolName: string;
+  /** One line for the card title, such as the command or the file path. */
+  summary: string;
+  /** Full input as readable text, truncated for very large writes. */
+  detail: string;
+}
+
+export type ChatEvent =
+  | { kind: "user"; text: string }
+  /** A piece of 2B's reply as it streams in. */
+  | { kind: "text"; text: string }
+  /** A tool Claude started, shown as a one-line note in the log. */
+  | { kind: "tool"; toolName: string; summary: string }
+  | { kind: "permission"; ask: PermissionAsk }
+  | { kind: "permission-settled"; id: string; allowed: boolean }
+  /** The run finished. `ok` false carries the reason in `message`. */
+  | { kind: "done"; ok: boolean; message: string | null }
+  | { kind: "error"; message: string };
+
+export type ChatState = "idle" | "working" | "unavailable";
+
+export interface ChatStatus {
+  state: ChatState;
+  /** Folder the runs work in, or null until the user picks one. */
+  projectDir: string | null;
+  /** Why chat is unavailable (CLI missing, not logged in), or null. */
+  problem: string | null;
+}
+
+const maxDetailChars = 4000;
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+}
+
+function stringField(record: Record<string, unknown>, key: string): string | null {
+  const value = record[key];
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+/**
+ * The one thing a person needs to judge a tool call at a glance: the command
+ * for Bash, the path for file tools, the URL for fetches.
+ */
+export function summarizeToolInput(toolName: string, input: unknown): string {
+  const record = asRecord(input);
+  const firstLine = (text: string): string => {
+    const line = text.split("\n")[0] ?? "";
+    return line.length > 160 ? `${line.slice(0, 157)}...` : line;
+  };
+  const preferred =
+    stringField(record, "command") ??
+    stringField(record, "file_path") ??
+    stringField(record, "notebook_path") ??
+    stringField(record, "url") ??
+    stringField(record, "pattern") ??
+    stringField(record, "query") ??
+    stringField(record, "description") ??
+    stringField(record, "prompt");
+  return preferred === null ? toolName : firstLine(preferred);
+}
+
+/** Readable full input for the permission card. Long writes are cut so the card stays usable. */
+export function describeToolInput(input: unknown): string {
+  const record = asRecord(input);
+  const command = stringField(record, "command");
+  const text = command ?? JSON.stringify(input, null, 2) ?? "";
+  return text.length > maxDetailChars
+    ? `${text.slice(0, maxDetailChars)}\n... (${text.length - maxDetailChars} karakter lagi)`
+    : text;
+}

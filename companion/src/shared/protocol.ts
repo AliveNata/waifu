@@ -1,3 +1,4 @@
+import type { ChatEvent, ChatStatus } from "./office-chat.js";
 import type { CompanionSignal } from "./reaction.js";
 import type { MemberId } from "./team.js";
 
@@ -50,6 +51,22 @@ export interface CompanionApi {
   getCloseupEnabled(): Promise<boolean>;
   setCloseupEnabled(enabled: boolean): void;
   onCloseupEnabled(listener: (enabled: boolean) => void): () => void;
+  /** Whether the office shows the chat to Claude. */
+  getChatEnabled(): Promise<boolean>;
+  setChatEnabled(enabled: boolean): void;
+  onChatEnabled(listener: (enabled: boolean) => void): () => void;
+  getChatStatus(): Promise<ChatStatus>;
+  onChatStatus(listener: (status: ChatStatus) => void): () => void;
+  onChatEvent(listener: (event: ChatEvent) => void): () => void;
+  /** This conversation so far, so a reopened office window shows it again. */
+  getChatHistory(): Promise<ChatEvent[]>;
+  sendChat(text: string): void;
+  stopChat(): void;
+  /** Starts a fresh conversation in the same folder. */
+  newChat(): void;
+  /** Asks for the project folder the chat works in. Resolves with the folder, or null when cancelled. */
+  pickChatProject(): Promise<string | null>;
+  answerPermission(id: string, allowed: boolean): void;
   /** Shows or hides the team overlay window. The browser fallback has no window to hide. */
   setTeamOverlayVisible(visible: boolean): void;
   getServerStatus(): Promise<HookServerStatus>;
@@ -70,6 +87,18 @@ export const ipcChannels = {
   getCloseupEnabled: "companion:get-closeup-enabled",
   setCloseupEnabled: "companion:set-closeup-enabled",
   closeupEnabled: "companion:closeup-enabled",
+  getChatEnabled: "companion:get-chat-enabled",
+  setChatEnabled: "companion:set-chat-enabled",
+  chatEnabled: "companion:chat-enabled",
+  getChatStatus: "companion:get-chat-status",
+  chatStatus: "companion:chat-status",
+  chatEvent: "companion:chat-event",
+  getChatHistory: "companion:get-chat-history",
+  sendChat: "companion:send-chat",
+  stopChat: "companion:stop-chat",
+  newChat: "companion:new-chat",
+  pickChatProject: "companion:pick-chat-project",
+  answerPermission: "companion:answer-permission",
   teamOverlayVisible: "companion:team-overlay-visible",
   getServerStatus: "companion:get-server-status",
   openMenu: "companion:open-menu",

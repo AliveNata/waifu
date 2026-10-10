@@ -9,6 +9,12 @@ export interface CompanionSettings {
   officeOpen: boolean;
   conversationMode: ConversationMode;
   closeupEnabled: boolean;
+  /** Shows the chat to Claude in the office. */
+  chatEnabled: boolean;
+  /** Folder the office chat works in. */
+  chatProjectDir: string | null;
+  /** Conversation the next office chat message resumes. */
+  chatSessionId: string | null;
 }
 
 export const defaultSettings: CompanionSettings = {
@@ -17,6 +23,9 @@ export const defaultSettings: CompanionSettings = {
   officeOpen: false,
   conversationMode: "simulated",
   closeupEnabled: true,
+  chatEnabled: true,
+  chatProjectDir: null,
+  chatSessionId: null,
 };
 
 /** Unknown or wrongly typed fields fall back to defaults instead of crashing startup. */
@@ -45,6 +54,9 @@ export function normalizeSettings(input: unknown): CompanionSettings {
       ? record.conversationMode
       : defaultSettings.conversationMode,
     closeupEnabled: typeof record.closeupEnabled === "boolean" ? record.closeupEnabled : defaultSettings.closeupEnabled,
+    chatEnabled: typeof record.chatEnabled === "boolean" ? record.chatEnabled : defaultSettings.chatEnabled,
+    chatProjectDir: typeof record.chatProjectDir === "string" ? record.chatProjectDir : null,
+    chatSessionId: typeof record.chatSessionId === "string" ? record.chatSessionId : null,
   };
 }
 
