@@ -400,6 +400,11 @@ async function bootstrap(): Promise<void> {
 
 // A second instance would fail to bind the hook port, so focus the first one instead.
 if (!app.requestSingleInstanceLock()) {
+  // Without this line the second launch just vanishes, which looks like a crash.
+  console.error(
+    "[main] Companion udah jalan di proses lain, jadi yang ini ditutup. Overlay yang lama dimunculin lagi. " +
+      "Kalau overlay-nya tetap nggak kelihatan, tutup proses electron lama (Task Manager) lalu jalanin npm start lagi.",
+  );
   app.quit();
 } else {
   app.on("second-instance", () => {
