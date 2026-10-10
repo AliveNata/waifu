@@ -3,7 +3,7 @@ import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { basename, extname, join, normalize, resolve, sep } from "node:path";
-import { parseHookPayload } from "../shared/hook-event.js";
+import { type CompanionHookPayload, parseHookPayload } from "../shared/hook-event.js";
 import { type CompanionSignal, signalsForHook } from "../shared/reaction.js";
 import { isMemberId, type MemberId } from "../shared/team.js";
 
@@ -24,10 +24,29 @@ export interface HookServerOptions {
   now?: () => number;
   /** Only set by the browser fallback: Electron talks to renderers over IPC instead. */
   web?: WebModeOptions;
+  /**
+   * Receives one line per hook event (event, tool, subagent, resulting signals),
+   * so the terminal shows whether Claude Code reaches the companion. Never content.
+   */
+  log?: (line: string) => void;
 }
 
 interface HookServerEvents {
   signal: [CompanionSignal];
+}
+
+/** One log line per hook. Only names and kinds, the same metadata the bridge already forwards. */
+export function describeHook(payload: CompanionHookPayload, signals: readonly CompanionSignal[]): string {
+  const parts: string[] = [payload.hook_event_name];
+  if (payload.tool_name !== undefined) {
+    parts.push(`tool=${payload.tool_name}`);
+  }
+  const agent = payload.agent_type ?? payload.subagent_type;
+  if (agent !== undefined) {
+    parts.push(`agent=${agent}`);
+  }
+  const kinds = signals.map((signal) => signal.kind);
+  return `[hook] ${parts.join(" ")} -> ${kinds.length === 0 ? "tanpa reaksi" : kinds.join(",")}`;
 }
 
 export class HookServer extends EventEmitter<HookServerEvents> {
@@ -151,6 +170,7 @@ export class HookServer extends EventEmitter<HookServerEvents> {
     }
 
     const signals = signalsForHook(parsed.value, this.now());
+    this.options.log?.(describeHook(parsed.value, signals));
     for (const signal of signals) {
       this.emit("signal", signal);
       this.broadcastSse(signal);

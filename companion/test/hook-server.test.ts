@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { HookServer } from "../src/server/hook-server.js";
-import type { CompanionSignal } from "../src/shared/reaction.js";
+import { describeHook, HookServer } from "../src/server/hook-server.js";
+import { type CompanionSignal, signalsForHook } from "../src/shared/reaction.js";
 
 let server: HookServer | null = null;
 
@@ -104,5 +104,24 @@ describe("HookServer", () => {
 
     // Act + Assert
     await expect(second.listen()).rejects.toMatchObject({ code: "EADDRINUSE" });
+  });
+});
+
+describe("describeHook", () => {
+  it("names the event, tool, subagent and resulting signals", () => {
+    // Arrange
+    const payload = { hook_event_name: "PreToolUse" as const, tool_name: "Agent", subagent_type: "reviewer" };
+
+    // Act
+    const line = describeHook(payload, signalsForHook(payload, 0));
+
+    // Assert
+    expect(line).toBe("[hook] PreToolUse tool=Agent agent=reviewer -> reaction,delegation");
+  });
+
+  it("says so when an event changes nothing", () => {
+    expect(describeHook({ hook_event_name: "PostToolUse", agent_id: "a1", agent_type: "reviewer" }, [])).toBe(
+      "[hook] PostToolUse agent=reviewer -> tanpa reaksi",
+    );
   });
 });

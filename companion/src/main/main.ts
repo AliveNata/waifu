@@ -342,7 +342,7 @@ function registerIpc(): void {
 
 async function startHookServer(): Promise<HookServer> {
   const port = resolveHookPort(process.env);
-  const server = new HookServer({ host: "127.0.0.1", port });
+  const server = new HookServer({ host: "127.0.0.1", port, log: (line) => console.log(line) });
   server.on("signal", (signal: CompanionSignal) => broadcast(ipcChannels.signal, signal));
   try {
     const boundPort = await server.listen();

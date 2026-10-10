@@ -36,6 +36,7 @@ for (const memberId of memberIds) {
 }
 
 const server = new HookServer({
+  log: (line) => console.log(line),
   host: "127.0.0.1",
   port: resolveHookPort(process.env),
   web: { staticDir, modelPaths, baseModelPath: findBaseModel(repoRootFrom(import.meta.dirname), process.env) },
