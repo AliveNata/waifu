@@ -33,7 +33,7 @@ export type StationId =
   | "board-twob"
   | "idea-board"
   | "desk-twob"
-  | "desk-mem"
+  | "desk-ruby"
   | "sofa"
   | "front";
 
@@ -85,8 +85,8 @@ export const stations: Record<StationId, Station> = {
   "idea-board": wallStation("idea-board", 1.0),
   sofa: wallStation("sofa", 2.7, true),
   "desk-twob": frontDeskStation("desk-twob", 2.2),
-  // Faces the room like 2B's desk, so MEM-cho looks into her ring light and "camera".
-  "desk-mem": frontDeskStation("desk-mem", -1.2),
+  // Faces the room like 2B's desk, so Ruby looks into her ring light and "camera".
+  "desk-ruby": frontDeskStation("desk-ruby", -1.2),
   front: {
     id: "front",
     spot: { x: 0.9, z: 2.4 },
@@ -105,7 +105,7 @@ export const homeStations: Record<Exclude<MemberId, "twob">, StationId> = {
   kobayashi: "desk-kobayashi",
   yor: "desk-yor",
   erza: "desk-erza",
-  mem: "desk-mem",
+  ruby: "desk-ruby",
 };
 
 export function distance(a: Point, b: Point): number {

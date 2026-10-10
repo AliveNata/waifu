@@ -70,6 +70,6 @@ export function emptyTeamRuntime(): TeamRuntime {
     kobayashi: emptyRuntime(),
     yor: emptyRuntime(),
     erza: emptyRuntime(),
-    mem: emptyRuntime(),
+    ruby: emptyRuntime(),
   };
 }

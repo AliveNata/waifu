@@ -45,7 +45,7 @@ const actionsByMember: Record<Exclude<MemberId, "twob">, Record<MemberBehavior, 
   kobayashi: { working: "type", idle: "desk-idle", done: "stretch" },
   yor: { working: "type", idle: "desk-idle", done: "stretch" },
   erza: { working: "type", idle: "desk-idle", done: "stretch" },
-  mem: { working: "type", idle: "desk-idle", done: "stretch" },
+  ruby: { working: "type", idle: "desk-idle", done: "stretch" },
 };
 
 export function memberPlan(memberId: Exclude<MemberId, "twob">, behavior: MemberBehavior): MemberPlan {

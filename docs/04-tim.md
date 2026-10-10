@@ -11,13 +11,13 @@
 | `fullstack-engineer` | Kobayashi | Miss Kobayashi's Dragon Maid | UI, API, tools internal | Ya |
 | `platform-sre` | Yor | Spy x Family | Kubernetes, Helm, Linode + GCP, CI/CD, insiden | Ya, tapi nggak boleh ngubah cluster |
 | `reviewer` | Erza | Fairy Tail | Review, test, security sebelum commit atau deploy | Tidak |
-| `content-creator` | MEM-cho | Oshi no Ko | Draft LinkedIn, Notion, GitHub dari kerjaan lo yang udah selesai, plus coaching portfolio | Cuma nulis draft di `portfolio/drafts/` |
+| `content-creator` | Ruby | Oshi no Ko | Draft LinkedIn, Notion, GitHub dari kerjaan lo yang udah selesai, plus coaching portfolio | Cuma nulis draft di `portfolio/drafts/` |
 
 Definisinya ada di `team/agents/*.md`, dan aturan delegasi 2B ada di `team/2b.md`.
 
 ## Alur kerja yang dirancang
 
-Fitur baru biasanya jalan begini: **Chizuru** ngelempar ide (opsional), lalu **Rias** bandingin opsi, lalu engineer sesuai area ngerjain, lalu **Erza** review, lalu **MEM-cho** bikin draft portfolio-nya (opsional). 2B yang ngatur urutannya dan minta approval lo di titik-titik penting.
+Fitur baru biasanya jalan begini: **Chizuru** ngelempar ide (opsional), lalu **Rias** bandingin opsi, lalu engineer sesuai area ngerjain, lalu **Erza** review, lalu **Ruby** bikin draft portfolio-nya (opsional). 2B yang ngatur urutannya dan minta approval lo di titik-titik penting.
 
 Subagent nggak bisa nanya langsung ke lo di tengah kerja. Jadi aksi berisiko, misalnya `kubectl apply`, ngubah data prod, atau push, dibalikin ke 2B dalam bentuk usulan lengkap dengan diff atau hasil dry-run. 2B yang minta konfirmasi lo.
 
@@ -51,14 +51,14 @@ Cukup ngobrol biasa ke Claude Code. 2B yang mutusin kapan perlu delegasi. Kalau 
 
 Kalau companion lagi jalan dan hooks udah kepasang (lihat [03-companion.md](03-companion.md)), anggota yang dipanggil bakal mulai kerja di mejanya di kantor virtual.
 
-## Draft portfolio dari MEM-cho
+## Draft portfolio dari Ruby
 
 Abis kerjaan penting selesai dan lolos review, 2B bakal nawarin sekali buat bikin draft portfolio. Bisa juga lo minta langsung, misalnya "minta content-creator bikin post LinkedIn dari migrasi Airflow kemarin".
 
 - Draft ditulis ke `portfolio/drafts/` di root project yang lagi lo kerjain, satu file per channel (LinkedIn, Notion, GitHub).
-- MEM-cho cuma pakai fakta dari kode, git log, dan brief. Angka yang dia nggak punya ditulis sebagai placeholder `[angka asli: ...]`, jadi lo yang ngisi.
+- Ruby cuma pakai fakta dari kode, git log, dan brief. Angka yang dia nggak punya ditulis sebagai placeholder `[angka asli: ...]`, jadi lo yang ngisi.
 - Nggak ada yang di-posting otomatis. Copy-paste sendiri ke LinkedIn, Notion, atau GitHub.
-- Tambahin `portfolio/drafts/` ke `.gitignore` project lo kalau draft-nya nggak mau ikut ke-commit. MEM-cho bakal ngingetin kalau belum.
+- Tambahin `portfolio/drafts/` ke `.gitignore` project lo kalau draft-nya nggak mau ikut ke-commit. Ruby bakal ngingetin kalau belum.
 
 ## Ngubah atau nambah anggota
 

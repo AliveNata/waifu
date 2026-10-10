@@ -205,7 +205,7 @@ export const screenScripts: Record<Exclude<MemberId, "rias" | "chizuru">, Screen
       },
     ],
   },
-  mem: {
+  ruby: {
     theme: { background: "#fff7fa", foreground: "#2b2230", accent: "#c8407a", muted: "#8a7884", header: "#f6dde8" },
     keywords: ["#dataengineering", "#dbt", "#airflow", "Masalah", "Pendekatan", "Hasil", "Stack"],
     documents: [

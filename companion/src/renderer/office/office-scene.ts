@@ -120,7 +120,7 @@ function buildDesk(root: Group, memberId: DeskMember, x: number): Workstation {
   return { screen, keyboard };
 }
 
-type LaptopMember = "twob" | "mem";
+type LaptopMember = "twob" | "ruby";
 
 /** Small desk with a laptop, the seat on the -Z side so the sitter faces the camera. */
 function buildLaptopDesk(root: Group, memberId: LaptopMember): Workstation {
@@ -155,11 +155,11 @@ function buildLaptopDesk(root: Group, memberId: LaptopMember): Workstation {
 }
 
 /**
- * Ring light on a stand beside MEM-cho's laptop. It is the one prop that says
+ * Ring light on a stand beside Ruby's laptop. It is the one prop that says
  * "content creator" at office zoom, where a camera or phone would be too small to read.
  */
 function buildRingLight(root: Group): void {
-  const seat = stations["desk-mem"].spot;
+  const seat = stations["desk-ruby"].spot;
   // On her left, away from the camera side, so the ring never covers her face in the room view.
   const x = seat.x - 0.8;
   const z = seat.z + 0.45;
@@ -201,7 +201,7 @@ export function buildOffice(): OfficeProps {
     yor: buildDesk(root, "yor", deskXs.yor),
     erza: buildDesk(root, "erza", deskXs.erza),
     twob: buildLaptopDesk(root, "twob"),
-    mem: buildLaptopDesk(root, "mem"),
+    ruby: buildLaptopDesk(root, "ruby"),
   };
   buildRingLight(root);
 
@@ -260,7 +260,7 @@ export function buildOffice(): OfficeProps {
     rias: { eye: new Vector3(-3.75, 1.1, -3.3), target: leftWallPoint(wb, 0.72, 0.5) },
     chizuru: { eye: new Vector3(-3.75, 1.1, -0.1), target: leftWallPoint(ib, 0.5, 0.5) },
     twob: laptopShot("twob"),
-    mem: laptopShot("mem"),
+    ruby: laptopShot("ruby"),
   };
 
   return {

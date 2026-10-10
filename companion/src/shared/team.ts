@@ -2,7 +2,7 @@
  * Team roster shared by the hook server and both pages. `agentType` must match
  * the `name` in team/agents/*.md, because hooks report subagents by that name.
  */
-export const memberIds = ["twob", "chizuru", "rias", "asuna", "kobayashi", "yor", "erza", "mem"] as const;
+export const memberIds = ["twob", "chizuru", "rias", "asuna", "kobayashi", "yor", "erza", "ruby"] as const;
 
 export type MemberId = (typeof memberIds)[number];
 
@@ -22,7 +22,7 @@ export const roster: Record<MemberId, MemberProfile> = {
   kobayashi: { id: "kobayashi", displayName: "Kobayashi", role: "Full Stack", agentType: "fullstack-engineer" },
   yor: { id: "yor", displayName: "Yor", role: "Platform/SRE", agentType: "platform-sre" },
   erza: { id: "erza", displayName: "Erza", role: "Reviewer", agentType: "reviewer" },
-  mem: { id: "mem", displayName: "MEM-cho", role: "Content + Portfolio", agentType: "content-creator" },
+  ruby: { id: "ruby", displayName: "Ruby", role: "Content + Portfolio", agentType: "content-creator" },
 };
 
 export function isMemberId(value: unknown): value is MemberId {

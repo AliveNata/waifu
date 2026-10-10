@@ -18,7 +18,7 @@ const speakerColors: Record<MemberId, string> = {
   kobayashi: "#f09a84",
   yor: "#f2d27a",
   erza: "#f58f8f",
-  mem: "#f3a6e0",
+  ruby: "#f3a6e0",
 };
 
 /** Models are 10 MB each; keep only the few most recent speakers in memory. */

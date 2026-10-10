@@ -118,17 +118,17 @@ export const memberLooks: Record<MemberId, MemberLook> = {
     shoes: "#26262c",
     armor: "#c8ccd4",
   },
-  mem: {
-    // Blonde hair and pink eyes, in her pastel streaming outfit.
-    hair: "#f0d58a",
+  ruby: {
+    // Golden hair and pink-red eyes, in her pink and white B-Komachi idol outfit.
+    hair: "#f2cf63",
     hairStyle: "long",
-    eyes: "#d46a9f",
+    eyes: "#d8436f",
     skin,
-    top: "#f7c6da",
-    sleeves: "#fbeef3",
-    skirt: "#5a4a7a",
+    top: "#f4a9c4",
+    sleeves: "#fbf3f6",
+    skirt: "#e46f9b",
     legs: skin,
-    socks: "#f4f0f4",
-    shoes: "#d9779f",
+    socks: "#f7f2f4",
+    shoes: "#d9577f",
   },
 };

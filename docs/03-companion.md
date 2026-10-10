@@ -64,7 +64,7 @@ Event yang terjadi di dalam subagent (misalnya Asuna ngejalanin `Edit`) cuma nge
 | Rias | Nulis diagram di papan tulis, tangannya ngikutin ujung spidol | Baca buku |
 | Chizuru | Nempel sticky note satu-satu di papan ide | Mikir sambil pegang dagu |
 | 2B | Ngetik di laptop, atau nulis plan di papan tulis pas mikir | Duduk di sofa |
-| MEM-cho | Ngetik draft post di laptop, di meja dengan ring light | Nyender, nengok-nengok |
+| Ruby | Ngetik draft post di laptop, di meja dengan ring light | Nyender, nengok-nengok |
 
 Isi layar, papan tulis, dan sticky note semuanya **simulasi**, bukan kerjaan asli lo. Jadi aman pas lagi share screen.
 
@@ -145,7 +145,7 @@ $env:WAIFU_MODEL_PATH_ASUNA = "C:\path\ke\asuna.vrm"
 npm run web
 ```
 
-`WAIFU_MODEL_PATH` buat 2B, `WAIFU_MODEL_PATH_<NAMA>` buat anggota lain (`CHIZURU`, `RIAS`, `ASUNA`, `KOBAYASHI`, `YOR`, `ERZA`, `MEM`). Semuanya opsional. Model juga bisa dipilih lewat tombol **Model** di halaman kantor.
+`WAIFU_MODEL_PATH` buat 2B, `WAIFU_MODEL_PATH_<NAMA>` buat anggota lain (`CHIZURU`, `RIAS`, `ASUNA`, `KOBAYASHI`, `YOR`, `ERZA`, `RUBY`). Semuanya opsional. Model juga bisa dipilih lewat tombol **Model** di halaman kantor.
 
 Lalu buka `http://127.0.0.1:47823/overlay/`, `http://127.0.0.1:47823/team-overlay/`, dan `http://127.0.0.1:47823/office/`. Hooks tetap nyambung lewat port yang sama.
 

@@ -25,7 +25,7 @@ const startLines: Record<Exclude<MemberId, "twob">, readonly string[]> = {
   kobayashi: ["Siap, aku kerjain bagian aplikasinya.", "Oke, waktunya ngoding."],
   yor: ["Aku cek cluster dulu ya, read-only.", "Tenang, nggak ada yang aku ubah tanpa izin."],
   erza: ["Serahkan review-nya padaku.", "Aku periksa satu per satu."],
-  mem: ["Siap! Aku bikinin konten dari kerjaan lo ya.", "Oke, aku cari sudut cerita yang paling menjual."],
+  ruby: ["Siap! Kerjaan lo aku bikin bersinar ya.", "Oke! Aku cari sudut cerita yang paling menarik."],
 };
 
 const stopLines: Record<Exclude<MemberId, "twob">, string> = {
@@ -35,7 +35,7 @@ const stopLines: Record<Exclude<MemberId, "twob">, string> = {
   kobayashi: "Bagian aplikasinya selesai, cek laporannya ya.",
   yor: "Selesai. Usulan perubahannya ada di laporan.",
   erza: "Review selesai. Hasilnya ada di laporan.",
-  mem: "Draft-nya udah aku taruh di folder portfolio, tinggal lo cek.",
+  ruby: "Draft-nya udah aku taruh di folder portfolio, tinggal lo cek.",
 };
 
 const stopGestures: Record<Exclude<MemberId, "twob">, Gesture> = {
@@ -45,7 +45,7 @@ const stopGestures: Record<Exclude<MemberId, "twob">, Gesture> = {
   kobayashi: "nod",
   yor: "nod",
   erza: "nod",
-  mem: "cheer",
+  ruby: "cheer",
 };
 
 export function toolLine(memberId: MemberId, tool: string): { text: string; gesture: Gesture } {
