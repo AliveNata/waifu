@@ -77,6 +77,34 @@ const webPreferences: Electron.WebPreferences = {
   nodeIntegration: false,
 };
 
+/** Crashes allowed inside this window before auto-reload gives up, so a model that always crashes cannot loop forever. */
+const maxReloadsPerWindow = 3;
+const reloadWindowMs = 60_000;
+
+/**
+ * A crashed renderer leaves a transparent window that looks like the overlay
+ * vanished. Log why, so the cause shows up in the terminal, and reload the page.
+ */
+function watchRenderer(window: BrowserWindow, name: string): void {
+  const recentCrashes: number[] = [];
+  window.webContents.on("render-process-gone", (_event, details) => {
+    console.error(`[main] ${name} renderer gone: ${details.reason} (exit code ${details.exitCode})`);
+    if (details.reason === "clean-exit" || window.isDestroyed()) {
+      return;
+    }
+    const now = Date.now();
+    while (recentCrashes.length > 0 && now - (recentCrashes[0] as number) > reloadWindowMs) {
+      recentCrashes.shift();
+    }
+    recentCrashes.push(now);
+    if (recentCrashes.length > maxReloadsPerWindow) {
+      console.error(`[main] ${name} keeps crashing, not reloading again. Try another model or restart the app.`);
+      return;
+    }
+    window.webContents.reload();
+  });
+}
+
 function createOverlayWindow(): BrowserWindow {
   const { workArea } = screen.getPrimaryDisplay();
   const window = new BrowserWindow({
@@ -93,6 +121,7 @@ function createOverlayWindow(): BrowserWindow {
     title: "2B",
     webPreferences,
   });
+  watchRenderer(window, "overlay");
   window.loadFile(join(rendererDir, "overlay/index.html")).catch((error: unknown) => {
     console.error("[main] failed to load overlay page", error);
   });
@@ -127,6 +156,7 @@ function createTeamOverlayWindow(): BrowserWindow {
     title: "Tim 2B",
     webPreferences,
   });
+  watchRenderer(window, "team overlay");
   window.loadFile(join(rendererDir, "team-overlay/index.html")).catch((error: unknown) => {
     console.error("[main] failed to load team overlay page", error);
   });
@@ -152,6 +182,7 @@ function openOfficeWindow(): void {
     autoHideMenuBar: true,
     webPreferences,
   });
+  watchRenderer(officeWindow, "office");
   officeWindow.loadFile(join(rendererDir, "office/index.html")).catch((error: unknown) => {
     console.error("[main] failed to load office page", error);
   });

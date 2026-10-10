@@ -44,10 +44,15 @@ export function addRotation(base: BoneRotation | undefined, delta: Partial<BoneR
 /** Anything with humanoid joints that follow the axis conventions above: a VRM or a placeholder chibi. */
 export interface PoseTarget {
   node(bone: VRMHumanBoneName): Object3D | null;
+  /**
+   * True for VRM 0.x. Its normalized bones face -Z, so the x and z rotations of
+   * the conventions above come out mirrored (arms rise instead of drop) unless flipped.
+   */
+  mirrorXZ?: boolean;
 }
 
 export function vrmPoseTarget(vrm: VRM): PoseTarget {
-  return { node: (bone) => vrm.humanoid.getNormalizedBoneNode(bone) };
+  return { node: (bone) => vrm.humanoid.getNormalizedBoneNode(bone), mirrorXZ: vrm.meta.metaVersion === "0" };
 }
 
 /**
@@ -83,7 +88,8 @@ export class PoseApplier {
         z: current.z + (goal.z - current.z) * blend,
       };
       this.smoothed.set(boneName, next);
-      target.node(boneName)?.rotation.set(next.x, next.y, next.z);
+      const sign = target.mirrorXZ === true ? -1 : 1;
+      target.node(boneName)?.rotation.set(sign * next.x, next.y, sign * next.z);
     }
 
     const hips = target.node("hips");
