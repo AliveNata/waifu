@@ -1,8 +1,11 @@
 import "../common/base.css";
 import "./office.css";
+import type { ConversationMode } from "../../shared/protocol.js";
 import type { MemberId } from "../../shared/team.js";
 import { memberIds, roster } from "../../shared/team.js";
 import { getBridge, type RendererBridge } from "../common/bridge.js";
+import { Conversation } from "../common/conversation.js";
+import { DialogBox } from "../common/dialog-box.js";
 import { MemberModelLoader } from "../common/member-model.js";
 import { ReactionTracker } from "../common/reaction-tracker.js";
 import { requireElement, StatusChip } from "../common/status-chip.js";
@@ -13,16 +16,20 @@ import { closeupRect, OfficeStage } from "./office-stage.js";
 class OfficePage {
   private readonly status = new StatusChip(requireElement("status", HTMLElement));
   private readonly caption = requireElement("closeup-caption", HTMLElement);
-  private readonly closeupToggle = requireElement("closeup-toggle", HTMLButtonElement);
+  private readonly dialogBox = new DialogBox(requireElement("office-dialog", HTMLElement));
+  private readonly closeupSetting = requireElement("closeup-setting", HTMLInputElement);
   private readonly menuButton = requireElement("menu-button", HTMLButtonElement);
   private readonly dialog = requireElement("model-dialog", HTMLDialogElement);
   private readonly modelList = requireElement("model-list", HTMLUListElement);
   private readonly tracker = new ReactionTracker(Date.now());
+  private readonly conversation = new Conversation();
+  private conversationMode: ConversationMode = "simulated";
   private readonly loadGenerations = new Map<MemberId, number>();
   private readonly stage: OfficeStage;
   private readonly models: MemberModelLoader;
   private baseHintShown = false;
   private lastCaption = "";
+  private lastDialogLayout = "";
 
   constructor(
     private readonly bridge: RendererBridge,
@@ -34,6 +41,7 @@ class OfficePage {
 
   start(): void {
     this.bridge.onSignal((signal) => {
+      this.conversation.handle(signal, this.conversationMode);
       if (signal.kind === "reaction") {
         this.tracker.apply(signal.reaction);
       } else if (signal.kind === "member") {
@@ -47,12 +55,22 @@ class OfficePage {
       .then((status) => this.status.applyServerStatus(status))
       .catch((error: unknown) => console.error("[office] failed to read hook server status", error));
 
-    this.closeupToggle.addEventListener("click", () => {
-      const enabled = this.closeupToggle.getAttribute("aria-pressed") !== "true";
-      this.closeupToggle.setAttribute("aria-pressed", String(enabled));
-      this.closeupToggle.textContent = enabled ? "Sembunyikan close-up" : "Tampilkan close-up";
-      this.stage.setCloseupEnabled(enabled);
+    this.bridge.onConversationMode((mode) => {
+      this.conversationMode = mode;
     });
+    this.bridge
+      .getConversationMode()
+      .then((mode) => {
+        this.conversationMode = mode;
+      })
+      .catch((error: unknown) => console.error("[office] failed to read conversation mode", error));
+
+    this.bridge.onCloseupEnabled((enabled) => this.applyCloseupEnabled(enabled));
+    this.bridge
+      .getCloseupEnabled()
+      .then((enabled) => this.applyCloseupEnabled(enabled))
+      .catch((error: unknown) => console.error("[office] failed to read close-up setting", error));
+    this.closeupSetting.addEventListener("change", () => this.bridge.setCloseupEnabled(this.closeupSetting.checked));
 
     if (this.bridge.hasNativeMenu) {
       this.menuButton.addEventListener("click", () => this.bridge.openMenu());
@@ -65,6 +83,11 @@ class OfficePage {
     for (const memberId of memberIds) {
       this.loadSaved(memberId);
     }
+  }
+
+  private applyCloseupEnabled(enabled: boolean): void {
+    this.closeupSetting.checked = enabled;
+    this.stage.setCloseupEnabled(enabled);
   }
 
   private buildModelDialog(): void {
@@ -166,6 +189,30 @@ class OfficePage {
     this.stage.setTwobReaction(reaction);
     this.status.render(reaction, now);
     this.renderCaption();
+    this.renderDialog(now);
+  }
+
+  /** Sits on top of the close-up (and its caption) when it shows, otherwise drops into its place. */
+  private renderDialog(now: number): void {
+    const current = this.conversation.current(now);
+    this.dialogBox.render(current, now);
+    if (current === null) {
+      return;
+    }
+    const rect = closeupRect(window.innerWidth, window.innerHeight);
+    const closeupShown = this.stage.closeupFocus() !== null;
+    const gap = 8;
+    const bottom = closeupShown
+      ? window.innerHeight - rect.y + this.caption.offsetHeight + gap
+      : window.innerHeight - rect.y - rect.height;
+    const layout = `${rect.x}|${rect.width}|${bottom}`;
+    if (layout !== this.lastDialogLayout) {
+      this.lastDialogLayout = layout;
+      const style = this.dialogBox.root.style;
+      style.left = `${rect.x}px`;
+      style.width = `${rect.width}px`;
+      style.bottom = `${bottom}px`;
+    }
   }
 
   private renderCaption(): void {

@@ -130,21 +130,64 @@ test.describe("office", () => {
     await expect(caption).toContainText("layar simulasi");
   });
 
-  test("toggles the close-up from the keyboard", async ({ page }) => {
+  test("hides the close-up on its own a few seconds after the member finishes", async ({ page }) => {
     // Arrange
     await openPage(page, "/office/");
-    await postHook(page, { hook_event_name: "SubagentStart", agent_id: "d1", agent_type: "data-engineer" });
     const caption = page.locator("#closeup-caption");
+    await postHook(page, { hook_event_name: "SubagentStart", agent_id: "d1", agent_type: "data-engineer" });
     await expect(caption).toContainText("Asuna");
-    const toggle = page.getByRole("button", { name: "Sembunyikan close-up" });
 
     // Act
-    await toggle.focus();
-    await page.keyboard.press("Enter");
+    await postHook(page, { hook_event_name: "SubagentStop", agent_id: "d1", agent_type: "data-engineer" });
+
+    // Assert: still showing right after, so the finish is visible, then gone.
+    await expect(caption).toBeVisible();
+    await expect(caption).toBeHidden({ timeout: 10_000 });
+  });
+
+  test("turns the close-up off from the model dialog with the keyboard", async ({ page }) => {
+    // Arrange
+    await openPage(page, "/office/");
+    await page.getByRole("button", { name: "Model" }).click();
+    const setting = page.getByRole("checkbox", { name: "Close-up pas ada yang kerja" });
+    await expect(setting).toBeChecked();
+
+    // Act
+    await setting.focus();
+    await page.keyboard.press("Space");
+    await expect(setting).not.toBeChecked();
+    await page.keyboard.press("Escape");
+    await postHook(page, { hook_event_name: "SubagentStart", agent_id: "e1", agent_type: "reviewer" });
 
     // Assert
-    await expect(caption).toBeHidden();
-    await expect(page.getByRole("button", { name: "Tampilkan close-up" })).toHaveAttribute("aria-pressed", "false");
+    await page.waitForTimeout(800);
+    await expect(page.locator("#closeup-caption")).toBeHidden();
+  });
+
+  test("shows the team conversation docked above the close-up", async ({ page }) => {
+    // Arrange
+    await openPage(page, "/office/");
+    const dialog = page.locator("#office-dialog");
+    const caption = page.locator("#closeup-caption");
+
+    // Act
+    await postHook(page, {
+      hook_event_name: "PreToolUse",
+      tool_name: "Agent",
+      subagent_type: "reviewer",
+      task_description: "cek diff",
+    });
+    await postHook(page, { hook_event_name: "SubagentStart", agent_id: "e2", agent_type: "reviewer" });
+
+    // Assert
+    await expect(dialog).toContainText("2B");
+    await expect(dialog).toContainText("Erza, tolong bantu ya.");
+    await expect(caption).toBeVisible();
+    const dialogBox = await dialog.boundingBox();
+    const captionBox = await caption.boundingBox();
+    expect(dialogBox).not.toBeNull();
+    expect(captionBox).not.toBeNull();
+    expect((dialogBox?.y ?? 0) + (dialogBox?.height ?? 0)).toBeLessThanOrEqual(captionBox?.y ?? 0);
   });
 
   test("opens the model dialog and closes it with Escape", async ({ page }) => {

@@ -251,6 +251,12 @@ function showMenu(window: BrowserWindow): void {
           .catch((error: unknown) => console.error("[main] failed to save settings", error));
       },
     },
+    {
+      label: "Close-up kantor pas ada yang kerja",
+      type: "checkbox",
+      checked: settings.closeupEnabled,
+      click: (item) => setCloseupEnabled(item.checked),
+    },
     { type: "separator" },
     { label: "Keluar", click: () => app.quit() },
   ]);
@@ -283,6 +289,12 @@ function modelPathFor(memberId: MemberId): string | null {
   return settings.modelPaths[memberId] ?? findMemberModel(repoRootFrom(import.meta.dirname), memberId);
 }
 
+function setCloseupEnabled(enabled: boolean): void {
+  updateSettings({ closeupEnabled: enabled })
+    .then(() => broadcast(ipcChannels.closeupEnabled, enabled))
+    .catch((error: unknown) => console.error("[main] failed to save settings", error));
+}
+
 function registerIpc(): void {
   ipcMain.handle(ipcChannels.loadSavedModel, async (_event, memberId: unknown) => {
     if (!isMemberId(memberId)) {
@@ -311,6 +323,14 @@ function registerIpc(): void {
     return path === null ? null : readModel(path);
   });
   ipcMain.handle(ipcChannels.getConversationMode, () => settings.conversationMode);
+  ipcMain.handle(ipcChannels.getCloseupEnabled, () => settings.closeupEnabled);
+  ipcMain.on(ipcChannels.setCloseupEnabled, (_event, enabled: unknown) => {
+    if (typeof enabled !== "boolean") {
+      console.error(`[main] ignoring non-boolean close-up setting: ${String(enabled)}`);
+      return;
+    }
+    setCloseupEnabled(enabled);
+  });
   ipcMain.on(ipcChannels.setConversationMode, (_event, mode: unknown) => {
     if (!isConversationMode(mode)) {
       console.error(`[main] ignoring unknown conversation mode: ${String(mode)}`);

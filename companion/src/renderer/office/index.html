@@ -16,15 +16,23 @@
     <main class="stage office">
       <canvas id="scene" aria-label="Kantor tim 2B, tampilan isometrik"></canvas>
       <p class="closeup-caption" id="closeup-caption" hidden></p>
+      <section class="dialog office-dialog" id="office-dialog" aria-live="polite" hidden>
+        <p class="dialog-name"></p>
+        <p class="dialog-text"></p>
+        <p class="dialog-tag" hidden>simulasi</p>
+      </section>
       <div class="hud">
         <p class="status" id="status" role="status" hidden></p>
-        <button class="button hud-button" id="closeup-toggle" type="button" aria-pressed="true">Sembunyikan close-up</button>
         <button class="button menu-button" id="menu-button" type="button">Menu</button>
       </div>
       <dialog class="model-dialog" id="model-dialog" aria-labelledby="model-dialog-title">
         <h2 class="panel-title" id="model-dialog-title">Pilih model .vrm</h2>
         <p class="panel-body">Anggota tanpa model tampil sebagai placeholder.</p>
         <ul class="model-list" id="model-list"></ul>
+        <label class="setting-row">
+          <input type="checkbox" id="closeup-setting" checked />
+          Close-up pas ada yang kerja
+        </label>
         <form method="dialog">
           <button class="button" type="submit">Tutup</button>
         </form>

@@ -8,6 +8,7 @@ export interface CompanionSettings {
   alwaysOnTop: boolean;
   officeOpen: boolean;
   conversationMode: ConversationMode;
+  closeupEnabled: boolean;
 }
 
 export const defaultSettings: CompanionSettings = {
@@ -15,6 +16,7 @@ export const defaultSettings: CompanionSettings = {
   alwaysOnTop: true,
   officeOpen: false,
   conversationMode: "simulated",
+  closeupEnabled: true,
 };
 
 /** Unknown or wrongly typed fields fall back to defaults instead of crashing startup. */
@@ -42,6 +44,7 @@ export function normalizeSettings(input: unknown): CompanionSettings {
     conversationMode: isConversationMode(record.conversationMode)
       ? record.conversationMode
       : defaultSettings.conversationMode,
+    closeupEnabled: typeof record.closeupEnabled === "boolean" ? record.closeupEnabled : defaultSettings.closeupEnabled,
   };
 }
 

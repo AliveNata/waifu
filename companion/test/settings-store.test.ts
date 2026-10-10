@@ -24,6 +24,7 @@ describe("settings store", () => {
       alwaysOnTop: false,
       officeOpen: true,
       conversationMode: "real" as const,
+      closeupEnabled: false,
     };
 
     // Act

@@ -37,6 +37,8 @@ const cameraFocus = new Vector3(-0.7, 0.6, -0.3);
 const minimumViewWidth = 11.5;
 const minimumViewHeight = 7;
 const closeupBackground = new Color("#e9e4da");
+/** Keeps the close-up on the last worker a little after they finish, so the "done" moment is visible. */
+const closeupHoldMs = 3500;
 
 interface MemberRig {
   avatar: OfficeAvatar;
@@ -96,6 +98,7 @@ export class OfficeStage {
   private elapsed = 0;
   private closeupEnabled = true;
   private focus: CloseupFocus | null = null;
+  private heldFocus: { memberId: MemberId; until: number } | null = null;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -292,7 +295,12 @@ export class OfficeStage {
     if (best === null && (twob.action === "type" || twob.action === "draw")) {
       best = { memberId: "twob", at: now };
     }
-    if (best === null) {
+    if (best !== null) {
+      this.heldFocus = { memberId: best.memberId, until: now + closeupHoldMs };
+    } else if (this.heldFocus !== null && now < this.heldFocus.until) {
+      best = { memberId: this.heldFocus.memberId, at: now };
+    } else {
+      this.heldFocus = null;
       return null;
     }
     const rig = this.rigs[best.memberId];

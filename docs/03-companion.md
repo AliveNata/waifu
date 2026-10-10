@@ -68,7 +68,9 @@ Event yang terjadi di dalam subagent (misalnya Asuna ngejalanin `Edit`) cuma nge
 
 Isi layar, papan tulis, dan sticky note semuanya **simulasi**, bukan kerjaan asli lo. Jadi aman pas lagi share screen.
 
-Pas ada yang kerja, panel **close-up** muncul di pojok kanan bawah dan nampilin layar atau papan anggota yang terakhir aktif, lengkap dengan nama tool yang lagi dipakai. Tombol **Sembunyikan close-up** buat matiin panelnya.
+Pas ada yang kerja, panel **close-up** muncul sendiri di pojok kanan bawah dan nampilin layar atau papan anggota yang terakhir aktif, lengkap dengan nama tool yang lagi dipakai. Setelah semua selesai, panelnya nunggu beberapa detik biar momen selesainya kelihatan, lalu hilang sendiri. Buat matiin sama sekali (misalnya pas share screen), hapus centang **Menu > Close-up kantor pas ada yang kerja**. Di mode browser, setting-nya ada di dialog **Model**.
+
+Obrolan tim yang sama dengan overlay kanan atas juga tampil di kantor, nempel di atas panel close-up. Kalau close-up lagi nggak tampil, kotak obrolannya turun ke posisi close-up.
 
 ## Kebutuhan
 

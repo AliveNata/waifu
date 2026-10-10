@@ -46,6 +46,10 @@ export interface CompanionApi {
   getConversationMode(): Promise<ConversationMode>;
   setConversationMode(mode: ConversationMode): void;
   onConversationMode(listener: (mode: ConversationMode) => void): () => void;
+  /** Whether the office shows the close-up panel while someone works. */
+  getCloseupEnabled(): Promise<boolean>;
+  setCloseupEnabled(enabled: boolean): void;
+  onCloseupEnabled(listener: (enabled: boolean) => void): () => void;
   /** Shows or hides the team overlay window. The browser fallback has no window to hide. */
   setTeamOverlayVisible(visible: boolean): void;
   getServerStatus(): Promise<HookServerStatus>;
@@ -63,6 +67,9 @@ export const ipcChannels = {
   getConversationMode: "companion:get-conversation-mode",
   setConversationMode: "companion:set-conversation-mode",
   conversationMode: "companion:conversation-mode",
+  getCloseupEnabled: "companion:get-closeup-enabled",
+  setCloseupEnabled: "companion:set-closeup-enabled",
+  closeupEnabled: "companion:closeup-enabled",
   teamOverlayVisible: "companion:team-overlay-visible",
   getServerStatus: "companion:get-server-status",
   openMenu: "companion:open-menu",

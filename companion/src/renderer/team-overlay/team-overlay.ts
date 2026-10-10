@@ -2,24 +2,14 @@ import "../common/base.css";
 import "./team-overlay.css";
 import type { VRM } from "@pixiv/three-vrm";
 import type { ConversationMode } from "../../shared/protocol.js";
-import { type MemberId, roster } from "../../shared/team.js";
+import type { MemberId } from "../../shared/team.js";
 import { getBridge, type RendererBridge } from "../common/bridge.js";
-import { Conversation, revealCharsPerSecond } from "../common/conversation.js";
+import { Conversation } from "../common/conversation.js";
+import { DialogBox } from "../common/dialog-box.js";
 import { MemberModelLoader } from "../common/member-model.js";
 import { requireElement } from "../common/status-chip.js";
 import { disposeVrm } from "../common/vrm-loader.js";
 import { TeamOverlayStage } from "./team-overlay-stage.js";
-
-const speakerColors: Record<MemberId, string> = {
-  twob: "#d9dde6",
-  chizuru: "#e8c39a",
-  rias: "#ff9ec4",
-  asuna: "#f4b07a",
-  kobayashi: "#f09a84",
-  yor: "#f2d27a",
-  erza: "#f58f8f",
-  ruby: "#f3a6e0",
-};
 
 /** Models are 10 MB each; keep only the few most recent speakers in memory. */
 const maxCachedModels = 3;
@@ -28,10 +18,7 @@ const hideAfterIdleMs = 1500;
 
 class TeamOverlayPage {
   private readonly stageElement = requireElement("stage", HTMLElement);
-  private readonly dialog = requireElement("dialog", HTMLElement);
-  private readonly dialogName = requireElement("dialog-name", HTMLElement);
-  private readonly dialogText = requireElement("dialog-text", HTMLElement);
-  private readonly dialogTag = requireElement("dialog-tag", HTMLElement);
+  private readonly dialog = new DialogBox(requireElement("dialog", HTMLElement));
   private readonly modeToggle = requireElement("mode-toggle", HTMLButtonElement);
   private readonly empty = requireElement("empty", HTMLElement);
   private readonly conversation = new Conversation();
@@ -39,8 +26,6 @@ class TeamOverlayPage {
   private readonly cache = new Map<MemberId, Promise<VRM | null>>();
   private readonly stage: TeamOverlayStage;
   private mode: ConversationMode = "simulated";
-  private shownLineId: number | null = null;
-  private lastRenderedText = "";
   private idleSince: number | null = Date.now();
   private visible = false;
 
@@ -133,7 +118,7 @@ class TeamOverlayPage {
 
     if (current === null) {
       this.idleSince ??= now;
-      this.dialog.hidden = true;
+      this.dialog.render(null, now);
       this.stageElement.dataset.state = "idle";
       if (now - this.idleSince >= hideAfterIdleMs) {
         this.setVisible(false);
@@ -149,28 +134,8 @@ class TeamOverlayPage {
     this.idleSince = null;
     this.setVisible(true);
     this.stageElement.dataset.state = "speaking";
-    const { line, startedAt } = current;
-    if (line.id !== this.shownLineId) {
-      this.shownLineId = line.id;
-      if (this.stage.currentSpeaker() !== line.memberId) {
-        this.showSpeaker(line.memberId);
-      }
-      const profile = roster[line.memberId];
-      this.dialog.hidden = false;
-      this.dialog.style.setProperty("--speaker", speakerColors[line.memberId]);
-      this.dialogName.textContent = profile.displayName;
-      const role = document.createElement("span");
-      role.textContent = profile.role;
-      this.dialogName.append(role);
-      this.dialogTag.hidden = !line.simulated;
-    }
-
-    // Typewriter reveal, in step with the lip-sync in the stage.
-    const revealed = Math.min(line.text.length, Math.floor(((now - startedAt) / 1000) * revealCharsPerSecond));
-    const text = line.text.slice(0, revealed);
-    if (text !== this.lastRenderedText) {
-      this.lastRenderedText = text;
-      this.dialogText.textContent = text;
+    if (this.dialog.render(current, now) && this.stage.currentSpeaker() !== current.line.memberId) {
+      this.showSpeaker(current.line.memberId);
     }
   }
 }

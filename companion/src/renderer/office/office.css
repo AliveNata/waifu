@@ -9,12 +9,6 @@
   margin-right: auto;
 }
 
-.hud-button {
-  flex-shrink: 0;
-  background: var(--chip-bg);
-  color: var(--chip-ink);
-}
-
 /* Sits on top edge of the close-up viewport; position comes from the stage each frame. */
 .closeup-caption {
   position: absolute;
@@ -61,9 +55,28 @@
   text-align: left;
 }
 
-@media (max-width: 520px) {
-  .hud-button {
-    padding: 0 10px;
-    font-size: 12px;
-  }
+/* Docked above the close-up by the page script, so the speaker and their screen read together. */
+.office-dialog {
+  min-height: 88px;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.setting-row input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--button-bg);
+}
+
+.setting-row input:focus-visible {
+  outline: 2px solid var(--panel-ink);
+  outline-offset: 2px;
 }

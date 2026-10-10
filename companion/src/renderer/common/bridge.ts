@@ -82,10 +82,31 @@ async function fetchModel(path: string): Promise<ModelFile | null> {
   return { name, bytes: await response.arrayBuffer() };
 }
 
+const closeupEnabledKey = "waifu.closeupEnabled";
+
+function readStoredCloseup(): boolean {
+  try {
+    return window.localStorage.getItem(closeupEnabledKey) !== "false";
+  } catch (error) {
+    console.warn("[bridge] localStorage unavailable, close-up stays on", error);
+    return true;
+  }
+}
+
+function storeCloseup(enabled: boolean): void {
+  try {
+    window.localStorage.setItem(closeupEnabledKey, String(enabled));
+  } catch (error) {
+    console.warn("[bridge] could not persist close-up setting", error);
+  }
+}
+
 function createWebBridge(): RendererBridge {
   let events: EventSource | null = null;
   let conversationMode = readStoredMode();
   const modeListeners = new Set<(mode: ConversationMode) => void>();
+  let closeupEnabled = readStoredCloseup();
+  const closeupListeners = new Set<(enabled: boolean) => void>();
   const signalListeners = new Set<(signal: CompanionSignal) => void>();
 
   const ensureEventStream = (): void => {
@@ -126,6 +147,20 @@ function createWebBridge(): RendererBridge {
     onConversationMode(listener) {
       modeListeners.add(listener);
       return () => modeListeners.delete(listener);
+    },
+    async getCloseupEnabled() {
+      return closeupEnabled;
+    },
+    setCloseupEnabled(enabled) {
+      closeupEnabled = enabled;
+      storeCloseup(enabled);
+      for (const listener of closeupListeners) {
+        listener(enabled);
+      }
+    },
+    onCloseupEnabled(listener) {
+      closeupListeners.add(listener);
+      return () => closeupListeners.delete(listener);
     },
     setTeamOverlayVisible() {
       // A browser tab has no window to hide; the page hides its own content instead.
