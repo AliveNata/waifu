@@ -130,11 +130,32 @@ describe("signalsForHook", () => {
   it("produces exactly one signal for a subagent tool call", () => {
     // Act
     const signals = signalsForHook(
-      { hook_event_name: "PostToolUse", tool_name: "Read", agent_id: "a", agent_type: "architect" },
+      { hook_event_name: "PreToolUse", tool_name: "Read", agent_id: "a", agent_type: "architect" },
       9,
     );
 
     // Assert
     expect(signals.map((signal) => signal.kind)).toEqual(["member"]);
+  });
+
+  it("skips PostToolUse inside a subagent so the tool line is not repeated", () => {
+    expect(
+      signalsForHook({ hook_event_name: "PostToolUse", tool_name: "Read", agent_id: "a", agent_type: "architect" }, 9),
+    ).toEqual([]);
+  });
+
+  it("emits a delegation alongside Xenovia's reaction when she starts a subagent", () => {
+    // Act
+    const signals = signalsForHook(
+      { hook_event_name: "PreToolUse", tool_name: "Agent", subagent_type: "reviewer", task_description: "Review diff" },
+      9,
+    );
+
+    // Assert
+    expect(signals).toContainEqual({
+      kind: "delegation",
+      delegation: { memberId: "erza", description: "Review diff", receivedAt: 9 },
+    });
+    expect(signals.map((signal) => signal.kind)).toEqual(["reaction", "delegation"]);
   });
 });

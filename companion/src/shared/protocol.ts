@@ -29,11 +29,25 @@ export interface CursorOffset {
   dy: number;
 }
 
+/** "simulated" shows role-flavored lines, "real" shows the actual task titles and report summaries. */
+export type ConversationMode = "simulated" | "real";
+
+export function isConversationMode(value: unknown): value is ConversationMode {
+  return value === "simulated" || value === "real";
+}
+
 export interface CompanionApi {
   /** Model for a team member. Null when none is configured yet. */
   loadSavedModel(memberId: MemberId): Promise<ModelFile | null>;
   /** Asks the user for a .vrm for a team member and remembers it. */
   pickModel(memberId: MemberId): Promise<ModelFile | null>;
+  /** Anime base model used for members without their own .vrm. Null until `npm run fetch-base-model`. */
+  loadBaseModel(): Promise<ModelFile | null>;
+  getConversationMode(): Promise<ConversationMode>;
+  setConversationMode(mode: ConversationMode): void;
+  onConversationMode(listener: (mode: ConversationMode) => void): () => void;
+  /** Shows or hides the team overlay window. The browser fallback has no window to hide. */
+  setTeamOverlayVisible(visible: boolean): void;
   getServerStatus(): Promise<HookServerStatus>;
   openMenu(): void;
   onSignal(listener: (signal: CompanionSignal) => void): () => void;
@@ -45,6 +59,11 @@ export interface CompanionApi {
 export const ipcChannels = {
   loadSavedModel: "companion:load-saved-model",
   pickModel: "companion:pick-model",
+  loadBaseModel: "companion:load-base-model",
+  getConversationMode: "companion:get-conversation-mode",
+  setConversationMode: "companion:set-conversation-mode",
+  conversationMode: "companion:conversation-mode",
+  teamOverlayVisible: "companion:team-overlay-visible",
   getServerStatus: "companion:get-server-status",
   openMenu: "companion:open-menu",
   signal: "companion:signal",

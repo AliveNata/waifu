@@ -6,14 +6,17 @@ import {
   type CursorOffset,
   type HookServerStatus,
   ipcChannels,
+  isConversationMode,
   type ModelFile,
   resolveHookPort,
 } from "../shared/protocol.js";
 import type { CompanionSignal } from "../shared/reaction.js";
 import { isMemberId, type MemberId, memberIds, roster } from "../shared/team.js";
+import { findBaseModel, repoRootFrom } from "../tools/base-model.js";
 import { type CompanionSettings, loadSettings, saveSettings } from "./settings-store.js";
 
 const overlaySize = { width: 340, height: 440 };
+const teamOverlaySize = { width: 360, height: 480 };
 const overlayMargin = 24;
 const cursorPollMs = 50;
 
@@ -24,11 +27,12 @@ let settings: CompanionSettings;
 let settingsPath: string;
 let overlayWindow: BrowserWindow | null = null;
 let officeWindow: BrowserWindow | null = null;
+let teamOverlayWindow: BrowserWindow | null = null;
 let serverStatus: HookServerStatus;
 let isQuitting = false;
 
 function rendererWindows(): BrowserWindow[] {
-  return [overlayWindow, officeWindow].filter(
+  return [overlayWindow, officeWindow, teamOverlayWindow].filter(
     (window): window is BrowserWindow => window !== null && !window.isDestroyed(),
   );
 }
@@ -101,6 +105,37 @@ function createOverlayWindow(): BrowserWindow {
   return window;
 }
 
+/**
+ * Top-right twin of the overlay where team members talk. Starts hidden and is
+ * shown without taking focus only while someone is speaking, so an empty
+ * transparent window never blocks clicks on whatever is underneath.
+ */
+function createTeamOverlayWindow(): BrowserWindow {
+  const { workArea } = screen.getPrimaryDisplay();
+  const window = new BrowserWindow({
+    ...teamOverlaySize,
+    x: workArea.x + workArea.width - teamOverlaySize.width - overlayMargin,
+    y: workArea.y + overlayMargin,
+    show: false,
+    transparent: true,
+    frame: false,
+    resizable: false,
+    hasShadow: false,
+    skipTaskbar: true,
+    alwaysOnTop: settings.alwaysOnTop,
+    backgroundColor: "#00000000",
+    title: "Tim Xenovia",
+    webPreferences,
+  });
+  window.loadFile(join(rendererDir, "team-overlay/index.html")).catch((error: unknown) => {
+    console.error("[main] failed to load team overlay page", error);
+  });
+  window.on("closed", () => {
+    teamOverlayWindow = null;
+  });
+  return window;
+}
+
 function openOfficeWindow(): void {
   if (officeWindow !== null && !officeWindow.isDestroyed()) {
     officeWindow.show();
@@ -167,9 +202,21 @@ function showMenu(window: BrowserWindow): void {
       checked: settings.alwaysOnTop,
       click: (item) => {
         overlayWindow?.setAlwaysOnTop(item.checked);
+        teamOverlayWindow?.setAlwaysOnTop(item.checked);
         updateSettings({ alwaysOnTop: item.checked }).catch((error: unknown) => {
           console.error("[main] failed to save settings", error);
         });
+      },
+    },
+    {
+      label: "Tampilkan isi percakapan asli",
+      type: "checkbox",
+      checked: settings.conversationMode === "real",
+      click: (item) => {
+        const mode = item.checked ? "real" : "simulated";
+        updateSettings({ conversationMode: mode })
+          .then(() => broadcast(ipcChannels.conversationMode, mode))
+          .catch((error: unknown) => console.error("[main] failed to save settings", error));
       },
     },
     { type: "separator" },
@@ -222,6 +269,31 @@ function registerIpc(): void {
     }
     return readModel(selected);
   });
+  ipcMain.handle(ipcChannels.loadBaseModel, async () => {
+    const path = findBaseModel(repoRootFrom(import.meta.dirname), process.env);
+    return path === null ? null : readModel(path);
+  });
+  ipcMain.handle(ipcChannels.getConversationMode, () => settings.conversationMode);
+  ipcMain.on(ipcChannels.setConversationMode, (_event, mode: unknown) => {
+    if (!isConversationMode(mode)) {
+      console.error(`[main] ignoring unknown conversation mode: ${String(mode)}`);
+      return;
+    }
+    updateSettings({ conversationMode: mode })
+      .then(() => broadcast(ipcChannels.conversationMode, mode))
+      .catch((error: unknown) => console.error("[main] failed to save settings", error));
+  });
+  ipcMain.on(ipcChannels.teamOverlayVisible, (_event, visible: unknown) => {
+    const window = teamOverlayWindow;
+    if (window === null || window.isDestroyed()) {
+      return;
+    }
+    if (visible === true && !window.isVisible()) {
+      window.showInactive();
+    } else if (visible !== true && window.isVisible()) {
+      window.hide();
+    }
+  });
   ipcMain.handle(ipcChannels.getServerStatus, () => serverStatus);
   ipcMain.on(ipcChannels.openMenu, (event) => {
     const window = BrowserWindow.fromWebContents(event.sender);
@@ -256,6 +328,7 @@ async function bootstrap(): Promise<void> {
   registerIpc();
   const server = await startHookServer();
   overlayWindow = createOverlayWindow();
+  teamOverlayWindow = createTeamOverlayWindow();
   if (settings.officeOpen) {
     openOfficeWindow();
   }

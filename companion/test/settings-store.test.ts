@@ -19,7 +19,12 @@ describe("settings store", () => {
   it("round-trips saved settings", async () => {
     // Arrange
     const file = join(await mkdtemp(join(tmpdir(), "companion-")), "nested", "settings.json");
-    const settings = { modelPaths: { xenovia: "C:/models/xenovia.vrm" }, alwaysOnTop: false, officeOpen: true };
+    const settings = {
+      modelPaths: { xenovia: "C:/models/xenovia.vrm" },
+      alwaysOnTop: false,
+      officeOpen: true,
+      conversationMode: "real" as const,
+    };
 
     // Act
     await saveSettings(file, settings);

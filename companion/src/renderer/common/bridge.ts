@@ -1,4 +1,11 @@
-import type { CompanionApi, CursorOffset, HookServerStatus, ModelFile } from "../../shared/protocol.js";
+import type {
+  CompanionApi,
+  ConversationMode,
+  CursorOffset,
+  HookServerStatus,
+  ModelFile,
+} from "../../shared/protocol.js";
+import { isConversationMode } from "../../shared/protocol.js";
 import type { CompanionSignal } from "../../shared/reaction.js";
 import type { MemberId } from "../../shared/team.js";
 
@@ -42,8 +49,43 @@ function pickFileFromBrowser(): Promise<ModelFile | null> {
   });
 }
 
+const conversationModeKey = "waifu.conversationMode";
+
+/** Browser storage can be unavailable (private mode, blocked site data); the mode then just resets per page load. */
+function readStoredMode(): ConversationMode {
+  try {
+    const stored = window.localStorage.getItem(conversationModeKey);
+    return isConversationMode(stored) ? stored : "simulated";
+  } catch (error) {
+    console.warn("[bridge] localStorage unavailable, using simulated conversation", error);
+    return "simulated";
+  }
+}
+
+function storeMode(mode: ConversationMode): void {
+  try {
+    window.localStorage.setItem(conversationModeKey, mode);
+  } catch (error) {
+    console.warn("[bridge] could not persist conversation mode", error);
+  }
+}
+
+async function fetchModel(path: string): Promise<ModelFile | null> {
+  const response = await fetch(path);
+  if (response.status === 204) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error(`GET ${path} answered ${response.status}`);
+  }
+  const name = decodeURIComponent(response.headers.get("x-model-name") ?? "model.vrm");
+  return { name, bytes: await response.arrayBuffer() };
+}
+
 function createWebBridge(): RendererBridge {
   let events: EventSource | null = null;
+  let conversationMode = readStoredMode();
+  const modeListeners = new Set<(mode: ConversationMode) => void>();
   const signalListeners = new Set<(signal: CompanionSignal) => void>();
 
   const ensureEventStream = (): void => {
@@ -68,18 +110,26 @@ function createWebBridge(): RendererBridge {
 
   return {
     hasNativeMenu: false,
-    async loadSavedModel(memberId: MemberId) {
-      const response = await fetch(`/model/${memberId}`);
-      if (response.status === 204) {
-        return null;
-      }
-      if (!response.ok) {
-        throw new Error(`GET /model/${memberId} answered ${response.status}`);
-      }
-      const name = decodeURIComponent(response.headers.get("x-model-name") ?? "model.vrm");
-      return { name, bytes: await response.arrayBuffer() };
-    },
+    loadSavedModel: (memberId: MemberId) => fetchModel(`/model/${memberId}`),
     pickModel: () => pickFileFromBrowser(),
+    loadBaseModel: () => fetchModel("/model/base"),
+    async getConversationMode() {
+      return conversationMode;
+    },
+    setConversationMode(mode) {
+      conversationMode = mode;
+      storeMode(mode);
+      for (const listener of modeListeners) {
+        listener(mode);
+      }
+    },
+    onConversationMode(listener) {
+      modeListeners.add(listener);
+      return () => modeListeners.delete(listener);
+    },
+    setTeamOverlayVisible() {
+      // A browser tab has no window to hide; the page hides its own content instead.
+    },
     async getServerStatus(): Promise<HookServerStatus> {
       return { state: "listening", port: Number(window.location.port) };
     },

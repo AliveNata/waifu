@@ -16,6 +16,7 @@ export default defineConfig({
       input: {
         overlay: resolve(rendererRoot, "overlay/index.html"),
         office: resolve(rendererRoot, "office/index.html"),
+        teamOverlay: resolve(rendererRoot, "team-overlay/index.html"),
       },
     },
   },

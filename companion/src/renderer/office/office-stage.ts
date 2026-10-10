@@ -18,6 +18,7 @@ import {
   expressionTargetsForMood,
   stepExpressionWeights,
 } from "../common/expressions.js";
+import { memberLooks } from "../common/looks.js";
 import { PoseApplier } from "../common/pose.js";
 import type { OfficeAvatar } from "./avatar.js";
 import { solveCcd } from "./ik.js";
@@ -26,7 +27,7 @@ import { type MemberPlan, memberPlan, type OfficeAction, usesHandIk, xenoviaPlan
 import { homeStations } from "./office-layout.js";
 import { officePose } from "./office-pose.js";
 import { buildOffice, type CloseupShot, type DeskMember, xenoviaBoardShot } from "./office-scene.js";
-import { PlaceholderAvatar, placeholderLooks } from "./placeholder.js";
+import { PlaceholderAvatar } from "./placeholder.js";
 import type { Vec2 } from "./surfaces/drawing.js";
 import { applyMemberSignal, emptyTeamRuntime, memberBehavior, type TeamRuntime } from "./team-state.js";
 
@@ -123,10 +124,7 @@ export class OfficeStage {
     this.camera.lookAt(cameraFocus);
 
     this.rigs = Object.fromEntries(
-      memberIds.map((memberId) => [
-        memberId,
-        this.createRig(memberId, new PlaceholderAvatar(placeholderLooks[memberId])),
-      ]),
+      memberIds.map((memberId) => [memberId, this.createRig(memberId, new PlaceholderAvatar(memberLooks[memberId]))]),
     ) as Record<MemberId, MemberRig>;
 
     window.addEventListener("resize", () => this.resize());
@@ -145,7 +143,7 @@ export class OfficeStage {
   }
 
   placeholderFor(memberId: MemberId): OfficeAvatar {
-    return new PlaceholderAvatar(placeholderLooks[memberId]);
+    return new PlaceholderAvatar(memberLooks[memberId]);
   }
 
   setXenoviaReaction(reaction: Reaction): void {

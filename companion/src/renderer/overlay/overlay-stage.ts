@@ -10,6 +10,7 @@ import {
 } from "../common/expressions.js";
 import type { Stage } from "../common/page.js";
 import { PoseApplier, vrmPoseTarget } from "../common/pose.js";
+import { updateVrmStable } from "../common/vrm-update.js";
 import { cursorAim, overlayPose } from "./overlay-pose.js";
 
 /** Vertical span of the close-up in meters: top of the hair down to mid chest. */
@@ -139,7 +140,7 @@ export class OverlayStage implements Stage {
         const happy = this.expressionWeights.happy ?? 0;
         expressions.setValue("blink", this.blink.weightAt(this.elapsed) * (1 - happy));
       }
-      vrm.update(delta);
+      updateVrmStable(vrm, delta);
     }
 
     this.renderer.render(this.scene, this.camera);

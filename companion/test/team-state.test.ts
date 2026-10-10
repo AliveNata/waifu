@@ -9,7 +9,7 @@ import {
 import type { MemberSignal } from "../src/shared/reaction.js";
 
 function signal(activity: MemberSignal["activity"], agentId: string, receivedAt: number): MemberSignal {
-  return { memberId: "asuna", activity, agentId, tool: activity === "tool" ? "Edit" : null, receivedAt };
+  return { memberId: "asuna", activity, agentId, tool: activity === "tool" ? "Edit" : null, summary: null, receivedAt };
 }
 
 describe("member runtime", () => {

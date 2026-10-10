@@ -1,11 +1,27 @@
-# 03. Desktop companion: overlay close-up + kantor chibi
+# 03. Desktop companion: overlay, overlay tim, dan kantor chibi
 
-Companion ini nampilin Xenovia dan timnya di dua tempat:
+Companion ini nampilin Xenovia dan timnya di tiga tempat:
 
-- **Overlay**: close-up 3D Xenovia, transparan, di pojok kanan bawah layar, selalu di atas window lain. Kepala dan matanya ngikutin cursor lo.
-- **Kantor**: window terpisah berisi ruangan isometrik low-poly dengan tujuh anggota tim versi chibi (lihat [04-tim.md](04-tim.md)). Tiap anggota punya meja atau papan sendiri dan mulai kerja pas subagent-nya dipanggil.
+- **Overlay Xenovia**: close-up 3D transparan di pojok kanan bawah layar, selalu di atas window lain. Kepala dan matanya ngikutin cursor lo.
+- **Overlay tim**: close-up transparan di pojok kanan atas. Muncul cuma pas ada yang ngomong: Xenovia ngoper tugas, atau anggota tim mulai kerja, pakai tool, dan selesai. Ada gerak mulut, ekspresi, gesture, dan kotak dialog.
+- **Kantor**: window terpisah berisi ruangan isometrik dengan tujuh anggota tim versi chibi (lihat [04-tim.md](04-tim.md)). Tiap anggota punya meja atau papan sendiri dan mulai kerja pas subagent-nya dipanggil.
 
-Dua-duanya bereaksi ke event yang sama dari hooks Claude Code.
+Ketiganya bereaksi ke event yang sama dari hooks Claude Code.
+
+## Model karakter
+
+Urutan model yang dipakai buat tiap anggota:
+1. `.vrm` asli yang lo pasang lewat **Menu > Pilih model .vrm**.
+2. Kalau belum ada: **model anime cadangan**, yaitu sample resmi VRM 1.0 yang diwarnai ulang pakai warna rambut, mata, dan baju tiap karakter, plus kacamata buat Kobayashi. Wajah dan model rambutnya sama buat semua anggota.
+3. Kalau model cadangan belum didownload: chibi kotak-kotak di kantor, dan tulisan "Belum ada model" di overlay Xenovia.
+
+Model cadangan didownload sekali (sekitar 10 MB, versi di-pin dan dicek hash-nya):
+
+```powershell
+npm run fetch-base-model
+```
+
+File-nya disimpan di `models/base/` dan nggak ikut ke-commit.
 
 ## Reaksi per event
 
@@ -18,6 +34,21 @@ Dua-duanya bereaksi ke event yang sama dari hooks Claude Code.
 | `Stop` | done | senyum lebar, ngangguk | lompat kecil di depan, lalu balik ke sofa |
 | `SubagentStart` | (anggota) | nggak berubah | anggota yang dipanggil mulai kerja di mejanya |
 | `SubagentStop` | (anggota) | nggak berubah | anggota itu selesai, ngulet atau senyum, lalu santai |
+
+## Overlay tim
+
+| Kejadian | Yang ngomong | Contoh (mode simulasi) | Gesture |
+|---|---|---|---|
+| Xenovia ngoper tugas | Xenovia | "Asuna, tolong bantu ya." | nunjuk |
+| Subagent mulai | Anggota itu | "Oke, aku cek pipeline datanya." | ngangguk |
+| Subagent pakai tool | Anggota itu | "Aku baca kodenya dulu." (maksimal sekali per 8 detik) | mikir atau ngetik |
+| Subagent selesai | Anggota itu | "Review selesai. Hasilnya ada di laporan." | ngangguk atau sorak |
+
+Kalimat simulasi cuma ngegambarin aktivitas, nggak pernah ngarang hasil. Tag "simulasi" muncul di pojok kotak dialog.
+
+**Isi asli**: tombol **Isi asli** di overlay tim (muncul pas di-hover), atau **Menu > Tampilkan isi percakapan asli**. Kalau dinyalain, Xenovia nyebut judul tugas yang beneran, dan anggota tim nutup dengan ringkasan laporan akhirnya (maksimal 280 karakter). Matiin lagi sebelum share screen.
+
+Overlay tim bisa digeser kayak overlay Xenovia.
 | `PreCompact` | thinking | sama kayak thinking | sama kayak thinking |
 | `SessionEnd` | idle | santai | duduk di sofa |
 
@@ -51,20 +82,24 @@ Buka PowerShell:
 
 ```powershell
 git clone https://github.com/AliveNata/waifu.git
-cd waifu/companion
+cd waifu
+git checkout claude/3d-waifu-modeling-rigging-pkwpy7
+cd companion
 npm ci
+npm run fetch-base-model
 npm start
 ```
 
 `npm ci` ikut download Electron (sekitar 100 MB), jadi yang pertama agak lama.
 
-Pertama kali jalan, overlay nampilin "Belum ada model". Klik **Pilih file .vrm**, lalu pilih hasil export dari VRoid. Path-nya disimpan, jadi next time langsung kebuka.
+Pertama kali jalan, overlay nampilin Xenovia versi model cadangan (rambut biru). Begitu lo punya `.vrm` aslinya, pasang lewat **Menu > Pilih model .vrm > Xenovia**. Path-nya disimpan, jadi next time langsung kebuka.
 
 Menu ada di tombol **Menu**. Di overlay, tombolnya cuma muncul pas cursor di atasnya, atau pas difokus pakai Tab. Isinya:
 
-- **Pilih model .vrm** dengan submenu per anggota tim. Model Xenovia dipakai di overlay dan kantor. Model anggota lain dipakai di kantor. Yang belum punya model tampil sebagai placeholder. Cara nyari model ada di [05-cari-model.md](05-cari-model.md).
+- **Pilih model .vrm** dengan submenu per anggota tim. Model yang dipasang dipakai di semua tempat anggota itu muncul. Yang belum punya pakai model cadangan. Cara nyari model ada di [05-cari-model.md](05-cari-model.md).
 - **Buka kantor / Tutup kantor**.
-- **Overlay selalu di atas** buat on/off always-on-top.
+- **Overlay selalu di atas** buat on/off always-on-top (berlaku buat dua overlay).
+- **Tampilkan isi percakapan asli** buat nyalain atau matiin isi asli di overlay tim.
 - **Keluar**.
 
 Overlay bisa digeser dengan drag di area mana aja selain tombol.
@@ -87,7 +122,7 @@ Hook-nya jalan dengan `"async": true`, jadi Claude Code nggak nungguin companion
 
 ## Data apa yang dikirim
 
-Bridge cuma nerusin field ini ke `127.0.0.1`: nama event, nama tool (misalnya `Bash`), pesan notifikasi, plus ID dan nama subagent. Isi file, command, prompt lo, path transcript, dan laporan akhir subagent dibuang di bridge sebelum dikirim. Server companion cuma dengerin di localhost dan nolak request yang bukan `application/json`, jadi website random di browser nggak bisa nembak endpoint-nya.
+Bridge cuma nerusin field ini ke `127.0.0.1`: nama event, nama tool (misalnya `Bash`), pesan notifikasi, ID dan nama subagent, judul tugas pendek dari Xenovia (maksimal 120 karakter), dan awal laporan akhir subagent (maksimal 280 karakter). Dua yang terakhir cuma ditampilin kalau **isi asli** dinyalain. Isi file, command, prompt lo, prompt lengkap ke subagent, dan path transcript dibuang di bridge sebelum dikirim. Server companion cuma dengerin di localhost dan nolak request yang bukan `application/json`, jadi website random di browser nggak bisa nembak endpoint-nya.
 
 ## Ganti port
 
@@ -111,7 +146,7 @@ npm run web
 
 `WAIFU_MODEL_PATH` buat Xenovia, `WAIFU_MODEL_PATH_<NAMA>` buat anggota lain (`CHIZURU`, `ROBIN`, `ASUNA`, `KOBAYASHI`, `FUBUKI`, `ERZA`). Semuanya opsional. Model juga bisa dipilih lewat tombol **Model** di halaman kantor.
 
-Lalu buka `http://127.0.0.1:47823/overlay/` dan `http://127.0.0.1:47823/office/`. Hooks tetap nyambung lewat port yang sama.
+Lalu buka `http://127.0.0.1:47823/overlay/`, `http://127.0.0.1:47823/team-overlay/`, dan `http://127.0.0.1:47823/office/`. Hooks tetap nyambung lewat port yang sama.
 
 ## Troubleshooting
 
@@ -122,6 +157,8 @@ Lalu buka `http://127.0.0.1:47823/overlay/` dan `http://127.0.0.1:47823/office/`
 | "Model gagal dimuat" | File bukan VRM, atau export-nya rusak | Export ulang dari VRoid, atau cek pakai `npm run inspect-vrm` |
 | Anggota tim nggak gerak pas dipanggil | Agent belum di-install, atau hooks belum ada `SubagentStart` | `npm run team:install`, lalu ulangi `hooks:print` |
 | Pose aneh (tangan nembus badan, duduk melayang) | Proporsi model beda jauh dari default VRoid | Kasih tau gua, angka pose bisa diatur |
+| Kantor masih kotak-kotak, ada chip "Model anime belum ada" | Model cadangan belum didownload | `npm run fetch-base-model`, lalu buka ulang companion |
+| Overlay tim nggak pernah muncul | Nggak ada subagent yang dipanggil, atau hooks lama tanpa `SubagentStart` | Minta Xenovia delegasi, atau ulangi `hooks:print` |
 
 ## Buat developer
 

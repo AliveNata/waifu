@@ -3,6 +3,7 @@ import "./office.css";
 import type { MemberId } from "../../shared/team.js";
 import { memberIds, roster } from "../../shared/team.js";
 import { getBridge, type RendererBridge } from "../common/bridge.js";
+import { MemberModelLoader } from "../common/member-model.js";
 import { ReactionTracker } from "../common/reaction-tracker.js";
 import { requireElement, StatusChip } from "../common/status-chip.js";
 import { loadVrm } from "../common/vrm-loader.js";
@@ -19,6 +20,8 @@ class OfficePage {
   private readonly tracker = new ReactionTracker(Date.now());
   private readonly loadGenerations = new Map<MemberId, number>();
   private readonly stage: OfficeStage;
+  private readonly models: MemberModelLoader;
+  private baseHintShown = false;
   private lastCaption = "";
 
   constructor(
@@ -26,13 +29,14 @@ class OfficePage {
     canvas: HTMLCanvasElement,
   ) {
     this.stage = new OfficeStage(canvas, () => this.tick());
+    this.models = new MemberModelLoader(bridge);
   }
 
   start(): void {
     this.bridge.onSignal((signal) => {
       if (signal.kind === "reaction") {
         this.tracker.apply(signal.reaction);
-      } else {
+      } else if (signal.kind === "member") {
         this.stage.applyMemberSignal(signal.member);
       }
     });
@@ -83,38 +87,77 @@ class OfficePage {
     }
   }
 
+  private nextGeneration(memberId: MemberId): number {
+    const generation = (this.loadGenerations.get(memberId) ?? 0) + 1;
+    this.loadGenerations.set(memberId, generation);
+    return generation;
+  }
+
+  private isCurrent(memberId: MemberId, generation: number): boolean {
+    return this.loadGenerations.get(memberId) === generation;
+  }
+
   private loadSaved(memberId: MemberId): void {
-    this.bridge
-      .loadSavedModel(memberId)
-      .then((file) => {
-        if (file === null) {
-          this.stage.setAvatar(memberId, this.stage.placeholderFor(memberId));
-          return undefined;
+    const generation = this.nextGeneration(memberId);
+    this.models
+      .load(memberId)
+      .then((loaded) => {
+        if (!this.isCurrent(memberId, generation)) {
+          return;
         }
-        return this.loadModel(memberId, file.bytes);
+        if (loaded === null) {
+          this.useBoxPlaceholder(memberId);
+          return;
+        }
+        this.stage.setAvatar(memberId, new VrmOfficeAvatar(loaded.vrm));
       })
       .catch((error: unknown) => this.reportFailure(memberId, error));
   }
 
   private async loadModel(memberId: MemberId, bytes: ArrayBuffer): Promise<void> {
-    const generation = (this.loadGenerations.get(memberId) ?? 0) + 1;
-    this.loadGenerations.set(memberId, generation);
+    const generation = this.nextGeneration(memberId);
     const vrm = await loadVrm(bytes);
-    if (this.loadGenerations.get(memberId) !== generation) {
-      // A newer load for this member started while this one was parsing.
-      return;
+    if (this.isCurrent(memberId, generation)) {
+      this.stage.setAvatar(memberId, new VrmOfficeAvatar(vrm));
     }
-    this.stage.setAvatar(memberId, new VrmOfficeAvatar(vrm));
+  }
+
+  /** Last resort when even the anime base model is missing. Says once how to get it. */
+  private useBoxPlaceholder(memberId: MemberId): void {
+    this.stage.setAvatar(memberId, this.stage.placeholderFor(memberId));
+    if (!this.baseHintShown) {
+      this.baseHintShown = true;
+      this.status.showNotice(
+        "Model anime belum ada. Jalanin npm run fetch-base-model di folder companion.",
+        Date.now(),
+      );
+    }
   }
 
   private reportFailure(memberId: MemberId, error: unknown): void {
     console.error(`[office] model for ${memberId} failed to load`, error);
     const message = error instanceof Error ? error.message : String(error);
     this.status.showNotice(
-      `Model ${roster[memberId].displayName} gagal dimuat, pakai placeholder. ${message}`,
+      `Model ${roster[memberId].displayName} gagal dimuat, pakai model cadangan. ${message}`,
       Date.now(),
     );
-    this.stage.setAvatar(memberId, this.stage.placeholderFor(memberId));
+    const generation = this.nextGeneration(memberId);
+    this.models
+      .loadBase(memberId)
+      .then((loaded) => {
+        if (!this.isCurrent(memberId, generation)) {
+          return;
+        }
+        if (loaded === null) {
+          this.stage.setAvatar(memberId, this.stage.placeholderFor(memberId));
+        } else {
+          this.stage.setAvatar(memberId, new VrmOfficeAvatar(loaded.vrm));
+        }
+      })
+      .catch((fallbackError: unknown) => {
+        console.error(`[office] base model fallback for ${memberId} failed`, fallbackError);
+        this.stage.setAvatar(memberId, this.stage.placeholderFor(memberId));
+      });
   }
 
   private tick(): void {

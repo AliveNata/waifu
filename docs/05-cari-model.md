@@ -1,6 +1,23 @@
 # 05. Cari model VRM jadi dan cek lisensinya
 
-Buat Xenovia dan anggota tim lain, lo bisa pakai model jadi daripada bikin dari nol di VRoid. Selama modelnya belum ada, kantor virtual nampilin chibi placeholder dengan warna dan model rambut tiap karakter.
+Buat Xenovia dan anggota tim lain, lo bisa pakai model jadi daripada bikin dari nol di VRoid. Selama modelnya belum ada, companion pakai model anime cadangan yang diwarnai sesuai tiap karakter (lihat [03-companion.md](03-companion.md#model-karakter)).
+
+## Kandidat yang ketemu (Oktober 2026)
+
+Dicari lewat mesin pencari, karena halaman BOOTH dan VRoid Hub nggak bisa dibuka dari environment tempat guide ini ditulis. Syarat dan ketersediaannya bisa berubah, jadi selalu cek halamannya langsung.
+
+| Cast | Kandidat | Harga | Catatan dari hasil pencarian |
+|---|---|---|---|
+| Xenovia | Belum ketemu | | Bikin di VRoid ([01](01-vroid-xenovia.md)) atau commission |
+| Chizuru | [Mizuhara Chizuru](https://hub.vroid.com/en/characters/8332583862388126345/models/1972881642102544984) | Gratis | Boleh jadi avatar, dimodifikasi, dibagikan ulang. Nggak boleh komersial |
+| Robin | [VRoid Nico Robin Outfit](https://booth.pm/en/items/2875224) | ¥500 | Cuma outfit buat VRoid, bukan model utuh |
+| Asuna | [Yuuki Asuna (School uniform)](https://hub.vroid.com/en/characters/5852999539721442220/models/1410570872446877209) | Gratis | Boleh jadi avatar, wajib kredit |
+| Asuna | [Asuna Yuuki](https://hub.vroid.com/en/characters/2424049014825747728/models/431547713285463029) | Gratis | Boleh jadi avatar, nggak boleh dimodifikasi (nggak bisa buat VRChat) |
+| Kobayashi | [Kobayashi-san working clothes](https://hub.vroid.com/en/characters/36311182371133330/models/7406901078278076562) | Gratis | Boleh jadi avatar, dimodifikasi, dibagikan ulang. Wajib kredit |
+| Fubuki | Belum ketemu | | |
+| Erza | [Erza Scarlet Japanese Cloth Armor](https://hub.vroid.com/en/characters/3527892052199245319/models/8906292335027557197) | Gratis | Izin download perlu dicek di halamannya |
+
+Download dari VRoid Hub butuh akun pixiv, dan tombol download cuma muncul kalau creator-nya ngizinin.
 
 ## Tempat nyari
 

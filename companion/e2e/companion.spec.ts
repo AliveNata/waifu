@@ -172,7 +172,62 @@ test.describe("office", () => {
     await (await chooser).setFiles({ name: "rusak.vrm", mimeType: "model/gltf-binary", buffer: Buffer.from("x") });
 
     // Assert
-    await expect(page.getByRole("status")).toContainText("Model Asuna gagal dimuat, pakai placeholder");
+    await expect(page.getByRole("status")).toContainText("Model Asuna gagal dimuat, pakai model cadangan");
     await expect(page.getByRole("status")).toHaveAttribute("data-tone", "error");
+  });
+});
+
+test.describe("team overlay", () => {
+  test("shows the empty note and a keyboard-operable content toggle", async ({ page }) => {
+    // Arrange
+    const errors = collectErrors(page);
+    await openPage(page, "/team-overlay/");
+    await expect(page.getByText("Belum ada percakapan")).toBeVisible();
+
+    // Act
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Enter");
+
+    // Assert
+    const toggle = page.getByRole("button", { name: "Isi asli: nyala" });
+    await expect(toggle).toBeFocused();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(errors).toEqual([]);
+  });
+
+  test("shows a simulated line by default when Xenovia delegates", async ({ page }) => {
+    // Arrange
+    await openPage(page, "/team-overlay/");
+
+    // Act
+    await postHook(page, {
+      hook_event_name: "PreToolUse",
+      tool_name: "Agent",
+      subagent_type: "reviewer",
+      task_description: "Review diff orders",
+    });
+
+    // Assert
+    await expect(page.locator("#dialog-name")).toContainText("Xenovia");
+    await expect(page.locator("#dialog-text")).toHaveText("Erza, tolong bantu ya.", { timeout: 15_000 });
+    await expect(page.locator("#dialog-tag")).toBeVisible();
+  });
+
+  test("shows the real task title once real content is turned on", async ({ page }) => {
+    // Arrange
+    await openPage(page, "/team-overlay/");
+    await page.getByRole("button", { name: "Isi asli: mati" }).click();
+
+    // Act
+    await postHook(page, {
+      hook_event_name: "PreToolUse",
+      tool_name: "Agent",
+      subagent_type: "reviewer",
+      task_description: "Review diff orders",
+    });
+
+    // Assert
+    await expect(page.locator("#dialog-text")).toHaveText("Erza, tolong: Review diff orders", { timeout: 15_000 });
+    await expect(page.locator("#dialog-tag")).toBeHidden();
   });
 });

@@ -12,134 +12,12 @@ import {
   SphereGeometry,
   TorusGeometry,
 } from "three";
-import type { MemberId } from "../../shared/team.js";
 import type { ExpressionWeights } from "../common/expressions.js";
+import type { MemberLook } from "../common/looks.js";
 import type { PoseTarget } from "../common/pose.js";
 import type { OfficeAvatar } from "./avatar.js";
 import { seatHeight } from "./chibi.js";
 import type { IkChain } from "./ik.js";
-
-export type HairStyle = "short" | "bob" | "long" | "ponytail";
-
-export interface PlaceholderLook {
-  hair: string;
-  hairStyle: HairStyle;
-  /** Xenovia's green streak in the bangs. */
-  streak?: string;
-  ahoge?: boolean;
-  eyes: string;
-  skin: string;
-  top: string;
-  sleeves: string;
-  /** Null for trousers: the legs use `legs` all the way down. */
-  skirt: string | null;
-  legs: string;
-  socks: string;
-  shoes: string;
-  glasses?: boolean;
-  /** Short cape over the shoulders (Xenovia's capelet). */
-  cape?: string;
-  /** Breastplate color (Erza's armor). */
-  armor?: string;
-}
-
-const skin = "#f3d9c6";
-
-/**
- * Stand-ins until the real VRoid models exist. Colors come from each
- * character's canon outfit, simplified to a handful of flat shapes.
- */
-export const placeholderLooks: Record<MemberId, PlaceholderLook> = {
-  xenovia: {
-    hair: "#2f6fd6",
-    hairStyle: "short",
-    streak: "#3fa66a",
-    ahoge: true,
-    eyes: "#b9862f",
-    skin,
-    top: "#2b3150",
-    sleeves: "#f2f2f2",
-    skirt: "#7a2335",
-    legs: skin,
-    socks: "#2a2a2e",
-    shoes: "#6b4a32",
-    cape: "#3c4560",
-  },
-  chizuru: {
-    hair: "#a6713f",
-    hairStyle: "long",
-    eyes: "#8a5a33",
-    skin,
-    top: "#efe3cf",
-    sleeves: "#efe3cf",
-    skirt: "#2c3a5a",
-    legs: skin,
-    socks: skin,
-    shoes: "#7a5234",
-  },
-  robin: {
-    hair: "#1d1d24",
-    hairStyle: "long",
-    eyes: "#3d6fb6",
-    skin: "#e8c7ad",
-    top: "#5b3a6e",
-    sleeves: "#5b3a6e",
-    skirt: "#3a2b44",
-    legs: "#3a2b44",
-    socks: "#1f1a24",
-    shoes: "#1a1a1e",
-  },
-  asuna: {
-    hair: "#d9894a",
-    hairStyle: "long",
-    eyes: "#b07a45",
-    skin,
-    top: "#f4f1ea",
-    sleeves: "#f4f1ea",
-    skirt: "#b8323a",
-    legs: skin,
-    socks: "#e9e6df",
-    shoes: "#7a2a2a",
-  },
-  kobayashi: {
-    hair: "#b8452f",
-    hairStyle: "ponytail",
-    eyes: "#7a4a2a",
-    skin,
-    top: "#3b3b44",
-    sleeves: "#f2f2f2",
-    skirt: null,
-    legs: "#2e3140",
-    socks: "#2e3140",
-    shoes: "#2a2a2a",
-    glasses: true,
-  },
-  fubuki: {
-    hair: "#15161c",
-    hairStyle: "bob",
-    eyes: "#3e9a5a",
-    skin,
-    top: "#1f4d35",
-    sleeves: "#1f4d35",
-    skirt: "#1f4d35",
-    legs: "#1e1e22",
-    socks: "#1e1e22",
-    shoes: "#141416",
-  },
-  erza: {
-    hair: "#c72a2a",
-    hairStyle: "long",
-    eyes: "#6b4226",
-    skin,
-    top: "#2f4c8f",
-    sleeves: "#c8ccd4",
-    skirt: "#2f4c8f",
-    legs: skin,
-    socks: "#26262c",
-    shoes: "#26262c",
-    armor: "#c8ccd4",
-  },
-};
 
 /** Joint layout in meters, T-pose, facing +Z: the same conventions as normalized VRM bones. */
 const dims = {
@@ -186,7 +64,7 @@ function limbDown(length: number, radius: number, color: string): Mesh {
   return mesh(new CylinderGeometry(radius, radius * 0.85, length, 6), color, 0, -length / 2, 0);
 }
 
-function buildHair(head: Group, look: PlaceholderLook): void {
+function buildHair(head: Group, look: MemberLook): void {
   const r = dims.headRadius;
   const cap = new SphereGeometry(r * 1.08, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.55);
   head.add(mesh(cap, look.hair, 0, r * 0.95, -0.01));
@@ -239,7 +117,7 @@ export class PlaceholderAvatar implements OfficeAvatar {
   private readonly mouth: Mesh;
   private readonly rightHand: Group;
 
-  constructor(look: PlaceholderLook) {
+  constructor(look: MemberLook) {
     const hips = this.add(joint("hips", this.root, 0, dims.hipsY));
     const spine = this.add(joint("spine", hips, 0, 0.02));
     const chest = this.add(joint("chest", spine, 0, dims.spine));

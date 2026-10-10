@@ -47,7 +47,7 @@ describe("HookServer", () => {
     expect(received).toEqual([
       {
         kind: "member",
-        member: { memberId: "erza", activity: "start", agentId: "a1", tool: null, receivedAt: 1234 },
+        member: { memberId: "erza", activity: "start", agentId: "a1", tool: null, summary: null, receivedAt: 1234 },
       },
     ]);
   });

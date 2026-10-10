@@ -2,6 +2,7 @@ import type { VRM } from "@pixiv/three-vrm";
 import type { ModelFile } from "../../shared/protocol.js";
 import type { Reaction } from "../../shared/reaction.js";
 import type { RendererBridge } from "./bridge.js";
+import { MemberModelLoader } from "./member-model.js";
 import { ReactionTracker } from "./reaction-tracker.js";
 import { requireElement, StatusChip } from "./status-chip.js";
 import { disposeVrm, loadVrm } from "./vrm-loader.js";
@@ -27,13 +28,16 @@ export class CompanionPage {
   private readonly status = new StatusChip(requireElement("status", HTMLElement));
 
   private readonly tracker = new ReactionTracker(Date.now());
+  private readonly models: MemberModelLoader;
   private vrm: VRM | null = null;
   private loadGeneration = 0;
 
   constructor(
     private readonly bridge: RendererBridge,
     private readonly stage: Stage,
-  ) {}
+  ) {
+    this.models = new MemberModelLoader(bridge);
+  }
 
   start(): void {
     this.panelAction.addEventListener("click", () => this.pickModel());
@@ -74,9 +78,23 @@ export class CompanionPage {
 
   private loadSaved(): void {
     this.showPanel({ kind: "loading", name: "model tersimpan" });
-    this.bridge
-      .loadSavedModel("xenovia")
-      .then((file) => (file === null ? this.showPanel({ kind: "empty" }) : this.loadModel(file)))
+    const generation = ++this.loadGeneration;
+    // Own .vrm first, then the anime base model in Xenovia's colors, then the empty state.
+    this.models
+      .load("xenovia")
+      .then((loaded) => {
+        if (generation !== this.loadGeneration) {
+          if (loaded !== null) {
+            disposeVrm(loaded.vrm);
+          }
+          return;
+        }
+        if (loaded === null) {
+          this.showPanel({ kind: "empty" });
+          return;
+        }
+        this.showModel(loaded.vrm);
+      })
       .catch((error: unknown) => this.fail(error));
   }
 
@@ -96,6 +114,10 @@ export class CompanionPage {
       disposeVrm(vrm);
       return;
     }
+    this.showModel(vrm);
+  }
+
+  private showModel(vrm: VRM): void {
     if (this.vrm !== null) {
       disposeVrm(this.vrm);
     }

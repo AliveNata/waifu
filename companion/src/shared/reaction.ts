@@ -1,4 +1,4 @@
-import type { CompanionHookPayload } from "./hook-event.js";
+import { type CompanionHookPayload, delegationToolNames } from "./hook-event.js";
 import { type MemberId, memberForAgentType } from "./team.js";
 
 export type Mood = "idle" | "greeting" | "thinking" | "working" | "waiting" | "done";
@@ -19,9 +19,6 @@ export const transientMoodDurationMs: Partial<Record<Mood, number>> = {
   done: 5000,
 };
 
-/** Tool names Claude Code uses when the main session hands work to a subagent. */
-const delegationTools = new Set(["Agent", "Task"]);
-
 /** Xenovia's reaction. Only main-session events count: anything carrying an agent_id came from a subagent. */
 export function reactionForHook(payload: CompanionHookPayload, receivedAt: number): Reaction | null {
   if (payload.agent_id !== undefined) {
@@ -37,7 +34,7 @@ export function reactionForHook(payload: CompanionHookPayload, receivedAt: numbe
     case "PreToolUse":
     case "PostToolUse": {
       const tool = payload.tool_name ?? null;
-      const detail = tool !== null && delegationTools.has(tool) ? "Delegasi ke tim" : tool;
+      const detail = tool !== null && delegationToolNames.has(tool) ? "Delegasi ke tim" : tool;
       return { mood: "working", detail, receivedAt };
     }
     case "Notification":
@@ -61,6 +58,17 @@ export interface MemberSignal {
   /** Distinguishes parallel runs of the same subagent. */
   agentId: string;
   tool: string | null;
+  /** Start of the final report, only on "stop". Shown only when the user turns on real conversation. */
+  summary: string | null;
+  receivedAt: number;
+}
+
+/** Xenovia handing a task to a team member, from the main session's Agent tool call. */
+export interface Delegation {
+  /** Null for subagents outside the roster (Explore, Plan, ...). */
+  memberId: MemberId | null;
+  /** Short task title. Shown only when the user turns on real conversation. */
+  description: string | null;
   receivedAt: number;
 }
 
@@ -73,27 +81,52 @@ export function memberSignalForHook(payload: CompanionHookPayload, receivedAt: n
   if (memberId === null) {
     return null;
   }
-  const base = { memberId, agentId: payload.agent_id, receivedAt };
+  const base = { memberId, agentId: payload.agent_id, receivedAt, summary: null };
   switch (payload.hook_event_name) {
     case "SubagentStart":
       return { ...base, activity: "start", tool: null };
     case "SubagentStop":
-      return { ...base, activity: "stop", tool: null };
+      return { ...base, activity: "stop", tool: null, summary: payload.summary ?? null };
     case "PreToolUse":
-    case "PostToolUse":
       return { ...base, activity: "tool", tool: payload.tool_name ?? null };
+    case "PostToolUse":
+      // PreToolUse already announced the tool; a second signal would only repeat the line.
+      return null;
     default:
       return null;
   }
 }
 
-export type CompanionSignal = { kind: "reaction"; reaction: Reaction } | { kind: "member"; member: MemberSignal };
+export function delegationForHook(payload: CompanionHookPayload, receivedAt: number): Delegation | null {
+  if (
+    payload.hook_event_name !== "PreToolUse" ||
+    payload.agent_id !== undefined ||
+    payload.tool_name === undefined ||
+    !delegationToolNames.has(payload.tool_name)
+  ) {
+    return null;
+  }
+  return {
+    memberId: payload.subagent_type === undefined ? null : memberForAgentType(payload.subagent_type),
+    description: payload.task_description ?? null,
+    receivedAt,
+  };
+}
+
+export type CompanionSignal =
+  | { kind: "reaction"; reaction: Reaction }
+  | { kind: "member"; member: MemberSignal }
+  | { kind: "delegation"; delegation: Delegation };
 
 export function signalsForHook(payload: CompanionHookPayload, receivedAt: number): CompanionSignal[] {
   const signals: CompanionSignal[] = [];
   const reaction = reactionForHook(payload, receivedAt);
   if (reaction !== null) {
     signals.push({ kind: "reaction", reaction });
+  }
+  const delegation = delegationForHook(payload, receivedAt);
+  if (delegation !== null) {
+    signals.push({ kind: "delegation", delegation });
   }
   const member = memberSignalForHook(payload, receivedAt);
   if (member !== null) {

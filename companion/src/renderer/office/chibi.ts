@@ -43,6 +43,30 @@ function scaleBone(vrm: VRM, bone: VRMHumanBoneName, scale: number): void {
 }
 
 /**
+ * three-vrm applies collider radii and joint hit radii in world units without
+ * the bone's scale, so after shrinking the model they stay full size and push
+ * the hair outward. Scale them by the world scale each node now has.
+ */
+function scaleSpringRadii(vrm: VRM): void {
+  const manager = vrm.springBoneManager;
+  if (manager == null) {
+    return;
+  }
+  const scale = new Vector3();
+  for (const collider of manager.colliders) {
+    collider.getWorldScale(scale);
+    const shape = collider.shape as { radius?: number };
+    if (typeof shape.radius === "number") {
+      shape.radius *= scale.x;
+    }
+  }
+  for (const joint of manager.joints) {
+    joint.bone.getWorldScale(scale);
+    joint.settings.hitRadius *= scale.x;
+  }
+}
+
+/**
  * Turns a full-size VRM into a chibi by scaling raw bones, then sizes and
  * grounds it for the office. Must run on a model in its rest pose.
  */
@@ -73,6 +97,7 @@ export function applyChibi(vrm: VRM, proportions: ChibiProportions = defaultChib
   for (const joint of vrm.springBoneManager?.joints ?? []) {
     joint.center = hips;
   }
+  scaleSpringRadii(vrm);
   // Springs cache their rest lengths, so re-seed them at the new scale.
   vrm.springBoneManager?.setInitState();
 

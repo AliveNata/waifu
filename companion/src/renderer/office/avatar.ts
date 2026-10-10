@@ -3,6 +3,7 @@ import { Group } from "three";
 import type { ExpressionWeights } from "../common/expressions.js";
 import { type PoseTarget, vrmPoseTarget } from "../common/pose.js";
 import { disposeVrm } from "../common/vrm-loader.js";
+import { updateVrmStable } from "../common/vrm-update.js";
 import { applyChibi } from "./chibi.js";
 import type { IkChain } from "./ik.js";
 
@@ -83,7 +84,7 @@ export class VrmOfficeAvatar implements OfficeAvatar {
   }
 
   update(deltaSeconds: number): void {
-    this.vrm.update(deltaSeconds);
+    updateVrmStable(this.vrm, deltaSeconds);
   }
 
   dispose(): void {

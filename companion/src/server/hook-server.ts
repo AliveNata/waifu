@@ -14,6 +14,8 @@ export interface WebModeOptions {
   staticDir: string;
   /** Optional .vrm per member, served at GET /model/<member> so browser pages can load them without a picker. */
   modelPaths: Partial<Record<MemberId, string>>;
+  /** Anime base model for members without their own .vrm, served at GET /model/base. */
+  baseModelPath: string | null;
 }
 
 export interface HookServerOptions {
@@ -95,6 +97,10 @@ export class HookServer extends EventEmitter<HookServerEvents> {
     if (web !== undefined && request.method === "GET") {
       if (url.pathname === "/events") {
         this.openEventStream(response);
+        return;
+      }
+      if (url.pathname === "/model/base") {
+        await serveModel(web.baseModelPath, response);
         return;
       }
       const modelMatch = /^\/model\/([a-z]+)$/.exec(url.pathname);

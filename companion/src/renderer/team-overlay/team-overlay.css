@@ -1,0 +1,103 @@
+/* Drags like Xenovia's overlay; the toggle opts out in base.css. */
+.team-overlay {
+  -webkit-app-region: drag;
+}
+
+/*
+ * Visual-novel dialog box: it names who speaks, which is the point of this window.
+ * Each member's name color is their identity marker (hair color, lightened for
+ * contrast on the navy box, all above 5.7:1 even over a white wallpaper).
+ */
+.dialog {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  min-height: 112px;
+  margin: 0;
+  padding: 10px 12px 12px;
+  border-radius: var(--radius);
+  background: var(--chip-bg);
+  color: var(--chip-ink);
+}
+
+.dialog[hidden] {
+  display: none;
+}
+
+.dialog-name {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--speaker, var(--chip-ink));
+}
+
+.dialog-name span {
+  margin-left: 6px;
+  font-weight: 400;
+  color: #b9bfcc;
+}
+
+.dialog-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.dialog-tag {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  margin: 0;
+  font-size: 11px;
+  color: #b9bfcc;
+}
+
+.dialog-tag[hidden] {
+  display: none;
+}
+
+.team-empty {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--panel-bg);
+  color: var(--panel-ink);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* In Electron the window hides itself when idle, so the empty note only shows in the browser fallback. */
+html[data-shell="electron"] .team-empty,
+.team-overlay:not([data-state="idle"]) .team-empty {
+  display: none;
+}
+
+.team-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.mode-button {
+  background: var(--chip-bg);
+  color: var(--chip-ink);
+  opacity: 0;
+}
+
+.team-overlay:hover .mode-button,
+.mode-button:focus-visible,
+html[data-shell="web"] .mode-button {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mode-button {
+    transition: opacity 120ms ease-out;
+  }
+}

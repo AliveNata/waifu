@@ -17,7 +17,8 @@ export default defineConfig({
   webServer: {
     command: "node dist/node/server/web-server.js",
     url: `http://127.0.0.1:${port}/healthz`,
-    env: { WAIFU_COMPANION_PORT: String(port) },
+    // No base model: keeps the empty states deterministic and the suite fast on GPU-less machines.
+    env: { WAIFU_COMPANION_PORT: String(port), WAIFU_BASE_MODEL_PATH: "e2e-no-base-model.vrm" },
     reuseExistingServer: false,
   },
 });

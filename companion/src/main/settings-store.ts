@@ -1,17 +1,20 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { type ConversationMode, isConversationMode } from "../shared/protocol.js";
 import { isMemberId, type MemberId } from "../shared/team.js";
 
 export interface CompanionSettings {
   modelPaths: Partial<Record<MemberId, string>>;
   alwaysOnTop: boolean;
   officeOpen: boolean;
+  conversationMode: ConversationMode;
 }
 
 export const defaultSettings: CompanionSettings = {
   modelPaths: {},
   alwaysOnTop: true,
   officeOpen: false,
+  conversationMode: "simulated",
 };
 
 /** Unknown or wrongly typed fields fall back to defaults instead of crashing startup. */
@@ -36,6 +39,9 @@ export function normalizeSettings(input: unknown): CompanionSettings {
     modelPaths,
     alwaysOnTop: typeof record.alwaysOnTop === "boolean" ? record.alwaysOnTop : defaultSettings.alwaysOnTop,
     officeOpen: typeof record.officeOpen === "boolean" ? record.officeOpen : defaultSettings.officeOpen,
+    conversationMode: isConversationMode(record.conversationMode)
+      ? record.conversationMode
+      : defaultSettings.conversationMode,
   };
 }
 
