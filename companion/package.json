@@ -2,7 +2,7 @@
   "name": "waifu-companion",
   "version": "0.1.0",
   "private": true,
-  "description": "Desktop companion: Xenovia close-up overlay + chibi virtual office, driven by Claude Code hooks.",
+  "description": "Desktop companion: 2B close-up overlay, team overlay and chibi virtual office, driven by Claude Code hooks.",
   "type": "module",
   "main": "dist/node/main/main.js",
   "scripts": {

@@ -32,8 +32,12 @@ File-nya disimpan di `models/base/` dan nggak ikut ke-commit.
 | `PreToolUse`, `PostToolUse` | working | nunduk kayak baca layar | duduk di meja laptop, ngetik |
 | `Notification` | waiting | kaget, condong ke depan | jalan ke depan, melambai pelan |
 | `Stop` | done | senyum lebar, ngangguk | lompat kecil di depan, lalu balik ke sofa |
+| `PreCompact` | thinking | sama kayak thinking | sama kayak thinking |
+| `SessionEnd` | idle | santai | duduk di sofa |
 | `SubagentStart` | (anggota) | nggak berubah | anggota yang dipanggil mulai kerja di mejanya |
 | `SubagentStop` | (anggota) | nggak berubah | anggota itu selesai, ngulet atau senyum, lalu santai |
+
+Greeting dan done balik ke idle sendiri setelah beberapa detik. Mood lain bertahan sampai event berikutnya, karena Claude Code nggak ngirim event "udah selesai mikir".
 
 ## Overlay tim
 
@@ -49,10 +53,6 @@ Kalimat simulasi cuma ngegambarin aktivitas, nggak pernah ngarang hasil. Tag "si
 **Isi asli**: tombol **Isi asli** di overlay tim (muncul pas di-hover), atau **Menu > Tampilkan isi percakapan asli**. Kalau dinyalain, 2B nyebut judul tugas yang beneran, dan anggota tim nutup dengan ringkasan laporan akhirnya (maksimal 280 karakter). Matiin lagi sebelum share screen.
 
 Overlay tim bisa digeser kayak overlay 2B.
-| `PreCompact` | thinking | sama kayak thinking | sama kayak thinking |
-| `SessionEnd` | idle | santai | duduk di sofa |
-
-Greeting dan done balik ke idle sendiri setelah beberapa detik. Mood lain bertahan sampai event berikutnya, karena Claude Code nggak ngirim event "udah selesai mikir".
 
 Event yang terjadi di dalam subagent (misalnya Asuna ngejalanin `Edit`) cuma ngegerakin anggota itu, bukan 2B. Pas 2B ngoper kerjaan, chip status nampilin "Delegasi ke tim".
 
@@ -75,7 +75,7 @@ Pas ada yang kerja, panel **close-up** muncul di pojok kanan bawah dan nampilin 
 - Windows 10 atau 11.
 - [Node.js](https://nodejs.org) versi 22 atau lebih baru.
 - [Git](https://git-scm.com).
-- Claude Code yang jalan **di PC lo** (CLI atau desktop app). Hooks dijalanin di mesin tempat Claude Code jalan. Session cloud kayak yang lagi kita pakai sekarang nggak bisa ngirim event ke PC lo.
+- Claude Code yang jalan **di PC lo** (CLI atau desktop app). Hooks dijalanin di mesin tempat Claude Code jalan, jadi session Claude Code di cloud (claude.ai/code) nggak bisa ngirim event ke PC lo.
 
 ## Install dan jalanin
 
@@ -167,10 +167,10 @@ Lalu buka `http://127.0.0.1:47823/overlay/`, `http://127.0.0.1:47823/team-overla
 | Chip merah "Port ... sudah dipakai" | Ada aplikasi lain di port itu, atau companion kebuka dua kali lewat mode browser | Tutup yang lain, atau ganti port |
 | 2B nggak bereaksi | Hooks belum kepasang, atau path di `settings.json` salah | `/hooks` di Claude Code, lalu jalanin command hook-nya manual di PowerShell |
 | "Model gagal dimuat" | File bukan VRM, atau export-nya rusak | Export ulang dari VRoid, atau cek pakai `npm run inspect-vrm` |
-| Anggota tim nggak gerak pas dipanggil | Agent belum di-install, atau hooks belum ada `SubagentStart` | `npm run team:install`, lalu ulangi `hooks:print` |
+| Anggota tim nggak gerak pas dipanggil | Agent belum di-install, atau hooks belum ada `SubagentStart` | `npm run team:install`, lalu `npm run hooks:install` |
 | Pose aneh (tangan nembus badan, duduk melayang) | Proporsi model beda jauh dari default VRoid | Kasih tau gua, angka pose bisa diatur |
 | Kantor masih kotak-kotak, ada chip "Model anime belum ada" | Model cadangan belum didownload | `npm run fetch-base-model`, lalu buka ulang companion |
-| Overlay tim nggak pernah muncul | Nggak ada subagent yang dipanggil, atau hooks lama tanpa `SubagentStart` | Minta 2B delegasi, atau ulangi `hooks:print` |
+| Overlay tim nggak pernah muncul | Nggak ada subagent yang dipanggil, atau hooks lama tanpa `SubagentStart` | Minta 2B delegasi, atau jalanin `npm run hooks:install` |
 
 ## Buat developer
 
