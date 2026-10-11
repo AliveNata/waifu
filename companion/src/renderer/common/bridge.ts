@@ -207,6 +207,12 @@ function createWebBridge(): RendererBridge {
     async pickChatProject() {
       throw new Error("the office chat is only available in the Electron app");
     },
+    async listChatSessions() {
+      throw new Error("the office chat is only available in the Electron app");
+    },
+    async resumeChatSession() {
+      throw new Error("the office chat is only available in the Electron app");
+    },
     answerPermission() {
       throw new Error("the office chat is only available in the Electron app");
     },

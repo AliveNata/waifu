@@ -1,7 +1,7 @@
-import type { ChatEvent, ChatStatus } from "../../shared/office-chat.js";
+import type { ChatEvent, ChatSessionList, ChatStatus } from "../../shared/office-chat.js";
 import type { RendererBridge } from "../common/bridge.js";
 import { requireElement } from "../common/status-chip.js";
-import { type ChatEntry, ChatLog, folderName } from "./chat-log.js";
+import { type ChatEntry, ChatLog, folderName, relativeTimeLabel } from "./chat-log.js";
 import { MentionPicker } from "./mention-picker.js";
 
 /**
@@ -14,6 +14,10 @@ export class ChatPanel {
   private readonly toggle = requireElement("chat-toggle", HTMLButtonElement);
   private readonly folderButton = requireElement("chat-folder", HTMLButtonElement);
   private readonly newButton = requireElement("chat-new", HTMLButtonElement);
+  private readonly sessionsButton = requireElement("chat-sessions-open", HTMLButtonElement);
+  private readonly sessionsDialog = requireElement("chat-sessions", HTMLDialogElement);
+  private readonly sessionsState = requireElement("chat-sessions-state", HTMLElement);
+  private readonly sessionList = requireElement("chat-session-list", HTMLUListElement);
   private readonly problem = requireElement("chat-problem", HTMLElement);
   private readonly empty = requireElement("chat-empty", HTMLElement);
   private readonly list = requireElement("chat-log", HTMLOListElement);
@@ -52,6 +56,7 @@ export class ChatPanel {
       this.resetLog();
       this.input.focus();
     });
+    this.sessionsButton.addEventListener("click", () => this.openSessions());
     this.form.addEventListener("submit", (event) => {
       event.preventDefault();
       this.submit();
@@ -150,6 +155,7 @@ export class ChatPanel {
     this.folderButton.title = projectDir ?? "Folder project tempat 2B kerja";
     this.folderButton.disabled = busy;
     this.newButton.disabled = busy || this.log.entries.length === 0;
+    this.sessionsButton.disabled = busy || projectDir === null;
 
     this.problem.hidden = problem === null;
     this.problem.textContent = problem ?? "";
@@ -236,6 +242,86 @@ export class ChatPanel {
     deny.addEventListener("click", () => this.bridge.answerPermission(ask.id, false));
     actions.append(allow, deny);
     item.append(title, detail, actions);
+  }
+
+  private openSessions(): void {
+    this.sessionList.replaceChildren();
+    this.setSessionsState("Lagi baca daftar sesi...", "muted");
+    this.sessionsDialog.showModal();
+    this.bridge
+      .listChatSessions()
+      .then((list) => this.renderSessions(list))
+      .catch((error: unknown) => {
+        console.error("[chat] could not list sessions", error);
+        this.setSessionsState(
+          `Gagal baca daftar sesi: ${error instanceof Error ? error.message : String(error)}`,
+          "error",
+        );
+      });
+  }
+
+  private renderSessions(list: ChatSessionList): void {
+    const folder = this.status.projectDir === null ? "ini" : folderName(this.status.projectDir);
+    if (list.sessions.length === 0) {
+      this.setSessionsState(`Belum ada sesi Claude Code yang tersimpan buat folder ${folder}.`, "muted");
+      return;
+    }
+    this.setSessionsState("", "muted");
+    const now = Date.now();
+    for (const session of list.sessions) {
+      const current = session.id === list.currentId;
+      const item = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "button";
+      button.disabled = current;
+      if (current) {
+        button.dataset.current = "true";
+      }
+      const title = document.createElement("span");
+      title.className = "session-title";
+      title.textContent = session.title;
+      const time = document.createElement("span");
+      time.className = "session-time";
+      time.textContent = current
+        ? `${relativeTimeLabel(session.updatedAt, now)}, lagi dipakai di sini`
+        : relativeTimeLabel(session.updatedAt, now);
+      button.append(title, time);
+      button.addEventListener("click", () => this.resumeSession(session.id));
+      item.append(button);
+      this.sessionList.append(item);
+    }
+    this.sessionList.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+  }
+
+  private resumeSession(sessionId: string): void {
+    for (const button of this.sessionList.querySelectorAll("button")) {
+      button.disabled = true;
+    }
+    this.setSessionsState("Lagi buka sesinya...", "muted");
+    this.bridge
+      .resumeChatSession(sessionId)
+      .then((events) => {
+        this.resetLog();
+        for (const event of events) {
+          this.applyEvent(event, false);
+        }
+        this.sessionsDialog.close();
+        this.announcer.textContent = "Sesi lama dibuka. Pesan berikutnya nerusin sesi itu.";
+        this.input.focus();
+      })
+      .catch((error: unknown) => {
+        console.error("[chat] could not resume the session", error);
+        this.setSessionsState(`Gagal buka sesi: ${error instanceof Error ? error.message : String(error)}`, "error");
+        for (const button of this.sessionList.querySelectorAll<HTMLButtonElement>("button:not([data-current])")) {
+          button.disabled = false;
+        }
+      });
+  }
+
+  private setSessionsState(text: string, tone: "muted" | "error"): void {
+    this.sessionsState.textContent = text;
+    this.sessionsState.dataset.tone = tone;
   }
 
   private showLocalError(context: string, error: unknown): void {

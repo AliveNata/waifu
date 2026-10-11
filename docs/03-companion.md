@@ -139,6 +139,9 @@ Lo bisa ngasih tugas langsung dari kantor tanpa buka terminal. Panel **Chat ke 2
 3. Balasan 2B muncul sambil diketik. Tiap tool yang dipakai muncul sebagai baris kecil, misalnya `Bash: npm test`.
 4. Kalau 2B butuh izin, muncul **kartu hijau** isinya nama tool dan command lengkapnya. Klik **Izinkan** atau **Tolak**. Pakai keyboard: kartunya langsung dapat fokus, Tab sekali ke Izinkan, dua kali ke Tolak.
 5. **Stop** ngehentiin kerjaan yang lagi jalan. Anggota tim yang lagi dikerjain ikut berhenti, close-up nutup, dan baru muncul lagi pas ada tugas baru. **Chat baru** mulai obrolan dari nol di folder yang sama.
+6. **Sesi** ngebuka daftar sesi Claude Code yang tersimpan di komputer ini buat folder chat, paling baru di atas. Judulnya dari prompt pertama sesi itu. Pilih satu, potongan terakhir obrolannya muncul di chat, dan pesan berikutnya nerusin sesi itu (`claude --resume`).
+   - Yang muncul cuma sesi lokal, dari `%USERPROFILE%\.claude\projects\<folder>` (atau `CLAUDE_CONFIG_DIR` kalau lo set). Sesi cloud (claude.ai/code) nggak ada di situ.
+   - Jangan pilih sesi yang masih kebuka di Claude desktop atau terminal. Dua proses yang nulis ke sesi yang sama bikin riwayatnya kacau.
 
 Tombol **Tutup chat** dan **Buka chat** di kanan bawah buat nyembunyiin atau nampilin panelnya. Bisa juga lewat **Menu > Chat ke Claude di kantor**.
 

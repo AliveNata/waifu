@@ -32,6 +32,15 @@
           <h2 class="chat-title" id="chat-title">Chat ke 2B</h2>
           <button class="chat-link" id="chat-folder" type="button">Pilih folder</button>
           <button class="chat-link" id="chat-new" type="button">Chat baru</button>
+          <button
+            class="chat-link"
+            id="chat-sessions-open"
+            type="button"
+            aria-haspopup="dialog"
+            title="Lanjutin sesi Claude Code yang tersimpan buat folder ini"
+          >
+            Sesi
+          </button>
         </header>
         <p class="chat-problem" id="chat-problem" hidden></p>
         <p class="chat-empty" id="chat-empty"></p>
@@ -59,6 +68,18 @@
         </button>
         <button class="button menu-button" id="menu-button" type="button">Menu</button>
       </div>
+      <dialog class="model-dialog sessions-dialog" id="chat-sessions" aria-labelledby="chat-sessions-title">
+        <h2 class="panel-title" id="chat-sessions-title">Lanjutin sesi</h2>
+        <p class="panel-body">
+          Sesi Claude Code yang tersimpan di komputer ini buat folder chat. Jangan pilih sesi yang masih kebuka di
+          Claude desktop atau terminal, nanti riwayatnya ketulis dari dua tempat.
+        </p>
+        <p class="panel-body sessions-state" id="chat-sessions-state" role="status"></p>
+        <ul class="model-list session-list" id="chat-session-list"></ul>
+        <form method="dialog">
+          <button class="button" type="submit">Tutup</button>
+        </form>
+      </dialog>
       <dialog class="model-dialog" id="model-dialog" aria-labelledby="model-dialog-title">
         <h2 class="panel-title" id="model-dialog-title">Pilih model .vrm</h2>
         <p class="panel-body">Anggota tanpa model tampil sebagai placeholder.</p>

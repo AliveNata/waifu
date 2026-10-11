@@ -64,3 +64,30 @@ export function folderName(path: string): string {
   const parts = path.split(/[\\/]+/).filter((part) => part !== "");
   return parts.at(-1) ?? path;
 }
+
+const minuteMs = 60_000;
+const hourMs = 60 * minuteMs;
+const dayMs = 24 * hourMs;
+const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+
+/** "5 menit lalu", "kemarin", "12 Okt": how long ago a session was last used, in the chat's voice. */
+export function relativeTimeLabel(then: number, now: number): string {
+  const ago = Math.max(0, now - then);
+  if (ago < minuteMs) {
+    return "baru aja";
+  }
+  if (ago < hourMs) {
+    return `${Math.floor(ago / minuteMs)} menit lalu`;
+  }
+  if (ago < dayMs) {
+    return `${Math.floor(ago / hourMs)} jam lalu`;
+  }
+  if (ago < 2 * dayMs) {
+    return "kemarin";
+  }
+  if (ago < 7 * dayMs) {
+    return `${Math.floor(ago / dayMs)} hari lalu`;
+  }
+  const date = new Date(then);
+  return `${date.getDate()} ${monthNames[date.getMonth()]}`;
+}

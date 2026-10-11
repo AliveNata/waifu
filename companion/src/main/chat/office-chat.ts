@@ -101,6 +101,19 @@ export class OfficeChat extends EventEmitter<OfficeChatEvents> {
     this.emitStatus();
   }
 
+  /** Carries on a stored conversation; the next message runs with `--resume <id>`. */
+  resumeSession(sessionId: string): void {
+    if (this.child !== null) {
+      throw new Error("cannot switch sessions while Claude is working");
+    }
+    this.sessionId = sessionId;
+    this.emit("session", sessionId);
+  }
+
+  currentSession(): string | null {
+    return this.sessionId;
+  }
+
   newConversation(): void {
     this.sessionId = null;
     this.emit("session", null);

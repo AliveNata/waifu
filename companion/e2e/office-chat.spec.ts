@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { type ElectronApplication, _electron as electron, expect, type Page, test } from "@playwright/test";
@@ -12,9 +12,24 @@ test.skip(process.platform === "linux" && process.env.DISPLAY === undefined, "El
 
 const fakeClaude = resolve(import.meta.dirname, "fixtures/fake-claude.mjs");
 
+/** A stored Claude Code session the office can list and resume. */
+const storedSessionId = "0b5c2f7e-1d2a-4c3b-9e8f-5a6b7c8d9e0f";
+
 async function launchOffice(): Promise<{ app: ElectronApplication; office: Page; projectDir: string }> {
   const userData = await mkdtemp(join(tmpdir(), "office-chat-e2e-"));
   const projectDir = await mkdtemp(join(tmpdir(), "office-chat-project-"));
+  const claudeConfig = await mkdtemp(join(tmpdir(), "office-chat-claude-"));
+  const sessionsDir = join(claudeConfig, "projects", projectDir.replace(/[^a-zA-Z0-9]/g, "-"));
+  await mkdir(sessionsDir, { recursive: true });
+  await writeFile(
+    join(sessionsDir, `${storedSessionId}.jsonl`),
+    [
+      { type: "user", message: { role: "user", content: "rapihin README" }, cwd: projectDir },
+      { type: "assistant", message: { content: [{ type: "text", text: "README udah aku rapihin." }] } },
+    ]
+      .map((entry) => JSON.stringify(entry))
+      .join("\n"),
+  );
   await writeFile(
     join(userData, "companion-settings.json"),
     JSON.stringify({ officeOpen: true, chatEnabled: true, chatProjectDir: projectDir }),
@@ -31,6 +46,7 @@ async function launchOffice(): Promise<{ app: ElectronApplication; office: Page;
       WAIFU_USER_DATA_DIR: userData,
       WAIFU_COMPANION_PORT: "47933",
       WAIFU_CLAUDE_COMMAND: fakeClaude,
+      CLAUDE_CONFIG_DIR: claudeConfig,
       WAIFU_BASE_MODEL_PATH: "e2e-no-base-model.vrm",
     },
   });
@@ -120,6 +136,48 @@ test.describe("office chat", () => {
     // Assert
     await expect(office.getByRole("list", { name: "Isi obrolan" })).toContainText("Dihentikan.");
     await expect(office.getByRole("button", { name: "Kirim" })).toBeVisible();
+    await app.close();
+  });
+});
+
+test.describe("stored sessions", () => {
+  test("lists this folder's sessions, shows the picked one and carries it on", async () => {
+    // Arrange
+    const { app, office } = await launchOffice();
+    const input = office.getByLabel(/Pesan buat 2B/);
+    await expect(input).toBeEnabled();
+
+    // Act
+    await office.getByRole("button", { name: "Sesi" }).click();
+    const dialog = office.getByRole("dialog", { name: "Lanjutin sesi" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: /rapihin README/ }).click();
+
+    // Assert: the old conversation is in the log, and the next message resumes that session.
+    await expect(dialog).toBeHidden();
+    const log = office.getByRole("list", { name: "Isi obrolan" });
+    await expect(log).toContainText("rapihin README");
+    await expect(log).toContainText("README udah aku rapihin.");
+    await input.fill("lanjut");
+    await input.press("Enter");
+    await expect(log).toContainText(`Siap (lanjut ${storedSessionId}). Tugas: lanjut.`);
+    await office.locator(".chat-permission").getByRole("button", { name: "Tolak" }).click();
+    await app.close();
+  });
+
+  test("closes the session list with Escape", async () => {
+    // Arrange
+    const { app, office } = await launchOffice();
+    await expect(office.getByLabel(/Pesan buat 2B/)).toBeEnabled();
+    await office.getByRole("button", { name: "Sesi" }).click();
+    const dialog = office.getByRole("dialog", { name: "Lanjutin sesi" });
+    await expect(dialog.getByRole("button", { name: /rapihin README/ })).toBeFocused();
+
+    // Act
+    await office.keyboard.press("Escape");
+
+    // Assert
+    await expect(dialog).toBeHidden();
     await app.close();
   });
 });

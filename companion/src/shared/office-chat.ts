@@ -38,6 +38,21 @@ export interface ChatStatus {
   problem: string | null;
 }
 
+/** A Claude Code conversation saved on this machine for the chat's folder, which the chat can carry on. */
+export interface ChatSessionSummary {
+  id: string;
+  /** The session's first prompt, shortened: Claude Code keeps no other title in its local files. */
+  title: string;
+  /** Last write to the session file, in milliseconds since the epoch. */
+  updatedAt: number;
+}
+
+export interface ChatSessionList {
+  sessions: ChatSessionSummary[];
+  /** The conversation the chat carries on right now, or null for a fresh one. */
+  currentId: string | null;
+}
+
 const maxDetailChars = 4000;
 
 function asRecord(value: unknown): Record<string, unknown> {

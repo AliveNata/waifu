@@ -2,7 +2,7 @@
 // duplicated from src/shared/protocol.ts. test/protocol.test.ts keeps
 // the two lists in sync.
 import { contextBridge, type IpcRendererEvent, ipcRenderer } from "electron";
-import type { ChatEvent, ChatStatus } from "../shared/office-chat.js";
+import type { ChatEvent, ChatSessionList, ChatStatus } from "../shared/office-chat.js";
 import type { CompanionApi, ConversationMode, CursorOffset, HookServerStatus, ModelFile } from "../shared/protocol.js";
 import type { CompanionSignal } from "../shared/reaction.js";
 import type { MemberId } from "../shared/team.js";
@@ -31,6 +31,8 @@ const channels = {
   stopChat: "companion:stop-chat",
   newChat: "companion:new-chat",
   pickChatProject: "companion:pick-chat-project",
+  listChatSessions: "companion:list-chat-sessions",
+  resumeChatSession: "companion:resume-chat-session",
   answerPermission: "companion:answer-permission",
   teamOverlayVisible: "companion:team-overlay-visible",
   getServerStatus: "companion:get-server-status",
@@ -73,6 +75,8 @@ const api: CompanionApi = {
   stopChat: () => ipcRenderer.send(channels.stopChat),
   newChat: () => ipcRenderer.send(channels.newChat),
   pickChatProject: () => ipcRenderer.invoke(channels.pickChatProject) as Promise<string | null>,
+  listChatSessions: () => ipcRenderer.invoke(channels.listChatSessions) as Promise<ChatSessionList>,
+  resumeChatSession: (sessionId) => ipcRenderer.invoke(channels.resumeChatSession, sessionId) as Promise<ChatEvent[]>,
   answerPermission: (id, allowed) => ipcRenderer.send(channels.answerPermission, id, allowed),
   setTeamOverlayVisible: (visible) => ipcRenderer.send(channels.teamOverlayVisible, visible),
   getServerStatus: () => ipcRenderer.invoke(channels.getServerStatus) as Promise<HookServerStatus>,

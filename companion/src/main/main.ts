@@ -1,10 +1,11 @@
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { app, BrowserWindow, dialog, ipcMain, Menu, screen } from "electron";
 import { HookServer, permissionPath } from "../server/hook-server.js";
-import type { ChatEvent } from "../shared/office-chat.js";
+import type { ChatEvent, ChatSessionList } from "../shared/office-chat.js";
 import {
   type CursorOffset,
   type HookServerStatus,
@@ -20,6 +21,13 @@ import { findMemberModel } from "../tools/member-models.js";
 import { resolveClaudeCommand } from "./chat/claude-command.js";
 import { OfficeChat } from "./chat/office-chat.js";
 import { hookResponse, PermissionGate } from "./chat/permission-gate.js";
+import {
+  claudeConfigDir,
+  isSessionId,
+  listSessions,
+  projectSessionsDir,
+  sessionTranscript,
+} from "./chat/session-store.js";
 import { type CompanionSettings, loadSettings, saveSettings } from "./settings-store.js";
 
 const overlaySize = { width: 340, height: 440 };
@@ -497,6 +505,32 @@ function registerChatIpc(): void {
     }
     await updateSettings({ chatProjectDir: selected });
     return selected;
+  });
+  ipcMain.handle(ipcChannels.listChatSessions, async (): Promise<ChatSessionList> => {
+    const chat = requireChat();
+    const projectDir = chat.status().projectDir;
+    if (projectDir === null) {
+      return { sessions: [], currentId: chat.currentSession() };
+    }
+    const dir = projectSessionsDir(claudeConfigDir(process.env, homedir()), projectDir);
+    return { sessions: await listSessions(dir), currentId: chat.currentSession() };
+  });
+  ipcMain.handle(ipcChannels.resumeChatSession, async (_event, sessionId: unknown): Promise<ChatEvent[]> => {
+    const chat = requireChat();
+    const projectDir = chat.status().projectDir;
+    // Only a session id shaped like Claude's, from this folder's list: never a path from the renderer.
+    if (typeof sessionId !== "string" || !isSessionId(sessionId) || projectDir === null) {
+      throw new Error("not a session of this folder");
+    }
+    const dir = projectSessionsDir(claudeConfigDir(process.env, homedir()), projectDir);
+    const known = await listSessions(dir, Number.POSITIVE_INFINITY);
+    if (!known.some((session) => session.id === sessionId)) {
+      throw new Error("not a session of this folder");
+    }
+    const transcript = await sessionTranscript(join(dir, `${sessionId}.jsonl`));
+    chat.resumeSession(sessionId);
+    chatHistory = [...transcript];
+    return transcript;
   });
   ipcMain.on(ipcChannels.answerPermission, (_event, id: unknown, allowed: unknown) => {
     if (typeof id !== "string" || typeof allowed !== "boolean") {

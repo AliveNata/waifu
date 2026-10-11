@@ -32,7 +32,8 @@ const say = (text) =>
   });
 
 line({ type: "system", subtype: "init", session_id: sessionId, permissionMode: "default", cwd: process.cwd() });
-say(`Siap. Tugas: ${prompt}.`);
+// Names the resumed session, so a test can see the chat carried on the one it picked.
+say(`Siap${resumeIndex === -1 ? "" : ` (lanjut ${sessionId})`}. Tugas: ${prompt}.`);
 if (prompt.includes("lama")) {
   // Keeps the run alive so a test can press Stop.
   await new Promise((resolve) => setTimeout(resolve, 60_000));

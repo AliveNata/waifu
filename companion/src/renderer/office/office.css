@@ -51,6 +51,42 @@
   text-align: left;
 }
 
+/* Wider than the model picker: session titles are whole sentences. */
+.sessions-dialog {
+  width: min(480px, calc(100% - 32px));
+}
+
+/* Long histories scroll inside the dialog instead of pushing Tutup off screen. */
+.session-list {
+  max-height: min(50vh, 420px);
+  overflow-y: auto;
+}
+
+.session-list .button {
+  display: grid;
+  gap: 2px;
+  padding-block: 8px;
+}
+
+.session-title {
+  overflow-wrap: anywhere;
+}
+
+.session-time {
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+.sessions-state:empty {
+  display: none;
+}
+
+.sessions-state[data-tone="error"] {
+  color: var(--error-bg);
+  font-weight: 600;
+}
+
 /* Docked above the close-up by the page script, so the speaker and their screen read together. */
 .office-dialog {
   min-height: 88px;
@@ -389,7 +425,8 @@
 
 @media (prefers-color-scheme: dark) {
   .chat-problem,
-  .chat-note[data-tone="error"] {
+  .chat-note[data-tone="error"],
+  .sessions-state[data-tone="error"] {
     color: #f0a3a3;
   }
 

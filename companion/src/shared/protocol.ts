@@ -1,4 +1,4 @@
-import type { ChatEvent, ChatStatus } from "./office-chat.js";
+import type { ChatEvent, ChatSessionList, ChatStatus } from "./office-chat.js";
 import type { CompanionSignal } from "./reaction.js";
 import type { MemberId } from "./team.js";
 
@@ -70,6 +70,10 @@ export interface CompanionApi {
   newChat(): void;
   /** Asks for the project folder the chat works in. Resolves with the folder, or null when cancelled. */
   pickChatProject(): Promise<string | null>;
+  /** Claude Code sessions saved on this machine for the chat's folder, newest first. */
+  listChatSessions(): Promise<ChatSessionList>;
+  /** Carries on a stored session. Resolves with the end of its conversation, to show in the log. */
+  resumeChatSession(sessionId: string): Promise<ChatEvent[]>;
   answerPermission(id: string, allowed: boolean): void;
   /** Shows or hides the team overlay window. The browser fallback has no window to hide. */
   setTeamOverlayVisible(visible: boolean): void;
@@ -105,6 +109,8 @@ export const ipcChannels = {
   stopChat: "companion:stop-chat",
   newChat: "companion:new-chat",
   pickChatProject: "companion:pick-chat-project",
+  listChatSessions: "companion:list-chat-sessions",
+  resumeChatSession: "companion:resume-chat-session",
   answerPermission: "companion:answer-permission",
   teamOverlayVisible: "companion:team-overlay-visible",
   getServerStatus: "companion:get-server-status",
