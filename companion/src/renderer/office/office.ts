@@ -111,7 +111,9 @@ class OfficePage {
         .getCompanionVisible()
         .then((visible) => this.applyCompanionVisible(visible))
         .catch((error: unknown) => console.error("[office] failed to read the companion setting", error));
-      this.menuButton.addEventListener("click", () => this.bridge.openMenu());
+      // 2B's own Menu button and a right-click anywhere in the office open the same menu,
+      // so a second Menu button in the office HUD only crowded the corner.
+      this.menuButton.hidden = true;
     } else {
       this.menuButton.textContent = "Model";
       this.buildModelDialog();
@@ -325,7 +327,7 @@ class OfficePage {
     }
     this.lastCaption = key;
     this.caption.hidden = false;
-    this.caption.textContent = `${focus.label} · layar simulasi`;
+    this.caption.textContent = `${focus.label} · simulated screen`;
     this.caption.style.left = `${rect.x}px`;
     this.caption.style.width = `${rect.width}px`;
     this.caption.style.bottom = `${window.innerHeight - rect.y}px`;

@@ -173,30 +173,31 @@ export function teamDialogDock(viewWidth: number): TeamDialogDock {
   };
 }
 
+/** Close-up captions are in English, like the window titles; dialog lines stay in the cast's own voice. */
 const actionLabels: Record<OfficeAction, string> = {
-  type: "ngetik",
-  "desk-idle": "santai",
-  stretch: "selesai",
-  draw: "nulis di papan",
-  read: "baca",
-  stick: "nempel ide",
-  ponder: "mikir",
-  cheer: "selesai",
-  wave: "manggil lo",
-  relax: "santai",
-  watch: "nonton",
-  game: "main game",
-  brew: "bikin kopi",
-  snack: "ngemil",
-  arcade: "main arcade",
-  water: "nyiram tanaman",
-  lounge: "rebahan",
-  selfie: "selfie",
-  rack: "ngecek server",
-  chat: "ngobrol",
-  meeting: "meeting",
-  pingpong: "main pingpong",
-  "pingpong-wait": "nunggu lawan pingpong",
+  type: "typing",
+  "desk-idle": "taking it easy",
+  stretch: "done",
+  draw: "drawing on the board",
+  read: "reading",
+  stick: "pinning ideas",
+  ponder: "thinking",
+  cheer: "done",
+  wave: "calling you",
+  relax: "relaxing",
+  watch: "watching TV",
+  game: "gaming",
+  brew: "making coffee",
+  snack: "snacking",
+  arcade: "playing arcade",
+  water: "watering plants",
+  lounge: "lounging",
+  selfie: "taking a selfie",
+  rack: "checking the servers",
+  chat: "chatting",
+  meeting: "in a meeting",
+  pingpong: "playing ping-pong",
+  "pingpong-wait": "waiting for a ping-pong partner",
 };
 
 export class OfficeStage {
@@ -647,7 +648,7 @@ export class OfficeStage {
     }
     const rig = this.rigs[best.memberId];
     const profile = roster[best.memberId];
-    const activity = rig.action === null ? "jalan" : actionLabels[rig.action];
+    const activity = rig.action === null ? "walking" : actionLabels[rig.action];
     const tool = best.memberId === "twob" ? null : this.team[best.memberId].lastTool;
     const label = `${profile.displayName} · ${profile.role} · ${activity}${tool === null ? "" : ` (${tool})`}`;
     const focus = { memberId: best.memberId, label };

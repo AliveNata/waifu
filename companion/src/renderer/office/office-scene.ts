@@ -197,7 +197,7 @@ function buildRoomShell(root: Group, logo: Texture): { nightGlass: MeshBasicMate
   const signY = 1.45;
   const logoMark = mesh(new PlaneGeometry(0.5, 0.5), unlit(logo, true), false);
   logoMark.position.set(-0.28, signY, room.minZ + 0.015);
-  const lettering = mesh(new PlaneGeometry(1.1, 0.275), unlit(signTextTexture(), true), false);
+  const lettering = mesh(new PlaneGeometry(1.1, 0.275), unlit(signTextTexture().texture, true), false);
   lettering.position.set(0.66, signY - 0.02, room.minZ + 0.015);
   root.add(logoMark, lettering, box(1.6, 0.02, 0.03, glow(palette.accent, 1.6), 0.25, signY - 0.33, room.minZ + 0.02));
   return { nightGlass };

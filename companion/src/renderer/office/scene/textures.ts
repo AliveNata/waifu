@@ -97,7 +97,14 @@ export function windowTexture(seed: number, night = false): CanvasTexture {
  * "AlyxLabs" lettering, set in the UI face so it matches the companion's own text. The default
  * colors suit the light wall; the dark backdrop passes lighter ones.
  */
-export function signTextTexture(alyxColor: string = palette.inkDeep, labsColor = "#8a3fd6"): CanvasTexture {
+export interface SignLettering {
+  texture: CanvasTexture;
+  /** Where the ink starts and ends, as fractions of the texture width, so a layout can center the words themselves. */
+  inkStart: number;
+  inkEnd: number;
+}
+
+export function signTextTexture(alyxColor: string = palette.inkDeep, labsColor = "#8a3fd6"): SignLettering {
   const { canvas: element, ctx } = canvas(1024, 256);
   ctx.clearRect(0, 0, 1024, 256);
   ctx.textBaseline = "middle";
@@ -107,7 +114,8 @@ export function signTextTexture(alyxColor: string = palette.inkDeep, labsColor =
   const alyxWidth = ctx.measureText("Alyx").width;
   ctx.fillStyle = labsColor;
   ctx.fillText("Labs", 10 + alyxWidth, 130);
-  return texture(element);
+  const inkEnd = 10 + alyxWidth + ctx.measureText("Labs").width;
+  return { texture: texture(element), inkStart: 10 / 1024, inkEnd: Math.min(1, inkEnd / 1024) };
 }
 
 /** Asuna's side monitor: pipeline stages as a DAG, each with a status dot. Shapes only, no made-up numbers. */

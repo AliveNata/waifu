@@ -17,7 +17,7 @@ import {
 import { chibi, type Furniture, surface } from "../office-plan.js";
 import { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./animated.js";
 import { box, glow, mesh, palette, printed, standard, unlit } from "./palette.js";
-import { kanbanTexture } from "./textures.js";
+import { kanbanTexture, type SignLettering } from "./textures.js";
 
 export interface BuiltPiece {
   root: Group;
@@ -525,17 +525,24 @@ export function buildCameraTripod(piece: Furniture): Group {
  * Ruby's brand wall: logo and "AlyxLabs" side by side like the wall sign, in a band above her
  * head so neither hides behind her in the close-up.
  */
-export function buildBackdrop(piece: Furniture, logo: Texture, lettering: Texture): Group {
+export function buildBackdrop(piece: Furniture, logo: Texture, lettering: SignLettering): Group {
   const root = placed(piece);
   const { width } = localSize(piece);
   const ink = standard(palette.inkDeep, 0.7);
   const height = 1.25;
   root.add(box(width, height, 0.05, ink, 0, 0, 0), box(width, 0.018, 0.06, glow(), 0, height - 0.02, 0));
   const bandY = chibi.eye + 0.13;
-  const mark = mesh(new PlaneGeometry(0.32, 0.32), unlit(logo, true), false);
-  mark.position.set(-0.42, bandY, 0.03);
-  const text = mesh(new PlaneGeometry(0.8, 0.2), unlit(lettering, true), false);
-  text.position.set(0.17, bandY, 0.03);
+  const markSize = 0.32;
+  const gap = 0.06;
+  const planeWidth = 0.8;
+  // Center the logo plus the words themselves, not the texture's empty margin after "Labs".
+  const inkWidth = planeWidth * (lettering.inkEnd - lettering.inkStart);
+  const left = -(markSize + gap + inkWidth) / 2;
+  const mark = mesh(new PlaneGeometry(markSize, markSize), unlit(logo, true), false);
+  mark.position.set(left + markSize / 2, bandY, 0.03);
+  const text = mesh(new PlaneGeometry(planeWidth, planeWidth / 4), unlit(lettering.texture, true), false);
+  const inkLeft = left + markSize + gap;
+  text.position.set(inkLeft - planeWidth * lettering.inkStart + planeWidth / 2, bandY, 0.03);
   root.add(mark, text);
   return root;
 }

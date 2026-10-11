@@ -183,7 +183,7 @@ function createTeamOverlayWindow(): BrowserWindow {
     skipTaskbar: true,
     alwaysOnTop: settings.alwaysOnTop,
     backgroundColor: "#00000000",
-    title: "Tim 2B",
+    title: "2B Team",
     webPreferences,
   });
   watchRenderer(window, "team overlay");
@@ -234,7 +234,7 @@ function openOfficeWindow(): void {
     height: 640,
     minWidth: 480,
     minHeight: 360,
-    title: "Kantor AlyxLabs",
+    title: "AlyxLabs Office",
     backgroundColor: "#e9e4da",
     autoHideMenuBar: true,
     webPreferences,

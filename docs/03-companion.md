@@ -4,7 +4,7 @@ Companion ini nampilin 2B dan timnya di tiga tempat:
 
 - **Overlay 2B**: close-up 3D transparan di pojok kanan bawah layar, selalu di atas window lain. Kepala dan matanya ngikutin cursor lo.
 - **Overlay tim**: close-up transparan di pojok kanan atas. Muncul cuma pas ada yang ngomong: 2B ngoper tugas, atau anggota tim mulai kerja, pakai tool, dan selesai. Ada gerak mulut, ekspresi, gesture, dan kotak dialog.
-- **Kantor AlyxLabs**: window terpisah berisi kantor 3D dengan 2B dan tujuh anggota tim versi chibi (lihat [04-tim.md](04-tim.md)). Tiap anggota punya meja sesuai role-nya, mulai kerja pas subagent-nya dipanggil, dan pas lagi nggak ada tugas mereka istirahat dengan kegiatan masing-masing.
+- **AlyxLabs Office** (kantor): window terpisah berisi kantor 3D dengan 2B dan tujuh anggota tim versi chibi (lihat [04-tim.md](04-tim.md)). Tiap anggota punya meja sesuai role-nya, mulai kerja pas subagent-nya dipanggil, dan pas lagi nggak ada tugas mereka istirahat dengan kegiatan masing-masing.
 
 Ketiganya bereaksi ke event yang sama dari hooks Claude Code.
 
@@ -71,7 +71,7 @@ Overlay tim bisa digeser kayak overlay 2B.
 
 Event yang terjadi di dalam subagent (misalnya Asuna ngejalanin `Edit`) cuma ngegerakin anggota itu, bukan 2B. Pas 2B ngoper kerjaan, chip status nampilin "Delegasi ke tim".
 
-## Kantor AlyxLabs
+## AlyxLabs Office (kantor)
 
 Ruangannya terang dengan aksen ungu dari logo AlyxLabs: LED neon yang "lari" di atas dinding dan di sepanjang lis bawah, lampu di bawah meja, dan papan nama di dinding belakang. Semua furnitur diukur pakai tinggi chibi (sekitar 1,05 m), jadi meja setinggi pinggang, monitor sejajar mata pas duduk, dan papan tulis masih kejangkau tangan. Zonanya:
 
@@ -122,11 +122,13 @@ Pose duduk diukur dari panjang kaki tiap model. Di kursi rendah lututnya naik da
 
 Isi layar, papan tulis, dan sticky note semuanya **simulasi**, bukan kerjaan asli lo. Jadi aman pas lagi share screen.
 
-Pas ada yang kerja, panel **close-up** muncul sendiri di kiri, nempel di atas panel chat dengan lebar yang sama (kalau chat ditutup, dia pindah ke kiri bawah), dan nampilin layar atau papan anggota yang terakhir aktif, lengkap dengan nama tool yang lagi dipakai. Setelah semua selesai, panelnya nunggu beberapa detik biar momen selesainya kelihatan, lalu hilang sendiri. Buat matiin sama sekali (misalnya pas share screen), hapus centang **Menu > Close-up kantor pas ada yang kerja**. Di mode browser, setting-nya ada di dialog **Model**.
+Pas ada yang kerja, panel **close-up** muncul sendiri di kiri, nempel di atas panel chat dengan lebar yang sama (kalau chat ditutup, dia pindah ke kiri bawah), dan nampilin layar atau papan anggota yang terakhir aktif, lengkap dengan nama tool yang lagi dipakai. Keterangannya pakai bahasa Inggris, contohnya `Ruby · Content + Portfolio · typing (Bash) · simulated screen`, sama kayak judul window (AlyxLabs Office, 2B Team). Setelah semua selesai, panelnya nunggu beberapa detik biar momen selesainya kelihatan, lalu hilang sendiri. Buat matiin sama sekali (misalnya pas share screen), hapus centang **Menu > Close-up kantor pas ada yang kerja**. Di mode browser, setting-nya ada di dialog **Model**.
 
 Kalau 2B ngerjain tugas sendiri tanpa delegasi ke tim, dia tetap ngomong singkat di kotak obrolan: pas mulai, pas pakai tool (paling sering sekali tiap 8 detik), dan pas selesai.
 
-Obrolan tim yang sama dengan overlay kanan atas juga tampil di kantor, nempel di atas panel close-up. Kalau close-up lagi nggak tampil, kotak obrolannya turun ke posisi close-up.
+Obrolan tim yang sama dengan overlay tim juga tampil di kantor, di pojok kanan atas bareng potret yang ngomong.
+
+Kantor nggak punya tombol Menu sendiri: pakai tombol **Menu** di 2B, atau **klik kanan** di mana aja di kantor.
 
 Tombol **Sembunyiin 2B** dan **Tampilin 2B** di kanan bawah kantor buat nyembunyiin atau nampilin 2B di desktop tanpa nutup aplikasinya. Bisa juga lewat **Menu > Tampilkan 2B di desktop**. Kalau 2B lagi disembunyiin dan kantor ketutup, jalanin `npm start` lagi buat munculin dia.
 

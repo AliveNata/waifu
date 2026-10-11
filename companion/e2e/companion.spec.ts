@@ -147,7 +147,7 @@ test.describe("office", () => {
     // Assert
     await expect(caption).toContainText("Erza · Reviewer");
     await expect(caption).toContainText("(Bash)");
-    await expect(caption).toContainText("layar simulasi");
+    await expect(caption).toContainText("simulated screen");
   });
 
   test("hides the close-up on its own a few seconds after the member finishes", async ({ page }) => {
