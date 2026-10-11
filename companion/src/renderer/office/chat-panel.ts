@@ -2,6 +2,7 @@ import type { ChatEvent, ChatStatus } from "../../shared/office-chat.js";
 import type { RendererBridge } from "../common/bridge.js";
 import { requireElement } from "../common/status-chip.js";
 import { type ChatEntry, ChatLog, folderName } from "./chat-log.js";
+import { MentionPicker } from "./mention-picker.js";
 
 /**
  * The office chat: type a task for 2B, watch the reply stream in, and allow or
@@ -22,6 +23,7 @@ export class ChatPanel {
   private readonly sendButton = requireElement("chat-send", HTMLButtonElement);
   private readonly stopButton = requireElement("chat-stop", HTMLButtonElement);
   private readonly announcer = requireElement("chat-announce", HTMLElement);
+  private readonly mentions = new MentionPicker(this.input, requireElement("chat-mentions", HTMLUListElement));
   private readonly log = new ChatLog();
   private readonly items: HTMLLIElement[] = [];
   private status: ChatStatus = { state: "idle", projectDir: null, problem: null };
@@ -54,8 +56,13 @@ export class ChatPanel {
       event.preventDefault();
       this.submit();
     });
-    // Enter sends, Shift+Enter adds a line, the way chat boxes usually behave.
+    // Enter sends, Shift+Enter adds a line, the way chat boxes usually behave. While the @ list
+    // is open, its keys (arrows, Enter, Tab, Escape) pick a teammate instead.
     this.input.addEventListener("keydown", (event) => {
+      if (!event.isComposing && this.mentions.handleKey(event)) {
+        event.preventDefault();
+        return;
+      }
       if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
         event.preventDefault();
         this.submit();

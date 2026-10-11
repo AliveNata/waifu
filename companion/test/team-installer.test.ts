@@ -40,13 +40,13 @@ describe("team install", () => {
     // Assert
     expect(changes.every((change) => change.action === "create")).toBe(true);
     expect((await readdir(join(configDir, "agents"))).sort()).toEqual([
-      "architect.md",
-      "brainstormer.md",
-      "content-creator.md",
-      "data-engineer.md",
-      "fullstack-engineer.md",
-      "platform-sre.md",
-      "reviewer.md",
+      "asuna.md",
+      "chizuru.md",
+      "erza.md",
+      "kobayashi.md",
+      "rias.md",
+      "ruby.md",
+      "yor.md",
     ]);
     expect(await readFile(join(configDir, "CLAUDE.md"), "utf8")).toContain("2B: personal assistant");
   });
@@ -67,14 +67,34 @@ describe("team install", () => {
     // Arrange
     const configDir = await mkdtemp(join(tmpdir(), "claude-config-"));
     await mkdir(join(configDir, "agents"), { recursive: true });
-    await writeFile(join(configDir, "agents", "reviewer.md"), "my own reviewer", "utf8");
+    await writeFile(join(configDir, "agents", "erza.md"), "my own erza", "utf8");
 
     // Act
     const backups = await applyInstall(await planInstall(teamDir, configDir), "t2");
 
     // Assert
-    expect(backups).toEqual([join(configDir, "agents", "reviewer.md.bak-t2")]);
-    expect(await readFile(backups[0] as string, "utf8")).toBe("my own reviewer");
+    expect(backups).toEqual([join(configDir, "agents", "erza.md.bak-t2")]);
+    expect(await readFile(backups[0] as string, "utf8")).toBe("my own erza");
+  });
+
+  it("retires the agents it installed under their old role names, keeping a backup", async () => {
+    // Arrange: an install from before the rename, plus someone's own agent that shares an old name.
+    const configDir = await mkdtemp(join(tmpdir(), "claude-config-"));
+    await mkdir(join(configDir, "agents"), { recursive: true });
+    const oldReviewer = "---\nname: reviewer\n---\nYou are Erza, the reviewer in 2B's team.";
+    await writeFile(join(configDir, "agents", "reviewer.md"), oldReviewer, "utf8");
+    await writeFile(join(configDir, "agents", "architect.md"), "my own architect", "utf8");
+
+    // Act
+    const changes = await planInstall(teamDir, configDir);
+    const backups = await applyInstall(changes, "t3");
+
+    // Assert
+    const agents = (await readdir(join(configDir, "agents"))).sort();
+    expect(agents).not.toContain("reviewer.md");
+    expect(agents).toContain("architect.md");
+    expect(backups).toEqual([join(configDir, "agents", "reviewer.md.bak-t3")]);
+    expect(await readFile(backups[0] as string, "utf8")).toBe(oldReviewer);
   });
 
   it("ships valid frontmatter with a name matching the file", async () => {

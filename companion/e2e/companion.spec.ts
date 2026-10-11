@@ -140,8 +140,9 @@ test.describe("office", () => {
     await expect(caption).toBeHidden();
 
     // Act
-    await postHook(page, { hook_event_name: "SubagentStart", agent_id: "r1", agent_type: "reviewer" });
-    await postHook(page, { hook_event_name: "PreToolUse", agent_id: "r1", agent_type: "reviewer", tool_name: "Bash" });
+    // Agents are named after the cast now; the old role names (used in other tests) still map.
+    await postHook(page, { hook_event_name: "SubagentStart", agent_id: "r1", agent_type: "erza" });
+    await postHook(page, { hook_event_name: "PreToolUse", agent_id: "r1", agent_type: "erza", tool_name: "Bash" });
 
     // Assert
     await expect(caption).toContainText("Erza · Reviewer");

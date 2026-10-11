@@ -36,8 +36,14 @@
         <ol class="chat-log" id="chat-log" aria-label="Isi obrolan"></ol>
         <p class="chat-working" id="chat-working" hidden></p>
         <form class="chat-form" id="chat-form">
-          <label class="visually-hidden" for="chat-input">Pesan buat 2B</label>
-          <textarea class="chat-input" id="chat-input" rows="2" placeholder="Tugas buat 2B"></textarea>
+          <label class="visually-hidden" for="chat-input">Pesan buat 2B. Ketik @ buat milih anggota tim.</label>
+          <ul class="chat-mentions" id="chat-mentions" role="listbox" aria-label="Anggota tim" hidden></ul>
+          <textarea
+            class="chat-input"
+            id="chat-input"
+            rows="2"
+            placeholder="Tugas buat 2B, atau @ buat manggil tim"
+          ></textarea>
           <button class="button" id="chat-send" type="submit">Kirim</button>
           <button class="button chat-stop" id="chat-stop" type="button" hidden>Stop</button>
         </form>

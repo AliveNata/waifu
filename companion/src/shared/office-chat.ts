@@ -1,3 +1,5 @@
+import { roster } from "./team.js";
+
 /**
  * Chat with Claude from the office: the user types a task, a headless `claude -p`
  * run in their project works on it, and every tool call that needs permission
@@ -77,4 +79,39 @@ export function describeToolInput(input: unknown): string {
   return text.length > maxDetailChars
     ? `${text.slice(0, maxDetailChars)}\n... (${text.length - maxDetailChars} karakter lagi)`
     : text;
+}
+
+/** A cast member you can @-mention in the office chat: everyone except 2B, who is the main session. */
+export interface MentionTarget {
+  displayName: string;
+  role: string;
+  agentType: string;
+}
+
+/** The team from the roster, in roster order. */
+export function mentionTargets(): MentionTarget[] {
+  return Object.values(roster).flatMap((profile) =>
+    profile.agentType === null
+      ? []
+      : [{ displayName: profile.displayName, role: profile.role, agentType: profile.agentType }],
+  );
+}
+
+/**
+ * Turns `@Erza` (or `@erza`, or an old role name like `@reviewer`) into `@agent-erza`, the form
+ * Claude Code resolves to "run this subagent". Only a whole word after a space or the start
+ * counts, so emails and handles inside other text stay as they are.
+ */
+export function expandCastMentions(text: string): string {
+  return text.replace(/(^|[\s(])@([A-Za-z][\w-]*)/g, (whole, before: string, name: string) => {
+    const lower = name.toLowerCase();
+    const profile = Object.values(roster).find(
+      (candidate) =>
+        candidate.agentType !== null &&
+        (candidate.displayName.toLowerCase() === lower ||
+          candidate.agentType === lower ||
+          candidate.legacyAgentType === lower),
+    );
+    return profile === undefined || profile.agentType === null ? whole : `${before}@agent-${profile.agentType}`;
+  });
 }

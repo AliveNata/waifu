@@ -1,5 +1,5 @@
 ---
-name: data-engineer
+name: asuna
 description: Asuna, the team data engineer. Use proactively for dbt models, Airflow DAGs, BigQuery or Postgres SQL, Spark jobs, Kafka topics and consumers, data quality checks and pipeline debugging.
 tools: Read, Grep, Glob, Edit, Write, Bash, WebSearch, WebFetch
 color: yellow

@@ -1,7 +1,8 @@
 import { constants } from "node:fs";
-import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { roster } from "../shared/team.js";
 
 export const blockStart = "<!-- waifu-team:start -->";
 export const blockEnd = "<!-- waifu-team:end -->";
@@ -25,7 +26,15 @@ export function upsertMarkedBlock(existing: string, body: string): string {
   return `${existing.trimEnd()}\n\n${block}\n`;
 }
 
-export type FileAction = "create" | "update" | "unchanged";
+/**
+ * "retire" moves an agent this installer put in place under its old role-based name
+ * (reviewer.md, architect.md, ...) to a backup, so Claude Code stops listing it next to the
+ * renamed one. The file is renamed, never deleted.
+ */
+export type FileAction = "create" | "update" | "unchanged" | "retire";
+
+/** Every agent file this project ever shipped says this; a user's own agent with the same name does not. */
+const teamSignature = "in 2B's team";
 
 export interface PlannedChange {
   target: string;
@@ -62,6 +71,17 @@ export async function planInstall(teamDir: string, configDir: string): Promise<P
     changes.push({ target, action: actionFor(await readOptional(target), content), content });
   }
 
+  for (const profile of Object.values(roster)) {
+    if (profile.legacyAgentType === null) {
+      continue;
+    }
+    const target = join(configDir, "agents", `${profile.legacyAgentType}.md`);
+    const current = await readOptional(target);
+    if (current?.includes(teamSignature)) {
+      changes.push({ target, action: "retire", content: current });
+    }
+  }
+
   const memoryPath = join(configDir, "CLAUDE.md");
   const currentMemory = await readOptional(memoryPath);
   const twobBlock = await readFile(join(teamDir, "2b.md"), "utf8");
@@ -91,12 +111,19 @@ async function backupFile(path: string, timestamp: string): Promise<string> {
 
 /**
  * Applies planned changes. Files that already exist with different content are
- * copied to `<file>.bak-<timestamp>` first, so a hand-edited agent is never lost.
+ * copied to `<file>.bak-<timestamp>` first, so a hand-edited agent is never lost,
+ * and retired agents are backed up the same way before their old file goes.
  */
 export async function applyInstall(changes: PlannedChange[], timestamp: string): Promise<string[]> {
   const backups: string[] = [];
   for (const change of changes) {
     if (change.action === "unchanged") {
+      continue;
+    }
+    if (change.action === "retire") {
+      // The backup holds the full content before the old name is taken out of Claude Code's list.
+      backups.push(await backupFile(change.target, timestamp));
+      await unlink(change.target);
       continue;
     }
     await mkdir(join(change.target, ".."), { recursive: true });

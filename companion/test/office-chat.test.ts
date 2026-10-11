@@ -15,8 +15,14 @@ import { OfficeChat } from "../src/main/chat/office-chat.js";
 import { deniedByUser, hookResponse, PermissionGate } from "../src/main/chat/permission-gate.js";
 import { parseStreamLine } from "../src/main/chat/stream-events.js";
 import { ChatLog, folderName } from "../src/renderer/office/chat-log.js";
+import { insertMention, matchingTargets, mentionQuery } from "../src/renderer/office/mentions.js";
 import { HookServer, permissionPath, permissionTokenHeader } from "../src/server/hook-server.js";
-import { type ChatEvent, describeToolInput, summarizeToolInput } from "../src/shared/office-chat.js";
+import {
+  type ChatEvent,
+  describeToolInput,
+  expandCastMentions,
+  summarizeToolInput,
+} from "../src/shared/office-chat.js";
 
 const fakeClaude = resolve(import.meta.dirname, "../e2e/fixtures/fake-claude.mjs");
 
@@ -409,5 +415,56 @@ describe("office chat with the CLI", () => {
     // Assert
     expect(chat.status().state).toBe("unavailable");
     expect(events).toEqual([{ kind: "error", message: expect.stringMatching(/belum login/) }]);
+  });
+});
+
+describe("cast mentions", () => {
+  it.each([
+    ["@Erza tolong cek ya", "@agent-erza tolong cek ya"],
+    ["minta @rias sama @Asuna bantu", "minta @agent-rias sama @agent-asuna bantu"],
+    ["@reviewer cek diff", "@agent-erza cek diff"],
+    ["kirim ke alive@erza.dev", "kirim ke alive@erza.dev"],
+    ["@2B halo", "@2B halo"],
+    ["@Unknown halo", "@Unknown halo"],
+  ])("sends %s to Claude as %s", (typed, sent) => {
+    expect(expandCastMentions(typed)).toBe(sent);
+  });
+
+  it("lists every teammate except 2B for a bare @", () => {
+    // Act
+    const names = matchingTargets("").map((target) => target.displayName);
+
+    // Assert
+    expect(names).toEqual(["Chizuru", "Rias", "Asuna", "Kobayashi", "Yor", "Erza", "Ruby"]);
+  });
+
+  it.each([
+    ["er", ["Erza"]],
+    ["rev", ["Erza"]],
+    ["data", ["Asuna"]],
+    ["sre", ["Yor"]],
+    ["r", ["Rias", "Ruby", "Erza"]],
+  ])("filters by name or role for @%s", (query, expected) => {
+    expect(
+      matchingTargets(query)
+        .map((target) => target.displayName)
+        .sort(),
+    ).toEqual([...expected].sort());
+  });
+
+  it("finds the @word being typed and replaces it with the picked name", () => {
+    // Arrange
+    const text = "tolong @er cek";
+    const caret = "tolong @er".length;
+
+    // Act
+    const query = mentionQuery(text, caret);
+    const erza = matchingTargets("er")[0];
+    const result = query === null || erza === undefined ? null : insertMention(text, query, caret, erza);
+
+    // Assert
+    expect(query).toEqual({ start: 7, query: "er" });
+    expect(result).toEqual({ text: "tolong @Erza cek", caret: "tolong @Erza ".length });
+    expect(mentionQuery("mail alive@er", 13)).toBeNull();
   });
 });

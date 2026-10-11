@@ -282,9 +282,55 @@
 }
 
 .chat-form {
+  position: relative;
   display: flex;
   align-items: flex-end;
   gap: 8px;
+}
+
+/* Opens upward over the log, so it never pushes the input around while you type. */
+.chat-mentions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 4px);
+  max-height: 268px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--panel-muted);
+  border-radius: var(--radius);
+  background: var(--panel-bg);
+  z-index: 1;
+}
+
+.chat-mentions[hidden] {
+  display: none;
+}
+
+.chat-mentions li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 36px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.chat-mentions li[aria-selected="true"] {
+  background: var(--button-bg);
+  color: var(--button-ink);
+}
+
+.chat-mention-name {
+  font-weight: 600;
+}
+
+.chat-mention-role {
+  font-size: 12px;
+  opacity: 0.85;
 }
 
 .chat-input {

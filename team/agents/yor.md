@@ -1,5 +1,5 @@
 ---
-name: platform-sre
+name: yor
 description: Yor, the team platform engineer and SRE. Use proactively for Kubernetes manifests, Helm and Kustomize, Linode and GCP infrastructure, Redis and Kafka operations, CI/CD, and incident triage.
 tools: Read, Grep, Glob, Edit, Write, Bash, WebSearch, WebFetch
 color: green

@@ -1,5 +1,5 @@
 ---
-name: reviewer
+name: erza
 description: Erza, the team reviewer. Use proactively after code or config changes and before any commit, merge or deploy to review correctness, tests and security. Read-only, reports PASS or FAIL with evidence.
 tools: Read, Grep, Glob, Bash
 color: red

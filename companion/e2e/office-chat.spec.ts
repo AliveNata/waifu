@@ -56,7 +56,7 @@ test.describe("office chat", () => {
   test("sends a task, shows the permission card, and streams the reply after Izinkan", async () => {
     // Arrange
     const { app, office } = await launchOffice();
-    const input = office.getByLabel("Pesan buat 2B");
+    const input = office.getByLabel(/Pesan buat 2B/);
     await expect(input).toBeEnabled();
 
     // Act
@@ -84,7 +84,7 @@ test.describe("office chat", () => {
   test("denies from the keyboard and hides the chat with the toggle", async () => {
     // Arrange
     const { app, office } = await launchOffice();
-    const input = office.getByLabel("Pesan buat 2B");
+    const input = office.getByLabel(/Pesan buat 2B/);
     await expect(input).toBeEnabled();
 
     // Act: Tab from the card's first button to Tolak and press Enter.
@@ -108,7 +108,7 @@ test.describe("office chat", () => {
   test("stops a long run", async () => {
     // Arrange
     const { app, office } = await launchOffice();
-    const input = office.getByLabel("Pesan buat 2B");
+    const input = office.getByLabel(/Pesan buat 2B/);
     await expect(input).toBeEnabled();
 
     // Act
@@ -120,6 +120,32 @@ test.describe("office chat", () => {
     // Assert
     await expect(office.getByRole("list", { name: "Isi obrolan" })).toContainText("Dihentikan.");
     await expect(office.getByRole("button", { name: "Kirim" })).toBeVisible();
+    await app.close();
+  });
+});
+
+test.describe("cast mentions", () => {
+  test("picks a teammate from the @ list and sends the subagent mention to Claude", async () => {
+    // Arrange
+    const { app, office } = await launchOffice();
+    const input = office.getByLabel(/Pesan buat 2B/);
+    await expect(input).toBeEnabled();
+
+    // Act
+    await input.click();
+    await input.pressSequentially("@er");
+    const list = office.getByRole("listbox", { name: "Anggota tim" });
+    await expect(list.getByRole("option")).toHaveText(["ErzaReviewer"]);
+    await input.press("Enter");
+    await expect(input).toHaveValue("@Erza ");
+    await input.pressSequentially("cek tes");
+    await input.press("Enter");
+
+    // Assert: the log keeps what was typed, the fake CLI echoes what Claude received.
+    const log = office.getByRole("list", { name: "Isi obrolan" });
+    await expect(log).toContainText("@Erza cek tes");
+    await expect(log).toContainText("Siap. Tugas: @agent-erza cek tes.");
+    await office.locator(".chat-permission").getByRole("button", { name: "Tolak" }).click();
     await app.close();
   });
 });

@@ -1,5 +1,5 @@
 ---
-name: fullstack-engineer
+name: kobayashi
 description: Kobayashi, the team full stack engineer. Use proactively for application code: web UIs, APIs and backends, internal tools and dashboards, Electron or Node apps, and their tests.
 tools: Read, Grep, Glob, Edit, Write, Bash, WebSearch, WebFetch, Skill
 color: orange

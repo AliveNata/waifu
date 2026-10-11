@@ -3,7 +3,7 @@ import { EventEmitter } from "node:events";
 import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
-import type { ChatEvent, ChatStatus } from "../../shared/office-chat.js";
+import { type ChatEvent, type ChatStatus, expandCastMentions } from "../../shared/office-chat.js";
 import {
   type ClaudeCommand,
   chatArgs,
@@ -131,7 +131,8 @@ export class OfficeChat extends EventEmitter<OfficeChatEvents> {
       return;
     }
     this.emit("event", { kind: "user", text: trimmed });
-    this.run(command, this.projectDir, trimmed).catch((error: unknown) => {
+    // The log keeps what you typed; Claude gets @Erza as the subagent mention it resolves.
+    this.run(command, this.projectDir, expandCastMentions(trimmed)).catch((error: unknown) => {
       console.error("[chat] run failed to start", error);
       this.emit("event", { kind: "error", message: `Gagal jalanin Claude: ${(error as Error).message}` });
       this.child = null;

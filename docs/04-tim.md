@@ -5,15 +5,15 @@
 | Agent | Karakter | Anime | Tugas | Boleh ngedit? |
 |---|---|---|---|---|
 | (session utama) | 2B | NieR:Automata (game) | PA + PM: triage, plan, delegasi, brief | Ya |
-| `brainstormer` | Chizuru | Rent-a-Girlfriend | Ide dan alternatif sebelum ada keputusan | Tidak |
-| `architect` | Rias | High School DxD | Bandingin opsi teknis, kritik plan | Tidak |
-| `data-engineer` | Asuna | Sword Art Online | dbt, Airflow, SQL, Spark, Kafka | Ya |
-| `fullstack-engineer` | Kobayashi | Miss Kobayashi's Dragon Maid | UI, API, tools internal | Ya |
-| `platform-sre` | Yor | Spy x Family | Kubernetes, Helm, Linode + GCP, CI/CD, insiden | Ya, tapi nggak boleh ngubah cluster |
-| `reviewer` | Erza | Fairy Tail | Review, test, security sebelum commit atau deploy | Tidak |
-| `content-creator` | Ruby | Oshi no Ko | Draft LinkedIn, Notion, GitHub dari kerjaan lo yang udah selesai, plus coaching portfolio | Cuma nulis draft di `portfolio/drafts/` |
+| `chizuru` | Chizuru | Rent-a-Girlfriend | Ide dan alternatif sebelum ada keputusan | Tidak |
+| `rias` | Rias | High School DxD | Bandingin opsi teknis, kritik plan | Tidak |
+| `asuna` | Asuna | Sword Art Online | dbt, Airflow, SQL, Spark, Kafka | Ya |
+| `kobayashi` | Kobayashi | Miss Kobayashi's Dragon Maid | UI, API, tools internal | Ya |
+| `yor` | Yor | Spy x Family | Kubernetes, Helm, Linode + GCP, CI/CD, insiden | Ya, tapi nggak boleh ngubah cluster |
+| `erza` | Erza | Fairy Tail | Review, test, security sebelum commit atau deploy | Tidak |
+| `ruby` | Ruby | Oshi no Ko | Draft LinkedIn, Notion, GitHub dari kerjaan lo yang udah selesai, plus coaching portfolio | Cuma nulis draft di `portfolio/drafts/` |
 
-Definisinya ada di `team/agents/*.md`, dan aturan delegasi 2B ada di `team/2b.md`.
+Definisinya ada di `team/agents/*.md`, dan aturan delegasi 2B ada di `team/2b.md`. Nama agent sengaja disamain dengan nama karakternya, biar manggilnya kayak manggil orang. Dulu namanya nama role (`reviewer`, `architect`, dst). Hooks companion masih ngenalin nama lama itu, dan `npm run team:install` nyimpen file agent lama sebagai backup (`reviewer.md.bak-...`) biar nggak muncul dobel.
 
 ## Alur kerja yang dirancang
 
@@ -49,13 +49,16 @@ Restart Claude Code setelah install. Command `/agents` udah dihapus dari Claude 
 
 ## Cara pakai
 
-Cukup ngobrol biasa ke Claude Code. 2B yang mutusin kapan perlu delegasi. Kalau mau manggil anggota tertentu, sebut namanya, misalnya "minta reviewer cek diff ini", atau pakai `@reviewer`.
+Cukup ngobrol biasa ke Claude Code. 2B yang mutusin kapan perlu delegasi. Kalau mau manggil anggota tertentu, mention namanya:
+
+- **Di chat kantor:** ketik `@`, terus muncul daftar tim lengkap dengan role-nya. Saring pakai nama atau role (`@er` atau `@rev` nemu Erza, `@data` nemu Asuna), pilih pakai panah lalu Enter atau Tab, atau klik. Contoh: `@Erza tolong cek diff ini`. Bisa manggil beberapa sekaligus: `@Rias sama @Erza cek plan ini`.
+- **Di terminal:** ketik `@` lalu pilih `erza (agent)` dari daftar Claude Code. Ngetik `@Erza ...` biasa juga jalan, soalnya 2B sudah dikasih tahu bahwa `@Nama` artinya delegasi ke anggota itu.
 
 Kalau companion lagi jalan dan hooks udah kepasang (lihat [03-companion.md](03-companion.md)), anggota yang dipanggil bakal mulai kerja di mejanya di kantor virtual.
 
 ## Draft portfolio dari Ruby
 
-Abis kerjaan penting selesai dan lolos review, 2B bakal nawarin sekali buat bikin draft portfolio. Bisa juga lo minta langsung, misalnya "minta content-creator bikin post LinkedIn dari migrasi Airflow kemarin".
+Abis kerjaan penting selesai dan lolos review, 2B bakal nawarin sekali buat bikin draft portfolio. Bisa juga lo minta langsung, misalnya "@Ruby bikin post LinkedIn dari migrasi Airflow kemarin".
 
 - Draft ditulis ke `portfolio/drafts/` di root project yang lagi lo kerjain, satu file per channel (LinkedIn, Notion, GitHub).
 - Ruby cuma pakai fakta dari kode, git log, dan brief. Angka yang dia nggak punya ditulis sebagai placeholder `[angka asli: ...]`, jadi lo yang ngisi.
