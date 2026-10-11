@@ -38,7 +38,7 @@ import {
 } from "./office-director.js";
 import { OfficeLife } from "./office-life.js";
 import { initialMug, type MugState, stepMug } from "./office-mug.js";
-import { type StationId, stations } from "./office-plan.js";
+import { distance, type StationId, stations } from "./office-plan.js";
 import { officePose } from "./office-pose.js";
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
 import { PlaceholderAvatar } from "./placeholder.js";
@@ -122,10 +122,30 @@ export interface CloseupFocus {
 }
 
 /** Bottom-right picture-in-picture area, above the HUD. Shared with the page so the caption lines up. */
-export function closeupRect(viewWidth: number, viewHeight: number): CloseupRect {
-  const width = Math.round(Math.min(440, viewWidth * 0.42));
+/** Room the caption strip above the close-up takes, plus the gap below it. */
+const closeupCaptionSpace = 34;
+const closeupMargin = 16;
+/** Space the HUD row (status, buttons) keeps at the bottom of the window. */
+const hudReserve = 76;
+
+/**
+ * Where the close-up goes: docked on top of the chat panel, as wide as it, so your task and
+ * the member doing it read as one column. Without the chat it takes the chat's place at the
+ * bottom left. If the window is too short to stack both, it moves to the bottom right.
+ */
+export function closeupRect(viewWidth: number, viewHeight: number, chat: CloseupRect | null): CloseupRect {
+  if (chat !== null) {
+    const width = Math.round(chat.width);
+    const height = Math.round(width * 0.62);
+    const y = Math.round(chat.y - 8 - height);
+    if (y - closeupCaptionSpace >= closeupMargin) {
+      return { x: Math.round(chat.x), y, width, height };
+    }
+  }
+  const width = Math.round(Math.min(380, viewWidth * 0.42));
   const height = Math.round(width * 0.62);
-  return { x: viewWidth - width - 16, y: viewHeight - height - 76, width, height };
+  const x = chat === null ? closeupMargin : viewWidth - width - closeupMargin;
+  return { x, y: viewHeight - height - hudReserve, width, height };
 }
 
 const actionLabels: Record<OfficeAction, string> = {
@@ -161,7 +181,7 @@ export class OfficeStage {
   private readonly controls: OrbitControls;
   private readonly timer = new Timer();
   private readonly office = buildOffice();
-  private readonly life = new OfficeLife();
+  private readonly life = new OfficeLife(Math.random, (station) => this.stationCrowded(station));
   private readonly rigs: Record<MemberId, MemberRig>;
 
   private team: TeamRuntime = emptyTeamRuntime();
@@ -177,6 +197,8 @@ export class OfficeStage {
   private lastInputAt = Date.now();
   private driftPhase = 0;
   private night = 0;
+  /** Set by the page every frame from where the chat panel sits. */
+  private closeupLayout: CloseupRect | null = null;
   private lastDaylightAt = 0;
   private readonly clock = officeClock();
   private readonly hemisphere = new HemisphereLight(0xfff8ee, 0xb7a68a, lighting.day.hemisphere);
@@ -244,6 +266,19 @@ export class OfficeStage {
     this.renderer.setAnimationLoop((timestamp) => this.frame(timestamp));
   }
 
+  /** Someone stands at, or is still leaving, this station's spot or the place you step in from. */
+  private stationCrowded(station: StationId): boolean {
+    // The life planner runs while the rigs are still being created.
+    if (this.rigs === undefined) {
+      return false;
+    }
+    const { spot, approach } = stations[station];
+    return memberIds.some((memberId) => {
+      const position = this.rigs[memberId]?.actor.position;
+      return position !== undefined && (distance(position, spot) < 0.8 || distance(position, approach) < 0.5);
+    });
+  }
+
   /** Swaps a member's avatar, for example from placeholder to their real VRM. */
   setAvatar(memberId: MemberId, avatar: OfficeAvatar): void {
     const rig = this.rigs[memberId];
@@ -269,6 +304,10 @@ export class OfficeStage {
       return;
     }
     this.team = { ...this.team, [signal.memberId]: applyMemberSignal(this.team[signal.memberId], signal) };
+  }
+
+  setCloseupLayout(rect: CloseupRect): void {
+    this.closeupLayout = rect;
   }
 
   setCloseupEnabled(enabled: boolean): void {
@@ -611,7 +650,7 @@ export class OfficeStage {
     this.renderer.render(this.scene, this.camera);
 
     if (this.closeupEnabled && this.focus !== null) {
-      const rect = closeupRect(width, height);
+      const rect = this.closeupLayout ?? closeupRect(width, height, null);
       const shot = this.closeupShotFor(this.focus.memberId);
       this.closeupCamera.aspect = rect.width / rect.height;
       this.closeupCamera.updateProjectionMatrix();

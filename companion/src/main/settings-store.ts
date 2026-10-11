@@ -9,6 +9,8 @@ export interface CompanionSettings {
   officeOpen: boolean;
   conversationMode: ConversationMode;
   closeupEnabled: boolean;
+  /** Shows 2B's desktop companion window. */
+  companionVisible: boolean;
   /** Shows the chat to Claude in the office. */
   chatEnabled: boolean;
   /** Folder the office chat works in. */
@@ -23,6 +25,7 @@ export const defaultSettings: CompanionSettings = {
   officeOpen: false,
   conversationMode: "simulated",
   closeupEnabled: true,
+  companionVisible: true,
   chatEnabled: true,
   chatProjectDir: null,
   chatSessionId: null,
@@ -54,6 +57,8 @@ export function normalizeSettings(input: unknown): CompanionSettings {
       ? record.conversationMode
       : defaultSettings.conversationMode,
     closeupEnabled: typeof record.closeupEnabled === "boolean" ? record.closeupEnabled : defaultSettings.closeupEnabled,
+    companionVisible:
+      typeof record.companionVisible === "boolean" ? record.companionVisible : defaultSettings.companionVisible,
     chatEnabled: typeof record.chatEnabled === "boolean" ? record.chatEnabled : defaultSettings.chatEnabled,
     chatProjectDir: typeof record.chatProjectDir === "string" ? record.chatProjectDir : null,
     chatSessionId: typeof record.chatSessionId === "string" ? record.chatSessionId : null,

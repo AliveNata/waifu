@@ -123,3 +123,24 @@ test.describe("office chat", () => {
     await app.close();
   });
 });
+
+test.describe("office HUD", () => {
+  test("hides and shows 2B's desktop window from the office", async () => {
+    // Arrange
+    const { app, office } = await launchOffice();
+    const overlayVisible = () =>
+      app.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows().some((window) => window.getTitle() === "2B" && window.isVisible()),
+      );
+    await expect.poll(overlayVisible).toBe(true);
+
+    // Act
+    await office.getByRole("button", { name: "Sembunyiin 2B" }).click();
+
+    // Assert
+    await expect.poll(overlayVisible).toBe(false);
+    await office.getByRole("button", { name: "Tampilin 2B" }).click();
+    await expect.poll(overlayVisible).toBe(true);
+    await app.close();
+  });
+});

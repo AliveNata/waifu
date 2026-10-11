@@ -51,6 +51,10 @@ export interface CompanionApi {
   getCloseupEnabled(): Promise<boolean>;
   setCloseupEnabled(enabled: boolean): void;
   onCloseupEnabled(listener: (enabled: boolean) => void): () => void;
+  /** Whether 2B's desktop companion window is shown. */
+  getCompanionVisible(): Promise<boolean>;
+  setCompanionVisible(visible: boolean): void;
+  onCompanionVisible(listener: (visible: boolean) => void): () => void;
   /** Whether the office shows the chat to Claude. */
   getChatEnabled(): Promise<boolean>;
   setChatEnabled(enabled: boolean): void;
@@ -87,6 +91,9 @@ export const ipcChannels = {
   getCloseupEnabled: "companion:get-closeup-enabled",
   setCloseupEnabled: "companion:set-closeup-enabled",
   closeupEnabled: "companion:closeup-enabled",
+  getCompanionVisible: "companion:get-companion-visible",
+  setCompanionVisible: "companion:set-companion-visible",
+  companionVisible: "companion:companion-visible",
   getChatEnabled: "companion:get-chat-enabled",
   setChatEnabled: "companion:set-chat-enabled",
   chatEnabled: "companion:chat-enabled",

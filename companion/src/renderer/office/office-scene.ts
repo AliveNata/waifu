@@ -358,9 +358,12 @@ export function buildOffice(): OfficeProps {
   root.add(leftWallPlane(ideaBoard.texture, ideaSpec, palette.skirting));
 
   // Hair stops at the floor too, so the longest strands pool there instead of sinking through.
+  // A little above the boards: springs collide at their joints, and the strand mesh reaches a
+  // bit past the last joint, so a plane exactly at floor level lets the very tips poke through.
   const floorCollider = new VRMSpringBoneCollider(
     new VRMSpringBoneColliderShapePlane({ normal: new Vector3(0, 1, 0) }),
   );
+  floorCollider.position.y = 0.025;
   root.add(floorCollider);
   hairColliders.push(floorCollider);
   root.updateMatrixWorld(true);
@@ -399,14 +402,14 @@ function buildCloseups(whiteboard: BoardSpec, idea: BoardSpec): Record<MemberId,
       target: new Vector3(seat.x - 0.02, deskTop + 0.18, seat.z - 0.9),
     };
   };
-  // Front desks face the camera with a backdrop or board behind the chair. The gap between chair
-  // and panel is just wide enough for an over-the-shoulder shot from the right, so the screen
-  // shows face-on and the camera stays clear of the panel.
+  // Front desks face the camera with a backdrop or board behind the chair. The shot comes from
+  // over the right shoulder and well to the side, so a chibi's big head does not hide the screen
+  // and the camera stays clear of the panel behind the chair.
   const frontShot = (station: "desk-twob" | "desk-ruby"): CloseupShot => {
     const seat = stations[station].spot;
     return {
-      eye: new Vector3(seat.x + 0.75, 1.02, seat.z - 0.28),
-      target: new Vector3(seat.x - 0.05, deskTop + 0.12, seat.z + 0.5),
+      eye: new Vector3(seat.x + 0.95, 1.0, seat.z - 0.05),
+      target: new Vector3(seat.x - 0.15, deskTop + 0.12, seat.z + 0.55),
     };
   };
   // Board shots come from the right-hand side (-Z when facing the left wall) so the writing hand shows.

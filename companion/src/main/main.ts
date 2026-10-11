@@ -130,6 +130,7 @@ function createOverlayWindow(): BrowserWindow {
     resizable: false,
     hasShadow: false,
     skipTaskbar: true,
+    show: settings.companionVisible,
     alwaysOnTop: settings.alwaysOnTop,
     backgroundColor: "#00000000",
     title: "2B",
@@ -276,6 +277,12 @@ function showMenu(window: BrowserWindow): void {
       click: (item) => setCloseupEnabled(item.checked),
     },
     {
+      label: "Tampilkan 2B di desktop",
+      type: "checkbox",
+      checked: settings.companionVisible,
+      click: (item) => setCompanionVisible(item.checked),
+    },
+    {
       label: "Chat ke Claude di kantor",
       type: "checkbox",
       checked: settings.chatEnabled,
@@ -323,6 +330,21 @@ function sendToOffice(channel: string, value?: unknown): void {
   if (officeWindow !== null && !officeWindow.isDestroyed()) {
     officeWindow.webContents.send(channel, value);
   }
+}
+
+/** Hides 2B's overlay window without quitting: the office (or the next launch) brings her back. */
+function setCompanionVisible(visible: boolean): void {
+  const window = overlayWindow;
+  if (window !== null && !window.isDestroyed()) {
+    if (visible) {
+      window.showInactive();
+    } else {
+      window.hide();
+    }
+  }
+  updateSettings({ companionVisible: visible })
+    .then(() => broadcast(ipcChannels.companionVisible, visible))
+    .catch((error: unknown) => console.error("[main] failed to save settings", error));
 }
 
 function setChatEnabled(enabled: boolean): void {
@@ -378,6 +400,14 @@ function startOfficeChat(): void {
 }
 
 function registerChatIpc(): void {
+  ipcMain.handle(ipcChannels.getCompanionVisible, () => settings.companionVisible);
+  ipcMain.on(ipcChannels.setCompanionVisible, (_event, visible: unknown) => {
+    if (typeof visible !== "boolean") {
+      console.error(`[main] ignoring non-boolean companion setting: ${String(visible)}`);
+      return;
+    }
+    setCompanionVisible(visible);
+  });
   ipcMain.handle(ipcChannels.getChatEnabled, () => settings.chatEnabled);
   ipcMain.on(ipcChannels.setChatEnabled, (_event, enabled: unknown) => {
     if (typeof enabled !== "boolean") {
@@ -565,7 +595,8 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on("second-instance", () => {
-    overlayWindow?.show();
+    // Launching again is how someone gets a hidden 2B back without opening the office.
+    setCompanionVisible(true);
   });
   app.on("window-all-closed", () => app.quit());
   app

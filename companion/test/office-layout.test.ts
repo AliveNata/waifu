@@ -6,7 +6,7 @@ import { OfficeLife } from "../src/renderer/office/office-life.js";
 import { bodyRadius, navGrid, planPath } from "../src/renderer/office/office-nav.js";
 import { distance, furniture, type Point, room, type StationId, stations } from "../src/renderer/office/office-plan.js";
 import { fitSeat, type LegMetrics } from "../src/renderer/office/seating.js";
-import { memberIds } from "../src/shared/team.js";
+import { type MemberId, memberIds } from "../src/shared/team.js";
 
 const stationIds = Object.keys(stations) as StationId[];
 
@@ -162,8 +162,18 @@ describe("a busy office", () => {
       state = (state * 9301 + 49297) % 233280;
       return state / 233280;
     };
-    const life = new OfficeLife(random);
-    const actors = new Map(memberIds.map((id) => [id, initialActor(life.planFor(id, 0).station)]));
+    const actors = new Map<MemberId, ReturnType<typeof initialActor>>();
+    // The same "someone is still there" rule the stage uses.
+    const life = new OfficeLife(random, (station) =>
+      [...actors.values()].some(
+        (actor) =>
+          distance(actor.position, stations[station].spot) < 0.8 ||
+          distance(actor.position, stations[station].approach) < 0.5,
+      ),
+    );
+    for (const id of memberIds) {
+      actors.set(id, initialActor(life.planFor(id, 0).station));
+    }
     const origins = new Map<string, StationId>(memberIds.map((id) => [id, actors.get(id)?.target as StationId]));
     const furnitureHits: string[] = [];
     const overlaps: string[] = [];
@@ -225,7 +235,7 @@ describe("a busy office", () => {
     return { furnitureHits, overlaps };
   }
 
-  it.each([7, 640])("keeps walkers out of furniture and out of each other (seed %d)", (seed) => {
+  it.each([7, 42, 640, 2024, 31337])("keeps walkers out of furniture and out of each other (seed %d)", (seed) => {
     // Act
     const { furnitureHits, overlaps } = simulateOffice(seed);
 

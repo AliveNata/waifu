@@ -55,6 +55,33 @@ function capsuleCollider(root: Group, width: number, y: number, z: number, radiu
   return collider;
 }
 
+/**
+ * Capsules stacked from `bottom` to `top`, overlapping so no strand slips between them: the
+ * whole face of a backrest or seat, not just its top edge. Long hair falling behind a sitter
+ * otherwise drapes over the top capsule and then sinks straight through the panel below it.
+ */
+function panelColliders(
+  root: Group,
+  width: number,
+  z: number,
+  bottom: number,
+  top: number,
+  radius: number,
+): VRMSpringBoneCollider[] {
+  const rows = Math.max(1, Math.ceil((top - bottom) / (radius * 1.5)));
+  return Array.from({ length: rows + 1 }, (_, row) =>
+    capsuleCollider(root, width, bottom + ((top - bottom) * row) / rows, z, radius),
+  );
+}
+
+/** The top of a seat cushion as a row of capsules front to back, so hair rests on it. */
+function seatColliders(root: Group, width: number, y: number, front: number, back: number, radius: number) {
+  const rows = Math.max(1, Math.ceil((front - back) / (radius * 1.5)));
+  return Array.from({ length: rows + 1 }, (_, row) =>
+    capsuleCollider(root, width, y, back + ((front - back) * row) / rows, radius),
+  );
+}
+
 /** A sphere standing in for a rounded seat or cushion, so hair slides off it. */
 function sphereCollider(root: Group, x: number, y: number, z: number, radius: number): VRMSpringBoneCollider {
   const collider = new VRMSpringBoneCollider(new VRMSpringBoneColliderShapeSphere({ radius }));
@@ -88,9 +115,8 @@ export function buildChair(piece: Furniture, seatHeight: number): BuiltPiece {
   return {
     root,
     hairColliders: [
-      capsuleCollider(root, 0.36, backTop, -0.2, 0.04),
-      // The seat's back edge, so hair pooling behind the hips stays on top of the cushion.
-      capsuleCollider(root, 0.36, seatHeight - 0.02, -0.16, 0.035),
+      ...panelColliders(root, 0.36, -0.2, seatHeight + 0.02, backTop, 0.04),
+      ...seatColliders(root, 0.36, seatHeight - 0.03, 0.14, -0.14, 0.035),
     ],
   };
 }
@@ -111,7 +137,13 @@ export function buildSofa(piece: Furniture, seatHeight: number): BuiltPiece {
     const x = -width / 2 + 0.16 + cushionWidth * (seat + 0.5);
     root.add(box(cushionWidth - 0.03, 0.08, depth - 0.2, standard(palette.cushion, 0.95), x, seatHeight - 0.08, 0.05));
   }
-  return { root, hairColliders: [capsuleCollider(root, width - 0.28, backTop, -depth / 2 + 0.08, 0.08)] };
+  return {
+    root,
+    hairColliders: [
+      ...panelColliders(root, width - 0.28, -depth / 2 + 0.08, seatHeight, backTop, 0.08),
+      ...seatColliders(root, width - 0.28, seatHeight - 0.05, depth / 2 - 0.1, -depth / 2 + 0.2, 0.05),
+    ],
+  };
 }
 
 /**
@@ -144,8 +176,15 @@ export function buildStool(piece: Furniture, seatHeight: number): BuiltPiece {
   const seat = mesh(new CylinderGeometry(0.15, 0.14, 0.045, 20), standard(palette.oak, 0.7));
   seat.position.y = seatHeight - 0.0225;
   root.add(leg, foot, ring, seat);
-  // A sphere just under the round seat: hair hanging behind the sitter slides around the stool.
-  return { root, hairColliders: [sphereCollider(root, 0, seatHeight - 0.15, 0, 0.16)] };
+  // A sphere just under the round seat: hair hanging behind the sitter slides around the stool,
+  // and a flat one in the seat itself so tips resting on it stay on top.
+  return {
+    root,
+    hairColliders: [
+      sphereCollider(root, 0, seatHeight - 0.15, 0, 0.16),
+      ...seatColliders(root, 0.24, seatHeight - 0.03, 0.08, -0.08, 0.035),
+    ],
+  };
 }
 
 export function buildBarTable(piece: Furniture): Group {

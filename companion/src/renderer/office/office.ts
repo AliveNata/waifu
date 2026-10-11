@@ -12,14 +12,17 @@ import { requireElement, StatusChip } from "../common/status-chip.js";
 import { loadVrm } from "../common/vrm-loader.js";
 import { VrmOfficeAvatar } from "./avatar.js";
 import { ChatPanel } from "./chat-panel.js";
-import { closeupRect, OfficeStage } from "./office-stage.js";
+import { type CloseupRect, closeupRect, OfficeStage } from "./office-stage.js";
 
 class OfficePage {
   private readonly status = new StatusChip(requireElement("status", HTMLElement));
   private readonly caption = requireElement("closeup-caption", HTMLElement);
+  private readonly chatPanel = requireElement("chat", HTMLElement);
   private readonly dialogBox = new DialogBox(requireElement("office-dialog", HTMLElement));
   private readonly closeupSetting = requireElement("closeup-setting", HTMLInputElement);
   private readonly menuButton = requireElement("menu-button", HTMLButtonElement);
+  private readonly companionToggle = requireElement("companion-toggle", HTMLButtonElement);
+  private companionVisible = true;
   private readonly dialog = requireElement("model-dialog", HTMLDialogElement);
   private readonly modelList = requireElement("model-list", HTMLUListElement);
   private readonly tracker = new ReactionTracker(Date.now());
@@ -74,6 +77,13 @@ class OfficePage {
     this.closeupSetting.addEventListener("change", () => this.bridge.setCloseupEnabled(this.closeupSetting.checked));
 
     if (this.bridge.hasNativeMenu) {
+      this.companionToggle.hidden = false;
+      this.companionToggle.addEventListener("click", () => this.bridge.setCompanionVisible(!this.companionVisible));
+      this.bridge.onCompanionVisible((visible) => this.applyCompanionVisible(visible));
+      this.bridge
+        .getCompanionVisible()
+        .then((visible) => this.applyCompanionVisible(visible))
+        .catch((error: unknown) => console.error("[office] failed to read the companion setting", error));
       this.menuButton.addEventListener("click", () => this.bridge.openMenu());
     } else {
       this.menuButton.textContent = "Model";
@@ -84,6 +94,11 @@ class OfficePage {
     for (const memberId of memberIds) {
       this.loadSaved(memberId);
     }
+  }
+
+  private applyCompanionVisible(visible: boolean): void {
+    this.companionVisible = visible;
+    this.companionToggle.textContent = visible ? "Sembunyiin 2B" : "Tampilin 2B";
   }
 
   private applyCloseupEnabled(enabled: boolean): void {
@@ -189,18 +204,38 @@ class OfficePage {
     const reaction = this.tracker.current(now);
     this.stage.setTwobReaction(reaction);
     this.status.render(reaction, now);
-    this.renderCaption();
-    this.renderDialog(now);
+    const rect = this.layoutCloseup();
+    this.renderCaption(rect);
+    this.renderDialog(now, rect);
+  }
+
+  /**
+   * Docks the close-up on the chat panel. While the close-up shows, the chat gives up some height
+   * (its log scrolls) so both fit in the window.
+   */
+  private layoutCloseup(): CloseupRect {
+    const showing = this.stage.closeupFocus() !== null;
+    const state = showing ? "on" : "off";
+    if (this.chatPanel.dataset.closeup !== state) {
+      this.chatPanel.dataset.closeup = state;
+    }
+    let chat: CloseupRect | null = null;
+    if (!this.chatPanel.hidden) {
+      const box = this.chatPanel.getBoundingClientRect();
+      chat = { x: box.left, y: box.top, width: box.width, height: box.height };
+    }
+    const rect = closeupRect(window.innerWidth, window.innerHeight, chat);
+    this.stage.setCloseupLayout(rect);
+    return rect;
   }
 
   /** Sits on top of the close-up (and its caption) when it shows, otherwise drops into its place. */
-  private renderDialog(now: number): void {
+  private renderDialog(now: number, rect: CloseupRect): void {
     const current = this.conversation.current(now);
     this.dialogBox.render(current, now);
     if (current === null) {
       return;
     }
-    const rect = closeupRect(window.innerWidth, window.innerHeight);
     const closeupShown = this.stage.closeupFocus() !== null;
     const gap = 8;
     const bottom = closeupShown
@@ -216,7 +251,7 @@ class OfficePage {
     }
   }
 
-  private renderCaption(): void {
+  private renderCaption(rect: CloseupRect): void {
     const focus = this.stage.closeupFocus();
     if (focus === null) {
       if (!this.caption.hidden) {
@@ -225,7 +260,6 @@ class OfficePage {
       }
       return;
     }
-    const rect = closeupRect(window.innerWidth, window.innerHeight);
     const key = `${focus.label}|${rect.x}|${rect.y}|${rect.width}`;
     if (key === this.lastCaption) {
       return;

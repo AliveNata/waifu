@@ -162,7 +162,15 @@ export class OfficeLife {
   private readonly reserved = new Map<StationId, MemberId>();
   private readonly cameFromWork = new Set<MemberId>();
 
-  constructor(private readonly random: () => number = Math.random) {}
+  /**
+   * `crowded` says whether someone is still at or next to a station, for example the previous
+   * sitter still getting up. Such a spot is not offered yet, so nobody walks into a seat that is
+   * being vacated.
+   */
+  constructor(
+    private readonly random: () => number = Math.random,
+    private readonly crowded: (station: StationId) => boolean = () => false,
+  ) {}
 
   /** The member's current idle activity, picking a new one when the last has run its course. */
   planFor(memberId: MemberId, now: number): LifeChoice {
@@ -226,7 +234,7 @@ export class OfficeLife {
     if (activity.stations === null) {
       return [idleHome[memberId].station];
     }
-    return activity.stations.filter((station) => !this.reserved.has(station));
+    return activity.stations.filter((station) => !this.reserved.has(station) && !this.crowded(station));
   }
 
   private weightOf(memberId: MemberId, id: ActivityId, previous: ActivityId | null, now: number): number {

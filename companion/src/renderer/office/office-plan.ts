@@ -128,10 +128,14 @@ export interface Station {
 }
 
 const deskRowSeatZ = -3.72;
-const deskRowAisleZ = -3.0;
 /** Office chairs are sized for chibi legs: low enough that most feet reach the floor. */
 export const chairSeatHeight = 0.28;
 const sofaSeatHeight = 0.26;
+/**
+ * The lane between the sofa and the coffee table. The sofa faces the TV with its back to the
+ * room, so sitters walk in along this lane from the north end and sit down from the front.
+ */
+const sofaFrontX = -5.4;
 const stoolSeatHeight = 0.42;
 /** The cushion surface of the reshaped beanbag, so sitters rest on it instead of sinking in. */
 const beanbagSeatHeight = 0.17;
@@ -317,8 +321,9 @@ export const furniture: readonly Furniture[] = [
   {
     id: "beanbag-chizuru",
     kind: "beanbag",
-    x: -5.55,
-    z: 0.85,
+    // Clear of the sofa lane's entrance, which needs room for two people to pass.
+    x: -5.7,
+    z: 0.7,
     width: 0.7,
     depth: 0.7,
     yaw: facingCamera,
@@ -340,22 +345,24 @@ export const furniture: readonly Furniture[] = [
   {
     id: "coffee-table",
     kind: "coffee-table",
-    x: -5.75,
-    z: 2.95,
-    width: 0.5,
+    // Slim and close to the TV, so two people can pass in the lane in front of the sofa.
+    x: -6.1,
+    z: 3.0,
+    width: 0.4,
     depth: 0.9,
     yaw: facing.right,
     blocksWalking: true,
   },
-  { id: "sofa", kind: "sofa", x: -4.6, z: 2.95, width: 0.8, depth: 1.9, yaw: facing.leftWall, blocksWalking: true },
+  { id: "sofa", kind: "sofa", x: -4.55, z: 3.0, width: 0.7, depth: 1.8, yaw: facing.leftWall, blocksWalking: true },
   {
     id: "beanbag-lounge",
     kind: "beanbag",
-    x: -5.4,
-    z: 1.9,
+    // Tucked by the wall so it no longer blocks the way into the sofa lane.
+    x: -6.3,
+    z: 1.75,
     width: 0.7,
     depth: 0.7,
-    yaw: facing.leftWall,
+    yaw: yawToward({ x: -6.3, z: 1.75 }, { x: -6.95, z: 2.95 }),
     blocksWalking: true,
   },
 
@@ -467,12 +474,18 @@ export const furniture: readonly Furniture[] = [
   },
 ];
 
+/**
+ * Chairs are entered from the side, the way people pull up to a desk: coming in from behind
+ * would walk the sitter straight through the backrest.
+ */
+const chairSideStep = 0.55;
+
 function deskRowStation(id: StationId, x: number): Station {
   return {
     id,
     spot: { x, z: deskRowSeatZ },
     facing: facing.backWall,
-    approach: { x, z: deskRowAisleZ },
+    approach: { x: x + chairSideStep, z: deskRowSeatZ },
     seatHeight: chairSeatHeight,
   };
 }
@@ -497,14 +510,14 @@ export const stations: Record<StationId, Station> = {
     id: "desk-ruby",
     spot: { x: -1.9, z: 1.4 },
     facing: facing.camera,
-    approach: { x: -1.25, z: 1.05 },
+    approach: { x: -1.9 + chairSideStep, z: 1.4 },
     seatHeight: chairSeatHeight,
   },
   "desk-twob": {
     id: "desk-twob",
     spot: { x: 2.4, z: 1.4 },
     facing: facing.camera,
-    approach: { x: 3.4, z: 1.2 },
+    approach: { x: 2.4 + chairSideStep, z: 1.4 },
     seatHeight: chairSeatHeight,
   },
   // Facing the left wall, the board's left half (+z side) is 2B's plan and the right half Rias's sketches.
@@ -513,9 +526,9 @@ export const stations: Record<StationId, Station> = {
   "idea-board": standing("idea-board", { x: boardStandX, z: 0.4 }, facing.leftWall),
   "beanbag-chizuru": {
     id: "beanbag-chizuru",
-    spot: { x: -5.55, z: 0.85 },
+    spot: { x: -5.7, z: 0.7 },
     facing: facingCamera,
-    approach: { x: -4.95, z: 0.6 },
+    approach: { x: -5.0, z: 0.55 },
     seatHeight: beanbagSeatHeight,
   },
   front: standing("front", { x: 0.4, z: 3.0 }, facingCamera),
@@ -537,30 +550,30 @@ export const stations: Record<StationId, Station> = {
   },
   "sofa-1": {
     id: "sofa-1",
-    spot: { x: -4.68, z: 2.35 },
+    spot: { x: -4.62, z: 2.4 },
     facing: facing.leftWall,
-    approach: { x: -3.75, z: 2.35 },
+    approach: { x: sofaFrontX, z: 2.4 },
     seatHeight: sofaSeatHeight,
   },
   "sofa-2": {
     id: "sofa-2",
-    spot: { x: -4.68, z: 2.95 },
+    spot: { x: -4.62, z: 3.0 },
     facing: facing.leftWall,
-    approach: { x: -3.75, z: 2.95 },
+    approach: { x: sofaFrontX, z: 3.0 },
     seatHeight: sofaSeatHeight,
   },
   "sofa-3": {
     id: "sofa-3",
-    spot: { x: -4.68, z: 3.55 },
+    spot: { x: -4.62, z: 3.6 },
     facing: facing.leftWall,
-    approach: { x: -3.75, z: 3.55 },
+    approach: { x: sofaFrontX, z: 3.6 },
     seatHeight: sofaSeatHeight,
   },
   "beanbag-lounge": {
     id: "beanbag-lounge",
-    spot: { x: -5.4, z: 1.9 },
-    facing: facing.leftWall,
-    approach: { x: -4.75, z: 1.7 },
+    spot: { x: -6.3, z: 1.75 },
+    facing: yawToward({ x: -6.3, z: 1.75 }, { x: -6.95, z: 2.95 }),
+    approach: { x: -5.6, z: 1.6 },
     seatHeight: beanbagSeatHeight,
   },
   arcade: standing("arcade", { x: 6.35, z: -3.8 }, facing.backWall),
@@ -583,14 +596,14 @@ function meetingStations(): Record<"meeting-1" | "meeting-2" | "meeting-3" | "me
   return Object.fromEntries(
     meetingSeats.map((seat, index) => {
       const id = ids[index] as (typeof ids)[number];
-      const backSide = seat.yaw === facing.camera;
       return [
         id,
         {
           id,
           spot: { x: seat.x, z: seat.z },
           facing: seat.yaw,
-          approach: { x: seat.x, z: backSide ? seat.z - 0.55 : seat.z + 0.55 },
+          // The outer side of each pair, so neighbours never queue for the same gap.
+          approach: { x: seat.x + (seat.x < -0.6 ? -chairSideStep : chairSideStep), z: seat.z },
           seatHeight: chairSeatHeight,
         },
       ];

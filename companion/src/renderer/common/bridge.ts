@@ -162,6 +162,16 @@ function createWebBridge(): RendererBridge {
       closeupListeners.add(listener);
       return () => closeupListeners.delete(listener);
     },
+    // The browser page is itself the companion; there is no separate window to show or hide.
+    async getCompanionVisible() {
+      return true;
+    },
+    setCompanionVisible() {
+      console.warn("[bridge] showing or hiding the companion window needs the Electron app");
+    },
+    onCompanionVisible() {
+      return () => undefined;
+    },
     // The chat runs Claude Code on this machine, so it lives in Electron only: a browser
     // tab talking to it over HTTP would be one DNS-rebinding page away from a stranger.
     async getChatEnabled() {
