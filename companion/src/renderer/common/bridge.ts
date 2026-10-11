@@ -222,6 +222,12 @@ function createWebBridge(): RendererBridge {
     async getServerStatus(): Promise<HookServerStatus> {
       return { state: "listening", port: Number(window.location.port) };
     },
+    beginWindowDrag() {
+      // A browser tab cannot move itself; dragging over 2B just does nothing there.
+    },
+    dragWindow() {
+      // See beginWindowDrag.
+    },
     openMenu() {
       throw new Error("native menu is only available in Electron");
     },

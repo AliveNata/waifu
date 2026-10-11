@@ -254,3 +254,38 @@ test.describe("office HUD", () => {
     await app.close();
   });
 });
+
+test.describe("companion overlay", () => {
+  test("moves 2B's window when dragged, without a CSS drag region", async () => {
+    // Arrange
+    const { app } = await launchOffice();
+    let overlay: Page | undefined;
+    await expect
+      .poll(() => {
+        overlay = app.windows().find((page) => page.url().includes("/overlay/"));
+        return overlay !== undefined;
+      })
+      .toBe(true);
+    if (overlay === undefined) {
+      throw new Error("overlay window never opened");
+    }
+    const position = () =>
+      app.evaluate(({ BrowserWindow }) => {
+        const window = BrowserWindow.getAllWindows().find((candidate) => candidate.getTitle() === "2B");
+        return window?.getPosition() ?? [0, 0];
+      });
+    const before = await position();
+
+    // Act: press near the top-left corner, clear of the model panel and the Menu button.
+    await overlay.mouse.move(20, 60);
+    await overlay.mouse.down();
+    // One step: Playwright derives screen coordinates from the window's current position, so after
+    // the window moves, later steps would report a bigger offset than a real mouse does.
+    await overlay.mouse.move(50, 80, { steps: 1 });
+    await overlay.mouse.up();
+
+    // Assert
+    await expect.poll(position).toEqual([(before[0] ?? 0) + 30, (before[1] ?? 0) + 20]);
+    await app.close();
+  });
+});

@@ -39,6 +39,23 @@ File-nya disimpan di `models/base/` dan nggak ikut ke-commit.
 
 Greeting dan done balik ke idle sendiri setelah beberapa detik. Mood lain bertahan sampai event berikutnya, karena Claude Code nggak ngirim event "udah selesai mikir".
 
+## Nyentuh 2B
+
+Klik 2B buat nyentuh dia. Tahan lalu geser di badannya atau di area kosong sekitarnya buat mindahin window-nya. Kalau geser di kepala atau rambut, itu dihitung ngusap, bukan mindahin. Klik kanan tetap ngebuka menu.
+
+| Disentuh | Reaksi pertama | Kalau diulang atau ditahan |
+|---|---|---|
+| Kepala (klik atau usap) | merem senang, nyender | ditahan: santai, matanya sayu |
+| Rambut | rapihin rambut di samping kepala | diusap terus: ketawa kecil |
+| Dahi atau poni | "Aduh!", kepala mundur | diulang: ngusap dahi, cemberut |
+| Hidung | "Boop?", merem senang | |
+| Pipi | kaget kecil, terus senyum | dicolek 3x: manyun, buang muka |
+| Bahu | noleh, terus ngangguk | ditepuk 2x cepat: kepala miring, "Ada apa?" |
+| Tangan | dadah kecil | ditahan: tangannya ngikutin kursor |
+| Badan bagian lain | "Eh?", mundur dikit | diulang: balik badan sebentar |
+
+Colekan beruntun bikin dia makin sebel. Kalau kebanyakan, dia ngambek sekitar 5 detik dan nolak disentuh, terus balik normal sendiri. Ngusap kepala atau rambut malah nurunin sebelnya. Zona sentuhannya diukur di model VRoid dan diskalakan ke ukuran kepala model lo, jadi model non-VRoid bisa agak meleset.
+
 ## Overlay tim
 
 | Kejadian | Yang ngomong | Contoh (mode simulasi) | Gesture |

@@ -79,6 +79,12 @@ export interface CompanionApi {
   setTeamOverlayVisible(visible: boolean): void;
   getServerStatus(): Promise<HookServerStatus>;
   openMenu(): void;
+  /**
+   * Moves this window by a screen offset from where it was when the drag began. The overlay
+   * drags itself this way because a CSS drag region would swallow every click on 2B.
+   */
+  beginWindowDrag(): void;
+  dragWindow(dx: number, dy: number): void;
   onSignal(listener: (signal: CompanionSignal) => void): () => void;
   onModelChanged(listener: (memberId: MemberId) => void): () => void;
   onCursor(listener: (offset: CursorOffset) => void): () => void;
@@ -115,6 +121,8 @@ export const ipcChannels = {
   teamOverlayVisible: "companion:team-overlay-visible",
   getServerStatus: "companion:get-server-status",
   openMenu: "companion:open-menu",
+  beginWindowDrag: "companion:begin-window-drag",
+  dragWindow: "companion:drag-window",
   signal: "companion:signal",
   modelChanged: "companion:model-changed",
   cursor: "companion:cursor",

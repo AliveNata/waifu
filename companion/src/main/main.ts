@@ -146,8 +146,8 @@ function createOverlayWindow(): BrowserWindow {
     webPreferences,
   });
   watchRenderer(window, "overlay");
-  // The whole overlay is a drag region, which Windows treats like a title bar: right-clicking it
-  // asks for the system menu. Show the companion menu instead, so 2B always has one.
+  // The overlay has no drag region any more (it moves itself so clicks can touch 2B), and the
+  // page opens the menu on right-click. This stays for any drag region a future layout adds.
   window.on("system-context-menu", (event) => {
     event.preventDefault();
     showMenu(window);
@@ -199,6 +199,9 @@ function createTeamOverlayWindow(): BrowserWindow {
   });
   return window;
 }
+
+/** Window position at the start of a self-drag, per window id. */
+const dragOrigins = new Map<number, { x: number; y: number }>();
 
 /** True while someone is talking, as reported by the team overlay page. */
 let teamOverlayWanted = false;
@@ -592,6 +595,24 @@ function registerIpc(): void {
     applyTeamOverlayVisibility();
   });
   ipcMain.handle(ipcChannels.getServerStatus, () => serverStatus);
+  ipcMain.on(ipcChannels.beginWindowDrag, (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (window !== null) {
+      const [x = 0, y = 0] = window.getPosition();
+      dragOrigins.set(window.id, { x, y });
+    }
+  });
+  ipcMain.on(ipcChannels.dragWindow, (event, dx: unknown, dy: unknown) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const origin = window === null ? undefined : dragOrigins.get(window.id);
+    if (window === null || origin === undefined || typeof dx !== "number" || typeof dy !== "number") {
+      return;
+    }
+    if (!Number.isFinite(dx) || !Number.isFinite(dy)) {
+      return;
+    }
+    window.setPosition(Math.round(origin.x + dx), Math.round(origin.y + dy));
+  });
   ipcMain.on(ipcChannels.openMenu, (event) => {
     const window = BrowserWindow.fromWebContents(event.sender);
     if (window !== null) {
