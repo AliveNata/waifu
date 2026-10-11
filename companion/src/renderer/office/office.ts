@@ -14,13 +14,10 @@ import { requireElement, StatusChip } from "../common/status-chip.js";
 import { loadVrm } from "../common/vrm-loader.js";
 import { VrmOfficeAvatar } from "./avatar.js";
 import { ChatPanel } from "./chat-panel.js";
-import { type CloseupRect, closeupRect, OfficeStage } from "./office-stage.js";
+import { type CloseupRect, closeupRect, OfficeStage, portraitSize, teamDialogDock } from "./office-stage.js";
 
 /** Head and shoulders: the portrait is small, so the face has to fill it. */
 const portraitFraming: SpeakerFraming = { height: 0.55, drop: 0.06 };
-/** How far the portrait tucks behind the dialog's top edge, like a visual-novel bust. */
-const portraitOverlap = 14;
-const portraitInset = 16;
 /** Keep the portrait loaded briefly after a line, so back-to-back lines do not flicker. */
 const portraitHoldMs = 1500;
 
@@ -32,7 +29,6 @@ class OfficePage {
   private readonly portraitCanvas = requireElement("speaker-portrait", HTMLCanvasElement);
   private readonly portrait = new SpeakerStage(this.portraitCanvas, () => undefined, portraitFraming);
   private portraitIdleSince: number | null = null;
-  private lastPortraitLayout = "";
   private readonly closeupSetting = requireElement("closeup-setting", HTMLInputElement);
   private readonly menuButton = requireElement("menu-button", HTMLButtonElement);
   private readonly companionToggle = requireElement("companion-toggle", HTMLButtonElement);
@@ -225,7 +221,7 @@ class OfficePage {
     this.status.render(reaction, now);
     const rect = this.layoutCloseup();
     this.renderCaption(rect);
-    this.renderDialog(now, rect);
+    this.renderDialog(now);
   }
 
   /**
@@ -248,28 +244,28 @@ class OfficePage {
     return rect;
   }
 
-  /** Sits on top of the close-up (and its caption) when it shows, otherwise drops into its place. */
-  private renderDialog(now: number, rect: CloseupRect): void {
+  /** Top right, with the speaker's portrait above it, so the left side stays for the chat and close-up. */
+  private renderDialog(now: number): void {
     const current = this.conversation.current(now);
     const started = this.dialogBox.render(current, now);
     this.renderPortrait(current, started, now);
     if (current === null) {
       return;
     }
-    const closeupShown = this.stage.closeupFocus() !== null;
-    const gap = 8;
-    const bottom = closeupShown
-      ? window.innerHeight - rect.y + this.caption.offsetHeight + gap
-      : window.innerHeight - rect.y - rect.height;
-    const layout = `${rect.x}|${rect.width}|${bottom}`;
+    const dock = teamDialogDock(window.innerWidth);
+    const layout = `${dock.dialog.x}|${dock.dialog.y}|${dock.dialog.width}`;
     if (layout !== this.lastDialogLayout) {
       this.lastDialogLayout = layout;
       const style = this.dialogBox.root.style;
-      style.left = `${rect.x}px`;
-      style.width = `${rect.width}px`;
-      style.bottom = `${bottom}px`;
+      style.left = `${dock.dialog.x}px`;
+      style.top = `${dock.dialog.y}px`;
+      style.width = `${dock.dialog.width}px`;
+      const portrait = this.portraitCanvas.style;
+      portrait.left = `${dock.portrait.x}px`;
+      portrait.top = `${dock.portrait.y}px`;
+      portrait.width = `${portraitSize.width}px`;
+      portrait.height = `${portraitSize.height}px`;
     }
-    this.placePortrait(rect, bottom);
   }
 
   /** The speaker's face above the dialog: same line, same clock, so lips match the typewriter text. */
@@ -299,19 +295,6 @@ class OfficePage {
           }
         })
         .catch((error: unknown) => console.error(`[office] could not show ${memberId} above the dialog`, error));
-    }
-  }
-
-  private placePortrait(rect: CloseupRect, dialogBottom: number): void {
-    const dialogHeight = this.dialogBox.root.offsetHeight;
-    const width = this.portraitCanvas.offsetWidth;
-    const left = rect.x + rect.width - width - portraitInset;
-    const bottom = dialogBottom + dialogHeight - portraitOverlap;
-    const layout = `${left}|${bottom}`;
-    if (layout !== this.lastPortraitLayout) {
-      this.lastPortraitLayout = layout;
-      this.portraitCanvas.style.left = `${left}px`;
-      this.portraitCanvas.style.bottom = `${bottom}px`;
     }
   }
 

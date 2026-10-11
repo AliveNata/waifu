@@ -56,11 +56,11 @@
   min-height: 88px;
 }
 
-/* Small on purpose: a face above the dialog, not a second companion. The size is set from office.ts. */
+/* Size and place come from office.ts (portraitSize); the selector beats `.stage canvas` filling the page. */
 .stage .speaker-portrait {
   position: absolute;
-  width: 150px;
-  height: 180px;
+  width: auto;
+  height: auto;
   pointer-events: none;
 }
 

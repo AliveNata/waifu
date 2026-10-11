@@ -184,7 +184,7 @@ test.describe("office", () => {
     await expect(page.locator("#closeup-caption")).toBeHidden();
   });
 
-  test("shows the team conversation docked above the close-up", async ({ page }) => {
+  test("shows the team conversation in the top right, clear of the close-up", async ({ page }) => {
     // Arrange
     await openPage(page, "/office/");
     const dialog = page.locator("#office-dialog");
@@ -207,7 +207,14 @@ test.describe("office", () => {
     const captionBox = await caption.boundingBox();
     expect(dialogBox).not.toBeNull();
     expect(captionBox).not.toBeNull();
-    expect((dialogBox?.y ?? 0) + (dialogBox?.height ?? 0)).toBeLessThanOrEqual(captionBox?.y ?? 0);
+    const viewport = page.viewportSize() ?? { width: 0, height: 0 };
+    expect((dialogBox?.x ?? 0) + (dialogBox?.width ?? 0)).toBeGreaterThan(viewport.width - 40);
+    expect(dialogBox?.y ?? viewport.height).toBeLessThan(viewport.height / 2);
+    // Opposite corners: the close-up stays bottom left, the dialog never sits on it.
+    expect(
+      (dialogBox?.x ?? 0) >= (captionBox?.x ?? 0) + (captionBox?.width ?? 0) ||
+        (dialogBox?.y ?? 0) + (dialogBox?.height ?? 0) <= (captionBox?.y ?? 0),
+    ).toBe(true);
   });
 
   test("opens the model dialog and closes it with Escape", async ({ page }) => {

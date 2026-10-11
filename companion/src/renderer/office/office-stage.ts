@@ -148,6 +148,31 @@ export function closeupRect(viewWidth: number, viewHeight: number, chat: Closeup
   return { x, y: viewHeight - height - hudReserve, width, height };
 }
 
+/** Small on purpose: a face above the dialog, not a second companion. */
+export const portraitSize = { width: 150, height: 180 } as const;
+/** How far the dialog covers the bottom of the portrait, like a visual-novel bust. */
+const portraitOverlap = 14;
+const portraitInset = 16;
+
+export interface TeamDialogDock {
+  dialog: { x: number; y: number; width: number };
+  portrait: { x: number; y: number };
+}
+
+/**
+ * The team conversation sits in the top right, away from the chat and close-up on the left:
+ * the speaker's portrait at the top, the dialog right under it covering the portrait's chest.
+ */
+export function teamDialogDock(viewWidth: number): TeamDialogDock {
+  const width = Math.round(Math.min(380, viewWidth * 0.42));
+  const x = viewWidth - width - closeupMargin;
+  const portraitY = closeupMargin;
+  return {
+    dialog: { x, y: portraitY + portraitSize.height - portraitOverlap, width },
+    portrait: { x: x + width - portraitSize.width - portraitInset, y: portraitY },
+  };
+}
+
 const actionLabels: Record<OfficeAction, string> = {
   type: "ngetik",
   "desk-idle": "santai",

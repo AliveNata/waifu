@@ -1,6 +1,7 @@
 import { Box3, Group } from "three";
 import { describe, expect, it } from "vitest";
 import { furniture, room, stations } from "../src/renderer/office/office-plan.js";
+import { portraitSize, teamDialogDock } from "../src/renderer/office/office-stage.js";
 import { buildFridge, FridgeDoor } from "../src/renderer/office/scene/furniture.js";
 
 describe("FridgeDoor", () => {
@@ -63,5 +64,19 @@ describe("buildFridge", () => {
     expect(swept.min.x).toBeGreaterThan(room.minX);
     expect(swept.max.x).toBeLessThan(snacker.x - 0.2);
     expect(swept.max.z).toBeGreaterThan(piece.z + piece.depth / 2);
+  });
+});
+
+describe("teamDialogDock", () => {
+  it("puts the portrait in the top right with the dialog just under it, overlapping its bottom", () => {
+    // Act
+    const dock = teamDialogDock(1280);
+
+    // Assert
+    expect(dock.dialog.x + dock.dialog.width).toBe(1280 - 16);
+    expect(dock.portrait.y).toBe(16);
+    expect(dock.dialog.y).toBeLessThan(dock.portrait.y + portraitSize.height);
+    expect(dock.dialog.y).toBeGreaterThan(dock.portrait.y + portraitSize.height - 30);
+    expect(dock.portrait.x + portraitSize.width).toBeLessThanOrEqual(dock.dialog.x + dock.dialog.width);
   });
 });

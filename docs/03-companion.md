@@ -65,7 +65,7 @@ Wajah yang ngomong:
 
 Overlay tim sengaja lebih kecil dari overlay 2B (300 x 380).
 
-**Di kantor**, wajah yang ngomong muncul kecil (150 x 180) di atas kotak dialog, bagian bawahnya nyelip di balik dialog. Isinya model lengkap anggota itu, sama kayak overlay tim, jadi ekspresi, kedipan, dan mulutnya ikut. Overlay tim di desktop tetap muncul juga. Kalau modelnya gagal dimuat, potretnya nggak muncul dan dialognya tetap jalan.
+**Di kantor**, percakapan tim ada di pojok kanan atas, jauh dari chat dan close-up yang di kiri. Wajah yang ngomong muncul kecil (150 x 180) di atas kotak dialog, bagian bawahnya nyelip di balik dialog. Isinya model lengkap anggota itu, sama kayak overlay tim, jadi ekspresi, kedipan, dan mulutnya ikut. Overlay tim di desktop tetap muncul juga. Kalau modelnya gagal dimuat, potretnya nggak muncul dan dialognya tetap jalan.
 
 Overlay tim bisa digeser kayak overlay 2B.
 
