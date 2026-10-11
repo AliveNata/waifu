@@ -282,6 +282,7 @@ Lalu buka `http://127.0.0.1:47823/overlay/`, `http://127.0.0.1:47823/team-overla
 | Gejala | Penyebab yang mungkin | Cek |
 |---|---|---|
 | Chip merah "Port ... sudah dipakai" | Ada aplikasi lain di port itu, atau companion kebuka dua kali lewat mode browser | Tutup yang lain, atau ganti port |
+| 2B makin gede tiap digeser (versi lama) | Bug Electron di Windows dengan scaling layar selain 100%: `setPosition` ikut ngubah ukuran window | Udah dibenerin, ukurannya dikunci. Geser 2B sekali, ukurannya balik normal |
 | 2B nggak bereaksi | Hooks belum kepasang, atau path di `settings.json` salah | `/hooks` di Claude Code, lalu jalanin command hook-nya manual di PowerShell |
 | "Model gagal dimuat" | File bukan VRM, atau export-nya rusak | Export ulang dari VRoid, atau cek pakai `npm run inspect-vrm` |
 | Anggota tim nggak gerak pas dipanggil | Agent belum di-install, atau hooks belum ada `SubagentStart` | `npm run team:install`, lalu `npm run hooks:install` |

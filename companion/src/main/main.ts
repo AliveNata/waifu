@@ -30,6 +30,7 @@ import {
 } from "./chat/session-store.js";
 import { type CompanionSettings, loadSettings, saveSettings } from "./settings-store.js";
 import { TwobService } from "./twob/twob-ipc.js";
+import { type DragOrigin, dragBounds } from "./window-drag.js";
 
 const overlaySize = { width: 340, height: 440 };
 /** Smaller than 2B's window: the team member is a guest on the desktop, 2B is the companion. */
@@ -148,6 +149,7 @@ function createOverlayWindow(): BrowserWindow {
     webPreferences,
   });
   watchRenderer(window, "overlay");
+  fixedSizes.set(window.id, { ...overlaySize });
   // The overlay has no drag region any more (it moves itself so clicks can touch 2B), and the
   // page opens the menu on right-click. This stays for any drag region a future layout adds.
   window.on("system-context-menu", (event) => {
@@ -202,8 +204,10 @@ function createTeamOverlayWindow(): BrowserWindow {
   return window;
 }
 
-/** Window position at the start of a self-drag, per window id. */
-const dragOrigins = new Map<number, { x: number; y: number }>();
+/** Window position and size at the start of a self-drag, per window id. */
+const dragOrigins = new Map<number, DragOrigin>();
+/** The size each self-dragging window was created with; a drag puts it back if it ever drifted. */
+const fixedSizes = new Map<number, { width: number; height: number }>();
 
 /** True while someone is talking, as reported by the team overlay page. */
 let teamOverlayWanted = false;
@@ -629,8 +633,9 @@ function registerIpc(): void {
   ipcMain.on(ipcChannels.beginWindowDrag, (event) => {
     const window = BrowserWindow.fromWebContents(event.sender);
     if (window !== null) {
-      const [x = 0, y = 0] = window.getPosition();
-      dragOrigins.set(window.id, { x, y });
+      const bounds = window.getBounds();
+      const size = fixedSizes.get(window.id) ?? { width: bounds.width, height: bounds.height };
+      dragOrigins.set(window.id, { x: bounds.x, y: bounds.y, ...size });
     }
   });
   ipcMain.on(ipcChannels.dragWindow, (event, dx: unknown, dy: unknown) => {
@@ -642,7 +647,7 @@ function registerIpc(): void {
     if (!Number.isFinite(dx) || !Number.isFinite(dy)) {
       return;
     }
-    window.setPosition(Math.round(origin.x + dx), Math.round(origin.y + dy));
+    window.setBounds(dragBounds(origin, dx, dy));
   });
   ipcMain.on(ipcChannels.openMenu, (event) => {
     const window = BrowserWindow.fromWebContents(event.sender);

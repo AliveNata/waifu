@@ -293,6 +293,13 @@ test.describe("companion overlay", () => {
 
     // Assert
     await expect.poll(position).toEqual([(before[0] ?? 0) + 30, (before[1] ?? 0) + 20]);
+    // The size stays what the window was created with: dragging must never grow her.
+    const size = await app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()
+        .find((candidate) => candidate.getTitle() === "2B")
+        ?.getSize(),
+    );
+    expect(size).toEqual([340, 440]);
     await app.close();
   });
 });
