@@ -1,5 +1,7 @@
+import type { CompanionPose } from "../../shared/companion-pose.js";
 import type { Mood } from "../../shared/reaction.js";
 import { addRotation, armsRelaxed, clamp, type Pose, type PoseBones } from "../common/pose.js";
+import { applyCommandPose, applyTouchGesture, type GestureInput } from "./pose-bones.js";
 
 export interface OverlayPoseInput {
   mood: Mood;
@@ -10,6 +12,10 @@ export interface OverlayPoseInput {
   /** Cursor direction in radians. Positive yaw is screen right, positive pitch is below the face. */
   aimYaw: number;
   aimPitch: number;
+  /** A touch reaction playing on top of the mood, if any. */
+  touch?: GestureInput | null;
+  /** A pose asked for from the office chat, if any. It wins over the touch for the arms. */
+  command?: { pose: CompanionPose; elapsed: number } | null;
 }
 
 const maxHeadYaw = 0.7;
@@ -69,5 +75,11 @@ export function overlayPose(input: OverlayPoseInput): Pose {
       break;
   }
 
+  if (input.touch != null) {
+    applyTouchGesture(bones, input.touch);
+  }
+  if (input.command != null) {
+    applyCommandPose(bones, input.command.pose, input.command.elapsed);
+  }
   return { bones, hipsOffsetY: 0 };
 }

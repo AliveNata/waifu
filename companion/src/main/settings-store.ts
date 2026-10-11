@@ -1,16 +1,37 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { type ConversationMode, isConversationMode } from "../shared/protocol.js";
+import { isMemberId, type MemberId } from "../shared/team.js";
 
 export interface CompanionSettings {
-  modelPath: string | null;
+  modelPaths: Partial<Record<MemberId, string>>;
   alwaysOnTop: boolean;
   officeOpen: boolean;
+  conversationMode: ConversationMode;
+  closeupEnabled: boolean;
+  /** Shows 2B's desktop companion window. */
+  companionVisible: boolean;
+  /** Shows the chat to Claude in the office. */
+  chatEnabled: boolean;
+  /** Folder the office chat works in. */
+  chatProjectDir: string | null;
+  /** Conversation the next office chat message resumes. */
+  chatSessionId: string | null;
+  /** Groq model for Sesi 2B, or null for the default. */
+  twobModel: string | null;
 }
 
 export const defaultSettings: CompanionSettings = {
-  modelPath: null,
+  modelPaths: {},
   alwaysOnTop: true,
   officeOpen: false,
+  conversationMode: "simulated",
+  closeupEnabled: true,
+  companionVisible: true,
+  chatEnabled: true,
+  chatProjectDir: null,
+  chatSessionId: null,
+  twobModel: null,
 };
 
 /** Unknown or wrongly typed fields fall back to defaults instead of crashing startup. */
@@ -19,10 +40,32 @@ export function normalizeSettings(input: unknown): CompanionSettings {
     return { ...defaultSettings };
   }
   const record = input as Record<string, unknown>;
+  const modelPaths: Partial<Record<MemberId, string>> = {};
+  if (typeof record.modelPaths === "object" && record.modelPaths !== null) {
+    for (const [memberId, path] of Object.entries(record.modelPaths)) {
+      if (isMemberId(memberId) && typeof path === "string") {
+        modelPaths[memberId] = path;
+      }
+    }
+  }
+  // Settings from before the team existed stored only 2B's model.
+  if (modelPaths.twob === undefined && typeof record.modelPath === "string") {
+    modelPaths.twob = record.modelPath;
+  }
   return {
-    modelPath: typeof record.modelPath === "string" ? record.modelPath : defaultSettings.modelPath,
+    modelPaths,
     alwaysOnTop: typeof record.alwaysOnTop === "boolean" ? record.alwaysOnTop : defaultSettings.alwaysOnTop,
     officeOpen: typeof record.officeOpen === "boolean" ? record.officeOpen : defaultSettings.officeOpen,
+    conversationMode: isConversationMode(record.conversationMode)
+      ? record.conversationMode
+      : defaultSettings.conversationMode,
+    closeupEnabled: typeof record.closeupEnabled === "boolean" ? record.closeupEnabled : defaultSettings.closeupEnabled,
+    companionVisible:
+      typeof record.companionVisible === "boolean" ? record.companionVisible : defaultSettings.companionVisible,
+    chatEnabled: typeof record.chatEnabled === "boolean" ? record.chatEnabled : defaultSettings.chatEnabled,
+    chatProjectDir: typeof record.chatProjectDir === "string" ? record.chatProjectDir : null,
+    chatSessionId: typeof record.chatSessionId === "string" ? record.chatSessionId : null,
+    twobModel: typeof record.twobModel === "string" && record.twobModel !== "" ? record.twobModel : null,
   };
 }
 

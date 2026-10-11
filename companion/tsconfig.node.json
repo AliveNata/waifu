@@ -8,5 +8,5 @@
     "rootDir": "src",
     "outDir": "dist/node"
   },
-  "include": ["src/main", "src/server", "src/bridge", "src/shared"]
+  "include": ["src/main", "src/server", "src/bridge", "src/shared", "src/team", "src/tools"]
 }

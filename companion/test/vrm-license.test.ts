@@ -1,0 +1,205 @@
+import { describe, expect, it } from "vitest";
+import {
+  formatLicenseReport,
+  parseVroidHubLicenseUrl,
+  readGlbJson,
+  readVrmLicense,
+  verdicts,
+} from "../src/tools/vrm-license.js";
+
+/** Minimal GLB: 12-byte header plus one JSON chunk padded with spaces, as the spec requires. */
+function glb(json: unknown): Uint8Array {
+  let text = JSON.stringify(json);
+  while (text.length % 4 !== 0) {
+    text += " ";
+  }
+  const body = new TextEncoder().encode(text);
+  const bytes = new Uint8Array(20 + body.length);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(0, 0x46546c67, true);
+  view.setUint32(4, 2, true);
+  view.setUint32(8, bytes.length, true);
+  view.setUint32(12, body.length, true);
+  view.setUint32(16, 0x4e4f534a, true);
+  bytes.set(body, 20);
+  return bytes;
+}
+
+describe("readVrmLicense", () => {
+  it("reads VRM 1.0 meta", () => {
+    // Arrange
+    const file = glb({
+      extensions: {
+        VRMC_vrm: {
+          meta: {
+            name: "2B",
+            authors: ["fan"],
+            avatarPermission: "everyone",
+            commercialUsage: "personalNonProfit",
+            modification: "prohibited",
+            allowRedistribution: false,
+            creditNotation: "required",
+            licenseUrl: "https://vrm.dev/licenses/1.0/",
+          },
+        },
+      },
+    });
+
+    // Act
+    const license = readVrmLicense(readGlbJson(file));
+
+    // Assert
+    expect(license).toMatchObject({
+      format: "VRM 1.0",
+      title: "2B",
+      avatarUse: "everyone",
+      modification: "prohibited",
+      redistribution: false,
+      creditRequired: true,
+    });
+    expect(verdicts(license)).toEqual({ companion: "boleh", vrchat: "tidak boleh" });
+  });
+
+  it("reads VRM 0.x meta and decodes the CC license name", () => {
+    // Arrange
+    const file = glb({
+      extensions: {
+        VRM: { meta: { title: "Asuna", author: "fan", allowedUserName: "Everyone", licenseName: "CC_BY_NC" } },
+      },
+    });
+
+    // Act
+    const license = readVrmLicense(readGlbJson(file));
+
+    // Assert
+    expect(license).toMatchObject({
+      format: "VRM 0.x",
+      modification: "allowed-with-redistribution",
+      redistribution: true,
+      creditRequired: true,
+    });
+    expect(verdicts(license)).toEqual({ companion: "boleh", vrchat: "cek dulu" });
+  });
+
+  it("refuses author-only models for both uses", () => {
+    // Arrange
+    const file = glb({ extensions: { VRMC_vrm: { meta: { avatarPermission: "onlyAuthor" } } } });
+
+    // Act
+    const result = verdicts(readVrmLicense(readGlbJson(file)));
+
+    // Assert
+    expect(result).toEqual({ companion: "tidak boleh", vrchat: "tidak boleh" });
+  });
+
+  it("rejects plain glTF without VRM metadata", () => {
+    expect(() => readVrmLicense(readGlbJson(glb({ asset: { version: "2.0" } })))).toThrow(/tanpa metadata VRM/);
+  });
+
+  it("rejects files that are not GLB", () => {
+    expect(() => readGlbJson(new TextEncoder().encode("{ not a glb file at all }"))).toThrow(/Bukan file GLB/);
+  });
+});
+
+/** The URL VRoid Hub writes into VRM 0.x meta, here with modification and redistribution allowed. */
+const vroidHubUrl =
+  "https://hub.vroid.com/license?allowed_to_use_user=everyone&characterization_allowed_user=everyone" +
+  "&corporate_commercial_use=disallow&credit=necessary&modification=allow&personal_commercial_use=disallow" +
+  "&redistribution=allow&sexual_expression=allow&version=1&violent_expression=allow";
+
+describe("parseVroidHubLicenseUrl", () => {
+  it("decodes the conditions in the query string", () => {
+    // Act
+    const conditions = parseVroidHubLicenseUrl(vroidHubUrl);
+
+    // Assert
+    expect(conditions).toEqual({
+      avatarUse: "everyone",
+      modification: true,
+      redistribution: true,
+      creditRequired: true,
+      commercial: "Disallow",
+    });
+  });
+
+  it("accepts the language-prefixed path and maps disallowed values", () => {
+    // Arrange
+    const url = "https://hub.vroid.com/en/license?modification=disallow&redistribution=disallow&credit=unnecessary";
+
+    // Act
+    const conditions = parseVroidHubLicenseUrl(url);
+
+    // Assert
+    expect(conditions).toMatchObject({ modification: false, redistribution: false, creditRequired: false });
+  });
+
+  it("ignores URLs that are not VRoid Hub license pages", () => {
+    expect(parseVroidHubLicenseUrl("https://vrm.dev/licenses/1.0/")).toBeNull();
+    expect(parseVroidHubLicenseUrl("https://hub.vroid.com/en/characters/1/models/2")).toBeNull();
+    expect(parseVroidHubLicenseUrl("not a url")).toBeNull();
+  });
+});
+
+describe("readVrmLicense with a VRoid Hub license URL", () => {
+  it("fills the fields VRM 0.x leaves open and allows VRChat", () => {
+    // Arrange
+    const file = glb({
+      extensions: {
+        VRM: {
+          meta: {
+            title: "2B",
+            author: "Mikan",
+            allowedUserName: "Everyone",
+            commercialUssageName: "Disallow",
+            licenseName: "Other",
+            otherPermissionUrl: vroidHubUrl,
+          },
+        },
+      },
+    });
+
+    // Act
+    const license = readVrmLicense(readGlbJson(file));
+
+    // Assert
+    expect(license).toMatchObject({ modification: "allowed", redistribution: true, creditRequired: true });
+    expect(verdicts(license)).toEqual({ companion: "boleh", vrchat: "boleh" });
+    expect(formatLicenseReport(license)).toContain("diisi dari URL lisensi VRoid Hub");
+  });
+
+  it("keeps explicit meta values over the URL", () => {
+    // Arrange
+    const file = glb({
+      extensions: {
+        VRMC_vrm: {
+          meta: { avatarPermission: "everyone", modification: "prohibited", otherLicenseUrl: vroidHubUrl },
+        },
+      },
+    });
+
+    // Act
+    const license = readVrmLicense(readGlbJson(file));
+
+    // Assert
+    expect(license.modification).toBe("prohibited");
+    expect(verdicts(license).vrchat).toBe("tidak boleh");
+  });
+});
+
+describe("formatLicenseReport", () => {
+  it("translates fields and always ends with the caveat", () => {
+    // Arrange
+    const license = readVrmLicense(
+      readGlbJson(glb({ extensions: { VRMC_vrm: { meta: { name: "X", commercialUsage: "corporation" } } } })),
+    );
+
+    // Act
+    const report = formatLicenseReport(license);
+
+    // Assert
+    expect(report).toContain("Komersial   : boleh juga dipakai perusahaan");
+    expect(report).toContain("Dipakai oleh: tidak dicantumkan");
+    expect(report).toContain("Companion (pribadi)      : CEK DULU");
+    expect(report).toContain("jangan di-upload public");
+  });
+});

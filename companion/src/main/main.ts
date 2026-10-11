@@ -1,18 +1,40 @@
+import { randomBytes } from "node:crypto";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { app, BrowserWindow, dialog, ipcMain, Menu, screen } from "electron";
-import { HookServer } from "../server/hook-server.js";
+import { HookServer, permissionPath } from "../server/hook-server.js";
+import type { ChatEvent, ChatSessionList } from "../shared/office-chat.js";
 import {
   type CursorOffset,
   type HookServerStatus,
   ipcChannels,
+  isConversationMode,
   type ModelFile,
   resolveHookPort,
 } from "../shared/protocol.js";
-import type { Reaction } from "../shared/reaction.js";
+import type { CompanionSignal } from "../shared/reaction.js";
+import { isMemberId, type MemberId, memberIds, roster } from "../shared/team.js";
+import { findBaseModel, repoRootFrom } from "../tools/base-model.js";
+import { findMemberModel } from "../tools/member-models.js";
+import { resolveClaudeCommand } from "./chat/claude-command.js";
+import { OfficeChat } from "./chat/office-chat.js";
+import { hookResponse, PermissionGate } from "./chat/permission-gate.js";
+import {
+  claudeConfigDir,
+  isSessionId,
+  listSessions,
+  projectSessionsDir,
+  sessionTranscript,
+} from "./chat/session-store.js";
 import { type CompanionSettings, loadSettings, saveSettings } from "./settings-store.js";
+import { TwobService } from "./twob/twob-ipc.js";
+import { type DragOrigin, dragBounds } from "./window-drag.js";
 
 const overlaySize = { width: 340, height: 440 };
+/** Smaller than 2B's window: the team member is a guest on the desktop, 2B is the companion. */
+const teamOverlaySize = { width: 300, height: 380 };
 const overlayMargin = 24;
 const cursorPollMs = 50;
 
@@ -23,11 +45,20 @@ let settings: CompanionSettings;
 let settingsPath: string;
 let overlayWindow: BrowserWindow | null = null;
 let officeWindow: BrowserWindow | null = null;
+let teamOverlayWindow: BrowserWindow | null = null;
 let serverStatus: HookServerStatus;
 let isQuitting = false;
+const permissionGate = new PermissionGate();
+/** Proves a permission request came from a chat run this app started. New every launch. */
+const permissionToken = randomBytes(24).toString("hex");
+let officeChat: OfficeChat | null = null;
+let twob: TwobService | null = null;
+/** The visible conversation, replayed when the office window opens again. */
+let chatHistory: ChatEvent[] = [];
+const maxChatHistory = 400;
 
 function rendererWindows(): BrowserWindow[] {
-  return [overlayWindow, officeWindow].filter(
+  return [overlayWindow, officeWindow, teamOverlayWindow].filter(
     (window): window is BrowserWindow => window !== null && !window.isDestroyed(),
   );
 }
@@ -50,9 +81,9 @@ async function readModel(modelPath: string): Promise<ModelFile> {
   return { name: basename(modelPath), bytes };
 }
 
-async function pickModelFile(parent: BrowserWindow | null): Promise<string | null> {
+async function pickModelFile(parent: BrowserWindow | null, memberId: MemberId): Promise<string | null> {
   const options: Electron.OpenDialogOptions = {
-    title: "Pilih model .vrm",
+    title: `Pilih model .vrm untuk ${roster[memberId].displayName}`,
     filters: [{ name: "VRM model", extensions: ["vrm"] }],
     properties: ["openFile"],
   };
@@ -61,7 +92,7 @@ async function pickModelFile(parent: BrowserWindow | null): Promise<string | nul
   if (result.canceled || selected === undefined) {
     return null;
   }
-  await updateSettings({ modelPath: selected });
+  await updateSettings({ modelPaths: { ...settings.modelPaths, [memberId]: selected } });
   return selected;
 }
 
@@ -71,6 +102,34 @@ const webPreferences: Electron.WebPreferences = {
   sandbox: true,
   nodeIntegration: false,
 };
+
+/** Crashes allowed inside this window before auto-reload gives up, so a model that always crashes cannot loop forever. */
+const maxReloadsPerWindow = 3;
+const reloadWindowMs = 60_000;
+
+/**
+ * A crashed renderer leaves a transparent window that looks like the overlay
+ * vanished. Log why, so the cause shows up in the terminal, and reload the page.
+ */
+function watchRenderer(window: BrowserWindow, name: string): void {
+  const recentCrashes: number[] = [];
+  window.webContents.on("render-process-gone", (_event, details) => {
+    console.error(`[main] ${name} renderer gone: ${details.reason} (exit code ${details.exitCode})`);
+    if (details.reason === "clean-exit" || window.isDestroyed()) {
+      return;
+    }
+    const now = Date.now();
+    while (recentCrashes.length > 0 && now - (recentCrashes[0] as number) > reloadWindowMs) {
+      recentCrashes.shift();
+    }
+    recentCrashes.push(now);
+    if (recentCrashes.length > maxReloadsPerWindow) {
+      console.error(`[main] ${name} keeps crashing, not reloading again. Try another model or restart the app.`);
+      return;
+    }
+    window.webContents.reload();
+  });
+}
 
 function createOverlayWindow(): BrowserWindow {
   const { workArea } = screen.getPrimaryDisplay();
@@ -83,10 +142,19 @@ function createOverlayWindow(): BrowserWindow {
     resizable: false,
     hasShadow: false,
     skipTaskbar: true,
+    show: settings.companionVisible,
     alwaysOnTop: settings.alwaysOnTop,
     backgroundColor: "#00000000",
-    title: "Xenovia",
+    title: "2B",
     webPreferences,
+  });
+  watchRenderer(window, "overlay");
+  fixedSizes.set(window.id, { ...overlaySize });
+  // The overlay has no drag region any more (it moves itself so clicks can touch 2B), and the
+  // page opens the menu on right-click. This stays for any drag region a future layout adds.
+  window.on("system-context-menu", (event) => {
+    event.preventDefault();
+    showMenu(window);
   });
   window.loadFile(join(rendererDir, "overlay/index.html")).catch((error: unknown) => {
     console.error("[main] failed to load overlay page", error);
@@ -100,6 +168,70 @@ function createOverlayWindow(): BrowserWindow {
   return window;
 }
 
+/**
+ * Top-right twin of the overlay where team members talk. Starts hidden and is
+ * shown without taking focus only while someone is speaking, so an empty
+ * transparent window never blocks clicks on whatever is underneath.
+ */
+function createTeamOverlayWindow(): BrowserWindow {
+  const { workArea } = screen.getPrimaryDisplay();
+  const window = new BrowserWindow({
+    ...teamOverlaySize,
+    x: workArea.x + workArea.width - teamOverlaySize.width - overlayMargin,
+    y: workArea.y + overlayMargin,
+    show: false,
+    transparent: true,
+    frame: false,
+    resizable: false,
+    hasShadow: false,
+    skipTaskbar: true,
+    alwaysOnTop: settings.alwaysOnTop,
+    backgroundColor: "#00000000",
+    title: "AlyxLabs Team",
+    webPreferences,
+  });
+  watchRenderer(window, "team overlay");
+  window.on("system-context-menu", (event) => {
+    event.preventDefault();
+    showMenu(window);
+  });
+  window.loadFile(join(rendererDir, "team-overlay/index.html")).catch((error: unknown) => {
+    console.error("[main] failed to load team overlay page", error);
+  });
+  window.on("closed", () => {
+    teamOverlayWindow = null;
+  });
+  return window;
+}
+
+/** Window position and size at the start of a self-drag, per window id. */
+const dragOrigins = new Map<number, DragOrigin>();
+/** The size each self-dragging window was created with; a drag puts it back if it ever drifted. */
+const fixedSizes = new Map<number, { width: number; height: number }>();
+
+/** True while someone is talking, as reported by the team overlay page. */
+let teamOverlayWanted = false;
+
+/** The office has its own team dialog and portrait in the same corner, so the desktop overlay steps aside. */
+function officeOnScreen(): boolean {
+  return (
+    officeWindow !== null && !officeWindow.isDestroyed() && officeWindow.isVisible() && !officeWindow.isMinimized()
+  );
+}
+
+function applyTeamOverlayVisibility(): void {
+  const window = teamOverlayWindow;
+  if (window === null || window.isDestroyed()) {
+    return;
+  }
+  const show = teamOverlayWanted && !officeOnScreen();
+  if (show && !window.isVisible()) {
+    window.showInactive();
+  } else if (!show && window.isVisible()) {
+    window.hide();
+  }
+}
+
 function openOfficeWindow(): void {
   if (officeWindow !== null && !officeWindow.isDestroyed()) {
     officeWindow.show();
@@ -111,16 +243,32 @@ function openOfficeWindow(): void {
     height: 640,
     minWidth: 480,
     minHeight: 360,
-    title: "Kantor Xenovia",
+    title: "AlyxLabs Office",
     backgroundColor: "#e9e4da",
     autoHideMenuBar: true,
     webPreferences,
   });
+  watchRenderer(officeWindow, "office");
+  officeWindow.on("show", applyTeamOverlayVisibility);
+  officeWindow.on("hide", applyTeamOverlayVisibility);
+  officeWindow.on("minimize", applyTeamOverlayVisibility);
+  officeWindow.on("restore", applyTeamOverlayVisibility);
+  // Claude Code may have been installed or logged in since the last check.
+  officeChat?.checkCli().catch((error: unknown) => console.error("[main] claude CLI check failed", error));
   officeWindow.loadFile(join(rendererDir, "office/index.html")).catch((error: unknown) => {
     console.error("[main] failed to load office page", error);
   });
   officeWindow.on("closed", () => {
     officeWindow = null;
+    applyTeamOverlayVisibility();
+    // Nobody can see a permission card any more, so the run stops and open cards become denies.
+    officeChat?.stop();
+    twob?.endSession();
+    permissionGate.denyAll("Kantor ditutup.");
+    if (!isQuitting && !settings.companionVisible) {
+      // With 2B hidden and the office gone, nothing would be left on screen to reopen anything.
+      setCompanionVisible(true);
+    }
     if (!isQuitting) {
       updateSettings({ officeOpen: false }).catch((error: unknown) => {
         console.error("[main] failed to save settings", error);
@@ -136,16 +284,19 @@ function showMenu(window: BrowserWindow): void {
   const officeIsOpen = officeWindow !== null && !officeWindow.isDestroyed();
   const menu = Menu.buildFromTemplate([
     {
-      label: "Pilih model .vrm...",
-      click: () => {
-        pickModelFile(window)
-          .then((selected) => {
-            if (selected !== null) {
-              broadcast(ipcChannels.modelChanged);
-            }
-          })
-          .catch((error: unknown) => console.error("[main] model pick failed", error));
-      },
+      label: "Pilih model .vrm",
+      submenu: memberIds.map((memberId) => ({
+        label: `${roster[memberId].displayName} (${roster[memberId].role})${modelPathFor(memberId) === null ? "" : "  \u2713"}`,
+        click: () => {
+          pickModelFile(window, memberId)
+            .then((selected) => {
+              if (selected !== null) {
+                broadcast(ipcChannels.modelChanged, memberId);
+              }
+            })
+            .catch((error: unknown) => console.error("[main] model pick failed", error));
+        },
+      })),
     },
     {
       label: officeIsOpen ? "Tutup kantor" : "Buka kantor",
@@ -163,11 +314,42 @@ function showMenu(window: BrowserWindow): void {
       checked: settings.alwaysOnTop,
       click: (item) => {
         overlayWindow?.setAlwaysOnTop(item.checked);
+        teamOverlayWindow?.setAlwaysOnTop(item.checked);
         updateSettings({ alwaysOnTop: item.checked }).catch((error: unknown) => {
           console.error("[main] failed to save settings", error);
         });
       },
     },
+    {
+      label: "Tampilkan isi percakapan asli",
+      type: "checkbox",
+      checked: settings.conversationMode === "real",
+      click: (item) => {
+        const mode = item.checked ? "real" : "simulated";
+        updateSettings({ conversationMode: mode })
+          .then(() => broadcast(ipcChannels.conversationMode, mode))
+          .catch((error: unknown) => console.error("[main] failed to save settings", error));
+      },
+    },
+    {
+      label: "Close-up kantor pas ada yang kerja",
+      type: "checkbox",
+      checked: settings.closeupEnabled,
+      click: (item) => setCloseupEnabled(item.checked),
+    },
+    {
+      label: "Tampilkan 2B di desktop",
+      type: "checkbox",
+      checked: settings.companionVisible,
+      click: (item) => setCompanionVisible(item.checked),
+    },
+    {
+      label: "Chat ke Claude di kantor",
+      type: "checkbox",
+      checked: settings.chatEnabled,
+      click: (item) => setChatEnabled(item.checked),
+    },
+    { label: "Groq API key (Sesi 2B)", click: () => requestTwobKey() },
     { type: "separator" },
     { label: "Keluar", click: () => app.quit() },
   ]);
@@ -195,26 +377,278 @@ function startCursorTracking(): NodeJS.Timeout {
   }, cursorPollMs);
 }
 
-function registerIpc(): void {
-  ipcMain.handle(ipcChannels.loadSavedModel, async () => {
-    if (settings.modelPath === null) {
+/** A model picked in the menu wins over one dropped into models/ under the member's name. */
+function modelPathFor(memberId: MemberId): string | null {
+  return settings.modelPaths[memberId] ?? findMemberModel(repoRootFrom(import.meta.dirname), memberId);
+}
+
+function setCloseupEnabled(enabled: boolean): void {
+  updateSettings({ closeupEnabled: enabled })
+    .then(() => broadcast(ipcChannels.closeupEnabled, enabled))
+    .catch((error: unknown) => console.error("[main] failed to save settings", error));
+}
+
+/** Opens the office chat on the Groq key form, waiting for the page if the office was just opened. */
+function requestTwobKey(): void {
+  openOfficeWindow();
+  if (!settings.chatEnabled) {
+    setChatEnabled(true);
+  }
+  const contents = officeWindow?.webContents;
+  if (contents === undefined) {
+    return;
+  }
+  if (contents.isLoading()) {
+    contents.once("did-finish-load", () => sendToOffice(ipcChannels.twobKeyRequested));
+  } else {
+    sendToOffice(ipcChannels.twobKeyRequested);
+  }
+}
+
+function sendToOffice(channel: string, value?: unknown): void {
+  if (officeWindow !== null && !officeWindow.isDestroyed()) {
+    officeWindow.webContents.send(channel, value);
+  }
+}
+
+/** Hides 2B's overlay window without quitting: the office (or the next launch) brings her back. */
+function setCompanionVisible(visible: boolean): void {
+  const window = overlayWindow;
+  if (window !== null && !window.isDestroyed()) {
+    if (visible) {
+      window.showInactive();
+    } else {
+      window.hide();
+    }
+  }
+  updateSettings({ companionVisible: visible })
+    .then(() => broadcast(ipcChannels.companionVisible, visible))
+    .catch((error: unknown) => console.error("[main] failed to save settings", error));
+}
+
+function setChatEnabled(enabled: boolean): void {
+  if (!enabled) {
+    officeChat?.stop();
+    permissionGate.denyAll("Chat kantor dimatiin.");
+  }
+  updateSettings({ chatEnabled: enabled })
+    .then(() => broadcast(ipcChannels.chatEnabled, enabled))
+    .catch((error: unknown) => console.error("[main] failed to save settings", error));
+}
+
+function recordChatEvent(event: ChatEvent): void {
+  chatHistory.push(event);
+  if (chatHistory.length > maxChatHistory) {
+    chatHistory = chatHistory.slice(-maxChatHistory);
+  }
+  sendToOffice(ipcChannels.chatEvent, event);
+}
+
+function requireChat(): OfficeChat {
+  if (officeChat === null) {
+    throw new Error("office chat is not ready yet");
+  }
+  return officeChat;
+}
+
+function startOfficeChat(): void {
+  const permissionUrl =
+    serverStatus.state === "listening" ? `http://127.0.0.1:${serverStatus.port}${permissionPath}` : null;
+  const chat = new OfficeChat(
+    {
+      findCommand: () => resolveClaudeCommand(process.env, process.platform, existsSync),
+      settingsDir: app.getPath("userData"),
+      permissionUrl,
+      token: permissionToken,
+      gate: permissionGate,
+    },
+    settings.chatProjectDir,
+    settings.chatSessionId,
+  );
+  chat.on("event", recordChatEvent);
+  chat.on("status", (status) => sendToOffice(ipcChannels.chatStatus, status));
+  chat.on("session", (sessionId) => {
+    updateSettings({ chatSessionId: sessionId }).catch((error: unknown) =>
+      console.error("[main] failed to save the chat session", error),
+    );
+  });
+  permissionGate.on("ask", (ask) => recordChatEvent({ kind: "permission", ask }));
+  permissionGate.on("settled", (id, allowed) => recordChatEvent({ kind: "permission-settled", id, allowed }));
+  officeChat = chat;
+  chat.checkCli().catch((error: unknown) => console.error("[main] claude CLI check failed", error));
+}
+
+function registerChatIpc(): void {
+  ipcMain.handle(ipcChannels.getCompanionVisible, () => settings.companionVisible);
+  ipcMain.on(ipcChannels.setCompanionVisible, (_event, visible: unknown) => {
+    if (typeof visible !== "boolean") {
+      console.error(`[main] ignoring non-boolean companion setting: ${String(visible)}`);
+      return;
+    }
+    setCompanionVisible(visible);
+  });
+  ipcMain.handle(ipcChannels.getChatEnabled, () => settings.chatEnabled);
+  ipcMain.on(ipcChannels.setChatEnabled, (_event, enabled: unknown) => {
+    if (typeof enabled !== "boolean") {
+      console.error(`[main] ignoring non-boolean chat setting: ${String(enabled)}`);
+      return;
+    }
+    setChatEnabled(enabled);
+  });
+  ipcMain.handle(ipcChannels.getChatStatus, () => requireChat().status());
+  ipcMain.handle(ipcChannels.getChatHistory, () => chatHistory);
+  ipcMain.on(ipcChannels.sendChat, (_event, text: unknown) => {
+    if (typeof text !== "string") {
+      console.error("[main] ignoring a non-text chat message");
+      return;
+    }
+    if (!settings.chatEnabled) {
+      recordChatEvent({ kind: "error", message: "Chat kantor lagi dimatiin." });
+      return;
+    }
+    requireChat().send(text);
+  });
+  ipcMain.on(ipcChannels.stopChat, () => requireChat().stop());
+  ipcMain.on(ipcChannels.newChat, () => {
+    requireChat().newConversation();
+    chatHistory = [];
+  });
+  ipcMain.handle(ipcChannels.pickChatProject, async (event) => {
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    const options: Electron.OpenDialogOptions = {
+      title: "Pilih folder project buat chat kantor (cuma folder project lo sendiri)",
+      properties: ["openDirectory"],
+    };
+    const result =
+      parent === null ? await dialog.showOpenDialog(options) : await dialog.showOpenDialog(parent, options);
+    const [selected] = result.filePaths;
+    if (result.canceled || selected === undefined) {
       return null;
     }
-    return readModel(settings.modelPath);
+    const chat = requireChat();
+    const changed = chat.status().projectDir !== selected;
+    chat.setProjectDir(selected);
+    if (changed) {
+      chatHistory = [];
+    }
+    await updateSettings({ chatProjectDir: selected });
+    return selected;
   });
-  ipcMain.handle(ipcChannels.pickModel, async (event) => {
-    const selected = await pickModelFile(BrowserWindow.fromWebContents(event.sender));
+  ipcMain.handle(ipcChannels.listChatSessions, async (): Promise<ChatSessionList> => {
+    const chat = requireChat();
+    const projectDir = chat.status().projectDir;
+    if (projectDir === null) {
+      return { sessions: [], currentId: chat.currentSession() };
+    }
+    const dir = projectSessionsDir(claudeConfigDir(process.env, homedir()), projectDir);
+    return { sessions: await listSessions(dir), currentId: chat.currentSession() };
+  });
+  ipcMain.handle(ipcChannels.resumeChatSession, async (_event, sessionId: unknown): Promise<ChatEvent[]> => {
+    const chat = requireChat();
+    const projectDir = chat.status().projectDir;
+    // Only a session id shaped like Claude's, from this folder's list: never a path from the renderer.
+    if (typeof sessionId !== "string" || !isSessionId(sessionId) || projectDir === null) {
+      throw new Error("not a session of this folder");
+    }
+    const dir = projectSessionsDir(claudeConfigDir(process.env, homedir()), projectDir);
+    const known = await listSessions(dir, Number.POSITIVE_INFINITY);
+    if (!known.some((session) => session.id === sessionId)) {
+      throw new Error("not a session of this folder");
+    }
+    const transcript = await sessionTranscript(join(dir, `${sessionId}.jsonl`));
+    chat.resumeSession(sessionId);
+    chatHistory = [...transcript];
+    return transcript;
+  });
+  ipcMain.on(ipcChannels.answerPermission, (_event, id: unknown, allowed: unknown) => {
+    if (typeof id !== "string" || typeof allowed !== "boolean") {
+      console.error("[main] ignoring a malformed permission answer");
+      return;
+    }
+    permissionGate.answer(id, allowed);
+  });
+}
+
+function registerIpc(): void {
+  registerChatIpc();
+  twob = new TwobService({
+    currentModel: () => settings.twobModel,
+    saveModel: (model) => updateSettings({ twobModel: model }),
+    sendToCompanion: (channel, value) => {
+      if (overlayWindow !== null && !overlayWindow.isDestroyed()) {
+        overlayWindow.webContents.send(channel, value);
+      }
+    },
+  });
+  twob.register();
+  ipcMain.handle(ipcChannels.loadSavedModel, async (_event, memberId: unknown) => {
+    if (!isMemberId(memberId)) {
+      throw new Error(`unknown member: ${String(memberId)}`);
+    }
+    const modelPath = modelPathFor(memberId);
+    return modelPath === null ? null : readModel(modelPath);
+  });
+  ipcMain.handle(ipcChannels.pickModel, async (event, memberId: unknown) => {
+    if (!isMemberId(memberId)) {
+      throw new Error(`unknown member: ${String(memberId)}`);
+    }
+    const selected = await pickModelFile(BrowserWindow.fromWebContents(event.sender), memberId);
     if (selected === null) {
       return null;
     }
     for (const window of rendererWindows()) {
       if (window.webContents !== event.sender) {
-        window.webContents.send(ipcChannels.modelChanged);
+        window.webContents.send(ipcChannels.modelChanged, memberId);
       }
     }
     return readModel(selected);
   });
+  ipcMain.handle(ipcChannels.loadBaseModel, async () => {
+    const path = findBaseModel(repoRootFrom(import.meta.dirname), process.env);
+    return path === null ? null : readModel(path);
+  });
+  ipcMain.handle(ipcChannels.getConversationMode, () => settings.conversationMode);
+  ipcMain.handle(ipcChannels.getCloseupEnabled, () => settings.closeupEnabled);
+  ipcMain.on(ipcChannels.setCloseupEnabled, (_event, enabled: unknown) => {
+    if (typeof enabled !== "boolean") {
+      console.error(`[main] ignoring non-boolean close-up setting: ${String(enabled)}`);
+      return;
+    }
+    setCloseupEnabled(enabled);
+  });
+  ipcMain.on(ipcChannels.setConversationMode, (_event, mode: unknown) => {
+    if (!isConversationMode(mode)) {
+      console.error(`[main] ignoring unknown conversation mode: ${String(mode)}`);
+      return;
+    }
+    updateSettings({ conversationMode: mode })
+      .then(() => broadcast(ipcChannels.conversationMode, mode))
+      .catch((error: unknown) => console.error("[main] failed to save settings", error));
+  });
+  ipcMain.on(ipcChannels.teamOverlayVisible, (_event, visible: unknown) => {
+    teamOverlayWanted = visible === true;
+    applyTeamOverlayVisibility();
+  });
   ipcMain.handle(ipcChannels.getServerStatus, () => serverStatus);
+  ipcMain.on(ipcChannels.beginWindowDrag, (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (window !== null) {
+      const bounds = window.getBounds();
+      const size = fixedSizes.get(window.id) ?? { width: bounds.width, height: bounds.height };
+      dragOrigins.set(window.id, { x: bounds.x, y: bounds.y, ...size });
+    }
+  });
+  ipcMain.on(ipcChannels.dragWindow, (event, dx: unknown, dy: unknown) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const origin = window === null ? undefined : dragOrigins.get(window.id);
+    if (window === null || origin === undefined || typeof dx !== "number" || typeof dy !== "number") {
+      return;
+    }
+    if (!Number.isFinite(dx) || !Number.isFinite(dy)) {
+      return;
+    }
+    window.setBounds(dragBounds(origin, dx, dy));
+  });
   ipcMain.on(ipcChannels.openMenu, (event) => {
     const window = BrowserWindow.fromWebContents(event.sender);
     if (window !== null) {
@@ -225,8 +659,16 @@ function registerIpc(): void {
 
 async function startHookServer(): Promise<HookServer> {
   const port = resolveHookPort(process.env);
-  const server = new HookServer({ host: "127.0.0.1", port });
-  server.on("reaction", (reaction: Reaction) => broadcast(ipcChannels.reaction, reaction));
+  const server = new HookServer({
+    host: "127.0.0.1",
+    port,
+    log: (line) => console.log(line),
+    permissions: {
+      token: permissionToken,
+      handle: async (toolName, input, signal) => hookResponse(await permissionGate.request(toolName, input, signal)),
+    },
+  });
+  server.on("signal", (signal: CompanionSignal) => broadcast(ipcChannels.signal, signal));
   try {
     const boundPort = await server.listen();
     serverStatus = { state: "listening", port: boundPort };
@@ -246,8 +688,11 @@ async function bootstrap(): Promise<void> {
   settingsPath = join(app.getPath("userData"), "companion-settings.json");
   settings = await loadSettings(settingsPath);
   registerIpc();
+  await twob?.loadKey().catch((error: unknown) => console.error("[main] could not read the saved Groq key", error));
   const server = await startHookServer();
+  startOfficeChat();
   overlayWindow = createOverlayWindow();
+  teamOverlayWindow = createTeamOverlayWindow();
   if (settings.officeOpen) {
     openOfficeWindow();
   }
@@ -256,16 +701,30 @@ async function bootstrap(): Promise<void> {
   app.on("before-quit", () => {
     isQuitting = true;
     clearInterval(cursorTimer);
+    officeChat?.stop();
+    permissionGate.denyAll("Companion ditutup.");
     server.close().catch((error: unknown) => console.error("[main] failed to close hook server", error));
   });
 }
 
+// Lets tests (and a second profile) run with their own settings instead of the user's.
+const userDataOverride = process.env.WAIFU_USER_DATA_DIR;
+if (userDataOverride !== undefined && userDataOverride !== "") {
+  app.setPath("userData", userDataOverride);
+}
+
 // A second instance would fail to bind the hook port, so focus the first one instead.
 if (!app.requestSingleInstanceLock()) {
+  // Without this line the second launch just vanishes, which looks like a crash.
+  console.error(
+    "[main] Companion udah jalan di proses lain, jadi yang ini ditutup. Overlay yang lama dimunculin lagi. " +
+      "Kalau overlay-nya tetap nggak kelihatan, tutup proses electron lama (Task Manager) lalu jalanin npm start lagi.",
+  );
   app.quit();
 } else {
   app.on("second-instance", () => {
-    overlayWindow?.show();
+    // Launching again is how someone gets a hidden 2B back without opening the office.
+    setCompanionVisible(true);
   });
   app.on("window-all-closed", () => app.quit());
   app

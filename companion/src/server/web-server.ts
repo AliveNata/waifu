@@ -6,25 +6,46 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { resolveHookPort } from "../shared/protocol.js";
+import { type MemberId, memberIds } from "../shared/team.js";
+import { findBaseModel, repoRootFrom } from "../tools/base-model.js";
+import { findMemberModel } from "../tools/member-models.js";
 import { HookServer } from "./hook-server.js";
 
 const staticDir = resolve(import.meta.dirname, "../../renderer");
-const modelPath = process.env.WAIFU_MODEL_PATH ?? null;
+/** WAIFU_MODEL_PATH is 2B's model, WAIFU_MODEL_PATH_<MEMBER> (e.g. WAIFU_MODEL_PATH_ASUNA) the others. */
+function modelEnvVar(memberId: MemberId): string {
+  return memberId === "twob" ? "WAIFU_MODEL_PATH" : `WAIFU_MODEL_PATH_${memberId.toUpperCase()}`;
+}
 
-if (modelPath !== null && !existsSync(modelPath)) {
-  console.error(`[web] WAIFU_MODEL_PATH does not exist: ${modelPath}`);
-  process.exit(1);
+const modelPaths: Partial<Record<MemberId, string>> = {};
+for (const memberId of memberIds) {
+  const envVar = modelEnvVar(memberId);
+  const path = process.env[envVar];
+  if (path === undefined || path === "") {
+    const dropped = findMemberModel(repoRootFrom(import.meta.dirname), memberId);
+    if (dropped !== null) {
+      modelPaths[memberId] = dropped;
+    }
+    continue;
+  }
+  if (!existsSync(path)) {
+    console.error(`[web] ${envVar} does not exist: ${path}`);
+    process.exit(1);
+  }
+  modelPaths[memberId] = path;
 }
 
 const server = new HookServer({
+  log: (line) => console.log(line),
   host: "127.0.0.1",
   port: resolveHookPort(process.env),
-  web: { staticDir, modelPath },
+  web: { staticDir, modelPaths, baseModelPath: findBaseModel(repoRootFrom(import.meta.dirname), process.env) },
 });
 
 const port = await server.listen();
 console.log(`[web] overlay: http://127.0.0.1:${port}/overlay/`);
 console.log(`[web] office:  http://127.0.0.1:${port}/office/`);
+console.log(`[web] team:    http://127.0.0.1:${port}/team-overlay/`);
 
 const shutdown = (): void => {
   server

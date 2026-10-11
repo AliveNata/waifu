@@ -1,4 +1,5 @@
 import type { VRM, VRMHumanBoneName } from "@pixiv/three-vrm";
+import type { Object3D } from "three";
 
 export interface BoneRotation {
   x: number;
@@ -40,6 +41,20 @@ export function addRotation(base: BoneRotation | undefined, delta: Partial<BoneR
   };
 }
 
+/** Anything with humanoid joints that follow the axis conventions above: a VRM or a placeholder chibi. */
+export interface PoseTarget {
+  node(bone: VRMHumanBoneName): Object3D | null;
+  /**
+   * True for VRM 0.x. Its normalized bones face -Z, so the x and z rotations of
+   * the conventions above come out mirrored (arms rise instead of drop) unless flipped.
+   */
+  mirrorXZ?: boolean;
+}
+
+export function vrmPoseTarget(vrm: VRM): PoseTarget {
+  return { node: (bone) => vrm.humanoid.getNormalizedBoneNode(bone), mirrorXZ: vrm.meta.metaVersion === "0" };
+}
+
 /**
  * Applies a pose with exponential smoothing so mood changes blend instead of
  * snapping. The smoothed values persist between frames until reset().
@@ -57,7 +72,7 @@ export class PoseApplier {
     this.hipsRestY = null;
   }
 
-  apply(vrm: VRM, pose: Pose, deltaSeconds: number): void {
+  apply(target: PoseTarget, pose: Pose, deltaSeconds: number): void {
     const blend = 1 - Math.exp(-deltaSeconds * this.responsiveness);
     const touched = new Set<VRMHumanBoneName>([
       ...this.smoothed.keys(),
@@ -65,18 +80,19 @@ export class PoseApplier {
     ]);
 
     for (const boneName of touched) {
-      const target = pose.bones[boneName] ?? { x: 0, y: 0, z: 0 };
+      const goal = pose.bones[boneName] ?? { x: 0, y: 0, z: 0 };
       const current = this.smoothed.get(boneName) ?? { x: 0, y: 0, z: 0 };
       const next = {
-        x: current.x + (target.x - current.x) * blend,
-        y: current.y + (target.y - current.y) * blend,
-        z: current.z + (target.z - current.z) * blend,
+        x: current.x + (goal.x - current.x) * blend,
+        y: current.y + (goal.y - current.y) * blend,
+        z: current.z + (goal.z - current.z) * blend,
       };
       this.smoothed.set(boneName, next);
-      vrm.humanoid.getNormalizedBoneNode(boneName)?.rotation.set(next.x, next.y, next.z);
+      const sign = target.mirrorXZ === true ? -1 : 1;
+      target.node(boneName)?.rotation.set(sign * next.x, next.y, sign * next.z);
     }
 
-    const hips = vrm.humanoid.getNormalizedBoneNode("hips");
+    const hips = target.node("hips");
     if (hips !== null) {
       this.hipsRestY ??= hips.position.y;
       this.smoothedHipsOffset += (pose.hipsOffsetY - this.smoothedHipsOffset) * blend;

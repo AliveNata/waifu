@@ -4,3 +4,483 @@
   right: 16px;
   bottom: 16px;
 }
+
+/* Sits on top edge of the close-up viewport; position comes from the stage each frame. */
+.closeup-caption {
+  position: absolute;
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: var(--chip-bg);
+  color: var(--chip-ink);
+  font-size: 12px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.closeup-caption[hidden] {
+  display: none;
+}
+
+.model-dialog {
+  width: min(360px, calc(100% - 32px));
+  padding: 16px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--panel-bg);
+  color: var(--panel-ink);
+}
+
+.model-dialog::backdrop {
+  background: rgb(10 12 20 / 0.45);
+}
+
+.model-list {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.model-list .button {
+  width: 100%;
+  text-align: left;
+}
+
+/* Wider than the model picker: session titles are whole sentences. */
+.sessions-dialog {
+  width: min(480px, calc(100% - 32px));
+}
+
+/* Long histories scroll inside the dialog instead of pushing Tutup off screen. */
+.session-list {
+  max-height: min(50vh, 420px);
+  overflow-y: auto;
+}
+
+.session-list .button {
+  display: grid;
+  gap: 2px;
+  padding-block: 8px;
+}
+
+.session-title {
+  overflow-wrap: anywhere;
+}
+
+.session-time {
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+.sessions-state:empty {
+  display: none;
+}
+
+.sessions-state[data-tone="error"] {
+  color: var(--error-bg);
+  font-weight: 600;
+}
+
+/* Docked above the close-up by the page script, so the speaker and their screen read together. */
+.office-dialog {
+  min-height: 88px;
+}
+
+/* Size and place come from office.ts (portraitSize); the selector beats `.stage canvas` filling the page. */
+.stage .speaker-portrait {
+  position: absolute;
+  width: auto;
+  height: auto;
+  pointer-events: none;
+}
+
+.stage .speaker-portrait[hidden] {
+  display: none;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.setting-row input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--button-bg);
+}
+
+.setting-row input:focus-visible {
+  outline: 2px solid var(--panel-ink);
+  outline-offset: 2px;
+}
+
+/* The canvas takes arrow keys for the camera, so it shows focus like any other control. */
+.office canvas:focus-visible {
+  outline: 2px solid var(--focus-halo);
+  outline-offset: -4px;
+}
+
+/*
+ * Office chat (antislop R-31):
+ * - Bottom-left, opposite the close-up, so the speaker's screen and your chat never cover each other.
+ * - Light panel like the other dialogs: it is a tool you read, not a character speaking (that is the navy box).
+ * - Green stays the "2B needs you" signal: only the permission card uses it.
+ * - Dial ENERGY 1 / RHYTHM 1 / MOTION 1: a work tool, no animation beyond the reply text streaming in.
+ */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.chat {
+  position: absolute;
+  left: 16px;
+  bottom: 76px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* Leaves room for the close-up, which takes up to 42% of the width on the right. */
+  width: min(380px, calc(58vw - 40px));
+  max-height: min(560px, calc(100% - 100px));
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--panel-bg);
+  color: var(--panel-ink);
+  font-size: 13px;
+}
+
+.chat[hidden] {
+  display: none;
+}
+
+/* Sesi 2B: a navy bar on top so the mode reads at a glance; the badge says what it means. */
+.chat[data-mode="twob"] {
+  box-shadow: inset 0 3px 0 var(--button-bg);
+}
+
+.twob-badge {
+  margin: 0;
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  background: var(--button-bg);
+  color: var(--button-ink);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.twob-badge[hidden],
+.twob-key[hidden],
+.twob-key-error[hidden] {
+  display: none;
+}
+
+.twob-key {
+  display: grid;
+  gap: 6px;
+}
+
+.twob-key-text {
+  margin: 0;
+  line-height: 1.45;
+  color: var(--panel-muted);
+}
+
+.twob-key-label {
+  font-weight: 600;
+}
+
+.twob-key-error {
+  margin: 0;
+  color: var(--error-bg);
+  font-weight: 600;
+}
+
+.twob-key-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Leaves room above for the docked close-up (about 235px plus its caption) while someone works. */
+.chat[data-closeup="on"] {
+  max-height: max(200px, min(560px, calc(100% - 100px - 290px)));
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.chat-title {
+  margin: 0 auto 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* In a small window the folder button already says where 2B works; the title stays for screen readers. */
+@media (max-width: 640px) {
+  .chat-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .chat-header {
+    justify-content: space-between;
+  }
+}
+
+/* Quiet text buttons: still 44px tall to hit, but they should not compete with Kirim. */
+.chat-link {
+  min-height: 44px;
+  max-width: 50%;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--panel-ink);
+  font: 600 12px var(--font-ui);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chat-link:disabled {
+  color: var(--panel-muted);
+  cursor: not-allowed;
+}
+
+.chat-link:focus-visible,
+.chat-input:focus-visible,
+.chat-permission:focus-visible {
+  outline: 2px solid var(--focus-halo);
+  outline-offset: 2px;
+}
+
+.chat-problem,
+.chat-empty,
+.chat-working {
+  margin: 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.chat-problem {
+  color: var(--error-bg);
+  font-weight: 600;
+}
+
+.chat-empty,
+.chat-working {
+  color: var(--panel-muted);
+}
+
+.chat-problem[hidden],
+.chat-empty[hidden],
+.chat-working[hidden] {
+  display: none;
+}
+
+.chat-log {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.chat-log:empty {
+  display: none;
+}
+
+.chat-entry {
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-speaker {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--panel-muted);
+}
+
+.chat-note {
+  color: var(--panel-muted);
+  font-size: 12px;
+}
+
+.chat-note[data-tone="error"] {
+  color: var(--error-bg);
+  font-weight: 600;
+}
+
+.chat-permission {
+  padding: 10px;
+  border: 2px solid var(--attention-bg);
+  border-radius: var(--radius);
+}
+
+.chat-permission-title {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+
+.chat-permission pre {
+  max-height: 160px;
+  margin: 0 0 8px;
+  padding: 8px;
+  overflow: auto;
+  border-radius: var(--radius);
+  background: rgb(0 0 0 / 0.06);
+  font:
+    12px / 1.4 Consolas,
+    "Cascadia Mono",
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-permission-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-permission .allow {
+  background: var(--attention-bg);
+  color: #ffffff;
+}
+
+.chat-form {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+/* Opens upward over the log, so it never pushes the input around while you type. */
+.chat-mentions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 4px);
+  max-height: 268px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--panel-muted);
+  border-radius: var(--radius);
+  background: var(--panel-bg);
+  z-index: 1;
+}
+
+.chat-mentions[hidden] {
+  display: none;
+}
+
+.chat-mentions li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 36px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.chat-mentions li[aria-selected="true"] {
+  background: var(--button-bg);
+  color: var(--button-ink);
+}
+
+.chat-mention-name {
+  font-weight: 600;
+}
+
+.chat-mention-role {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.chat-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  max-height: 120px;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-muted);
+  border-radius: var(--radius);
+  background: var(--panel-bg);
+  color: var(--panel-ink);
+  font: 13px / 1.4 var(--font-ui);
+  resize: vertical;
+}
+
+.chat-input::placeholder {
+  color: var(--panel-muted);
+}
+
+.chat-stop {
+  background: var(--error-bg);
+  color: #ffffff;
+}
+
+.hud-button {
+  flex-shrink: 0;
+  background: var(--chip-bg);
+  color: var(--chip-ink);
+}
+
+/*
+ * Only one auto margin in the HUD row: the chat toggle's, or Menu's when the toggle is hidden
+ * (browser mode). Two auto margins split the free space and strand the toggle mid-screen.
+ */
+.office .hud .hud-button {
+  margin-left: auto;
+}
+
+.office .hud .hud-button:not([hidden]) + .hud-button,
+.office .hud .hud-button:not([hidden]) + .menu-button {
+  margin-left: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .chat-problem,
+  .chat-note[data-tone="error"],
+  .sessions-state[data-tone="error"],
+  .twob-key-error {
+    color: #f0a3a3;
+  }
+
+  .chat-permission pre {
+    background: rgb(255 255 255 / 0.08);
+  }
+}

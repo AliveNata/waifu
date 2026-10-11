@@ -1,18 +1,35 @@
+import { timingSafeEqual } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { basename, extname, join, normalize, resolve, sep } from "node:path";
-import { parseHookPayload } from "../shared/hook-event.js";
-import { type Reaction, reactionForHook } from "../shared/reaction.js";
+import { type CompanionHookPayload, parseHookPayload } from "../shared/hook-event.js";
+import { type CompanionSignal, signalsForHook } from "../shared/reaction.js";
+import { isMemberId, type MemberId } from "../shared/team.js";
 
 const maxBodyBytes = 16 * 1024;
+/** Permission requests carry the tool input, and a Write call holds the whole file. */
+const maxPermissionBodyBytes = 2 * 1024 * 1024;
+export const permissionPath = "/office-permission";
+export const permissionTokenHeader = "x-office-token";
+
+/**
+ * Answers a PermissionRequest hook from a chat run the office started. Resolves
+ * with the hook's JSON response; the signal aborts when the CLI stops waiting.
+ */
+export interface PermissionEndpoint {
+  token: string;
+  handle(toolName: string, input: unknown, signal: AbortSignal): Promise<unknown>;
+}
 
 export interface WebModeOptions {
   /** Built renderer directory (dist/renderer). */
   staticDir: string;
-  /** Optional .vrm served at GET /model so the browser pages can load it without a picker. */
-  modelPath: string | null;
+  /** Optional .vrm per member, served at GET /model/<member> so browser pages can load them without a picker. */
+  modelPaths: Partial<Record<MemberId, string>>;
+  /** Anime base model for members without their own .vrm, served at GET /model/base. */
+  baseModelPath: string | null;
 }
 
 export interface HookServerOptions {
@@ -21,10 +38,31 @@ export interface HookServerOptions {
   now?: () => number;
   /** Only set by the browser fallback: Electron talks to renderers over IPC instead. */
   web?: WebModeOptions;
+  /**
+   * Receives one line per hook event (event, tool, subagent, resulting signals),
+   * so the terminal shows whether Claude Code reaches the companion. Never content.
+   */
+  log?: (line: string) => void;
+  /** Only set by Electron, which runs the office chat. */
+  permissions?: PermissionEndpoint;
 }
 
 interface HookServerEvents {
-  reaction: [Reaction];
+  signal: [CompanionSignal];
+}
+
+/** One log line per hook. Only names and kinds, the same metadata the bridge already forwards. */
+export function describeHook(payload: CompanionHookPayload, signals: readonly CompanionSignal[]): string {
+  const parts: string[] = [payload.hook_event_name];
+  if (payload.tool_name !== undefined) {
+    parts.push(`tool=${payload.tool_name}`);
+  }
+  const agent = payload.agent_type ?? payload.subagent_type;
+  if (agent !== undefined) {
+    parts.push(`agent=${agent}`);
+  }
+  const kinds = signals.map((signal) => signal.kind);
+  return `[hook] ${parts.join(" ")} -> ${kinds.length === 0 ? "tanpa reaksi" : kinds.join(",")}`;
 }
 
 export class HookServer extends EventEmitter<HookServerEvents> {
@@ -85,6 +123,10 @@ export class HookServer extends EventEmitter<HookServerEvents> {
       await this.handleHook(request, response);
       return;
     }
+    if (request.method === "POST" && url.pathname === permissionPath && this.options.permissions !== undefined) {
+      await this.handlePermission(request, response, this.options.permissions);
+      return;
+    }
     if (request.method === "GET" && url.pathname === "/healthz") {
       sendJson(response, 200, { ok: true });
       return;
@@ -96,8 +138,18 @@ export class HookServer extends EventEmitter<HookServerEvents> {
         this.openEventStream(response);
         return;
       }
-      if (url.pathname === "/model") {
-        await serveModel(web.modelPath, response);
+      if (url.pathname === "/model/base") {
+        await serveModel(web.baseModelPath, response);
+        return;
+      }
+      const modelMatch = /^\/model\/([a-z]+)$/.exec(url.pathname);
+      if (modelMatch !== null) {
+        const memberId = modelMatch[1];
+        if (!isMemberId(memberId)) {
+          sendJson(response, 404, { ok: false, error: "unknown member" });
+          return;
+        }
+        await serveModel(web.modelPaths[memberId] ?? null, response);
         return;
       }
       await serveStatic(web.staticDir, url.pathname, response);
@@ -137,12 +189,51 @@ export class HookServer extends EventEmitter<HookServerEvents> {
       return;
     }
 
-    const reaction = reactionForHook(parsed.value, this.now());
-    if (reaction !== null) {
-      this.emit("reaction", reaction);
-      this.broadcastSse(reaction);
+    const signals = signalsForHook(parsed.value, this.now());
+    this.options.log?.(describeHook(parsed.value, signals));
+    for (const signal of signals) {
+      this.emit("signal", signal);
+      this.broadcastSse(signal);
     }
-    sendJson(response, 202, { ok: true, mood: reaction?.mood ?? null });
+    sendJson(response, 202, { ok: true, signals: signals.map((signal) => signal.kind) });
+  }
+
+  private async handlePermission(
+    request: IncomingMessage,
+    response: ServerResponse,
+    endpoint: PermissionEndpoint,
+  ): Promise<void> {
+    if (!tokenMatches(request.headers[permissionTokenHeader], endpoint.token)) {
+      sendJson(response, 403, { ok: false, error: "unknown chat session" });
+      return;
+    }
+    const body = await readBody(request, maxPermissionBodyBytes);
+    if (body === null) {
+      sendJson(response, 413, { ok: false, error: `body larger than ${maxPermissionBodyBytes} bytes` });
+      return;
+    }
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(body) as Record<string, unknown>;
+    } catch (error) {
+      sendJson(response, 400, { ok: false, error: `invalid JSON: ${(error as Error).message}` });
+      return;
+    }
+    if (typeof payload !== "object" || payload === null || typeof payload.tool_name !== "string") {
+      sendJson(response, 400, { ok: false, error: "tool_name is required" });
+      return;
+    }
+    // The CLI closes the request when its hook timeout runs out; the card then turns into a deny.
+    const aborter = new AbortController();
+    response.on("close", () => {
+      if (!response.writableEnded) {
+        aborter.abort();
+      }
+    });
+    const decision = await endpoint.handle(payload.tool_name, payload.tool_input, aborter.signal);
+    if (!aborter.signal.aborted) {
+      sendJson(response, 200, decision);
+    }
   }
 
   private openEventStream(response: ServerResponse): void {
@@ -156,12 +247,21 @@ export class HookServer extends EventEmitter<HookServerEvents> {
     response.on("close", () => this.sseClients.delete(response));
   }
 
-  private broadcastSse(reaction: Reaction): void {
-    const frame = `event: reaction\ndata: ${JSON.stringify(reaction)}\n\n`;
+  private broadcastSse(signal: CompanionSignal): void {
+    const frame = `event: signal\ndata: ${JSON.stringify(signal)}\n\n`;
     for (const client of this.sseClients) {
       client.write(frame);
     }
   }
+}
+
+function tokenMatches(header: string | string[] | undefined, token: string): boolean {
+  if (typeof header !== "string") {
+    return false;
+  }
+  const given = Buffer.from(header);
+  const expected = Buffer.from(token);
+  return given.length === expected.length && timingSafeEqual(given, expected);
 }
 
 function sendJson(response: ServerResponse, status: number, body: unknown): void {

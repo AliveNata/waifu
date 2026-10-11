@@ -9,12 +9,13 @@
     />
     <!-- No app icon yet. An empty one stops the browser from requesting /favicon.ico. -->
     <link rel="icon" href="data:," />
-    <title>Xenovia</title>
+    <title>2B</title>
     <script type="module" src="./overlay.ts"></script>
   </head>
   <body>
-    <main class="stage overlay">
-      <canvas id="scene" aria-label="Xenovia, close-up"></canvas>
+    <main class="stage overlay" id="stage">
+      <canvas id="scene" aria-label="2B, close-up. Klik buat nyentuh, tahan dan geser buat mindahin."></canvas>
+      <p class="touch-line" id="touch-line" aria-live="polite" hidden></p>
       <section class="panel" id="panel" aria-live="polite">
         <p class="panel-title" id="panel-title">Memuat</p>
         <p class="panel-body" id="panel-body"></p>

@@ -1,8 +1,10 @@
 import type { VRM } from "@pixiv/three-vrm";
-import type { HookServerStatus, ModelFile } from "../../shared/protocol.js";
-import { type Reaction, statusText } from "../../shared/reaction.js";
+import type { ModelFile } from "../../shared/protocol.js";
+import type { Reaction } from "../../shared/reaction.js";
 import type { RendererBridge } from "./bridge.js";
+import { MemberModelLoader } from "./member-model.js";
 import { ReactionTracker } from "./reaction-tracker.js";
+import { requireElement, StatusChip } from "./status-chip.js";
 import { disposeVrm, loadVrm } from "./vrm-loader.js";
 
 export interface Stage {
@@ -13,36 +15,29 @@ export interface Stage {
 
 type PanelState = { kind: "empty" } | { kind: "loading"; name: string } | { kind: "error"; message: string };
 
-function requireElement<T extends HTMLElement>(id: string, type: new () => T): T {
-  const element = document.getElementById(id);
-  if (!(element instanceof type)) {
-    throw new Error(`#${id} is missing or not a ${type.name}`);
-  }
-  return element;
-}
-
 /**
- * Shared page controller for the overlay and the office: model loading,
- * empty/loading/error panels, the status chip and the menu button.
+ * Page controller for the overlay: 2B's model with empty, loading and
+ * error panels, the status chip and the menu button.
  */
 export class CompanionPage {
   private readonly panel = requireElement("panel", HTMLElement);
   private readonly panelTitle = requireElement("panel-title", HTMLElement);
   private readonly panelBody = requireElement("panel-body", HTMLElement);
   private readonly panelAction = requireElement("panel-action", HTMLButtonElement);
-  private readonly status = requireElement("status", HTMLElement);
   private readonly menuButton = requireElement("menu-button", HTMLButtonElement);
+  private readonly status = new StatusChip(requireElement("status", HTMLElement));
 
   private readonly tracker = new ReactionTracker(Date.now());
+  private readonly models: MemberModelLoader;
   private vrm: VRM | null = null;
-  private serverError: string | null = null;
-  private lastStatusKey = "";
   private loadGeneration = 0;
 
   constructor(
     private readonly bridge: RendererBridge,
     private readonly stage: Stage,
-  ) {}
+  ) {
+    this.models = new MemberModelLoader(bridge);
+  }
 
   start(): void {
     this.panelAction.addEventListener("click", () => this.pickModel());
@@ -54,12 +49,20 @@ export class CompanionPage {
       this.menuButton.addEventListener("click", () => this.pickModel());
     }
 
-    this.bridge.onReaction((reaction) => this.tracker.apply(reaction));
-    this.bridge.onModelChanged(() => this.loadSaved());
-    this.bridge.onServerStatus((status) => this.applyServerStatus(status));
+    this.bridge.onSignal((signal) => {
+      if (signal.kind === "reaction") {
+        this.tracker.apply(signal.reaction);
+      }
+    });
+    this.bridge.onModelChanged((memberId) => {
+      if (memberId === "twob") {
+        this.loadSaved();
+      }
+    });
+    this.bridge.onServerStatus((status) => this.status.applyServerStatus(status));
     this.bridge
       .getServerStatus()
-      .then((status) => this.applyServerStatus(status))
+      .then((status) => this.status.applyServerStatus(status))
       .catch((error: unknown) => console.error("[page] failed to read hook server status", error));
 
     this.loadSaved();
@@ -67,26 +70,37 @@ export class CompanionPage {
 
   /** Call once per frame from the stage's render loop. */
   tick(): void {
-    const reaction = this.tracker.current(Date.now());
+    const now = Date.now();
+    const reaction = this.tracker.current(now);
     this.stage.setReaction(reaction);
-    this.renderStatus(reaction);
-  }
-
-  private applyServerStatus(status: HookServerStatus): void {
-    this.serverError = status.state === "error" ? status.message : null;
+    this.status.render(reaction, now);
   }
 
   private loadSaved(): void {
     this.showPanel({ kind: "loading", name: "model tersimpan" });
-    this.bridge
-      .loadSavedModel()
-      .then((file) => (file === null ? this.showPanel({ kind: "empty" }) : this.loadModel(file)))
+    const generation = ++this.loadGeneration;
+    // Own .vrm first, then the anime base model in 2B's colors, then the empty state.
+    this.models
+      .load("twob")
+      .then((loaded) => {
+        if (generation !== this.loadGeneration) {
+          if (loaded !== null) {
+            disposeVrm(loaded.vrm);
+          }
+          return;
+        }
+        if (loaded === null) {
+          this.showPanel({ kind: "empty" });
+          return;
+        }
+        this.showModel(loaded.vrm);
+      })
       .catch((error: unknown) => this.fail(error));
   }
 
   private pickModel(): void {
     this.bridge
-      .pickModel()
+      .pickModel("twob")
       .then((file) => (file === null ? undefined : this.loadModel(file)))
       .catch((error: unknown) => this.fail(error));
   }
@@ -100,12 +114,16 @@ export class CompanionPage {
       disposeVrm(vrm);
       return;
     }
+    this.showModel(vrm);
+  }
+
+  private showModel(vrm: VRM): void {
     if (this.vrm !== null) {
       disposeVrm(this.vrm);
     }
     this.vrm = vrm;
     this.stage.setModel(vrm);
-    this.hidePanel();
+    this.panel.hidden = true;
   }
 
   private fail(error: unknown): void {
@@ -120,7 +138,8 @@ export class CompanionPage {
     switch (state.kind) {
       case "empty":
         this.panelTitle.textContent = "Belum ada model";
-        this.panelBody.textContent = "Export Xenovia dari VRoid Studio sebagai .vrm, lalu pilih file-nya di sini.";
+        this.panelBody.textContent =
+          "Pilih file .vrm 2B, dari VRoid Hub atau hasil export VRoid Studio. Model cadangan juga belum ada: jalanin npm run fetch-base-model.";
         this.panelAction.hidden = false;
         this.panelAction.textContent = "Pilih file .vrm";
         break;
@@ -136,22 +155,5 @@ export class CompanionPage {
         this.panelAction.textContent = "Pilih file lain";
         break;
     }
-  }
-
-  private hidePanel(): void {
-    this.panel.hidden = true;
-  }
-
-  private renderStatus(reaction: Reaction): void {
-    const text = this.serverError ?? statusText(reaction);
-    const tone = this.serverError !== null ? "error" : reaction.mood === "waiting" ? "attention" : "neutral";
-    const key = `${tone}|${text ?? ""}`;
-    if (key === this.lastStatusKey) {
-      return;
-    }
-    this.lastStatusKey = key;
-    this.status.hidden = text === null;
-    this.status.textContent = text ?? "";
-    this.status.dataset.tone = tone;
   }
 }

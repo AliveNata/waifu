@@ -1,7 +1,8 @@
 /*
  * Design decisions (antislop R-31):
- * - Navy chip: echoes Xenovia's blue hair and stays readable over any desktop wallpaper.
- * - Green is the only accent, borrowed from her hair streak, and appears only when she needs the user (waiting).
+ * - Navy chip: echoes 2B's blue-violet hair and stays readable over any desktop wallpaper.
+ * - Green is the only accent. No team member's hair is green, so it reads as a signal, not a character,
+ *   and it appears only when 2B needs the user (waiting).
  * - System UI font: the overlay should feel like part of the Windows desktop, and it works offline.
  * - One radius (6px) for chips, buttons and panels: small enough to stay out of the character's way.
  */
@@ -186,4 +187,55 @@ html[data-shell="electron"].transparent-shell body {
   .menu-button {
     transition: opacity 120ms ease-out;
   }
+}
+
+/*
+ * Visual-novel dialog box shared by the team overlay and the office: it names who speaks.
+ * Each member's name color is their identity marker (hair color, lightened for
+ * contrast on the navy box, all above 5.7:1 even over a white wallpaper).
+ */
+.dialog {
+  position: absolute;
+  margin: 0;
+  padding: 10px 12px 12px;
+  border-radius: var(--radius);
+  background: var(--chip-bg);
+  color: var(--chip-ink);
+}
+
+.dialog[hidden] {
+  display: none;
+}
+
+.dialog-name {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--speaker, var(--chip-ink));
+}
+
+.dialog-name span {
+  margin-left: 6px;
+  font-weight: 400;
+  color: #b9bfcc;
+}
+
+.dialog-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.dialog-tag {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  margin: 0;
+  font-size: 11px;
+  color: #b9bfcc;
+}
+
+.dialog-tag[hidden] {
+  display: none;
 }

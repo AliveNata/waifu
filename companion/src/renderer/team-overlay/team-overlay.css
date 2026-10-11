@@ -1,0 +1,57 @@
+/* Drags like 2B's overlay; the toggle opts out in base.css. */
+.team-overlay {
+  -webkit-app-region: drag;
+}
+
+/* Shared dialog look lives in base.css; here it docks to the bottom of the small window. */
+.team-overlay .dialog {
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  min-height: 92px;
+}
+
+.team-empty {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--panel-bg);
+  color: var(--panel-ink);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* In Electron the window hides itself when idle, so the empty note only shows in the browser fallback. */
+html[data-shell="electron"] .team-empty,
+.team-overlay:not([data-state="idle"]) .team-empty {
+  display: none;
+}
+
+.team-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+/* Faint rather than hidden: the overlay is a drag region, which gets no hover on Windows. */
+.mode-button {
+  background: var(--chip-bg);
+  color: var(--chip-ink);
+  opacity: 0.55;
+}
+
+.team-overlay:hover .mode-button,
+.mode-button:focus-visible,
+html[data-shell="web"] .mode-button {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mode-button {
+    transition: opacity 120ms ease-out;
+  }
+}

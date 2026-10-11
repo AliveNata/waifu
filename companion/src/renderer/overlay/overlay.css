@@ -1,14 +1,35 @@
-/* The whole overlay drags the window; controls opt out in base.css. */
+/*
+ * No CSS drag region: it would swallow every click on 2B. The page moves the window itself
+ * (pointer-gestures.ts), so a click can be a touch and a press-and-drag still moves her.
+ */
 .overlay {
-  -webkit-app-region: drag;
+  touch-action: none;
+  user-select: none;
 }
 
-/*
- * The menu button only shows on hover or keyboard focus so the close-up stays
- * clean. It remains in the tab order, so keyboard users still reach it.
- */
+/* What she says when touched: small and near her head, gone after a moment. */
+.touch-line {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  max-width: calc(100% - 24px);
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  background: var(--chip-bg);
+  color: var(--chip-ink);
+  font-size: 13px;
+  line-height: 1.35;
+  pointer-events: none;
+}
+
+.touch-line[hidden] {
+  display: none;
+}
+
+/* Faint until hover or keyboard focus, so it does not sit on her face. Right-clicking 2B opens the same menu. */
 .overlay .menu-button {
-  opacity: 0;
+  opacity: 0.55;
 }
 
 .overlay:hover .menu-button,

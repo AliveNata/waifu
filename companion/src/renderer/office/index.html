@@ -9,21 +9,115 @@
     />
     <!-- No app icon yet. An empty one stops the browser from requesting /favicon.ico. -->
     <link rel="icon" href="data:," />
-    <title>Kantor Xenovia</title>
+    <title>AlyxLabs Office</title>
     <script type="module" src="./office.ts"></script>
   </head>
   <body>
     <main class="stage office">
-      <canvas id="scene" aria-label="Kantor Xenovia, tampilan isometrik"></canvas>
-      <section class="panel" id="panel" aria-live="polite">
-        <p class="panel-title" id="panel-title">Memuat</p>
-        <p class="panel-body" id="panel-body"></p>
-        <button class="button" id="panel-action" type="button" hidden></button>
+      <canvas
+        id="scene"
+        tabindex="0"
+        aria-label="Kantor AlyxLabs dalam 3D. Drag atau panah buat muter, scroll atau plus minus buat zoom, nol atau klik dua kali buat balik ke tampilan awal."
+      ></canvas>
+      <p class="closeup-caption" id="closeup-caption" hidden></p>
+      <!-- Before the dialog in the DOM, so the dialog's top edge covers the bottom of the portrait. -->
+      <canvas class="speaker-portrait" id="speaker-portrait" aria-hidden="true" hidden></canvas>
+      <section class="dialog office-dialog" id="office-dialog" aria-live="polite" hidden>
+        <p class="dialog-name"></p>
+        <p class="dialog-text"></p>
+        <p class="dialog-tag" hidden>simulasi</p>
+      </section>
+      <section class="chat" id="chat" aria-labelledby="chat-title" hidden>
+        <header class="chat-header">
+          <h2 class="chat-title" id="chat-title">Chat ke 2B</h2>
+          <p class="twob-badge" id="twob-badge" hidden>Tanpa Claude</p>
+          <button class="chat-link" id="twob-model-open" type="button" aria-haspopup="dialog" hidden>Model</button>
+          <button class="chat-link" id="twob-end" type="button" hidden>Akhiri sesi 2B</button>
+          <button class="chat-link" id="chat-folder" type="button">Pilih folder</button>
+          <button class="chat-link" id="chat-new" type="button">Chat baru</button>
+          <button
+            class="chat-link"
+            id="chat-sessions-open"
+            type="button"
+            aria-haspopup="dialog"
+            title="Lanjutin sesi Claude Code yang tersimpan buat folder ini"
+          >
+            Sesi
+          </button>
+        </header>
+        <p class="chat-problem" id="chat-problem" hidden></p>
+        <p class="chat-empty" id="chat-empty"></p>
+        <ol class="chat-log" id="chat-log" aria-label="Isi obrolan"></ol>
+        <ol class="chat-log twob-log" id="twob-log" aria-label="Isi obrolan Sesi 2B" hidden></ol>
+        <form class="twob-key" id="twob-key" hidden>
+          <p class="twob-key-text">
+            Sesi 2B pakai API key Groq lo sendiri, bukan Claude, jadi nggak motong kuota Claude. Key-nya disimpan
+            terenkripsi di komputer ini. Isi curhatan dikirim ke Groq dan nggak disimpan di disk.
+          </p>
+          <label class="twob-key-label" for="twob-key-input">API key Groq</label>
+          <input class="chat-input" id="twob-key-input" type="password" autocomplete="off" spellcheck="false" />
+          <p class="twob-key-error" id="twob-key-error" role="alert" hidden></p>
+          <div class="twob-key-actions">
+            <button class="button" id="twob-key-save" type="submit">Simpan key</button>
+            <button class="chat-link" id="twob-key-cancel" type="button">Batal</button>
+          </div>
+        </form>
+        <p class="chat-working" id="chat-working" hidden></p>
+        <form class="chat-form" id="chat-form">
+          <label class="visually-hidden" for="chat-input">Pesan buat 2B. Ketik @ buat milih anggota tim.</label>
+          <ul class="chat-mentions" id="chat-mentions" role="listbox" aria-label="Anggota tim" hidden></ul>
+          <textarea
+            class="chat-input"
+            id="chat-input"
+            rows="2"
+            placeholder="Tugas buat 2B, atau @ buat manggil tim"
+          ></textarea>
+          <button class="button" id="chat-send" type="submit">Kirim</button>
+          <button class="button chat-stop" id="chat-stop" type="button" hidden>Stop</button>
+        </form>
+        <p class="visually-hidden" id="chat-announce" aria-live="polite"></p>
       </section>
       <div class="hud">
         <p class="status" id="status" role="status" hidden></p>
+        <button class="button hud-button" id="companion-toggle" type="button" hidden>Sembunyiin 2B</button>
+        <button class="button hud-button" id="chat-toggle" type="button" aria-expanded="false" aria-controls="chat" hidden>
+          Buka chat
+        </button>
         <button class="button menu-button" id="menu-button" type="button">Menu</button>
       </div>
+      <dialog class="model-dialog sessions-dialog" id="chat-sessions" aria-labelledby="chat-sessions-title">
+        <h2 class="panel-title" id="chat-sessions-title">Lanjutin sesi</h2>
+        <p class="panel-body">
+          Sesi Claude Code yang tersimpan di komputer ini buat folder chat. Jangan pilih sesi yang masih kebuka di
+          Claude desktop atau terminal, nanti riwayatnya ketulis dari dua tempat.
+        </p>
+        <p class="panel-body sessions-state" id="chat-sessions-state" role="status"></p>
+        <ul class="model-list session-list" id="chat-session-list"></ul>
+        <form method="dialog">
+          <button class="button" type="submit">Tutup</button>
+        </form>
+      </dialog>
+      <dialog class="model-dialog sessions-dialog" id="twob-models" aria-labelledby="twob-models-title">
+        <h2 class="panel-title" id="twob-models-title">Model Groq buat 2B</h2>
+        <p class="panel-body">Daftarnya diambil langsung dari akun Groq lo, jadi model yang udah dipensiunin nggak muncul.</p>
+        <p class="panel-body sessions-state" id="twob-models-state" role="status"></p>
+        <ul class="model-list session-list" id="twob-model-list"></ul>
+        <form method="dialog">
+          <button class="button" type="submit">Tutup</button>
+        </form>
+      </dialog>
+      <dialog class="model-dialog" id="model-dialog" aria-labelledby="model-dialog-title">
+        <h2 class="panel-title" id="model-dialog-title">Pilih model .vrm</h2>
+        <p class="panel-body">Anggota tanpa model tampil sebagai placeholder.</p>
+        <ul class="model-list" id="model-list"></ul>
+        <label class="setting-row">
+          <input type="checkbox" id="closeup-setting" checked />
+          Close-up pas ada yang kerja
+        </label>
+        <form method="dialog">
+          <button class="button" type="submit">Tutup</button>
+        </form>
+      </dialog>
     </main>
   </body>
 </html>

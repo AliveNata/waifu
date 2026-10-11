@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="id" class="transparent-shell">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self' blob: data:"
+    />
+    <!-- No app icon yet. An empty one stops the browser from requesting /favicon.ico. -->
+    <link rel="icon" href="data:," />
+    <title>AlyxLabs Team</title>
+    <script type="module" src="./team-overlay.ts"></script>
+  </head>
+  <body>
+    <main class="stage team-overlay" id="stage" data-state="idle">
+      <canvas id="scene" aria-hidden="true"></canvas>
+      <p class="team-empty" id="empty">Belum ada percakapan. Panggil anggota tim lewat Claude Code.</p>
+      <section class="dialog" id="dialog" aria-live="polite" hidden>
+        <p class="dialog-name" id="dialog-name"></p>
+        <p class="dialog-text" id="dialog-text"></p>
+        <p class="dialog-tag" id="dialog-tag" hidden>simulasi</p>
+      </section>
+      <div class="team-controls">
+        <button class="button mode-button" id="mode-toggle" type="button" aria-pressed="false">Isi asli: mati</button>
+      </div>
+    </main>
+  </body>
+</html>
