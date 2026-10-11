@@ -49,6 +49,11 @@ export class ChatLog {
     }
   }
 
+  /** A line from the office itself, not from Claude, like "Sesi 2B selesai". */
+  note(text: string, tone: "muted" | "error" = "muted"): number {
+    return this.push({ type: "note", text, tone });
+  }
+
   clear(): void {
     this.entries.length = 0;
   }

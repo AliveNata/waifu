@@ -168,6 +168,55 @@
   display: none;
 }
 
+/* Sesi 2B: a navy bar on top so the mode reads at a glance; the badge says what it means. */
+.chat[data-mode="twob"] {
+  box-shadow: inset 0 3px 0 var(--button-bg);
+}
+
+.twob-badge {
+  margin: 0;
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  background: var(--button-bg);
+  color: var(--button-ink);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.twob-badge[hidden],
+.twob-key[hidden],
+.twob-key-error[hidden] {
+  display: none;
+}
+
+.twob-key {
+  display: grid;
+  gap: 6px;
+}
+
+.twob-key-text {
+  margin: 0;
+  line-height: 1.45;
+  color: var(--panel-muted);
+}
+
+.twob-key-label {
+  font-weight: 600;
+}
+
+.twob-key-error {
+  margin: 0;
+  color: var(--error-bg);
+  font-weight: 600;
+}
+
+.twob-key-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Leaves room above for the docked close-up (about 235px plus its caption) while someone works. */
 .chat[data-closeup="on"] {
   max-height: max(200px, min(560px, calc(100% - 100px - 290px)));
@@ -426,7 +475,8 @@
 @media (prefers-color-scheme: dark) {
   .chat-problem,
   .chat-note[data-tone="error"],
-  .sessions-state[data-tone="error"] {
+  .sessions-state[data-tone="error"],
+  .twob-key-error {
     color: #f0a3a3;
   }
 

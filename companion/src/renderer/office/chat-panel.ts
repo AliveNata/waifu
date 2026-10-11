@@ -1,8 +1,12 @@
-import type { ChatEvent, ChatSessionList, ChatStatus } from "../../shared/office-chat.js";
+import { type ChatEvent, type ChatSessionList, type ChatStatus, twobMessage } from "../../shared/office-chat.js";
 import type { RendererBridge } from "../common/bridge.js";
 import { requireElement } from "../common/status-chip.js";
 import { type ChatEntry, ChatLog, folderName, relativeTimeLabel } from "./chat-log.js";
 import { MentionPicker } from "./mention-picker.js";
+import { TwobChatPanel } from "./twob-chat-panel.js";
+
+const claudePlaceholder = "Tugas buat 2B, atau @ buat manggil tim";
+const twobPlaceholder = "Cerita ke 2B, atau suruh dia pose (misal: angkat tangan)";
 
 /**
  * The office chat: type a task for 2B, watch the reply stream in, and allow or
@@ -12,6 +16,10 @@ import { MentionPicker } from "./mention-picker.js";
 export class ChatPanel {
   private readonly root = requireElement("chat", HTMLElement);
   private readonly toggle = requireElement("chat-toggle", HTMLButtonElement);
+  private readonly title = requireElement("chat-title", HTMLElement);
+  private readonly twobBadge = requireElement("twob-badge", HTMLElement);
+  private readonly twobModel = requireElement("twob-model-open", HTMLButtonElement);
+  private readonly twobEnd = requireElement("twob-end", HTMLButtonElement);
   private readonly folderButton = requireElement("chat-folder", HTMLButtonElement);
   private readonly newButton = requireElement("chat-new", HTMLButtonElement);
   private readonly sessionsButton = requireElement("chat-sessions-open", HTMLButtonElement);
@@ -33,7 +41,15 @@ export class ChatPanel {
   private status: ChatStatus = { state: "idle", projectDir: null, problem: null };
   private enabled = false;
 
-  constructor(private readonly bridge: RendererBridge) {}
+  private readonly twob: TwobChatPanel;
+
+  constructor(private readonly bridge: RendererBridge) {
+    this.twob = new TwobChatPanel(bridge, {
+      modeChanged: () => this.render(),
+      focusInput: () => this.input.focus(),
+      reportError: (message) => this.applyEvent({ kind: "error", message }, true),
+    });
+  }
 
   start(): void {
     if (!this.bridge.hasNativeMenu) {
@@ -57,6 +73,15 @@ export class ChatPanel {
       this.input.focus();
     });
     this.sessionsButton.addEventListener("click", () => this.openSessions());
+    this.twob.start();
+    this.twobEnd.addEventListener("click", () => {
+      this.twob.end();
+      const index = this.log.note("Sesi 2B selesai dan obrolannya udah dihapus. Pesan berikutnya ke Claude.");
+      this.renderEntry(index);
+      this.announcer.textContent = "Sesi 2B selesai. Pesan berikutnya ke Claude.";
+      this.render();
+      this.input.focus();
+    });
     this.form.addEventListener("submit", (event) => {
       event.preventDefault();
       this.submit();
@@ -92,9 +117,27 @@ export class ChatPanel {
 
   private submit(): void {
     const text = this.input.value.trim();
-    if (text === "" || this.status.state !== "idle") {
+    if (text === "") {
       return;
     }
+    // Sesi 2B first: those messages go to Groq through 2B and never to Claude Code.
+    if (this.twob.isActive()) {
+      if (!this.twob.isBusy()) {
+        this.twob.send(twobMessage(text) ?? text);
+        this.input.value = "";
+      }
+      return;
+    }
+    const toTwob = twobMessage(text);
+    if (toTwob !== null) {
+      this.twob.begin(toTwob);
+      this.input.value = "";
+      return;
+    }
+    if (this.status.state === "working") {
+      return;
+    }
+    // Without Claude or a folder, main answers with the reason, so the user is not left guessing.
     this.bridge.sendChat(text);
     this.input.value = "";
   }
@@ -147,6 +190,30 @@ export class ChatPanel {
   }
 
   private render(): void {
+    const twob = this.twob.isActive();
+    this.root.dataset.mode = twob ? "twob" : "claude";
+    this.title.textContent = twob ? "Sesi 2B" : "Chat ke 2B";
+    this.twobBadge.hidden = !twob;
+    this.twobModel.hidden = !twob;
+    this.twobEnd.hidden = !twob;
+    this.folderButton.hidden = twob;
+    this.newButton.hidden = twob;
+    this.sessionsButton.hidden = twob;
+    this.list.hidden = twob;
+    this.input.placeholder = twob ? twobPlaceholder : claudePlaceholder;
+    if (twob) {
+      const typing = this.twob.isBusy();
+      this.problem.hidden = true;
+      this.empty.hidden = true;
+      this.working.hidden = !typing;
+      this.working.textContent = "2B lagi ngetik...";
+      this.input.disabled = false;
+      this.sendButton.hidden = false;
+      this.sendButton.disabled = typing;
+      this.stopButton.hidden = true;
+      return;
+    }
+
     const { state, projectDir, problem } = this.status;
     const folder = projectDir === null ? null : folderName(projectDir);
     const busy = state === "working";
@@ -163,14 +230,15 @@ export class ChatPanel {
     this.empty.hidden = this.log.entries.length > 0 || problem !== null;
     this.empty.textContent =
       folder === null
-        ? "Pilih folder project dulu. 2B kerja dan minta izin di folder itu."
-        : `Belum ada obrolan. Ketik tugas, 2B kerjain di folder ${folder}.`;
+        ? "Pilih folder project dulu. 2B kerja dan minta izin di folder itu. Atau ketik @2B buat Sesi 2B tanpa Claude."
+        : `Belum ada obrolan. Ketik tugas, 2B kerjain di folder ${folder}. Ketik @2B buat Sesi 2B tanpa Claude.`;
 
     this.working.hidden = !busy;
     this.working.textContent = folder === null ? "" : `2B lagi kerja di ${folder}.`;
 
     const ready = state === "idle" && projectDir !== null;
-    this.input.disabled = state === "unavailable" || projectDir === null;
+    // Stays typeable without Claude or a folder: "@2B ..." starts Sesi 2B, which needs neither.
+    this.input.disabled = false;
     this.sendButton.hidden = busy;
     this.sendButton.disabled = !ready;
     this.stopButton.hidden = !busy;

@@ -25,20 +25,31 @@ bridge.onCursor((offset) => stage.setCursor(offset));
 page.start();
 
 let hideLineTimer: number | undefined;
-function say(reaction: TouchReaction | null): void {
-  if (reaction === null || reaction.line === null) {
-    return;
-  }
-  line.textContent = reaction.line;
+function showLine(text: string, milliseconds: number): void {
+  line.textContent = text;
   line.hidden = false;
   window.clearTimeout(hideLineTimer);
-  hideLineTimer = window.setTimeout(
-    () => {
-      line.hidden = true;
-    },
-    Math.max(1600, reaction.durationSeconds * 1000),
-  );
+  hideLineTimer = window.setTimeout(() => {
+    line.hidden = true;
+  }, milliseconds);
 }
+
+function say(reaction: TouchReaction | null): void {
+  if (reaction !== null && reaction.line !== null) {
+    showLine(reaction.line, Math.max(1600, reaction.durationSeconds * 1000));
+  }
+}
+
+// Sesi 2B in the office: her replies and asked-for poses show here, on the desktop.
+bridge.onCompanionCommand((command) => {
+  if (command.pose !== null || command.face !== null) {
+    stage.setCommand(command.pose, command.face);
+  }
+  if (command.line !== null) {
+    // Long enough to read at a relaxed pace.
+    showLine(command.line, Math.max(2500, command.line.length * 70));
+  }
+});
 
 new PointerGestures(root, {
   zoneAt: (x, y) => stage.zoneAt(x, y)?.zone ?? null,

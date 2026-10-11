@@ -96,20 +96,35 @@ export function describeToolInput(input: unknown): string {
     : text;
 }
 
-/** A cast member you can @-mention in the office chat: everyone except 2B, who is the main session. */
+/**
+ * Someone you can @-mention in the office chat: a subagent of the team, or 2B herself, which
+ * starts Sesi 2B (her own chat through Groq, not Claude).
+ */
 export interface MentionTarget {
   displayName: string;
   role: string;
-  agentType: string;
+  /** The subagent name, or null for 2B. */
+  agentType: string | null;
 }
 
-/** The team from the roster, in roster order. */
+export const twobMention: MentionTarget = { displayName: "2B", role: "Sesi 2B, tanpa Claude", agentType: null };
+
+/** 2B first, then the team in roster order. */
 export function mentionTargets(): MentionTarget[] {
-  return Object.values(roster).flatMap((profile) =>
-    profile.agentType === null
-      ? []
-      : [{ displayName: profile.displayName, role: profile.role, agentType: profile.agentType }],
-  );
+  return [
+    twobMention,
+    ...Object.values(roster).flatMap((profile) =>
+      profile.agentType === null
+        ? []
+        : [{ displayName: profile.displayName, role: profile.role, agentType: profile.agentType }],
+    ),
+  ];
+}
+
+/** The text after a leading `@2B`, or null when the message is not addressed to 2B. */
+export function twobMessage(text: string): string | null {
+  const match = /^\s*@2b\b[\s,:]*/i.exec(text);
+  return match === null ? null : text.slice(match[0].length).trim();
 }
 
 /**

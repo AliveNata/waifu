@@ -210,6 +210,40 @@ function createWebBridge(): RendererBridge {
     async listChatSessions() {
       throw new Error("the office chat is only available in the Electron app");
     },
+    // Sesi 2B keeps an API key and calls Groq from the main process, so it is Electron only too.
+    async getTwobStatus() {
+      throw new Error("Sesi 2B is only available in the Electron app");
+    },
+    async saveTwobKey() {
+      throw new Error("Sesi 2B is only available in the Electron app");
+    },
+    async clearTwobKey() {
+      throw new Error("Sesi 2B is only available in the Electron app");
+    },
+    async listTwobModels() {
+      throw new Error("Sesi 2B is only available in the Electron app");
+    },
+    async setTwobModel() {
+      throw new Error("Sesi 2B is only available in the Electron app");
+    },
+    async startTwob() {
+      throw new Error("Sesi 2B is only available in the Electron app");
+    },
+    async sendTwob() {
+      throw new Error("Sesi 2B is only available in the Electron app");
+    },
+    endTwob() {
+      throw new Error("Sesi 2B is only available in the Electron app");
+    },
+    performCompanionCommand() {
+      console.warn("[bridge] poses from the office chat need the Electron app");
+    },
+    onCompanionCommand() {
+      return () => undefined;
+    },
+    onTwobKeyRequested() {
+      return () => undefined;
+    },
     async resumeChatSession() {
       throw new Error("the office chat is only available in the Electron app");
     },

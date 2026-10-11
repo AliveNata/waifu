@@ -175,6 +175,18 @@ Batasannya:
 - Cuma ada di aplikasi Electron (`npm start`). Mode browser nggak punya chat, soalnya chat ini ngejalanin Claude Code di PC lo, dan itu nggak aman dibuka lewat halaman web.
 - Mode `-p` nggak nampilin dialog trust folder. Hooks dan `.mcp.json` di folder yang lo pilih langsung jalan, jadi **pilih folder project lo sendiri aja**, jangan folder hasil download orang.
 
+## Sesi 2B (ngobrol sama 2B, tanpa Claude)
+
+Ketik **@2B** di chat kantor (2B ada paling atas di daftar @), lalu pesan lo. Chat masuk ke **Sesi 2B**: judulnya berubah, ada label **Tanpa Claude**, dan obrolannya pisah dari chat Claude. Selama Sesi 2B, nggak ada pesan yang lewat Claude Code, jadi kuota Claude lo nggak kepakai sama sekali. Klik **Akhiri sesi 2B** buat balik ke Claude; obrolannya langsung dihapus dan ada catatan "Pesan berikutnya ke Claude."
+
+- **Curhat atau ngobrol**: dibales 2B lewat API Groq pakai key lo sendiri. Isi pesannya dikirim ke Groq, tapi nggak disimpan di disk dan hilang pas sesi diakhiri atau kantor ditutup. Ekspresi dan pose 2B di desktop ngikutin balasannya, dan kalimat pertamanya muncul di gelembung samping dia.
+- **Pose**: pesan yang isinya cuma nama pose diproses langsung tanpa Groq: angkat tangan, merenung, dadah, peace, jempol, silang tangan, tepuk tangan, garuk kepala, ngulet, melet. Ekspresi juga bisa: senyum, cemberut, kaget, sedih, marah, ngantuk. Kata kayak "coba", "dong", atau "ya" boleh ikut ("coba melet dong").
+- **Melet**: kalau model lo punya ekspresi atau morph lidah, itu yang dipakai. Kalau nggak ada, lidah kecil ditempel di mulut yang dicari dari bentuk mulut "A" model VRoid, jadi di model non-VRoid posisinya bisa meleset.
+- **API key Groq**: diminta pas pertama kali mulai Sesi 2B, atau lewat **Menu > Groq API key (Sesi 2B)**. Key disimpan terenkripsi pakai penyimpanan aman sistem (DPAPI di Windows) di folder data aplikasi, nggak pernah masuk repo atau log. Bisa juga set variabel `GROQ_API_KEY` sebelum `npm start`.
+- **Model**: default `openai/gpt-oss-120b`. Tombol **Model** nampilin model chat yang tersedia di akun Groq lo, jadi model yang udah dipensiunin nggak muncul.
+- **Batas gratis**: kalau kena batas pemakaian gratis Groq, 2B bilang terus terang dan nyebut kapan bisa coba lagi kalau Groq ngasih tahu.
+- **Tanda krisis**: kalau pesan lo nyebut pengen nyakitin diri atau bunuh diri, chat nampilin kartu bantuan dari aplikasi sendiri (bukan dari model): layanan kesehatan jiwa Kemenkes **119 ekstensi 8** (Healing119.id), atau orang yang lo percaya, dan **112** kalau dalam bahaya. 2B bukan psikolog dan nggak ngasih diagnosis.
+
 ## Kebutuhan
 
 - Windows 10 atau 11.

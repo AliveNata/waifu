@@ -1,6 +1,7 @@
 import type { ChatEvent, ChatSessionList, ChatStatus } from "./office-chat.js";
 import type { CompanionSignal } from "./reaction.js";
 import type { MemberId } from "./team.js";
+import type { CompanionCommand, TwobReply, TwobStatus } from "./twob-chat.js";
 
 export const defaultHookPort = 47823;
 export const hookPortEnvVar = "WAIFU_COMPANION_PORT";
@@ -75,6 +76,21 @@ export interface CompanionApi {
   /** Carries on a stored session. Resolves with the end of its conversation, to show in the log. */
   resumeChatSession(sessionId: string): Promise<ChatEvent[]>;
   answerPermission(id: string, allowed: boolean): void;
+  /** Sesi 2B: 2B's own chat through the user's Groq key. None of these run Claude Code. */
+  getTwobStatus(): Promise<TwobStatus>;
+  saveTwobKey(key: string): Promise<TwobStatus>;
+  clearTwobKey(): Promise<TwobStatus>;
+  listTwobModels(): Promise<string[]>;
+  setTwobModel(model: string): Promise<TwobStatus>;
+  startTwob(): Promise<void>;
+  sendTwob(text: string): Promise<TwobReply>;
+  endTwob(): void;
+  /** The office asks the desktop 2B for a pose, a face or a line. */
+  performCompanionCommand(command: CompanionCommand): void;
+  /** The desktop 2B receives those. */
+  onCompanionCommand(listener: (command: CompanionCommand) => void): () => void;
+  /** The menu asks the office chat to show the Groq key form. */
+  onTwobKeyRequested(listener: () => void): () => void;
   /** Shows or hides the team overlay window. The browser fallback has no window to hide. */
   setTeamOverlayVisible(visible: boolean): void;
   getServerStatus(): Promise<HookServerStatus>;
@@ -116,6 +132,17 @@ export const ipcChannels = {
   newChat: "companion:new-chat",
   pickChatProject: "companion:pick-chat-project",
   listChatSessions: "companion:list-chat-sessions",
+  getTwobStatus: "companion:get-twob-status",
+  saveTwobKey: "companion:save-twob-key",
+  clearTwobKey: "companion:clear-twob-key",
+  listTwobModels: "companion:list-twob-models",
+  setTwobModel: "companion:set-twob-model",
+  startTwob: "companion:start-twob",
+  sendTwob: "companion:send-twob",
+  endTwob: "companion:end-twob",
+  performCompanionCommand: "companion:perform-companion-command",
+  companionCommand: "companion:companion-command",
+  twobKeyRequested: "companion:twob-key-requested",
   resumeChatSession: "companion:resume-chat-session",
   answerPermission: "companion:answer-permission",
   teamOverlayVisible: "companion:team-overlay-visible",

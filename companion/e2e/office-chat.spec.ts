@@ -1,4 +1,6 @@
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { type ElectronApplication, _electron as electron, expect, type Page, test } from "@playwright/test";
@@ -15,7 +17,9 @@ const fakeClaude = resolve(import.meta.dirname, "fixtures/fake-claude.mjs");
 /** A stored Claude Code session the office can list and resume. */
 const storedSessionId = "0b5c2f7e-1d2a-4c3b-9e8f-5a6b7c8d9e0f";
 
-async function launchOffice(): Promise<{ app: ElectronApplication; office: Page; projectDir: string }> {
+async function launchOffice(
+  extraEnv: Record<string, string> = {},
+): Promise<{ app: ElectronApplication; office: Page; projectDir: string }> {
   const userData = await mkdtemp(join(tmpdir(), "office-chat-e2e-"));
   const projectDir = await mkdtemp(join(tmpdir(), "office-chat-project-"));
   const claudeConfig = await mkdtemp(join(tmpdir(), "office-chat-claude-"));
@@ -47,6 +51,9 @@ async function launchOffice(): Promise<{ app: ElectronApplication; office: Page;
       WAIFU_COMPANION_PORT: "47933",
       WAIFU_CLAUDE_COMMAND: fakeClaude,
       CLAUDE_CONFIG_DIR: claudeConfig,
+      // Sesi 2B must never fall back to a real key from the machine running the tests.
+      GROQ_API_KEY: "",
+      ...extraEnv,
       WAIFU_BASE_MODEL_PATH: "e2e-no-base-model.vrm",
     },
   });
@@ -287,5 +294,131 @@ test.describe("companion overlay", () => {
     // Assert
     await expect.poll(position).toEqual([(before[0] ?? 0) + 30, (before[1] ?? 0) + 20]);
     await app.close();
+  });
+});
+
+/** A stand-in for Groq's chat API that records what it was sent. */
+async function fakeGroq(): Promise<{ server: Server; baseUrl: string; prompts: string[] }> {
+  const prompts: string[] = [];
+  const server = createServer((request, response) => {
+    let raw = "";
+    request.on("data", (chunk: Buffer) => {
+      raw += chunk.toString("utf8");
+    });
+    request.on("end", () => {
+      response.writeHead(200, { "content-type": "application/json" });
+      if (request.url?.endsWith("/models") === true) {
+        response.end(JSON.stringify({ data: [{ id: "openai/gpt-oss-120b" }, { id: "openai/gpt-oss-20b" }] }));
+        return;
+      }
+      const body = JSON.parse(raw) as { messages: { role: string; content: string }[] };
+      const last = body.messages.at(-1)?.content ?? "";
+      prompts.push(last);
+      response.end(
+        JSON.stringify({ choices: [{ message: { content: `[mood:warm] [pose:wave] Aku dengerin: ${last}` } }] }),
+      );
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  return { server, baseUrl: `http://127.0.0.1:${port}/openai/v1`, prompts };
+}
+
+test.describe("Sesi 2B", () => {
+  test("talks to 2B through Groq, never Claude, handles poses locally, and forgets on end", async () => {
+    // Arrange
+    const groq = await fakeGroq();
+    const { app, office } = await launchOffice({ WAIFU_GROQ_BASE_URL: groq.baseUrl, GROQ_API_KEY: "gsk_e2e_fake_key" });
+    const input = office.getByLabel(/Pesan buat 2B/);
+    await expect(input).toBeEnabled();
+
+    // Act: pick 2B from the @ list and send a first message.
+    await input.click();
+    await input.pressSequentially("@2");
+    await expect(office.getByRole("listbox", { name: "Anggota tim" }).getByRole("option").first()).toHaveText(
+      "2BSesi 2B, tanpa Claude",
+    );
+    await input.press("Enter");
+    await input.pressSequentially("hari ini capek");
+    await input.press("Enter");
+
+    // Assert: the mode shows, Groq answered, Claude's log stayed empty.
+    await expect(office.getByRole("heading", { name: "Sesi 2B" })).toBeVisible();
+    await expect(office.getByText("Tanpa Claude", { exact: true })).toBeVisible();
+    const twobLog = office.getByRole("list", { name: "Isi obrolan Sesi 2B" });
+    await expect(twobLog).toContainText("Aku dengerin: hari ini capek");
+    expect(groq.prompts).toEqual(["hari ini capek"]);
+    // 2B on the desktop says the first sentence of her reply in her bubble.
+    const overlay = app.windows().find((page) => page.url().includes("/overlay/"));
+    await expect(overlay?.locator("#touch-line") ?? office.locator("#missing-overlay")).toHaveText(
+      "Aku dengerin: hari ini capek",
+    );
+    await expect(office.getByRole("list", { name: "Isi obrolan", exact: true })).toBeHidden();
+
+    // A pose request stays local: no call to Groq.
+    await input.fill("angkat tangan");
+    await input.press("Enter");
+    await expect(twobLog).toContainText("2B angkat tangan di desktop.");
+    expect(groq.prompts).toHaveLength(1);
+
+    // Words about self-harm bring up where to get help, written by the app.
+    await input.fill("kadang aku pengen mati aja");
+    await input.press("Enter");
+    await expect(twobLog).toContainText("119 ekstensi 8");
+
+    // Ending the session clears it and says the next message goes to Claude.
+    await office.getByRole("button", { name: "Akhiri sesi 2B" }).click();
+    await expect(office.getByRole("heading", { name: "Chat ke 2B" })).toBeVisible();
+    await expect(twobLog).toBeHidden();
+    await expect(office.getByRole("list", { name: "Isi obrolan", exact: true })).toContainText(
+      "Pesan berikutnya ke Claude.",
+    );
+    await app.close();
+    await new Promise<void>((resolve) => groq.server.close(() => resolve()));
+  });
+
+  test("asks for a Groq key first when there is none", async () => {
+    // Arrange
+    const { app, office } = await launchOffice();
+    const input = office.getByLabel(/Pesan buat 2B/);
+    await expect(input).toBeEnabled();
+
+    // Act
+    await input.fill("@2B halo");
+    await input.press("Enter");
+
+    // Assert: the key form, and on a machine without a keyring an honest refusal to store it.
+    const form = office.getByLabel("API key Groq");
+    await expect(form).toBeFocused();
+    await form.fill("gsk_e2e_fake_key_123");
+    await office.getByRole("button", { name: "Simpan key" }).click();
+    await expect(office.getByRole("alert")).toContainText(/GROQ_API_KEY|Penyimpanan aman/);
+    await app.close();
+  });
+
+  test("picks another Groq model from the account's own list", async () => {
+    // Arrange
+    const groq = await fakeGroq();
+    const { app, office } = await launchOffice({ WAIFU_GROQ_BASE_URL: groq.baseUrl, GROQ_API_KEY: "gsk_e2e_fake_key" });
+    const input = office.getByLabel(/Pesan buat 2B/);
+    await expect(input).toBeEnabled();
+    await input.fill("@2B");
+    // The first Enter picks 2B from the @ list, the second sends.
+    await input.press("Enter");
+    await input.press("Enter");
+    await expect(office.getByRole("heading", { name: "Sesi 2B" })).toBeVisible();
+
+    // Act
+    await office.getByRole("button", { name: "Model" }).click();
+    const dialog = office.getByRole("dialog", { name: "Model Groq buat 2B" });
+    await dialog.getByRole("button", { name: "openai/gpt-oss-20b" }).click();
+
+    // Assert
+    await expect(dialog).toBeHidden();
+    await expect(office.getByRole("list", { name: "Isi obrolan Sesi 2B" })).toContainText(
+      "Model ganti ke openai/gpt-oss-20b.",
+    );
+    await app.close();
+    await new Promise<void>((resolve) => groq.server.close(() => resolve()));
   });
 });

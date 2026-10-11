@@ -6,6 +6,7 @@ import type { ChatEvent, ChatSessionList, ChatStatus } from "../shared/office-ch
 import type { CompanionApi, ConversationMode, CursorOffset, HookServerStatus, ModelFile } from "../shared/protocol.js";
 import type { CompanionSignal } from "../shared/reaction.js";
 import type { MemberId } from "../shared/team.js";
+import type { CompanionCommand, TwobReply, TwobStatus } from "../shared/twob-chat.js";
 
 const channels = {
   loadSavedModel: "companion:load-saved-model",
@@ -32,6 +33,17 @@ const channels = {
   newChat: "companion:new-chat",
   pickChatProject: "companion:pick-chat-project",
   listChatSessions: "companion:list-chat-sessions",
+  getTwobStatus: "companion:get-twob-status",
+  saveTwobKey: "companion:save-twob-key",
+  clearTwobKey: "companion:clear-twob-key",
+  listTwobModels: "companion:list-twob-models",
+  setTwobModel: "companion:set-twob-model",
+  startTwob: "companion:start-twob",
+  sendTwob: "companion:send-twob",
+  endTwob: "companion:end-twob",
+  performCompanionCommand: "companion:perform-companion-command",
+  companionCommand: "companion:companion-command",
+  twobKeyRequested: "companion:twob-key-requested",
   resumeChatSession: "companion:resume-chat-session",
   answerPermission: "companion:answer-permission",
   teamOverlayVisible: "companion:team-overlay-visible",
@@ -78,6 +90,17 @@ const api: CompanionApi = {
   newChat: () => ipcRenderer.send(channels.newChat),
   pickChatProject: () => ipcRenderer.invoke(channels.pickChatProject) as Promise<string | null>,
   listChatSessions: () => ipcRenderer.invoke(channels.listChatSessions) as Promise<ChatSessionList>,
+  getTwobStatus: () => ipcRenderer.invoke(channels.getTwobStatus) as Promise<TwobStatus>,
+  saveTwobKey: (key) => ipcRenderer.invoke(channels.saveTwobKey, key) as Promise<TwobStatus>,
+  clearTwobKey: () => ipcRenderer.invoke(channels.clearTwobKey) as Promise<TwobStatus>,
+  listTwobModels: () => ipcRenderer.invoke(channels.listTwobModels) as Promise<string[]>,
+  setTwobModel: (model) => ipcRenderer.invoke(channels.setTwobModel, model) as Promise<TwobStatus>,
+  startTwob: () => ipcRenderer.invoke(channels.startTwob) as Promise<void>,
+  sendTwob: (text) => ipcRenderer.invoke(channels.sendTwob, text) as Promise<TwobReply>,
+  endTwob: () => ipcRenderer.send(channels.endTwob),
+  performCompanionCommand: (command) => ipcRenderer.send(channels.performCompanionCommand, command),
+  onCompanionCommand: (listener) => subscribe<CompanionCommand>(channels.companionCommand, listener),
+  onTwobKeyRequested: (listener) => subscribe<undefined>(channels.twobKeyRequested, () => listener()),
   resumeChatSession: (sessionId) => ipcRenderer.invoke(channels.resumeChatSession, sessionId) as Promise<ChatEvent[]>,
   answerPermission: (id, allowed) => ipcRenderer.send(channels.answerPermission, id, allowed),
   setTeamOverlayVisible: (visible) => ipcRenderer.send(channels.teamOverlayVisible, visible),

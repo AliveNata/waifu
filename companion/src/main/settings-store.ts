@@ -17,6 +17,8 @@ export interface CompanionSettings {
   chatProjectDir: string | null;
   /** Conversation the next office chat message resumes. */
   chatSessionId: string | null;
+  /** Groq model for Sesi 2B, or null for the default. */
+  twobModel: string | null;
 }
 
 export const defaultSettings: CompanionSettings = {
@@ -29,6 +31,7 @@ export const defaultSettings: CompanionSettings = {
   chatEnabled: true,
   chatProjectDir: null,
   chatSessionId: null,
+  twobModel: null,
 };
 
 /** Unknown or wrongly typed fields fall back to defaults instead of crashing startup. */
@@ -62,6 +65,7 @@ export function normalizeSettings(input: unknown): CompanionSettings {
     chatEnabled: typeof record.chatEnabled === "boolean" ? record.chatEnabled : defaultSettings.chatEnabled,
     chatProjectDir: typeof record.chatProjectDir === "string" ? record.chatProjectDir : null,
     chatSessionId: typeof record.chatSessionId === "string" ? record.chatSessionId : null,
+    twobModel: typeof record.twobModel === "string" && record.twobModel !== "" ? record.twobModel : null,
   };
 }
 

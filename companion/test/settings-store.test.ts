@@ -29,6 +29,7 @@ describe("settings store", () => {
       chatEnabled: false,
       chatProjectDir: "C:/work/waifu",
       chatSessionId: "session-1",
+      twobModel: "openai/gpt-oss-20b",
     };
 
     // Act

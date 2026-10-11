@@ -30,6 +30,9 @@
       <section class="chat" id="chat" aria-labelledby="chat-title" hidden>
         <header class="chat-header">
           <h2 class="chat-title" id="chat-title">Chat ke 2B</h2>
+          <p class="twob-badge" id="twob-badge" hidden>Tanpa Claude</p>
+          <button class="chat-link" id="twob-model-open" type="button" aria-haspopup="dialog" hidden>Model</button>
+          <button class="chat-link" id="twob-end" type="button" hidden>Akhiri sesi 2B</button>
           <button class="chat-link" id="chat-folder" type="button">Pilih folder</button>
           <button class="chat-link" id="chat-new" type="button">Chat baru</button>
           <button
@@ -45,6 +48,20 @@
         <p class="chat-problem" id="chat-problem" hidden></p>
         <p class="chat-empty" id="chat-empty"></p>
         <ol class="chat-log" id="chat-log" aria-label="Isi obrolan"></ol>
+        <ol class="chat-log twob-log" id="twob-log" aria-label="Isi obrolan Sesi 2B" hidden></ol>
+        <form class="twob-key" id="twob-key" hidden>
+          <p class="twob-key-text">
+            Sesi 2B pakai API key Groq lo sendiri, bukan Claude, jadi nggak motong kuota Claude. Key-nya disimpan
+            terenkripsi di komputer ini. Isi curhatan dikirim ke Groq dan nggak disimpan di disk.
+          </p>
+          <label class="twob-key-label" for="twob-key-input">API key Groq</label>
+          <input class="chat-input" id="twob-key-input" type="password" autocomplete="off" spellcheck="false" />
+          <p class="twob-key-error" id="twob-key-error" role="alert" hidden></p>
+          <div class="twob-key-actions">
+            <button class="button" id="twob-key-save" type="submit">Simpan key</button>
+            <button class="chat-link" id="twob-key-cancel" type="button">Batal</button>
+          </div>
+        </form>
         <p class="chat-working" id="chat-working" hidden></p>
         <form class="chat-form" id="chat-form">
           <label class="visually-hidden" for="chat-input">Pesan buat 2B. Ketik @ buat milih anggota tim.</label>
@@ -76,6 +93,15 @@
         </p>
         <p class="panel-body sessions-state" id="chat-sessions-state" role="status"></p>
         <ul class="model-list session-list" id="chat-session-list"></ul>
+        <form method="dialog">
+          <button class="button" type="submit">Tutup</button>
+        </form>
+      </dialog>
+      <dialog class="model-dialog sessions-dialog" id="twob-models" aria-labelledby="twob-models-title">
+        <h2 class="panel-title" id="twob-models-title">Model Groq buat 2B</h2>
+        <p class="panel-body">Daftarnya diambil langsung dari akun Groq lo, jadi model yang udah dipensiunin nggak muncul.</p>
+        <p class="panel-body sessions-state" id="twob-models-state" role="status"></p>
+        <ul class="model-list session-list" id="twob-model-list"></ul>
         <form method="dialog">
           <button class="button" type="submit">Tutup</button>
         </form>

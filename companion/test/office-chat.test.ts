@@ -430,12 +430,12 @@ describe("cast mentions", () => {
     expect(expandCastMentions(typed)).toBe(sent);
   });
 
-  it("lists every teammate except 2B for a bare @", () => {
+  it("lists 2B first, for Sesi 2B, then every teammate for a bare @", () => {
     // Act
     const names = matchingTargets("").map((target) => target.displayName);
 
     // Assert
-    expect(names).toEqual(["Chizuru", "Rias", "Asuna", "Kobayashi", "Yor", "Erza", "Ruby"]);
+    expect(names).toEqual(["2B", "Chizuru", "Rias", "Asuna", "Kobayashi", "Yor", "Erza", "Ruby"]);
   });
 
   it.each([

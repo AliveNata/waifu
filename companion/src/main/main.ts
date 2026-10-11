@@ -29,6 +29,7 @@ import {
   sessionTranscript,
 } from "./chat/session-store.js";
 import { type CompanionSettings, loadSettings, saveSettings } from "./settings-store.js";
+import { TwobService } from "./twob/twob-ipc.js";
 
 const overlaySize = { width: 340, height: 440 };
 /** Smaller than 2B's window: the team member is a guest on the desktop, 2B is the companion. */
@@ -50,6 +51,7 @@ const permissionGate = new PermissionGate();
 /** Proves a permission request came from a chat run this app started. New every launch. */
 const permissionToken = randomBytes(24).toString("hex");
 let officeChat: OfficeChat | null = null;
+let twob: TwobService | null = null;
 /** The visible conversation, replayed when the office window opens again. */
 let chatHistory: ChatEvent[] = [];
 const maxChatHistory = 400;
@@ -257,6 +259,7 @@ function openOfficeWindow(): void {
     applyTeamOverlayVisibility();
     // Nobody can see a permission card any more, so the run stops and open cards become denies.
     officeChat?.stop();
+    twob?.endSession();
     permissionGate.denyAll("Kantor ditutup.");
     if (!isQuitting && !settings.companionVisible) {
       // With 2B hidden and the office gone, nothing would be left on screen to reopen anything.
@@ -342,6 +345,7 @@ function showMenu(window: BrowserWindow): void {
       checked: settings.chatEnabled,
       click: (item) => setChatEnabled(item.checked),
     },
+    { label: "Groq API key (Sesi 2B)", click: () => requestTwobKey() },
     { type: "separator" },
     { label: "Keluar", click: () => app.quit() },
   ]);
@@ -378,6 +382,23 @@ function setCloseupEnabled(enabled: boolean): void {
   updateSettings({ closeupEnabled: enabled })
     .then(() => broadcast(ipcChannels.closeupEnabled, enabled))
     .catch((error: unknown) => console.error("[main] failed to save settings", error));
+}
+
+/** Opens the office chat on the Groq key form, waiting for the page if the office was just opened. */
+function requestTwobKey(): void {
+  openOfficeWindow();
+  if (!settings.chatEnabled) {
+    setChatEnabled(true);
+  }
+  const contents = officeWindow?.webContents;
+  if (contents === undefined) {
+    return;
+  }
+  if (contents.isLoading()) {
+    contents.once("did-finish-load", () => sendToOffice(ipcChannels.twobKeyRequested));
+  } else {
+    sendToOffice(ipcChannels.twobKeyRequested);
+  }
 }
 
 function sendToOffice(channel: string, value?: unknown): void {
@@ -546,6 +567,16 @@ function registerChatIpc(): void {
 
 function registerIpc(): void {
   registerChatIpc();
+  twob = new TwobService({
+    currentModel: () => settings.twobModel,
+    saveModel: (model) => updateSettings({ twobModel: model }),
+    sendToCompanion: (channel, value) => {
+      if (overlayWindow !== null && !overlayWindow.isDestroyed()) {
+        overlayWindow.webContents.send(channel, value);
+      }
+    },
+  });
+  twob.register();
   ipcMain.handle(ipcChannels.loadSavedModel, async (_event, memberId: unknown) => {
     if (!isMemberId(memberId)) {
       throw new Error(`unknown member: ${String(memberId)}`);
@@ -652,6 +683,7 @@ async function bootstrap(): Promise<void> {
   settingsPath = join(app.getPath("userData"), "companion-settings.json");
   settings = await loadSettings(settingsPath);
   registerIpc();
+  await twob?.loadKey().catch((error: unknown) => console.error("[main] could not read the saved Groq key", error));
   const server = await startHookServer();
   startOfficeChat();
   overlayWindow = createOverlayWindow();
