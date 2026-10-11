@@ -137,6 +137,12 @@ function createOverlayWindow(): BrowserWindow {
     webPreferences,
   });
   watchRenderer(window, "overlay");
+  // The whole overlay is a drag region, which Windows treats like a title bar: right-clicking it
+  // asks for the system menu. Show the companion menu instead, so 2B always has one.
+  window.on("system-context-menu", (event) => {
+    event.preventDefault();
+    showMenu(window);
+  });
   window.loadFile(join(rendererDir, "overlay/index.html")).catch((error: unknown) => {
     console.error("[main] failed to load overlay page", error);
   });
@@ -172,6 +178,10 @@ function createTeamOverlayWindow(): BrowserWindow {
     webPreferences,
   });
   watchRenderer(window, "team overlay");
+  window.on("system-context-menu", (event) => {
+    event.preventDefault();
+    showMenu(window);
+  });
   window.loadFile(join(rendererDir, "team-overlay/index.html")).catch((error: unknown) => {
     console.error("[main] failed to load team overlay page", error);
   });
@@ -208,6 +218,10 @@ function openOfficeWindow(): void {
     // Nobody can see a permission card any more, so the run stops and open cards become denies.
     officeChat?.stop();
     permissionGate.denyAll("Kantor ditutup.");
+    if (!isQuitting && !settings.companionVisible) {
+      // With 2B hidden and the office gone, nothing would be left on screen to reopen anything.
+      setCompanionVisible(true);
+    }
     if (!isQuitting) {
       updateSettings({ officeOpen: false }).catch((error: unknown) => {
         console.error("[main] failed to save settings", error);

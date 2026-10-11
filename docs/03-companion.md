@@ -50,7 +50,7 @@ Greeting dan done balik ke idle sendiri setelah beberapa detik. Mood lain bertah
 
 Kalimat simulasi cuma ngegambarin aktivitas, nggak pernah ngarang hasil. Tag "simulasi" muncul di pojok kotak dialog.
 
-**Isi asli**: tombol **Isi asli** di overlay tim (muncul pas di-hover), atau **Menu > Tampilkan isi percakapan asli**. Kalau dinyalain, 2B nyebut judul tugas yang beneran, dan anggota tim nutup dengan ringkasan laporan akhirnya (maksimal 280 karakter). Matiin lagi sebelum share screen.
+**Isi asli**: tombol **Isi asli** di overlay tim (samar, jadi jelas pas di-hover), atau **Menu > Tampilkan isi percakapan asli**. Kalau dinyalain, 2B nyebut judul tugas yang beneran, dan anggota tim nutup dengan ringkasan laporan akhirnya (maksimal 280 karakter). Matiin lagi sebelum share screen.
 
 Overlay tim bisa digeser kayak overlay 2B.
 
@@ -160,10 +160,10 @@ npm start
 
 Pertama kali jalan, overlay nampilin 2B versi model cadangan (rambut putih). Begitu lo punya `.vrm` aslinya, simpan jadi `models/2b.vrm` di root repo, lalu restart companion. Anggota lain sama, pakai nama masing-masing (`ruby.vrm`, `erza.vrm`, dst). Bisa juga dipilih lewat **Menu > Pilih model .vrm > 2B**. Path dari menu disimpan dan menang atas file di `models/`.
 
-Menu ada di tombol **Menu**. Di overlay, tombolnya cuma muncul pas cursor di atasnya, atau pas difokus pakai Tab. Isinya:
+Menu ada di tombol **Menu** di pojok kanan bawah 2B (samar, jadi jelas pas di-hover atau difokus pakai Tab). **Klik kanan di 2B** juga ngebuka menu yang sama. Isinya:
 
 - **Pilih model .vrm** dengan submenu per anggota tim. Model yang dipasang dipakai di semua tempat anggota itu muncul. Yang belum punya pakai model cadangan. Cara nyari model ada di [05-cari-model.md](05-cari-model.md).
-- **Buka kantor / Tutup kantor**.
+- **Buka kantor / Tutup kantor**. Kantor kebuka sendiri pas `npm start` kalau terakhir kali dia masih kebuka.
 - **Overlay selalu di atas** buat on/off always-on-top (berlaku buat dua overlay).
 - **Tampilkan isi percakapan asli** buat nyalain atau matiin isi asli di overlay tim.
 - **Keluar**.

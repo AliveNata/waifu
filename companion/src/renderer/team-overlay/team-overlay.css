@@ -37,10 +37,11 @@ html[data-shell="electron"] .team-empty,
   right: 10px;
 }
 
+/* Faint rather than hidden: the overlay is a drag region, which gets no hover on Windows. */
 .mode-button {
   background: var(--chip-bg);
   color: var(--chip-ink);
-  opacity: 0;
+  opacity: 0.55;
 }
 
 .team-overlay:hover .mode-button,

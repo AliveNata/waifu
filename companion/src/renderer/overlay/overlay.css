@@ -4,11 +4,12 @@
 }
 
 /*
- * The menu button only shows on hover or keyboard focus so the close-up stays
- * clean. It remains in the tab order, so keyboard users still reach it.
+ * The menu button stays faintly visible: the overlay is a drag region, and Windows sends no
+ * hover to drag regions, so a button that only appeared on hover could never be found there.
+ * It turns solid on hover or keyboard focus. Right-clicking 2B opens the same menu.
  */
 .overlay .menu-button {
-  opacity: 0;
+  opacity: 0.55;
 }
 
 .overlay:hover .menu-button,
