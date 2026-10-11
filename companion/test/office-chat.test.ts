@@ -8,6 +8,7 @@ import {
   permissionHookSettings,
   quoteForCmd,
   resolveClaudeCommand,
+  shellCommandLine,
   userMessageLine,
 } from "../src/main/chat/claude-command.js";
 import { OfficeChat } from "../src/main/chat/office-chat.js";
@@ -154,6 +155,14 @@ describe("claude command", () => {
     expect(quoteForCmd("C:\\Users\\Alive Nata\\hooks.json")).toBe('"C:\\Users\\Alive Nata\\hooks.json"');
     expect(quoteForCmd("--verbose")).toBe("--verbose");
     expect(() => quoteForCmd('a"b')).toThrow(/double quote/);
+  });
+
+  it("builds one quoted cmd.exe line for the npm shim", () => {
+    // Act
+    const line = shellCommandLine("C:\\Program Files\\nodejs\\claude.cmd", ["auth", "status"]);
+
+    // Assert
+    expect(line).toBe('"C:\\Program Files\\nodejs\\claude.cmd" auth status');
   });
 
   it("drops a parent Claude Code session's identity from the environment", () => {

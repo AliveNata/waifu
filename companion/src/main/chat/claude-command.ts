@@ -73,6 +73,11 @@ export function quoteForCmd(arg: string): string {
   return /[\s&|<>^()%!,;]/.test(arg) ? `"${arg}"` : arg;
 }
 
+/** The whole command as one cmd.exe line, every part quoted where it needs to be. */
+export function shellCommandLine(file: string, args: readonly string[]): string {
+  return [file, ...args].map(quoteForCmd).join(" ");
+}
+
 /**
  * Variables a running Claude Code session sets for its own child processes. If the
  * companion was started from inside Claude Code, passing them on would tie the

@@ -9,7 +9,7 @@ import {
   chatArgs,
   chatEnv,
   permissionHookSettings,
-  quoteForCmd,
+  shellCommandLine,
   userMessageLine,
 } from "./claude-command.js";
 import type { PermissionGate } from "./permission-gate.js";
@@ -181,9 +181,13 @@ export class OfficeChat extends EventEmitter<OfficeChatEvents> {
   }
 
   private spawnCli(command: ClaudeCommand, args: string[], cwd: string | undefined): ChildProcess {
-    const file = command.shell ? quoteForCmd(command.file) : command.file;
-    const finalArgs = command.shell ? args.map(quoteForCmd) : args;
-    return spawn(file, finalArgs, { cwd, shell: command.shell, windowsHide: true, env: chatEnv(process.env) });
+    const options = { cwd, windowsHide: true, env: chatEnv(process.env) };
+    if (command.shell) {
+      // One pre-quoted line: Node warns (DEP0190) when an args array goes through a shell,
+      // because it only joins them. Only paths and fixed flags reach here, never chat text.
+      return spawn(shellCommandLine(command.file, args), { ...options, shell: true });
+    }
+    return spawn(command.file, args, options);
   }
 
   private async run(command: ClaudeCommand, projectDir: string, text: string): Promise<void> {
