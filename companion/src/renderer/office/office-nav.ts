@@ -4,6 +4,8 @@ import { distance, type Furniture, furniture, type Point, room, type StationId, 
 export const cellSize = 0.15;
 /** Half a chibi's shoulder width plus clearance, so walkers never brush furniture or walls. */
 export const bodyRadius = 0.18;
+/** How far a detour keeps from other people: two bodies plus a little air. */
+export const personClearance = 0.42;
 
 interface Cell {
   col: number;
@@ -114,15 +116,21 @@ export class NavGrid {
     return { x: room.minX + (cell.col + 0.5) * cellSize, z: room.minZ + (cell.row + 0.5) * cellSize };
   }
 
-  private isFreeCell(col: number, row: number): boolean {
-    return (
-      col >= 0 && row >= 0 && col < this.columns && row < this.rows && this.blocked[row * this.columns + col] === 0
-    );
+  private isFreeCell(col: number, row: number, avoid: readonly Point[] = []): boolean {
+    if (col < 0 || row < 0 || col >= this.columns || row >= this.rows || this.blocked[row * this.columns + col] !== 0) {
+      return false;
+    }
+    if (avoid.length === 0) {
+      return true;
+    }
+    const center = this.centerOf({ col, row });
+    return avoid.every((person) => distance(center, person) >= personClearance);
   }
 
-  isFree(point: Point): boolean {
+  /** Walkable for a body here. `avoid` adds people to steer around, on top of furniture and walls. */
+  isFree(point: Point, avoid: readonly Point[] = []): boolean {
     const { col, row } = this.cellOf(point);
-    return this.isFreeCell(col, row);
+    return this.isFreeCell(col, row, avoid);
   }
 
   /** Closest walkable cell center, searched in growing rings. Used to step out of a seat or snap a goal. */
@@ -150,11 +158,12 @@ export class NavGrid {
   }
 
   /** True when a walker can go straight from a to b without crossing a blocked cell. */
-  hasLineOfSight(a: Point, b: Point): boolean {
+  hasLineOfSight(a: Point, b: Point, avoid: readonly Point[] = []): boolean {
     const steps = Math.ceil(distance(a, b) / (cellSize / 3));
-    for (let step = 0; step <= steps; step++) {
+    // The first sample is where the walker already stands, possibly right next to someone.
+    for (let step = avoid.length === 0 ? 0 : 1; step <= steps; step++) {
       const t = steps === 0 ? 0 : step / steps;
-      if (!this.isFree({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t })) {
+      if (!this.isFree({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t }, avoid)) {
         return false;
       }
     }
@@ -163,10 +172,11 @@ export class NavGrid {
 
   /**
    * Shortest walkable route from `from` to `to` (both must be free), as waypoints
-   * after `from`, ending exactly at `to`. Null when no route exists.
+   * after `from`, ending exactly at `to`. Null when no route exists. `avoid` lists
+   * people to walk around; the start cell is exempt, since that is where the walker is.
    */
-  findPath(from: Point, to: Point): Point[] | null {
-    if (this.hasLineOfSight(from, to)) {
+  findPath(from: Point, to: Point, avoid: readonly Point[] = []): Point[] | null {
+    if (this.hasLineOfSight(from, to, avoid)) {
       return [to];
     }
     const start = this.cellOf(from);
@@ -188,7 +198,7 @@ export class NavGrid {
     while (open.size > 0) {
       const current = open.pop();
       if (current === goalIndex) {
-        return this.smooth(from, this.unwind(cameFrom, current), to);
+        return this.smooth(from, this.unwind(cameFrom, current), to, avoid);
       }
       if (closed[current] === 1) {
         continue;
@@ -198,11 +208,18 @@ export class NavGrid {
       const row = Math.floor(current / this.columns);
       for (let dr = -1; dr <= 1; dr++) {
         for (let dc = -1; dc <= 1; dc++) {
-          if ((dr === 0 && dc === 0) || !this.isFreeCell(col + dc, row + dr)) {
+          const nextIndex = (row + dr) * this.columns + (col + dc);
+          // The goal stays reachable even with someone standing near it; the walker waits there.
+          const cellAvoid = nextIndex === goalIndex ? [] : avoid;
+          if ((dr === 0 && dc === 0) || !this.isFreeCell(col + dc, row + dr, cellAvoid)) {
             continue;
           }
           // No corner cutting: a diagonal step needs both orthogonal neighbours free.
-          if (dr !== 0 && dc !== 0 && (!this.isFreeCell(col + dc, row) || !this.isFreeCell(col, row + dr))) {
+          if (
+            dr !== 0 &&
+            dc !== 0 &&
+            (!this.isFreeCell(col + dc, row, avoid) || !this.isFreeCell(col, row + dr, avoid))
+          ) {
             continue;
           }
           const next = (row + dr) * this.columns + (col + dc);
@@ -227,14 +244,14 @@ export class NavGrid {
   }
 
   /** String pulling: keep only the waypoints a walker cannot see past, so routes look like straight strides. */
-  private smooth(from: Point, cells: Point[], to: Point): Point[] {
+  private smooth(from: Point, cells: Point[], to: Point, avoid: readonly Point[]): Point[] {
     const route = [from, ...cells.slice(1, -1), to];
     const result: Point[] = [];
     let anchor = 0;
     while (anchor < route.length - 1) {
       let farthest = anchor + 1;
       for (let candidate = route.length - 1; candidate > anchor + 1; candidate--) {
-        if (this.hasLineOfSight(route[anchor] as Point, route[candidate] as Point)) {
+        if (this.hasLineOfSight(route[anchor] as Point, route[candidate] as Point, avoid)) {
           farthest = candidate;
           break;
         }
@@ -263,7 +280,12 @@ function stationAt(point: Point): StationId | null {
  * (seats block walking, so a sitter steps back out over their approach point), walk the
  * grid to the target's approach point, then step onto the spot.
  */
-export function planPath(from: Point, stationId: StationId, grid: NavGrid = navGrid): Point[] {
+export function planPath(
+  from: Point,
+  stationId: StationId,
+  grid: NavGrid = navGrid,
+  avoid: readonly Point[] = [],
+): Point[] {
   const station = stations[stationId];
   if (distance(from, station.spot) < 0.05) {
     return [];
@@ -272,8 +294,15 @@ export function planPath(from: Point, stationId: StationId, grid: NavGrid = navG
   const exit = leaving === null ? from : stations[leaving].approach;
   const start = grid.isFree(exit) ? exit : grid.nearestFree(exit);
   const goal = grid.isFree(station.approach) ? station.approach : grid.nearestFree(station.approach);
-  // No route only happens if the plan walls someone in; walking straight beats freezing in place.
-  const route = grid.findPath(start, goal) ?? [goal];
+  // People in the way are a preference, not a wall: if they block every route, plan as if they
+  // were not there and let the walker wait for them to move.
+  let route = (avoid.length > 0 ? grid.findPath(start, goal, avoid) : null) ?? grid.findPath(start, goal);
+  if (route === null) {
+    // Only a floor plan that walls a station in gets here; the layout tests check every station
+    // is reachable, so say so loudly instead of hiding it.
+    console.warn(`[office] no walkable route to ${stationId}, walking straight`);
+    route = [goal];
+  }
   const path: Point[] = [];
   let previous = from;
   for (const point of [exit, start, ...route, station.approach, station.spot]) {

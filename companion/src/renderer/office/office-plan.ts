@@ -362,8 +362,10 @@ export const furniture: readonly Furniture[] = [
   {
     id: "plant-lounge",
     kind: "plant",
-    x: -6.55,
-    z: 1.75,
+    // Behind the sofa's open side: the left-wall corner is boxed in by the beanbags and the
+    // coffee table, so a plant there could never be reached for watering.
+    x: -3.0,
+    z: 3.6,
     width: 0.5,
     depth: 0.5,
     yaw: facing.camera,
@@ -565,14 +567,11 @@ export const stations: Record<StationId, Station> = {
   rack: standing("rack", { x: 5.15, z: -3.85 }, facing.backWall),
   // In front of her backdrop, so the ring light and camera frame her like a real shoot.
   selfie: standing("selfie", { x: -2.75, z: 1.05 }, yawToward({ x: -2.75, z: 1.05 }, { x: -1.0, z: 2.75 })),
-  "plant-lounge": standing(
-    "plant-lounge",
-    { x: -6.1, z: 1.45 },
-    yawToward({ x: -6.1, z: 1.45 }, { x: -6.55, z: 1.75 }),
-  ),
+  "plant-lounge": standing("plant-lounge", { x: -3.0, z: 3.0 }, facing.camera),
   "plant-corner": standing("plant-corner", { x: 5.85, z: 3.05 }, yawToward({ x: 5.85, z: 3.05 }, { x: 6.4, z: 3.4 })),
   "plant-desks": standing("plant-desks", { x: 4.55, z: -3.9 }, facing.backWall),
-  "plant-center": standing("plant-center", { x: 1.45, z: 0.25 }, facing.backWall),
+  // From the open side by the meeting table, not the narrow lane to 2B's desk on the other side.
+  "plant-center": standing("plant-center", { x: 1.45, z: -0.95 }, facing.camera),
   ...meetingStations(),
   // Players stand off each end of the table, facing each other across it.
   "pingpong-west": standing("pingpong-west", { x: 2.2, z: -1.2 }, facing.right),

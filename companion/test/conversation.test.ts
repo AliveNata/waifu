@@ -89,6 +89,29 @@ describe("Conversation", () => {
     expect(conversation.pendingCount()).toBe(1);
   });
 
+  it("lets 2B speak for her own work when nobody is delegated", () => {
+    // Arrange
+    const conversation = new Conversation(() => 0);
+    const reaction = (mood: "thinking" | "working" | "done", detail: string | null, receivedAt: number) =>
+      ({ kind: "reaction", reaction: { mood, detail, receivedAt } }) as const;
+
+    // Act
+    conversation.handle(reaction("thinking", null, 0), "simulated");
+    conversation.handle(reaction("working", "PowerShell", 1), "simulated");
+    conversation.handle(reaction("working", "PowerShell", 2), "simulated");
+    conversation.handle(reaction("done", null, 3), "simulated");
+    conversation.handle(reaction("done", null, 4), "simulated");
+    const texts: string[] = [];
+    let now = 0;
+    for (let current = conversation.current(now); current !== null; current = conversation.current(now)) {
+      texts.push(current.line.text);
+      now += lineDurationMs(current.line) + 1;
+    }
+
+    // Assert: one tool line inside the throttle window, and one "done" per task.
+    expect(texts).toEqual(["Siap, aku cek dulu.", "Aku jalanin command-nya.", "Udah, hasilnya ada di terminal ya."]);
+  });
+
   it("is quiet when nothing has been said", () => {
     expect(new Conversation().current(0)).toBeNull();
   });

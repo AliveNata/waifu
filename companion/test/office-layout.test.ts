@@ -50,6 +50,16 @@ describe("floor plan", () => {
     expect(navGrid.isFree(stations[id].approach)).toBe(true);
   });
 
+  it("lets someone reach every station from the front of the room", () => {
+    // Act: a station boxed in by furniture would make the walker cut straight through it.
+    const unreachable = stationIds.filter(
+      (id) => navGrid.findPath(stations.front.approach, stations[id].approach) === null,
+    );
+
+    // Assert
+    expect(unreachable).toEqual([]);
+  });
+
   it("keeps every station inside the room", () => {
     for (const id of stationIds) {
       const { spot } = stations[id];
@@ -141,6 +151,87 @@ describe("walking", () => {
     [Math.PI * 0.9, -Math.PI * 0.9, Math.PI * 0.2],
   ])("takes the short way round from %d to %d", (from, to, expected) => {
     expect(angleDelta(from, to)).toBeCloseTo(expected);
+  });
+});
+
+describe("a busy office", () => {
+  /** Ten simulated minutes of all eight members following their routines at 30 fps. */
+  function simulateOffice(seed: number) {
+    let state = seed;
+    const random = () => {
+      state = (state * 9301 + 49297) % 233280;
+      return state / 233280;
+    };
+    const life = new OfficeLife(random);
+    const actors = new Map(memberIds.map((id) => [id, initialActor(life.planFor(id, 0).station)]));
+    const origins = new Map<string, StationId>(memberIds.map((id) => [id, actors.get(id)?.target as StationId]));
+    const furnitureHits: string[] = [];
+    const overlaps: string[] = [];
+    const dt = 1 / 30;
+    for (let frame = 1; frame <= 30 * 600; frame++) {
+      const now = frame * dt * 1000;
+      for (const id of memberIds) {
+        const before = actors.get(id) as ReturnType<typeof initialActor>;
+        const station =
+          id === "twob" ? life.planFor(id, now).station : memberPlan(id, "idle", life.planFor(id, now)).station;
+        const rest = memberIds.filter((other) => other !== id).map((other) => actors.get(other) as typeof before);
+        const next = stepActor(
+          before,
+          station,
+          dt,
+          rest.map((actor) => actor.position),
+          rest.filter((actor) => !isWalking(actor)).map((actor) => actor.position),
+        );
+        actors.set(id, next);
+        if (next.target !== before.target) {
+          origins.set(id, before.target);
+        }
+        if (!isWalking(next) && next.target === station) {
+          life.arrived(id, now);
+        }
+        // Stepping into or out of a seat crosses its footprint on purpose.
+        const from = stations[origins.get(id) as StationId];
+        const inTransition =
+          distance(next.position, stations[next.target].spot) < 1 || distance(next.position, from.spot) < 1;
+        if (isWalking(next) && !inTransition) {
+          const hit = furniture.find(
+            (piece) =>
+              piece.blocksWalking &&
+              Math.abs(next.position.x - piece.x) < piece.width / 2 &&
+              Math.abs(next.position.z - piece.z) < piece.depth / 2,
+          );
+          if (hit !== undefined) {
+            furnitureHits.push(`${id} in ${hit.id}`);
+          }
+        }
+      }
+      for (const [index, a] of memberIds.entries()) {
+        for (const b of memberIds.slice(index + 1)) {
+          const actorA = actors.get(a) as ReturnType<typeof initialActor>;
+          const actorB = actors.get(b) as ReturnType<typeof initialActor>;
+          const nearGoal =
+            distance(actorA.position, stations[actorA.target].spot) < 0.5 ||
+            distance(actorB.position, stations[actorB.target].spot) < 0.5;
+          if (
+            (isWalking(actorA) || isWalking(actorB)) &&
+            !nearGoal &&
+            distance(actorA.position, actorB.position) < 0.3
+          ) {
+            overlaps.push(`${a}/${b}`);
+          }
+        }
+      }
+    }
+    return { furnitureHits, overlaps };
+  }
+
+  it.each([7, 640])("keeps walkers out of furniture and out of each other (seed %d)", (seed) => {
+    // Act
+    const { furnitureHits, overlaps } = simulateOffice(seed);
+
+    // Assert
+    expect(furnitureHits).toEqual([]);
+    expect(overlaps).toEqual([]);
   });
 });
 

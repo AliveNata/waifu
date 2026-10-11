@@ -169,7 +169,11 @@ export class OfficeStage {
   private elapsed = 0;
   private closeupEnabled = true;
   private focus: CloseupFocus | null = null;
-  private heldFocus: { memberId: MemberId; until: number } | null = null;
+  /**
+   * The last close-up, frozen while the hold runs out: the camera stays where the work happened
+   * (the board, the desk) with its label, instead of following the member down the hallway.
+   */
+  private heldFocus: { focus: CloseupFocus; shot: CloseupShot; until: number } | null = null;
   private lastInputAt = Date.now();
   private driftPhase = 0;
   private night = 0;
@@ -424,8 +428,10 @@ export class OfficeStage {
     rig.plan = plan;
     const previousTarget = rig.actor.target;
     const wasAt = isWalking(rig.actor) ? null : previousTarget;
-    const others = memberIds.filter((other) => other !== memberId).map((other) => this.rigs[other].actor.position);
-    rig.actor = stepActor(rig.actor, plan.station, delta, others);
+    const otherRigs = memberIds.filter((other) => other !== memberId).map((other) => this.rigs[other].actor);
+    const others = otherRigs.map((actor) => actor.position);
+    const standing = otherRigs.filter((actor) => !isWalking(actor)).map((actor) => actor.position);
+    rig.actor = stepActor(rig.actor, plan.station, delta, others, standing);
     const walking = isWalking(rig.actor);
     const arrived = !walking && rig.actor.target === plan.station;
     if (arrived) {
@@ -519,11 +525,10 @@ export class OfficeStage {
     if (best === null && (twob.action === "type" || twob.action === "draw") && twob.plan.mood !== "idle") {
       best = { memberId: "twob", at: now };
     }
-    if (best !== null) {
-      this.heldFocus = { memberId: best.memberId, until: now + closeupHoldMs };
-    } else if (this.heldFocus !== null && now < this.heldFocus.until) {
-      best = { memberId: this.heldFocus.memberId, at: now };
-    } else {
+    if (best === null) {
+      if (this.heldFocus !== null && now < this.heldFocus.until) {
+        return this.heldFocus.focus;
+      }
       this.heldFocus = null;
       return null;
     }
@@ -532,10 +537,18 @@ export class OfficeStage {
     const activity = rig.action === null ? "jalan" : actionLabels[rig.action];
     const tool = best.memberId === "twob" ? null : this.team[best.memberId].lastTool;
     const label = `${profile.displayName} · ${profile.role} · ${activity}${tool === null ? "" : ` (${tool})`}`;
-    return { memberId: best.memberId, label };
+    const focus = { memberId: best.memberId, label };
+    this.heldFocus = { focus, shot: this.liveShot(best.memberId), until: now + closeupHoldMs };
+    return focus;
   }
 
-  private closeupShot(memberId: MemberId): CloseupShot {
+  /** The held shot while the hold runs, otherwise the member's live shot. */
+  private closeupShotFor(memberId: MemberId): CloseupShot {
+    const held = this.heldFocus;
+    return held !== null && held.focus.memberId === memberId ? held.shot : this.liveShot(memberId);
+  }
+
+  private liveShot(memberId: MemberId): CloseupShot {
     if (memberId === "twob" && this.rigs.twob.action === "draw") {
       return twobBoardShot(this.office);
     }
@@ -599,7 +612,7 @@ export class OfficeStage {
 
     if (this.closeupEnabled && this.focus !== null) {
       const rect = closeupRect(width, height);
-      const shot = this.closeupShot(this.focus.memberId);
+      const shot = this.closeupShotFor(this.focus.memberId);
       this.closeupCamera.aspect = rect.width / rect.height;
       this.closeupCamera.updateProjectionMatrix();
       this.closeupCamera.position.copy(shot.eye);

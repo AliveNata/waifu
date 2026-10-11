@@ -1,5 +1,5 @@
 import type { ConversationMode } from "../../shared/protocol.js";
-import type { CompanionSignal, Delegation, MemberSignal, Mood } from "../../shared/reaction.js";
+import type { CompanionSignal, Delegation, MemberSignal, Mood, Reaction } from "../../shared/reaction.js";
 import { type MemberId, roster } from "../../shared/team.js";
 
 export type Gesture = "none" | "nod" | "point" | "think" | "cheer";
@@ -48,6 +48,11 @@ const stopGestures: Record<Exclude<MemberId, "twob">, Gesture> = {
   ruby: "cheer",
 };
 
+/** 2B working on her own, without the team: she says what she starts and when she is done. */
+const twobStartLines: readonly string[] = ["Siap, aku cek dulu.", "Oke, aku kerjain sekarang."];
+const twobDoneLine = "Udah, hasilnya ada di terminal ya.";
+const twobWaitingLine = "Aku nunggu jawaban lo di terminal.";
+
 export function toolLine(memberId: MemberId, tool: string): { text: string; gesture: Gesture } {
   switch (tool) {
     case "Read":
@@ -59,6 +64,7 @@ export function toolLine(memberId: MemberId, tool: string): { text: string; gest
     case "NotebookEdit":
       return { text: "Aku ubah file-nya sekarang.", gesture: "none" };
     case "Bash":
+    case "PowerShell":
       return {
         text: memberId === "yor" ? "Jalanin command read-only dulu." : "Aku jalanin command-nya.",
         gesture: "none",
@@ -90,6 +96,8 @@ export class Conversation {
   private active: { line: DialogLine; startedAt: number } | null = null;
   private readonly lastToolLineAt = new Map<MemberId, number>();
   private readonly pendingTasks = new Map<MemberId, string>();
+  /** Set from a prompt to its Stop, so 2B says "done" once per task and not on a stray Stop. */
+  private twobOnTask = false;
   private nextId = 1;
 
   constructor(private readonly random: () => number = Math.random) {}
@@ -99,6 +107,8 @@ export class Conversation {
       this.handleDelegation(signal.delegation, mode);
     } else if (signal.kind === "member") {
       this.handleMember(signal.member, mode);
+    } else {
+      this.handleReaction(signal.reaction);
     }
   }
 
@@ -148,6 +158,56 @@ export class Conversation {
       gesture: "point",
       mood: "greeting",
     });
+  }
+
+  /**
+   * 2B's own main-session work. Without this the dialog stays silent whenever she handles a task
+   * herself instead of delegating, which looks like the office ignored the request.
+   */
+  private handleReaction(reaction: Reaction): void {
+    switch (reaction.mood) {
+      case "thinking":
+        // A null detail is a new prompt; "Merapikan konteks" (compaction) is not a new task.
+        if (reaction.detail === null && !this.twobOnTask) {
+          this.twobOnTask = true;
+          this.push({
+            memberId: "twob",
+            text: this.pick(twobStartLines),
+            simulated: true,
+            gesture: "nod",
+            mood: "thinking",
+          });
+        }
+        break;
+      case "working": {
+        const tool = reaction.detail;
+        const last = this.lastToolLineAt.get("twob") ?? Number.NEGATIVE_INFINITY;
+        // Delegation already has its own line ("Asuna, tolong bantu ya").
+        if (
+          tool === null ||
+          tool === "Delegasi ke tim" ||
+          reaction.receivedAt - last < toolLineGapMs ||
+          this.queue.length >= maxQueuedBeforeToolLines
+        ) {
+          return;
+        }
+        this.lastToolLineAt.set("twob", reaction.receivedAt);
+        const { text, gesture } = toolLine("twob", tool);
+        this.push({ memberId: "twob", text, simulated: false, gesture, mood: "working" });
+        break;
+      }
+      case "waiting":
+        this.push({ memberId: "twob", text: twobWaitingLine, simulated: false, gesture: "point", mood: "waiting" });
+        break;
+      case "done":
+        if (this.twobOnTask) {
+          this.twobOnTask = false;
+          this.push({ memberId: "twob", text: twobDoneLine, simulated: false, gesture: "cheer", mood: "done" });
+        }
+        break;
+      default:
+        break;
+    }
   }
 
   private handleMember(signal: MemberSignal, mode: ConversationMode): void {

@@ -5,10 +5,6 @@
   bottom: 16px;
 }
 
-.office .status {
-  margin-right: auto;
-}
-
 /* Sits on top edge of the close-up viewport; position comes from the stage each frame. */
 .closeup-caption {
   position: absolute;
@@ -313,6 +309,18 @@
   flex-shrink: 0;
   background: var(--chip-bg);
   color: var(--chip-ink);
+}
+
+/*
+ * Only one auto margin in the HUD row: the chat toggle's, or Menu's when the toggle is hidden
+ * (browser mode). Two auto margins split the free space and strand the toggle mid-screen.
+ */
+.office .hud .hud-button {
+  margin-left: auto;
+}
+
+.office .hud .hud-button:not([hidden]) + .menu-button {
+  margin-left: 0;
 }
 
 @media (prefers-color-scheme: dark) {
