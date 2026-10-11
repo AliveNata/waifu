@@ -192,6 +192,29 @@ function createTeamOverlayWindow(): BrowserWindow {
   return window;
 }
 
+/** True while someone is talking, as reported by the team overlay page. */
+let teamOverlayWanted = false;
+
+/** The office has its own team dialog and portrait in the same corner, so the desktop overlay steps aside. */
+function officeOnScreen(): boolean {
+  return (
+    officeWindow !== null && !officeWindow.isDestroyed() && officeWindow.isVisible() && !officeWindow.isMinimized()
+  );
+}
+
+function applyTeamOverlayVisibility(): void {
+  const window = teamOverlayWindow;
+  if (window === null || window.isDestroyed()) {
+    return;
+  }
+  const show = teamOverlayWanted && !officeOnScreen();
+  if (show && !window.isVisible()) {
+    window.showInactive();
+  } else if (!show && window.isVisible()) {
+    window.hide();
+  }
+}
+
 function openOfficeWindow(): void {
   if (officeWindow !== null && !officeWindow.isDestroyed()) {
     officeWindow.show();
@@ -209,6 +232,10 @@ function openOfficeWindow(): void {
     webPreferences,
   });
   watchRenderer(officeWindow, "office");
+  officeWindow.on("show", applyTeamOverlayVisibility);
+  officeWindow.on("hide", applyTeamOverlayVisibility);
+  officeWindow.on("minimize", applyTeamOverlayVisibility);
+  officeWindow.on("restore", applyTeamOverlayVisibility);
   // Claude Code may have been installed or logged in since the last check.
   officeChat?.checkCli().catch((error: unknown) => console.error("[main] claude CLI check failed", error));
   officeWindow.loadFile(join(rendererDir, "office/index.html")).catch((error: unknown) => {
@@ -216,6 +243,7 @@ function openOfficeWindow(): void {
   });
   officeWindow.on("closed", () => {
     officeWindow = null;
+    applyTeamOverlayVisibility();
     // Nobody can see a permission card any more, so the run stops and open cards become denies.
     officeChat?.stop();
     permissionGate.denyAll("Kantor ditutup.");
@@ -526,15 +554,8 @@ function registerIpc(): void {
       .catch((error: unknown) => console.error("[main] failed to save settings", error));
   });
   ipcMain.on(ipcChannels.teamOverlayVisible, (_event, visible: unknown) => {
-    const window = teamOverlayWindow;
-    if (window === null || window.isDestroyed()) {
-      return;
-    }
-    if (visible === true && !window.isVisible()) {
-      window.showInactive();
-    } else if (visible !== true && window.isVisible()) {
-      window.hide();
-    }
+    teamOverlayWanted = visible === true;
+    applyTeamOverlayVisibility();
   });
   ipcMain.handle(ipcChannels.getServerStatus, () => serverStatus);
   ipcMain.on(ipcChannels.openMenu, (event) => {

@@ -521,20 +521,25 @@ export function buildCameraTripod(piece: Furniture): Group {
   return root;
 }
 
-/** Ruby's brand wall: the AlyxLabs logo at her head height, the same mark as the wall sign. */
-export function buildBackdrop(piece: Furniture, logo: Texture): Group {
+/**
+ * Ruby's brand wall: logo and "AlyxLabs" side by side like the wall sign, in a band above her
+ * head so neither hides behind her in the close-up.
+ */
+export function buildBackdrop(piece: Furniture, logo: Texture, lettering: Texture): Group {
   const root = placed(piece);
   const { width } = localSize(piece);
   const ink = standard(palette.inkDeep, 0.7);
   const height = 1.25;
   root.add(box(width, height, 0.05, ink, 0, 0, 0), box(width, 0.018, 0.06, glow(), 0, height - 0.02, 0));
-  const mark = mesh(new PlaneGeometry(0.42, 0.42), unlit(logo, true), false);
-  mark.position.set(0, chibi.eye + 0.05, 0.03);
-  root.add(mark);
+  const bandY = chibi.eye + 0.13;
+  const mark = mesh(new PlaneGeometry(0.32, 0.32), unlit(logo, true), false);
+  mark.position.set(-0.42, bandY, 0.03);
+  const text = mesh(new PlaneGeometry(0.8, 0.2), unlit(lettering, true), false);
+  text.position.set(0.17, bandY, 0.03);
+  root.add(mark, text);
   return root;
 }
 
-/** Team table at desk height with two laptops and notes, where standups and casual work happen. */
 /**
  * Team table with one laptop per chair, each facing its sitter. Laptops come back in the order
  * of the meeting seats (back left, back right, front left, front right), so the stage can light

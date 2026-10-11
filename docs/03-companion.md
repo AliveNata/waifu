@@ -65,7 +65,7 @@ Wajah yang ngomong:
 
 Overlay tim sengaja lebih kecil dari overlay 2B (300 x 380).
 
-**Di kantor**, percakapan tim ada di pojok kanan atas, jauh dari chat dan close-up yang di kiri. Wajah yang ngomong muncul kecil (150 x 180) di atas kotak dialog, bagian bawahnya nyelip di balik dialog. Isinya model lengkap anggota itu, sama kayak overlay tim, jadi ekspresi, kedipan, dan mulutnya ikut. Overlay tim di desktop tetap muncul juga. Kalau modelnya gagal dimuat, potretnya nggak muncul dan dialognya tetap jalan.
+**Di kantor**, percakapan tim ada di pojok kanan atas, jauh dari chat dan close-up yang di kiri. Wajah yang ngomong muncul kecil (150 x 180) di atas kotak dialog, bagian bawahnya nyelip di balik dialog. Isinya model lengkap anggota itu, sama kayak overlay tim, jadi ekspresi, kedipan, dan mulutnya ikut. Selama window kantor kebuka di layar (nggak di-minimize), overlay tim di desktop minggir dulu biar nggak nimpa percakapan di pojok yang sama, terus balik lagi pas kantor ditutup atau di-minimize. Kalau modelnya gagal dimuat, potretnya nggak muncul dan dialognya tetap jalan.
 
 Overlay tim bisa digeser kayak overlay 2B.
 
@@ -138,7 +138,7 @@ Lo bisa ngasih tugas langsung dari kantor tanpa buka terminal. Panel **Chat ke 2
 2. Ketik tugasnya, tekan Enter (Shift+Enter buat baris baru).
 3. Balasan 2B muncul sambil diketik. Tiap tool yang dipakai muncul sebagai baris kecil, misalnya `Bash: npm test`.
 4. Kalau 2B butuh izin, muncul **kartu hijau** isinya nama tool dan command lengkapnya. Klik **Izinkan** atau **Tolak**. Pakai keyboard: kartunya langsung dapat fokus, Tab sekali ke Izinkan, dua kali ke Tolak.
-5. **Stop** ngehentiin kerjaan yang lagi jalan. **Chat baru** mulai obrolan dari nol di folder yang sama.
+5. **Stop** ngehentiin kerjaan yang lagi jalan. Anggota tim yang lagi dikerjain ikut berhenti, close-up nutup, dan baru muncul lagi pas ada tugas baru. **Chat baru** mulai obrolan dari nol di folder yang sama.
 
 Tombol **Tutup chat** dan **Buka chat** di kanan bawah buat nyembunyiin atau nampilin panelnya. Bisa juga lewat **Menu > Chat ke Claude di kantor**.
 

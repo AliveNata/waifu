@@ -93,16 +93,19 @@ export function windowTexture(seed: number, night = false): CanvasTexture {
   return texture(element);
 }
 
-/** "AlyxLabs" lettering for the wall sign, set in the UI face so it matches the companion's own text. */
-export function signTextTexture(): CanvasTexture {
+/**
+ * "AlyxLabs" lettering, set in the UI face so it matches the companion's own text. The default
+ * colors suit the light wall; the dark backdrop passes lighter ones.
+ */
+export function signTextTexture(alyxColor: string = palette.inkDeep, labsColor = "#8a3fd6"): CanvasTexture {
   const { canvas: element, ctx } = canvas(1024, 256);
   ctx.clearRect(0, 0, 1024, 256);
   ctx.textBaseline = "middle";
   ctx.font = `700 150px ${uiFont}`;
-  ctx.fillStyle = palette.inkDeep;
+  ctx.fillStyle = alyxColor;
   ctx.fillText("Alyx", 10, 130);
   const alyxWidth = ctx.measureText("Alyx").width;
-  ctx.fillStyle = "#8a3fd6";
+  ctx.fillStyle = labsColor;
   ctx.fillText("Labs", 10 + alyxWidth, 130);
   return texture(element);
 }

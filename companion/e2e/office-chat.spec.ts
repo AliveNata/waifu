@@ -169,4 +169,30 @@ test.describe("office HUD", () => {
     await expect.poll(overlayVisible).toBe(true);
     await app.close();
   });
+
+  test("keeps the desktop team overlay out of the way while the office shows the conversation", async () => {
+    // Arrange
+    const { app, office } = await launchOffice();
+    const teamOverlayVisible = () =>
+      app.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows().some((window) => window.getTitle() === "Tim 2B" && window.isVisible()),
+      );
+
+    // Act
+    const response = await office.request.post("http://127.0.0.1:47933/hook", {
+      data: { hook_event_name: "SubagentStart", agent_id: "e2e-team", agent_type: "erza" },
+      headers: { "content-type": "application/json" },
+    });
+
+    // Assert: the office shows the line itself, the desktop overlay stays hidden.
+    expect(response.status()).toBe(202);
+    await expect(office.locator("#office-dialog")).toContainText("Erza");
+    expect(await teamOverlayVisible()).toBe(false);
+    // Guards the check above: the window exists, it is just kept hidden.
+    const teamOverlayExists = await app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows().some((window) => window.getTitle() === "Tim 2B"),
+    );
+    expect(teamOverlayExists).toBe(true);
+    await app.close();
+  });
 });

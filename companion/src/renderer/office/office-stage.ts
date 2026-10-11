@@ -45,7 +45,7 @@ import { PlaceholderAvatar } from "./placeholder.js";
 import { HandProps } from "./scene/hand-props.js";
 import { fitSeat } from "./seating.js";
 import type { Vec2 } from "./surfaces/drawing.js";
-import { applyMemberSignal, emptyTeamRuntime, memberBehavior, type TeamRuntime } from "./team-state.js";
+import { applyMemberSignal, emptyTeamRuntime, endAllRuns, memberBehavior, type TeamRuntime } from "./team-state.js";
 
 const closeupBackground = new Color("#e9e4da");
 /** Keeps the close-up on the last worker a little after they finish, so the "done" moment is visible. */
@@ -339,6 +339,12 @@ export class OfficeStage {
       return;
     }
     this.team = { ...this.team, [signal.memberId]: applyMemberSignal(this.team[signal.memberId], signal) };
+  }
+
+  /** After a stopped run: members leave their desks and the close-up closes until the next task. */
+  endAllRuns(now: number): void {
+    this.team = endAllRuns(this.team, now);
+    this.heldFocus = null;
   }
 
   setCloseupLayout(rect: CloseupRect): void {

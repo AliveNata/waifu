@@ -343,7 +343,8 @@ export function buildOffice(): OfficeProps {
         root.add(buildCameraTripod(piece));
         break;
       case "backdrop":
-        root.add(buildBackdrop(piece, logo));
+        // Light lettering: the wall sign's dark ink would vanish on the backdrop's near-black.
+        root.add(buildBackdrop(piece, logo, signTextTexture("#f4f1ec", "#c9a2f5")));
         break;
       case "whiteboard":
       case "idea-board":

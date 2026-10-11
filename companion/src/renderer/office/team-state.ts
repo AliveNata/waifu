@@ -62,6 +62,21 @@ export function memberBehavior(runtime: MemberRuntime, now: number): MemberBehav
 
 export type TeamRuntime = Record<Exclude<MemberId, "twob">, MemberRuntime>;
 
+/**
+ * Every member goes back to idle, without the "done" cheer: the run was stopped, so no
+ * SubagentStop will come, and the subagents ended with the process that ran them.
+ */
+export function endAllRuns(team: TeamRuntime, now: number): TeamRuntime {
+  const ended = { ...team };
+  for (const memberId of Object.keys(team) as (keyof TeamRuntime)[]) {
+    const runtime = team[memberId];
+    if (runtime.activeAgents.size > 0) {
+      ended[memberId] = { activeAgents: new Set(), lastTool: null, lastSignalAt: now, finishedAt: null };
+    }
+  }
+  return ended;
+}
+
 export function emptyTeamRuntime(): TeamRuntime {
   return {
     chizuru: emptyRuntime(),

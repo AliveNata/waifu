@@ -1,6 +1,7 @@
 import "../common/base.css";
 import "./office.css";
 import type { ConversationMode } from "../../shared/protocol.js";
+import { idleReaction } from "../../shared/reaction.js";
 import type { MemberId } from "../../shared/team.js";
 import { memberIds, roster } from "../../shared/team.js";
 import { getBridge, type RendererBridge } from "../common/bridge.js";
@@ -29,6 +30,7 @@ class OfficePage {
   private readonly portraitCanvas = requireElement("speaker-portrait", HTMLCanvasElement);
   private readonly portrait = new SpeakerStage(this.portraitCanvas, () => undefined, portraitFraming);
   private portraitIdleSince: number | null = null;
+  private chatWorking = false;
   private readonly closeupSetting = requireElement("closeup-setting", HTMLInputElement);
   private readonly menuButton = requireElement("menu-button", HTMLButtonElement);
   private readonly companionToggle = requireElement("companion-toggle", HTMLButtonElement);
@@ -63,6 +65,16 @@ class OfficePage {
       } else if (signal.kind === "member") {
         this.stage.applyMemberSignal(signal.member);
       }
+    });
+    // The office chat's run ending (Stop, an error, or done) ends its subagents too, but a stopped
+    // run sends no SubagentStop or Stop hook, so the office would show them working for minutes.
+    this.bridge.onChatStatus((status) => {
+      if (this.chatWorking && status.state !== "working") {
+        const now = Date.now();
+        this.stage.endAllRuns(now);
+        this.tracker.apply(idleReaction(now));
+      }
+      this.chatWorking = status.state === "working";
     });
     this.bridge.onModelChanged((memberId) => {
       this.speakerModels.forget(memberId);

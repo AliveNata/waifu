@@ -3,6 +3,8 @@ import {
   applyMemberSignal,
   doneDurationMs,
   emptyRuntime,
+  emptyTeamRuntime,
+  endAllRuns,
   memberBehavior,
   staleRunMs,
 } from "../src/renderer/office/team-state.js";
@@ -51,5 +53,21 @@ describe("member runtime", () => {
 
     // Act + Assert
     expect(memberBehavior(runtime, staleRunMs + 1)).toBe("idle");
+  });
+});
+
+describe("endAllRuns", () => {
+  it("sends a stopped member straight to idle, with no done cheer", () => {
+    // Arrange
+    const working = applyMemberSignal(emptyRuntime(), signal("start", "a1", 1000));
+    const team = { ...emptyTeamRuntime(), asuna: working };
+
+    // Act
+    const ended = endAllRuns(team, 2000);
+
+    // Assert
+    expect(memberBehavior(working, 1500)).toBe("working");
+    expect(memberBehavior(ended.asuna, 2001)).toBe("idle");
+    expect(ended.erza).toBe(team.erza);
   });
 });
