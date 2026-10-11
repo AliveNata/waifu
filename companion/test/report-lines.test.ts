@@ -75,6 +75,8 @@ describe("sentenceTone", () => {
     ["Sebaiknya tambahkan index di kolom email.", "suggestion"],
     ["Mau aku lanjut ke bagian deploy?", "question"],
     ["File yang diubah ada tiga.", "neutral"],
+    ["Belum bisa dipastikan dari repo.", "confused"],
+    ["Kemungkinan ada di main process.", "confused"],
   ] as const)("reads %j as %s", (sentence, tone) => {
     // Arrange, Act
     const result = sentenceTone(sentence);

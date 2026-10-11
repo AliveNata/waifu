@@ -1,5 +1,5 @@
-import type { Gesture } from "../common/conversation.js";
-import { addRotation, armsRelaxed, type Pose, type PoseBones } from "../common/pose.js";
+import type { Gesture } from "./conversation.js";
+import { addRotation, armsRelaxed, type Pose, type PoseBones } from "./pose.js";
 
 export interface SpeakerPoseInput {
   gesture: Gesture;
@@ -35,6 +35,13 @@ export function speakerPose(input: SpeakerPoseInput): Pose {
       // A slow, damped head shake: "not quite" rather than a hard "no".
       const shake = 0.13 * Math.sin(t * 8) * Math.exp(-t * 1.3);
       bones.head = addRotation(bones.head, { y: shake, x: 0.04 * Math.exp(-t) });
+      break;
+    }
+    case "tilt": {
+      // Confused: the head tilts and stays tilted while the sentence lasts, then eases back.
+      const tilt = Math.min(1, t * 3) * (t < 3 ? 1 : Math.max(0, 1 - (t - 3) * 1.5));
+      bones.head = addRotation(bones.head, { x: -0.04 * tilt, y: 0.08 * tilt, z: 0.16 * tilt });
+      bones.neck = addRotation(bones.neck, { z: 0.05 * tilt });
       break;
     }
     case "point": {

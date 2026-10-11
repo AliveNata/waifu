@@ -5,7 +5,7 @@ import type { ExpressionWeights } from "./expressions.js";
  * tone guessed from its words, so the face follows what is being said.
  */
 
-export type Tone = "positive" | "concern" | "suggestion" | "question" | "neutral";
+export type Tone = "positive" | "concern" | "suggestion" | "question" | "confused" | "neutral";
 
 /** Enough to cover a typical short report without the overlay talking for minutes. */
 export const maxSpokenSentences = 6;
@@ -82,6 +82,9 @@ export function reportSentences(report: string, limit = maxSpokenSentences): Rep
   return { sentences: sentences.slice(0, limit), truncated: cutByHook || sentences.length > limit };
 }
 
+/** Unsure wording: checked before concern words, since "belum bisa dipastikan" is doubt, not a problem. */
+const confusedWords =
+  /\b(bingung|nggak yakin|gak yakin|ga yakin|tidak yakin|kurang yakin|belum yakin|belum bisa dipastikan|belum pasti|nggak pasti|tidak pasti|nggak jelas|gak jelas|kurang jelas|tidak jelas|belum jelas|kemungkinan|sepertinya|kayaknya|entah|unclear|not sure|unsure|perhaps|probably)\b/i;
 const negatedConcern =
   /\b(tidak ada|nggak ada|gak ada|ga ada|tanpa|no|zero|0)\s+(\w+\s+)?(gagal|error|eror|bug|bugs|masalah|issues?|warnings?|blockers?|risiko|regresi|regressions?|failures?|temuan)\b/i;
 const negatedPositive =
@@ -98,6 +101,9 @@ export function sentenceTone(sentence: string): Tone {
   const text = sentence.trim();
   if (text.endsWith("?")) {
     return "question";
+  }
+  if (confusedWords.test(text)) {
+    return "confused";
   }
   if (negatedConcern.test(text)) {
     return "positive";
@@ -123,5 +129,6 @@ export const toneExpressions: Record<Tone, ExpressionWeights> = {
   concern: { sad: 0.5, surprised: 0.08 },
   suggestion: { relaxed: 0.2, happy: 0.12 },
   question: { surprised: 0.3 },
+  confused: { surprised: 0.2, sad: 0.25 },
   neutral: { relaxed: 0.15 },
 };

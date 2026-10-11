@@ -44,13 +44,22 @@ export function stepExpressionWeights(
 const blinkDurationSeconds = 0.16;
 const minBlinkGapSeconds = 2.2;
 const blinkGapRangeSeconds = 3.6;
+/** People sometimes blink twice in a row; a fixed rhythm is what makes avatars look robotic. */
+const doubleBlinkChance = 0.18;
+const doubleBlinkGapSeconds = 0.2;
 
 /** Random blinking. `random` is injectable so tests are deterministic. */
 export class BlinkScheduler {
   private nextBlinkAt: number;
+  private followUpPending = false;
 
   constructor(private readonly random: () => number = Math.random) {
     this.nextBlinkAt = this.gap();
+  }
+
+  /** Blinks within `withinSeconds`, like at the end of a sentence, unless one is already due sooner. */
+  blinkSoon(timeSeconds: number, withinSeconds = 0.12): void {
+    this.nextBlinkAt = Math.min(this.nextBlinkAt, timeSeconds + withinSeconds);
   }
 
   weightAt(timeSeconds: number): number {
@@ -59,11 +68,21 @@ export class BlinkScheduler {
       return 0;
     }
     if (sinceStart >= blinkDurationSeconds) {
-      this.nextBlinkAt = timeSeconds + this.gap();
+      this.scheduleAfter(timeSeconds);
       return 0;
     }
     const half = blinkDurationSeconds / 2;
     return sinceStart < half ? sinceStart / half : (blinkDurationSeconds - sinceStart) / half;
+  }
+
+  private scheduleAfter(timeSeconds: number): void {
+    if (!this.followUpPending && this.random() < doubleBlinkChance) {
+      this.followUpPending = true;
+      this.nextBlinkAt = timeSeconds + doubleBlinkGapSeconds;
+      return;
+    }
+    this.followUpPending = false;
+    this.nextBlinkAt = timeSeconds + this.gap();
   }
 
   private gap(): number {

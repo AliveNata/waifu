@@ -4,21 +4,35 @@ import type { ConversationMode } from "../../shared/protocol.js";
 import type { MemberId } from "../../shared/team.js";
 import { memberIds, roster } from "../../shared/team.js";
 import { getBridge, type RendererBridge } from "../common/bridge.js";
-import { Conversation } from "../common/conversation.js";
+import { Conversation, type DialogLine } from "../common/conversation.js";
 import { DialogBox } from "../common/dialog-box.js";
 import { MemberModelLoader } from "../common/member-model.js";
 import { ReactionTracker } from "../common/reaction-tracker.js";
+import { SpeakerModels } from "../common/speaker-models.js";
+import { type SpeakerFraming, SpeakerStage } from "../common/speaker-stage.js";
 import { requireElement, StatusChip } from "../common/status-chip.js";
 import { loadVrm } from "../common/vrm-loader.js";
 import { VrmOfficeAvatar } from "./avatar.js";
 import { ChatPanel } from "./chat-panel.js";
 import { type CloseupRect, closeupRect, OfficeStage } from "./office-stage.js";
 
+/** Head and shoulders: the portrait is small, so the face has to fill it. */
+const portraitFraming: SpeakerFraming = { height: 0.55, drop: 0.06 };
+/** How far the portrait tucks behind the dialog's top edge, like a visual-novel bust. */
+const portraitOverlap = 14;
+const portraitInset = 16;
+/** Keep the portrait loaded briefly after a line, so back-to-back lines do not flicker. */
+const portraitHoldMs = 1500;
+
 class OfficePage {
   private readonly status = new StatusChip(requireElement("status", HTMLElement));
   private readonly caption = requireElement("closeup-caption", HTMLElement);
   private readonly chatPanel = requireElement("chat", HTMLElement);
   private readonly dialogBox = new DialogBox(requireElement("office-dialog", HTMLElement));
+  private readonly portraitCanvas = requireElement("speaker-portrait", HTMLCanvasElement);
+  private readonly portrait = new SpeakerStage(this.portraitCanvas, () => undefined, portraitFraming);
+  private portraitIdleSince: number | null = null;
+  private lastPortraitLayout = "";
   private readonly closeupSetting = requireElement("closeup-setting", HTMLInputElement);
   private readonly menuButton = requireElement("menu-button", HTMLButtonElement);
   private readonly companionToggle = requireElement("companion-toggle", HTMLButtonElement);
@@ -31,6 +45,7 @@ class OfficePage {
   private readonly loadGenerations = new Map<MemberId, number>();
   private readonly stage: OfficeStage;
   private readonly models: MemberModelLoader;
+  private readonly speakerModels: SpeakerModels;
   private baseHintShown = false;
   private lastCaption = "";
   private lastDialogLayout = "";
@@ -41,6 +56,7 @@ class OfficePage {
   ) {
     this.stage = new OfficeStage(canvas, () => this.tick());
     this.models = new MemberModelLoader(bridge);
+    this.speakerModels = new SpeakerModels(this.models, () => this.portrait.currentSpeaker());
   }
 
   start(): void {
@@ -52,7 +68,10 @@ class OfficePage {
         this.stage.applyMemberSignal(signal.member);
       }
     });
-    this.bridge.onModelChanged((memberId) => this.loadSaved(memberId));
+    this.bridge.onModelChanged((memberId) => {
+      this.speakerModels.forget(memberId);
+      this.loadSaved(memberId);
+    });
     this.bridge.onServerStatus((status) => this.status.applyServerStatus(status));
     this.bridge
       .getServerStatus()
@@ -232,7 +251,8 @@ class OfficePage {
   /** Sits on top of the close-up (and its caption) when it shows, otherwise drops into its place. */
   private renderDialog(now: number, rect: CloseupRect): void {
     const current = this.conversation.current(now);
-    this.dialogBox.render(current, now);
+    const started = this.dialogBox.render(current, now);
+    this.renderPortrait(current, started, now);
     if (current === null) {
       return;
     }
@@ -248,6 +268,50 @@ class OfficePage {
       style.left = `${rect.x}px`;
       style.width = `${rect.width}px`;
       style.bottom = `${bottom}px`;
+    }
+    this.placePortrait(rect, bottom);
+  }
+
+  /** The speaker's face above the dialog: same line, same clock, so lips match the typewriter text. */
+  private renderPortrait(current: { line: DialogLine; startedAt: number } | null, started: boolean, now: number): void {
+    this.portrait.setLine(current);
+    if (current === null) {
+      this.portraitCanvas.hidden = true;
+      this.portraitIdleSince ??= now;
+      const onStage = this.portrait.currentSpeaker();
+      if (onStage !== null && now - this.portraitIdleSince >= portraitHoldMs) {
+        // Nothing to say for a while: take the model off stage so the portrait stops rendering.
+        this.portrait.setSpeaker(onStage, null);
+      }
+      return;
+    }
+    this.portraitIdleSince = null;
+    const memberId = current.line.memberId;
+    this.portraitCanvas.hidden = this.portrait.currentSpeaker() !== memberId;
+    if (started && this.portrait.currentSpeaker() !== memberId) {
+      this.speakerModels
+        .modelFor(memberId)
+        .then((vrm) => {
+          // Only swap if this member is still the one talking when the model arrives.
+          if (this.conversation.current(Date.now())?.line.memberId === memberId) {
+            this.portrait.setSpeaker(memberId, vrm);
+            this.portraitCanvas.hidden = vrm === null;
+          }
+        })
+        .catch((error: unknown) => console.error(`[office] could not show ${memberId} above the dialog`, error));
+    }
+  }
+
+  private placePortrait(rect: CloseupRect, dialogBottom: number): void {
+    const dialogHeight = this.dialogBox.root.offsetHeight;
+    const width = this.portraitCanvas.offsetWidth;
+    const left = rect.x + rect.width - width - portraitInset;
+    const bottom = dialogBottom + dialogHeight - portraitOverlap;
+    const layout = `${left}|${bottom}`;
+    if (layout !== this.lastPortraitLayout) {
+      this.lastPortraitLayout = layout;
+      this.portraitCanvas.style.left = `${left}px`;
+      this.portraitCanvas.style.bottom = `${bottom}px`;
     }
   }
 

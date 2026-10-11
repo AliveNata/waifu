@@ -3,7 +3,7 @@ import type { CompanionSignal, Delegation, MemberSignal, Mood, Reaction } from "
 import { type MemberId, roster } from "../../shared/team.js";
 import { reportSentences, sentenceTone, type Tone } from "./report-lines.js";
 
-export type Gesture = "none" | "nod" | "shake" | "point" | "think" | "cheer";
+export type Gesture = "none" | "nod" | "shake" | "tilt" | "point" | "think" | "cheer";
 
 export interface DialogLine {
   id: number;
@@ -57,6 +57,7 @@ const toneGestures: Record<Tone, Gesture> = {
   concern: "shake",
   suggestion: "point",
   question: "think",
+  confused: "tilt",
   neutral: "none",
 };
 const moreInReportLine = "Sisanya lengkap di laporan ke 2B ya.";

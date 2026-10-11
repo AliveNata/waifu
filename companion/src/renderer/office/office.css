@@ -56,6 +56,18 @@
   min-height: 88px;
 }
 
+/* Small on purpose: a face above the dialog, not a second companion. The size is set from office.ts. */
+.stage .speaker-portrait {
+  position: absolute;
+  width: 150px;
+  height: 180px;
+  pointer-events: none;
+}
+
+.stage .speaker-portrait[hidden] {
+  display: none;
+}
+
 .setting-row {
   display: flex;
   align-items: center;

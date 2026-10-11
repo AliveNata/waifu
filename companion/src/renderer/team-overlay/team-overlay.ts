@@ -1,18 +1,15 @@
 import "../common/base.css";
 import "./team-overlay.css";
-import type { VRM } from "@pixiv/three-vrm";
 import type { ConversationMode } from "../../shared/protocol.js";
 import type { MemberId } from "../../shared/team.js";
 import { getBridge, type RendererBridge } from "../common/bridge.js";
 import { Conversation } from "../common/conversation.js";
 import { DialogBox } from "../common/dialog-box.js";
 import { MemberModelLoader } from "../common/member-model.js";
+import { SpeakerModels } from "../common/speaker-models.js";
+import { SpeakerStage } from "../common/speaker-stage.js";
 import { requireElement } from "../common/status-chip.js";
-import { disposeVrm } from "../common/vrm-loader.js";
-import { TeamOverlayStage } from "./team-overlay-stage.js";
 
-/** Models are 10 MB each; keep only the few most recent speakers in memory. */
-const maxCachedModels = 3;
 /** Stay visible briefly after the last line so the window does not flicker between lines. */
 const hideAfterIdleMs = 1500;
 
@@ -22,9 +19,8 @@ class TeamOverlayPage {
   private readonly modeToggle = requireElement("mode-toggle", HTMLButtonElement);
   private readonly empty = requireElement("empty", HTMLElement);
   private readonly conversation = new Conversation();
-  private readonly models: MemberModelLoader;
-  private readonly cache = new Map<MemberId, Promise<VRM | null>>();
-  private readonly stage: TeamOverlayStage;
+  private readonly models: SpeakerModels;
+  private readonly stage: SpeakerStage;
   private mode: ConversationMode = "simulated";
   private idleSince: number | null = Date.now();
   private visible = false;
@@ -33,8 +29,8 @@ class TeamOverlayPage {
     private readonly bridge: RendererBridge,
     canvas: HTMLCanvasElement,
   ) {
-    this.models = new MemberModelLoader(bridge);
-    this.stage = new TeamOverlayStage(canvas, () => this.tick());
+    this.stage = new SpeakerStage(canvas, () => this.tick());
+    this.models = new SpeakerModels(new MemberModelLoader(bridge), () => this.stage.currentSpeaker());
   }
 
   start(): void {
@@ -44,7 +40,7 @@ class TeamOverlayPage {
       .getConversationMode()
       .then((mode) => this.applyMode(mode))
       .catch((error: unknown) => console.error("[team] failed to read conversation mode", error));
-    this.bridge.onModelChanged((memberId) => this.forget(memberId));
+    this.bridge.onModelChanged((memberId) => this.models.forget(memberId));
     this.modeToggle.addEventListener("click", () => {
       this.bridge.setConversationMode(this.mode === "real" ? "simulated" : "real");
     });
@@ -58,43 +54,9 @@ class TeamOverlayPage {
     this.modeToggle.textContent = real ? "Isi asli: nyala" : "Isi asli: mati";
   }
 
-  private forget(memberId: MemberId): void {
-    const cached = this.cache.get(memberId);
-    this.cache.delete(memberId);
-    cached
-      ?.then((vrm) => {
-        if (vrm !== null && this.stage.currentSpeaker() !== memberId) {
-          disposeVrm(vrm);
-        }
-      })
-      .catch((error: unknown) => console.error(`[team] failed to release model for ${memberId}`, error));
-  }
-
-  private modelFor(memberId: MemberId): Promise<VRM | null> {
-    const cached = this.cache.get(memberId);
-    if (cached !== undefined) {
-      // Re-insert to mark as most recently used.
-      this.cache.delete(memberId);
-      this.cache.set(memberId, cached);
-      return cached;
-    }
-    const loading = this.models
-      .load(memberId)
-      .then((loaded) => loaded?.vrm ?? null)
-      .catch((error: unknown) => {
-        console.error(`[team] model for ${memberId} failed to load`, error);
-        return null;
-      });
-    this.cache.set(memberId, loading);
-    while (this.cache.size > maxCachedModels) {
-      const oldest = this.cache.keys().next().value as MemberId;
-      this.forget(oldest);
-    }
-    return loading;
-  }
-
   private showSpeaker(memberId: MemberId): void {
-    this.modelFor(memberId)
+    this.models
+      .modelFor(memberId)
       .then((vrm) => {
         // Only swap if this member is still the one talking when the model arrives.
         if (this.conversation.current(Date.now())?.line.memberId === memberId) {

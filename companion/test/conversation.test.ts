@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Conversation, lineDurationMs, toolLine, visemeWeights } from "../src/renderer/common/conversation.js";
-import { speakerPose } from "../src/renderer/team-overlay/team-overlay-pose.js";
+import { speakerPose } from "../src/renderer/common/speaker-pose.js";
 import type { CompanionSignal, MemberSignal } from "../src/shared/reaction.js";
 
 function member(
@@ -172,6 +172,14 @@ describe("speakerPose", () => {
     const cheer = speakerPose({ gesture: "cheer", lineElapsed: 0.2, time: 0, talking: true });
     expect(cheer.bones.leftUpperArm?.z).toBeGreaterThan(0.8);
     expect(cheer.bones.rightUpperArm?.z).toBeLessThan(-0.8);
+  });
+
+  it("tilts the head when unsure", () => {
+    // Act
+    const tilted = speakerPose({ gesture: "tilt", lineElapsed: 1, time: 0, talking: true });
+
+    // Assert
+    expect(tilted.bones.head?.z).toBeGreaterThan(0.1);
   });
 
   it("shakes the head for a concern and settles back", () => {

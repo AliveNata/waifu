@@ -55,9 +55,17 @@ Kalimat simulasi cuma ngegambarin aktivitas, nggak pernah ngarang hasil. Tag "si
 Cara laporan dibacain:
 - Diambil dari awal laporan akhir subagent, maksimal 1200 karakter. Format markdown dibuang, blok kode dilewatin, tiap poin atau kalimat jadi satu baris dialog.
 - Maksimal 6 kalimat. Kalau laporannya lebih panjang, baris terakhirnya "Sisanya lengkap di laporan ke 2B ya."
-- Ekspresi dan gesture ngikutin isi kalimatnya: kabar baik ("test lulus", "nggak ada error") senyum dan ngangguk, masalah ("gagal", "belum", "bug") muka khawatir dan geleng pelan, saran ("sebaiknya ...") nunjuk, pertanyaan mikir. Tebakannya dari kata kunci Indonesia dan Inggris, jadi kadang meleset, tapi yang meleset cuma ekspresinya, isi kalimatnya tetap persis dari laporan.
+- Ekspresi dan gesture ngikutin isi kalimatnya: kabar baik ("test lulus", "nggak ada error") senyum dan ngangguk, masalah ("gagal", "belum", "bug") alis khawatir dan geleng pelan, ragu ("belum bisa dipastikan", "kemungkinan", "nggak yakin") alis bingung, kepala miring, dan ngelirik ke atas, saran ("sebaiknya ...") nunjuk, pertanyaan alis naik dan mikir. Tebakannya dari kata kunci Indonesia dan Inggris, jadi kadang meleset, tapi yang meleset cuma ekspresinya, isi kalimatnya tetap persis dari laporan.
+
+Wajah yang ngomong:
+- Mulut ngikutin huruf yang lagi muncul di dialog, bukaannya beda dikit tiap vokal, dan nutup di spasi dan tanda baca.
+- Kedip dengan jeda acak, kadang dua kali berturut-turut, dan selalu kedip abis selesai satu kalimat.
+- Mata natap lo sambil ngelirik kecil. Pas mikir atau ragu ngelirik ke atas samping dulu, pas mau nyampein masalah nunduk sebentar.
+- Di model VRoid, ekspresinya lewat alis dan mata secara terpisah, karena preset bawaan VRoid ("sad", "happy") ikut nutup mata. Model non-VRoid pakai preset biasa dengan bobot tipis.
 
 Overlay tim sengaja lebih kecil dari overlay 2B (300 x 380).
+
+**Di kantor**, wajah yang ngomong muncul kecil (150 x 180) di atas kotak dialog, bagian bawahnya nyelip di balik dialog. Isinya model lengkap anggota itu, sama kayak overlay tim, jadi ekspresi, kedipan, dan mulutnya ikut. Overlay tim di desktop tetap muncul juga. Kalau modelnya gagal dimuat, potretnya nggak muncul dan dialognya tetap jalan.
 
 Overlay tim bisa digeser kayak overlay 2B.
 
