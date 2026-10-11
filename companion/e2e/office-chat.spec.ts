@@ -233,7 +233,7 @@ test.describe("office HUD", () => {
     const { app, office } = await launchOffice();
     const teamOverlayVisible = () =>
       app.evaluate(({ BrowserWindow }) =>
-        BrowserWindow.getAllWindows().some((window) => window.getTitle() === "2B Team" && window.isVisible()),
+        BrowserWindow.getAllWindows().some((window) => window.getTitle() === "AlyxLabs Team" && window.isVisible()),
       );
 
     // Act
@@ -248,7 +248,7 @@ test.describe("office HUD", () => {
     expect(await teamOverlayVisible()).toBe(false);
     // Guards the check above: the window exists, it is just kept hidden.
     const teamOverlayExists = await app.evaluate(({ BrowserWindow }) =>
-      BrowserWindow.getAllWindows().some((window) => window.getTitle() === "2B Team"),
+      BrowserWindow.getAllWindows().some((window) => window.getTitle() === "AlyxLabs Team"),
     );
     expect(teamOverlayExists).toBe(true);
     await app.close();

@@ -183,7 +183,7 @@ function createTeamOverlayWindow(): BrowserWindow {
     skipTaskbar: true,
     alwaysOnTop: settings.alwaysOnTop,
     backgroundColor: "#00000000",
-    title: "2B Team",
+    title: "AlyxLabs Team",
     webPreferences,
   });
   watchRenderer(window, "team overlay");
