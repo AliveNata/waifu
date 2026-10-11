@@ -40,28 +40,49 @@ describe("Conversation", () => {
     expect(second?.line).toMatchObject({ memberId: "asuna", text: "Oke, aku cek pipeline datanya.", simulated: true });
   });
 
-  it("uses the real task title and report summary only in real mode", () => {
+  it("in real mode, 2B reads the task, the member acknowledges, then reads the report sentence by sentence", () => {
     // Arrange
     const conversation = new Conversation(() => 0);
+    const report = "Model diperbaiki, 3 test ditambah.\n\n- Tidak ada error di CI.\n- Masih ada bug di tanggal kosong.";
 
     // Act
     conversation.handle(delegation, "real");
     conversation.handle(member("start", 1), "real");
-    conversation.handle(member("stop", 2, { summary: "Model diperbaiki, 3 test ditambah." }), "real");
-    const texts: string[] = [];
+    conversation.handle(member("stop", 2, { summary: report }), "real");
+    const lines = [];
     let now = 0;
-    for (let index = 0; index < 3; index++) {
+    for (let index = 0; index < 5; index++) {
       const current = conversation.current(now);
-      texts.push(current?.line.text ?? "");
+      lines.push(current?.line);
       now += lineDurationMs(current?.line ?? ({ text: "" } as never)) + 1;
     }
 
     // Assert
-    expect(texts).toEqual([
+    expect(lines.map((line) => line?.text)).toEqual([
       "Asuna, tolong: Perbaiki model dbt",
-      "Siap. Perbaiki model dbt",
+      "Oke, aku cek pipeline datanya.",
       "Model diperbaiki, 3 test ditambah.",
+      "Tidak ada error di CI.",
+      "Masih ada bug di tanggal kosong.",
     ]);
+    expect(lines.slice(2).map((line) => [line?.tone, line?.gesture])).toEqual([
+      ["positive", "nod"],
+      ["positive", "nod"],
+      ["concern", "shake"],
+    ]);
+    expect(lines.slice(2).every((line) => line?.simulated === false)).toBe(true);
+  });
+
+  it("points to the full report when it has more sentences than the overlay reads", () => {
+    // Arrange
+    const conversation = new Conversation(() => 0);
+    const report = Array.from({ length: 9 }, (_, index) => `Langkah ${index + 1} beres.`).join(" ");
+
+    // Act
+    conversation.handle(member("stop", 2, { summary: report }), "real");
+
+    // Assert: six sentences plus the pointer line.
+    expect(conversation.pendingCount()).toBe(7);
   });
 
   it("falls back to simulated lines in real mode when there is nothing real to show", () => {
@@ -151,5 +172,18 @@ describe("speakerPose", () => {
     const cheer = speakerPose({ gesture: "cheer", lineElapsed: 0.2, time: 0, talking: true });
     expect(cheer.bones.leftUpperArm?.z).toBeGreaterThan(0.8);
     expect(cheer.bones.rightUpperArm?.z).toBeLessThan(-0.8);
+  });
+
+  it("shakes the head for a concern and settles back", () => {
+    // Arrange
+    const still = speakerPose({ gesture: "none", lineElapsed: 0.2, time: 0, talking: false });
+
+    // Act
+    const shaking = speakerPose({ gesture: "shake", lineElapsed: 0.2, time: 0, talking: false });
+    const settled = speakerPose({ gesture: "shake", lineElapsed: 5, time: 0, talking: false });
+
+    // Assert
+    expect(Math.abs((shaking.bones.head?.y ?? 0) - (still.bones.head?.y ?? 0))).toBeGreaterThan(0.08);
+    expect(Math.abs((settled.bones.head?.y ?? 0) - (still.bones.head?.y ?? 0))).toBeLessThan(0.01);
   });
 });

@@ -38,7 +38,7 @@ import {
 } from "./office-director.js";
 import { OfficeLife } from "./office-life.js";
 import { initialMug, type MugState, stepMug } from "./office-mug.js";
-import { distance, type StationId, stations } from "./office-plan.js";
+import { distance, type StationId, stations, surface } from "./office-plan.js";
 import { officePose } from "./office-pose.js";
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
 import { PlaceholderAvatar } from "./placeholder.js";
@@ -171,6 +171,7 @@ const actionLabels: Record<OfficeAction, string> = {
   chat: "ngobrol",
   meeting: "meeting",
   pingpong: "main pingpong",
+  "pingpong-wait": "nunggu lawan pingpong",
 };
 
 export class OfficeStage {
@@ -264,6 +265,15 @@ export class OfficeStage {
     this.resize();
     this.resetView();
     this.renderer.setAnimationLoop((timestamp) => this.frame(timestamp));
+  }
+
+  private opponentReady(memberId: MemberId): boolean {
+    const partner = this.life.partnerOf(memberId);
+    if (partner === null) {
+      return false;
+    }
+    const actor = this.rigs[partner].actor;
+    return !isWalking(actor) && actor.target.startsWith("pingpong-");
   }
 
   /** Someone stands at, or is still leaving, this station's spot or the place you step in from. */
@@ -477,7 +487,11 @@ export class OfficeStage {
       this.life.arrived(memberId, now);
     }
     this.updateMug(memberId, rig, arrived, rig.actor.target === previousTarget ? null : wasAt);
-    const action = walking ? null : plan.action;
+    let action = walking ? null : plan.action;
+    if (action === "pingpong" && !this.opponentReady(memberId)) {
+      // The rally starts when the other player is at the table, not while they are still walking.
+      action = "pingpong-wait";
+    }
     if (action !== rig.action) {
       rig.action = action;
       rig.actionStartedAt = this.elapsed;
@@ -535,7 +549,7 @@ export class OfficeStage {
     }
   }
 
-  /** TV, arcade and rack react to whoever is using them, so the props look switched on by people. */
+  /** TV, arcade, rack, fridge and laptops react to whoever is using them, so the props look switched on by people. */
   private updateProps(delta: number): void {
     const usingAt = (station: string, action: OfficeAction): boolean =>
       memberIds.some((memberId) => {
@@ -547,6 +561,35 @@ export class OfficeStage {
     this.office.tv.update(delta, onSofa("game") ? "game" : onSofa("watch") ? "show" : "off");
     this.office.arcade.update(delta, usingAt("arcade", "arcade") ? "playing" : "attract");
     this.office.rackLights.update(this.elapsed, usingAt("rack", "rack"));
+    this.updatePingpongBall(usingAt("pingpong-west", "pingpong") && usingAt("pingpong-east", "pingpong"));
+    this.office.fridgeDoor.update(usingAt("fridge", "snack"), delta);
+    const meetingSeats = ["meeting-1", "meeting-2", "meeting-3", "meeting-4"] as const;
+    this.office.meetingLaptops.forEach((laptop, index) => {
+      const seat = meetingSeats[index];
+      laptop.update(delta, seat !== undefined && usingAt(seat, "meeting") ? "on" : "off");
+    });
+  }
+
+  /**
+   * A rally while both players are at the table: the ball crosses in about a second, bounces
+   * once on the receiver's half, and comes back. Its timing follows the swing cycle in the pose.
+   */
+  private updatePingpongBall(rally: boolean): void {
+    const ball = this.office.pingpongBall;
+    ball.visible = rally;
+    if (!rally) {
+      return;
+    }
+    const west = stations["pingpong-west"].spot;
+    const east = stations["pingpong-east"].spot;
+    const leg = (this.elapsed * 1.1) % 2;
+    // 0..1 west to east, 1..2 back again; the ends stay just inside the paddles.
+    const t = leg < 1 ? leg : 2 - leg;
+    const fromX = west.x + 0.3;
+    const toX = east.x - 0.3;
+    // Two hops per crossing: one over the net, one off the receiver's half.
+    const hop = Math.abs(Math.sin(t * Math.PI * 2));
+    ball.position.set(fromX + (toX - fromX) * t, surface.pingpong + 0.02 + 0.16 * hop, west.z);
   }
 
   private chooseFocus(now: number): CloseupFocus | null {

@@ -15,7 +15,7 @@ import {
   Vector3,
 } from "three";
 import { chibi, type Furniture, surface } from "../office-plan.js";
-import { ArcadeScreen, RackLights, TvScreen } from "./animated.js";
+import { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./animated.js";
 import { box, glow, mesh, palette, printed, standard, unlit } from "./palette.js";
 import { kanbanTexture } from "./textures.js";
 
@@ -262,18 +262,62 @@ export function buildPantryCounter(piece: Furniture, coffeeX: number): Group {
   return root;
 }
 
-export function buildFridge(piece: Furniture): Group {
+/** How far the fridge door swings: short of 90 degrees, since the hinge side is right by the wall. */
+const fridgeOpenAngle = 1.45;
+/** Radians per second at full speed; the door eases out and in around that. */
+const fridgeSwingRate = 5;
+
+/** The fridge's main door on its hinge. The stage opens it while someone grabs a snack. */
+export class FridgeDoor {
+  private angle = 0;
+
+  constructor(private readonly hinge: Group) {}
+
+  update(open: boolean, delta: number): void {
+    const target = open ? fridgeOpenAngle : 0;
+    const step = Math.min(1, fridgeSwingRate * delta);
+    this.angle += (target - this.angle) * step;
+    // Negative yaw swings a door hinged on its left edge outward, toward the person in front.
+    this.hinge.rotation.y = -this.angle;
+  }
+}
+
+export function buildFridge(piece: Furniture): { root: Group; door: FridgeDoor } {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const body = standard(palette.steel, 0.35, 0.4);
   const height = 1.1;
+  const split = height * 0.66;
+  const front = (depth - 0.06) / 2;
   root.add(
     box(width - 0.06, height, depth - 0.06, body, 0, 0, 0),
-    box(width - 0.08, 0.01, 0.01, standard(palette.frame, 0.5), 0, height * 0.66, depth / 2 - 0.03),
-    box(0.02, 0.22, 0.03, standard(palette.ink, 0.4), width / 2 - 0.1, height * 0.72, depth / 2 - 0.02),
-    box(0.02, 0.18, 0.03, standard(palette.ink, 0.4), width / 2 - 0.1, height * 0.38, depth / 2 - 0.02),
+    box(width - 0.08, 0.01, 0.01, standard(palette.frame, 0.5), 0, split, front + 0.02),
+    box(0.02, 0.22, 0.03, standard(palette.ink, 0.4), width / 2 - 0.1, height * 0.72, front + 0.01),
   );
-  return root;
+  // Behind the door: a lit inside with two shelves and a few drinks, only seen while it is open.
+  const inside = width - 0.14;
+  root.add(
+    box(inside, split - 0.1, 0.004, glow("#eef6ff", 0.8), 0, 0.06, front + 0.002),
+    box(inside, 0.012, 0.02, standard("#ffffff", 0.6), 0, 0.24, front + 0.01),
+    box(inside, 0.012, 0.02, standard("#ffffff", 0.6), 0, 0.46, front + 0.01),
+  );
+  for (const [x, color] of [
+    [-0.14, palette.accent],
+    [-0.02, "#e9c46a"],
+    [0.1, "#8fbf9f"],
+  ] as const) {
+    // Flat stand-ins for drinks: they have to fit in the gap the closed door leaves.
+    root.add(box(0.05, 0.1, 0.016, standard(color, 0.45), x, 0.252, front + 0.009));
+  }
+  const doorWidth = width - 0.06;
+  const hinge = new Group();
+  hinge.position.set(-doorWidth / 2, 0, front);
+  hinge.add(
+    box(doorWidth, split - 0.01, 0.025, body, doorWidth / 2, 0.005, 0.0125),
+    box(0.02, 0.18, 0.03, standard(palette.ink, 0.4), doorWidth - 0.07, height * 0.38, 0.035),
+  );
+  root.add(hinge);
+  return { root, door: new FridgeDoor(hinge) };
 }
 
 /** A compact rack, chest-to-head height for a chibi: Yor checks the lights at eye level. */
@@ -491,7 +535,12 @@ export function buildBackdrop(piece: Furniture, logo: Texture): Group {
 }
 
 /** Team table at desk height with two laptops and notes, where standups and casual work happen. */
-export function buildMeetingTable(piece: Furniture): Group {
+/**
+ * Team table with one laptop per chair, each facing its sitter. Laptops come back in the order
+ * of the meeting seats (back left, back right, front left, front right), so the stage can light
+ * the screen of whoever sits down.
+ */
+export function buildMeetingTable(piece: Furniture): { root: Group; laptops: LaptopScreen[] } {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const top = surface.desk;
@@ -502,21 +551,30 @@ export function buildMeetingTable(piece: Furniture): Group {
     box(0.05, top - 0.035, depth - 0.2, legs, width / 2 - 0.12, 0, 0),
     box(width - 0.3, 0.012, 0.01, glow(), 0, top - 0.045, depth / 2 - 0.01),
   );
-  for (const [x, z, yaw] of [
-    [-0.5, -0.18, 0],
-    [0.5, 0.18, Math.PI],
-  ] as const) {
+  // A laptop's keys face +z in its own frame, so the back-row seats (sitting at -z) need it
+  // turned half way round; the front-row seats sit at +z and take it as built.
+  const laptops = (
+    [
+      [-0.5, -0.22, Math.PI],
+      [0.5, -0.22, Math.PI],
+      [-0.5, 0.22, 0],
+      [0.5, 0.22, 0],
+    ] as const
+  ).map(([x, z, yaw], index) => {
+    const screen = new LaptopScreen(index + 1);
     const laptop = new Group();
-    laptop.add(
-      box(0.26, 0.012, 0.18, standard("#d9d4cc", 0.5), 0, top, 0),
-      box(0.26, 0.17, 0.01, standard("#d9d4cc", 0.5), 0, top + 0.012, -0.09),
-    );
+    const shell = standard("#d9d4cc", 0.5);
+    laptop.add(box(0.26, 0.012, 0.18, shell, 0, top, 0), box(0.26, 0.17, 0.01, shell, 0, top + 0.012, -0.09));
+    const panel = mesh(new PlaneGeometry(0.24, 0.15), unlit(screen.texture), false);
+    panel.position.set(0, top + 0.012 + 0.085, -0.084);
+    laptop.add(panel);
     laptop.position.set(x, 0, z);
     laptop.rotation.y = yaw;
     root.add(laptop);
-  }
-  root.add(box(0.14, 0.004, 0.2, standard("#fbfaf7", 0.9), 0.05, top, -0.05), mug(-0.1, top, 0.2));
-  return root;
+    return screen;
+  });
+  root.add(box(0.14, 0.004, 0.2, standard("#fbfaf7", 0.9), 0.05, top, 0.0), mug(-0.05, top, 0.05));
+  return { root, laptops };
 }
 
 /** Chibi-scale ping-pong table: ink top with white lines and a net, accent paddles at each end. */

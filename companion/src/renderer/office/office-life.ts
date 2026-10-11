@@ -85,10 +85,9 @@ const activities: Record<ActivityId, Activity> = {
     stations: ["pingpong-west", "pingpong-east"],
     action: "pingpong",
     durationSeconds: [15, 30],
-    // Rarely started alone; the boost makes a second player likely to join the first.
-    weight: 0.3,
+    // Only offered when someone on a break can be invited to the other end of the table.
+    weight: 0.5,
     cooldownSeconds: 120,
-    social: true,
   },
   read: {
     stations: [...sofaSeats, "beanbag-lounge"],
@@ -161,6 +160,8 @@ export class OfficeLife {
   private readonly lastDone = new Map<MemberId, Map<ActivityId, number>>();
   private readonly reserved = new Map<StationId, MemberId>();
   private readonly cameFromWork = new Set<MemberId>();
+  /** Ping-pong opponents, both ways. A game always has two players or none. */
+  private readonly partners = new Map<MemberId, MemberId>();
 
   /**
    * `crowded` says whether someone is still at or next to a station, for example the previous
@@ -175,7 +176,7 @@ export class OfficeLife {
   /** The member's current idle activity, picking a new one when the last has run its course. */
   planFor(memberId: MemberId, now: number): LifeChoice {
     const current = this.choices.get(memberId);
-    if (current !== undefined && !this.isOver(current, now)) {
+    if (current !== undefined && !this.isOver(memberId, current, now)) {
       return current;
     }
     if (current !== undefined) {
@@ -186,7 +187,15 @@ export class OfficeLife {
     if (next.activity !== "desk") {
       this.reserved.set(next.station, memberId);
     }
+    if (next.activity === "pingpong") {
+      this.invitePartner(memberId, next, now);
+    }
     return next;
+  }
+
+  /** The member's opponent while a ping-pong game is on, or null. */
+  partnerOf(memberId: MemberId): MemberId | null {
+    return this.partners.get(memberId) ?? null;
   }
 
   /** The stage reports arrival so the activity runs its full length once the member is actually there. */
@@ -211,7 +220,14 @@ export class OfficeLife {
     return this.reserved.get(station) ?? null;
   }
 
-  private isOver(choice: LifeChoice, now: number): boolean {
+  private isOver(memberId: MemberId, choice: LifeChoice, now: number): boolean {
+    if (choice.activity === "pingpong") {
+      // When one player leaves (time is up, or Claude Code calls them to work) the game is over.
+      const partner = this.partners.get(memberId);
+      if (partner === undefined || this.choices.get(partner)?.activity !== "pingpong") {
+        return true;
+      }
+    }
     if (choice.arrivedAt === null) {
       return now - choice.chosenAt >= arrivalTimeoutMs;
     }
@@ -221,6 +237,9 @@ export class OfficeLife {
   private finish(memberId: MemberId, choice: LifeChoice, now: number): void {
     if (this.reserved.get(choice.station) === memberId) {
       this.reserved.delete(choice.station);
+    }
+    if (choice.activity === "pingpong") {
+      this.partners.delete(memberId);
     }
     let history = this.lastDone.get(memberId);
     if (history === undefined) {
@@ -255,11 +274,56 @@ export class OfficeLife {
     if (this.freeStations(activity, memberId).length === 0) {
       return 0;
     }
+    if (
+      id === "pingpong" &&
+      (this.freeStations(activity, memberId).length < 2 || this.idlePartner(memberId) === null)
+    ) {
+      return 0;
+    }
     let weight = activity.weight * (preferences[memberId][id] ?? 1);
     if (activity.social === true && activity.stations?.some((station) => this.reserved.has(station))) {
       weight *= companyBoost;
     }
     return weight;
+  }
+
+  /**
+   * Someone to play against: a teammate on a break (has an idle choice, so not working) who is
+   * not already playing and can still play. The one idle the longest goes, so it is fair and
+   * does not spend a random draw.
+   */
+  private idlePartner(memberId: MemberId): MemberId | null {
+    let best: { id: MemberId; since: number } | null = null;
+    for (const [id, choice] of this.choices) {
+      if (id === memberId || choice.activity === "pingpong") {
+        continue;
+      }
+      const doneAt = this.lastDone.get(id)?.get("pingpong");
+      if (doneAt !== undefined && choice.chosenAt - doneAt < activities.pingpong.cooldownSeconds * 1000) {
+        continue;
+      }
+      if (best === null || choice.chosenAt < best.since) {
+        best = { id, since: choice.chosenAt };
+      }
+    }
+    return best?.id ?? null;
+  }
+
+  /** Pulls the chosen partner off their break to the other end of the table. */
+  private invitePartner(memberId: MemberId, game: LifeChoice, now: number): void {
+    const partner = this.idlePartner(memberId);
+    const otherSide = activities.pingpong.stations?.find((station) => station !== game.station);
+    if (partner === null || otherSide === undefined) {
+      return;
+    }
+    const previous = this.choices.get(partner);
+    if (previous !== undefined) {
+      this.finish(partner, previous, now);
+    }
+    this.choices.set(partner, { ...game, station: otherSide, arrivedAt: null, chosenAt: now });
+    this.reserved.set(otherSide, partner);
+    this.partners.set(memberId, partner);
+    this.partners.set(partner, memberId);
   }
 
   private choose(memberId: MemberId, now: number, previous: ActivityId | null): LifeChoice {

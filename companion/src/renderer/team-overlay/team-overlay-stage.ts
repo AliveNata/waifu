@@ -5,6 +5,7 @@ import type { MemberId } from "../../shared/team.js";
 import { allVisemes, type DialogLine, revealCharsPerSecond, visemeWeights } from "../common/conversation.js";
 import { BlinkScheduler, type ExpressionWeights, stepExpressionWeights } from "../common/expressions.js";
 import { PoseApplier, vrmPoseTarget } from "../common/pose.js";
+import { toneExpressions } from "../common/report-lines.js";
 import { updateVrmStable } from "../common/vrm-update.js";
 import { speakerPose } from "./team-overlay-pose.js";
 
@@ -22,7 +23,7 @@ const dialogExpressions: Record<Mood, ExpressionWeights> = {
 };
 
 /** Head to waist, wider than 2B's close-up so arm gestures stay in frame. */
-const framedHeight = 0.9;
+const framedHeight = 0.95;
 const fieldOfViewDegrees = 24;
 
 export interface SpeakerState {
@@ -96,7 +97,8 @@ export class TeamOverlayStage {
     const head = vrm.humanoid.getRawBoneNode("head");
     const headPosition = new Vector3(0, 1.35, 0);
     head?.getWorldPosition(headPosition);
-    const focus = headPosition.clone().add(new Vector3(0, -0.2, 0));
+    // Headroom above the hair in the small window; the dialog covers the lower third anyway.
+    const focus = headPosition.clone().add(new Vector3(0, -0.12, 0));
     const distance = framedHeight / 2 / Math.tan((fieldOfViewDegrees * Math.PI) / 360);
     this.camera.position.set(focus.x, focus.y + 0.05, focus.z + distance);
     this.camera.lookAt(focus);
@@ -131,8 +133,9 @@ export class TeamOverlayStage {
         delta,
       );
 
-      // Mood expression plus mouth shapes from the text being revealed.
-      const targets: Record<string, number> = { ...dialogExpressions[mood] };
+      // The sentence's tone (or the general mood) plus mouth shapes from the text being revealed.
+      const tone = state?.line.tone ?? null;
+      const targets: Record<string, number> = { ...(tone === null ? dialogExpressions[mood] : toneExpressions[tone]) };
       if (talking && state !== null) {
         Object.assign(targets, visemeWeights(state.line.text, revealed));
       }

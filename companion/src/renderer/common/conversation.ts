@@ -1,8 +1,9 @@
 import type { ConversationMode } from "../../shared/protocol.js";
 import type { CompanionSignal, Delegation, MemberSignal, Mood, Reaction } from "../../shared/reaction.js";
 import { type MemberId, roster } from "../../shared/team.js";
+import { reportSentences, sentenceTone, type Tone } from "./report-lines.js";
 
-export type Gesture = "none" | "nod" | "point" | "think" | "cheer";
+export type Gesture = "none" | "nod" | "shake" | "point" | "think" | "cheer";
 
 export interface DialogLine {
   id: number;
@@ -12,6 +13,8 @@ export interface DialogLine {
   simulated: boolean;
   gesture: Gesture;
   mood: Mood;
+  /** Set on report sentences: the face follows the sentence instead of the general mood. */
+  tone: Tone | null;
 }
 
 /*
@@ -24,7 +27,7 @@ const startLines: Record<Exclude<MemberId, "twob">, readonly string[]> = {
   asuna: ["Oke, aku cek pipeline datanya.", "Serahin ke aku, aku rapihin modelnya."],
   kobayashi: ["Siap, aku kerjain bagian aplikasinya.", "Oke, waktunya ngoding."],
   yor: ["Aku cek cluster dulu ya, read-only.", "Tenang, nggak ada yang aku ubah tanpa izin."],
-  erza: ["Serahkan review-nya padaku.", "Aku periksa satu per satu."],
+  erza: ["Oke, aku cek dulu ya.", "Serahkan review-nya padaku.", "Aku periksa satu per satu."],
   ruby: ["Siap! Kerjaan lo aku bikin bersinar ya.", "Oke! Aku cari sudut cerita yang paling menarik."],
 };
 
@@ -47,6 +50,16 @@ const stopGestures: Record<Exclude<MemberId, "twob">, Gesture> = {
   erza: "nod",
   ruby: "cheer",
 };
+
+/** Head and hands that go with each tone, so a worried sentence does not get a cheer. */
+const toneGestures: Record<Tone, Gesture> = {
+  positive: "nod",
+  concern: "shake",
+  suggestion: "point",
+  question: "think",
+  neutral: "none",
+};
+const moreInReportLine = "Sisanya lengkap di laporan ke 2B ya.";
 
 /** 2B working on her own, without the team: she says what she starts and when she is done. */
 const twobStartLines: readonly string[] = ["Siap, aku cek dulu.", "Oke, aku kerjain sekarang."];
@@ -81,7 +94,8 @@ export function toolLine(memberId: MemberId, tool: string): { text: string; gest
 const toolLineGapMs = 8000;
 /** Tool lines are dropped when this many lines are already waiting. */
 const maxQueuedBeforeToolLines = 2;
-const maxQueue = 8;
+/** Room for a delegation, the answer, and a whole spoken report. */
+const maxQueue = 24;
 
 export const revealCharsPerSecond = 22;
 const holdAfterRevealMs = 2600;
@@ -95,7 +109,6 @@ export class Conversation {
   private readonly queue: DialogLine[] = [];
   private active: { line: DialogLine; startedAt: number } | null = null;
   private readonly lastToolLineAt = new Map<MemberId, number>();
-  private readonly pendingTasks = new Map<MemberId, string>();
   /** Set from a prompt to its Stop, so 2B says "done" once per task and not on a stray Stop. */
   private twobOnTask = false;
   private nextId = 1;
@@ -130,8 +143,8 @@ export class Conversation {
     return this.queue.length;
   }
 
-  private push(line: Omit<DialogLine, "id">): void {
-    this.queue.push({ ...line, id: this.nextId++ });
+  private push(line: Omit<DialogLine, "id" | "tone"> & { tone?: Tone }): void {
+    this.queue.push({ ...line, tone: line.tone ?? null, id: this.nextId++ });
     // Keep the newest lines if the team talks faster than the dialog can show.
     while (this.queue.length > maxQueue) {
       this.queue.shift();
@@ -147,9 +160,6 @@ export class Conversation {
       return;
     }
     const name = roster[delegation.memberId].displayName;
-    if (delegation.description !== null) {
-      this.pendingTasks.set(delegation.memberId, delegation.description);
-    }
     const real = mode === "real" && delegation.description !== null;
     this.push({
       memberId: "twob",
@@ -210,6 +220,32 @@ export class Conversation {
     }
   }
 
+  /** One line per sentence, so the member explains the result step by step with a face to match. */
+  private speakReport(memberId: MemberId, sentences: readonly string[], truncated: boolean): void {
+    sentences.forEach((sentence, index) => {
+      const tone = sentenceTone(sentence);
+      this.push({
+        memberId,
+        text: sentence,
+        simulated: false,
+        // A plain opening sentence still gets a nod: it marks that the report starts here.
+        gesture: index === 0 && tone === "neutral" ? "nod" : toneGestures[tone],
+        mood: "done",
+        tone,
+      });
+    });
+    if (truncated) {
+      this.push({
+        memberId,
+        text: moreInReportLine,
+        simulated: false,
+        gesture: "point",
+        mood: "done",
+        tone: "neutral",
+      });
+    }
+  }
+
   private handleMember(signal: MemberSignal, mode: ConversationMode): void {
     if (signal.memberId === "twob") {
       return;
@@ -217,13 +253,11 @@ export class Conversation {
     const memberId = signal.memberId;
     switch (signal.activity) {
       case "start": {
-        const task = this.pendingTasks.get(memberId);
-        this.pendingTasks.delete(memberId);
-        const real = mode === "real" && task !== undefined;
+        // 2B just read the task out, so the member only acknowledges it instead of repeating it.
         this.push({
           memberId,
-          text: real ? `Siap. ${task}` : this.pick(startLines[memberId]),
-          simulated: !real,
+          text: this.pick(startLines[memberId]),
+          simulated: mode !== "real",
           gesture: "nod",
           mood: "greeting",
         });
@@ -245,14 +279,18 @@ export class Conversation {
         break;
       }
       case "stop": {
-        const real = mode === "real" && signal.summary !== null;
-        this.push({
-          memberId,
-          text: real ? (signal.summary as string) : stopLines[memberId],
-          simulated: !real,
-          gesture: stopGestures[memberId],
-          mood: "done",
-        });
+        const report = mode === "real" && signal.summary !== null ? reportSentences(signal.summary) : null;
+        if (report === null || report.sentences.length === 0) {
+          this.push({
+            memberId,
+            text: stopLines[memberId],
+            simulated: true,
+            gesture: stopGestures[memberId],
+            mood: "done",
+          });
+          break;
+        }
+        this.speakReport(memberId, report.sentences, report.truncated);
         break;
       }
     }

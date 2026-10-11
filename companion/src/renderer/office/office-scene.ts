@@ -4,6 +4,7 @@ import {
   Mesh,
   type MeshBasicMaterial,
   PlaneGeometry,
+  SphereGeometry,
   SRGBColorSpace,
   type Texture,
   TextureLoader,
@@ -12,7 +13,7 @@ import {
 import type { MemberId } from "../../shared/team.js";
 import logoUrl from "./assets/alyxlabs-logo.png";
 import { chairSeatHeight, type Furniture, furniture, room, stations } from "./office-plan.js";
-import type { ArcadeScreen, RackLights, TvScreen } from "./scene/animated.js";
+import type { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./scene/animated.js";
 import { buildDesk, type DeskMember, deskTop, type Workstation } from "./scene/desks.js";
 import {
   buildArcade,
@@ -36,6 +37,7 @@ import {
   buildStool,
   buildTvConsole,
   buildTvWall,
+  type FridgeDoor,
 } from "./scene/furniture.js";
 import { NeonStrips } from "./scene/neon.js";
 import { box, glow, mesh, palette, printed, standard, unlit } from "./scene/palette.js";
@@ -66,6 +68,11 @@ export interface OfficeProps {
   arcade: ArcadeScreen;
   rackLights: RackLights;
   neon: NeonStrips;
+  /** Hidden unless two players are at the table. */
+  pingpongBall: Mesh;
+  /** One per meeting chair, in seat order meeting-1..4. */
+  meetingLaptops: LaptopScreen[];
+  fridgeDoor: FridgeDoor;
   /** Cross-fades the window view between day (0) and night (1). */
   setNight(night: number): void;
 }
@@ -221,6 +228,9 @@ export function buildOffice(): OfficeProps {
   const { nightGlass } = buildRoomShell(root, logo);
   const neon = buildNeon();
   root.add(neon.mesh);
+  const pingpongBall = mesh(new SphereGeometry(0.018, 12, 8), standard("#fff4e0", 0.4));
+  pingpongBall.visible = false;
+  root.add(pingpongBall);
 
   const hairColliders: VRMSpringBoneCollider[] = [];
   const kanban = kanbanTexture();
@@ -228,6 +238,8 @@ export function buildOffice(): OfficeProps {
   let tv: TvScreen | null = null;
   let arcade: ArcadeScreen | null = null;
   let rackLights: RackLights | null = null;
+  let meetingLaptops: LaptopScreen[] = [];
+  let fridgeDoor: FridgeDoor | null = null;
 
   for (const piece of furniture) {
     switch (piece.kind) {
@@ -267,9 +279,12 @@ export function buildOffice(): OfficeProps {
         hairColliders.push(...built.hairColliders);
         break;
       }
-      case "meeting-table":
-        root.add(buildMeetingTable(piece));
+      case "meeting-table": {
+        const built = buildMeetingTable(piece);
+        root.add(built.root);
+        meetingLaptops = built.laptops;
         break;
+      }
       case "pingpong-table":
         root.add(buildPingpongTable(piece));
         break;
@@ -282,9 +297,12 @@ export function buildOffice(): OfficeProps {
       case "pantry-counter":
         root.add(buildPantryCounter(piece, stations.coffee.spot.x));
         break;
-      case "fridge":
-        root.add(buildFridge(piece));
+      case "fridge": {
+        const built = buildFridge(piece);
+        root.add(built.root);
+        fridgeDoor = built.door;
         break;
+      }
       case "server-rack": {
         const built = buildServerRack(piece);
         root.add(built.root);
@@ -333,8 +351,8 @@ export function buildOffice(): OfficeProps {
         break;
     }
   }
-  if (tv === null || arcade === null || rackLights === null) {
-    throw new Error("Floor plan is missing the TV, arcade or server rack");
+  if (tv === null || arcade === null || rackLights === null || fridgeDoor === null || meetingLaptops.length !== 4) {
+    throw new Error("Floor plan is missing the TV, arcade, server rack, fridge or meeting table");
   }
 
   const whiteboardPiece = pieceById("whiteboard");
@@ -385,6 +403,9 @@ export function buildOffice(): OfficeProps {
     arcade,
     rackLights,
     neon,
+    pingpongBall,
+    meetingLaptops,
+    fridgeDoor,
     setNight: (night) => {
       for (const material of nightGlass) {
         material.opacity = night;

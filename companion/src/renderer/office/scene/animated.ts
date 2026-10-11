@@ -165,3 +165,54 @@ export class RackLights {
     });
   }
 }
+
+export type LaptopMode = "off" | "on";
+
+/**
+ * A meeting-table laptop: dark glass while the seat is empty, a scrolling editor while someone
+ * sits there. Shapes only, no text, so there is nothing to mistake for real work.
+ */
+export class LaptopScreen extends CanvasScreen<LaptopMode> {
+  constructor(private readonly seed: number) {
+    super(192, 120);
+  }
+
+  protected isStatic(mode: LaptopMode): boolean {
+    return mode === "off";
+  }
+
+  protected draw(mode: LaptopMode): void {
+    const { ctx, width, height, time } = this;
+    if (mode === "off") {
+      const glass = ctx.createLinearGradient(0, 0, width, height);
+      glass.addColorStop(0, "#14111b");
+      glass.addColorStop(1, "#231d30");
+      ctx.fillStyle = glass;
+      ctx.fillRect(0, 0, width, height);
+      return;
+    }
+    ctx.fillStyle = "#171a24";
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = "#232838";
+    ctx.fillRect(0, 0, width, 12);
+    const lineHeight = 9;
+    const scroll = (time * 14 + this.seed * 40) % lineHeight;
+    const first = Math.floor((time * 14 + this.seed * 40) / lineHeight);
+    const colors = [palette.accentSoft, "#7cc8f2", "#9fe0b4", "#d9dde6"];
+    for (let row = 0; row < 13; row++) {
+      const index = first + row;
+      const y = 16 + row * lineHeight - scroll;
+      if (y > height - 6) {
+        break;
+      }
+      const indent = ((index * 7 + this.seed) % 4) * 8;
+      const length = 30 + ((index * 37 + this.seed * 13) % 110);
+      ctx.fillStyle = colors[(index + this.seed) % colors.length] as string;
+      ctx.fillRect(8 + indent, y, Math.min(length, width - 16 - indent), 4);
+    }
+    if (Math.sin(time * 6) > 0) {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(width - 30, height - 14, 6, 8);
+    }
+  }
+}

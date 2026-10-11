@@ -26,7 +26,8 @@ export type OfficeAction =
   | "rack"
   | "chat"
   | "meeting"
-  | "pingpong";
+  | "pingpong"
+  | "pingpong-wait";
 
 export interface MemberPlan {
   station: StationId;
@@ -94,6 +95,7 @@ export function propForAction(action: OfficeAction | null): HandPropKind | null 
     case "game":
       return "controller";
     case "pingpong":
+    case "pingpong-wait":
       return "paddle";
     default:
       return null;

@@ -40,7 +40,8 @@ export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string
 
 const maxTextLength = 200;
 const maxDescriptionLength = 120;
-const maxSummaryLength = 280;
+/** Room for a short report the member reads out sentence by sentence, not the whole transcript. */
+const maxSummaryLength = 1200;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -74,6 +75,25 @@ export function shortenText(text: string, limit: number): string {
   const cut = flat.slice(0, limit - 1);
   const lastSpace = cut.lastIndexOf(" ");
   return `${(lastSpace > limit * 0.6 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
+}
+
+/**
+ * Like `shortenText`, but keeps line breaks: a report's bullets and paragraphs mark where
+ * one spoken sentence ends and the next begins.
+ */
+export function shortenReport(text: string, limit: number): string {
+  const tidy = text
+    .split("\n")
+    .map((line) => line.replace(/[ \t\r\f\v]+/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (tidy.length <= limit) {
+    return tidy;
+  }
+  const cut = tidy.slice(0, limit - 1);
+  const lastBreak = Math.max(cut.lastIndexOf(" "), cut.lastIndexOf("\n"));
+  return `${(lastBreak > limit * 0.6 ? cut.slice(0, lastBreak) : cut).trimEnd()}…`;
 }
 
 /** Reads the flattened field the bridge sends, or the raw Claude Code field it came from. */
@@ -141,7 +161,7 @@ export function parseHookPayload(input: unknown): ParseResult<CompanionHookPaylo
   if (eventName === "SubagentStop") {
     const summary = readEither(input, "summary", input.last_assistant_message);
     if (summary !== undefined) {
-      payload.summary = shortenText(summary, maxSummaryLength);
+      payload.summary = shortenReport(summary, maxSummaryLength);
     }
   }
   return { ok: true, value: payload };

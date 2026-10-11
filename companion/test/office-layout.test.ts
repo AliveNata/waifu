@@ -342,6 +342,62 @@ describe("office life", () => {
     expect(new Set(afterCoffee)).toEqual(new Set(["desk"]));
   });
 
+  function seeded(seed: number): () => number {
+    let state = seed;
+    return () => {
+      state = (state * 9301 + 49297) % 233280;
+      return state / 233280;
+    };
+  }
+
+  /** Runs everyone's routine until a ping-pong game starts, checking the pairing rule each step. */
+  function untilPingpong(life: OfficeLife): { players: MemberId[]; now: number; alone: string[] } {
+    const alone: string[] = [];
+    for (let now = 0; now < 3_600_000; now += 1000) {
+      for (const id of memberIds) {
+        const choice = life.planFor(id, now);
+        life.arrived(id, now);
+        if (choice.activity !== "pingpong") {
+          continue;
+        }
+        const partner = life.partnerOf(id);
+        const partnerChoice = partner === null ? null : life.planFor(partner, now);
+        if (partnerChoice?.activity !== "pingpong" || partnerChoice.station === choice.station) {
+          alone.push(`${id} at ${now}`);
+        }
+      }
+      const players = memberIds.filter((id) => life.partnerOf(id) !== null);
+      if (players.length > 0 && alone.length === 0) {
+        return { players, now, alone };
+      }
+    }
+    return { players: [], now: 0, alone };
+  }
+
+  it("only plays ping-pong in pairs, one at each end of the table", () => {
+    // Act
+    const { players, alone } = untilPingpong(new OfficeLife(seeded(11)));
+
+    // Assert
+    expect(alone).toEqual([]);
+    expect(players).toHaveLength(2);
+  });
+
+  it("ends the game for both players when one is called to work", () => {
+    // Arrange
+    const life = new OfficeLife(seeded(11));
+    const { players, now } = untilPingpong(life);
+    const [first, second] = players as [MemberId, MemberId];
+
+    // Act
+    life.interrupt(first, now + 1);
+    const next = life.planFor(second, now + 2);
+
+    // Assert
+    expect(next.activity).not.toBe("pingpong");
+    expect(life.partnerOf(second)).toBeNull();
+  });
+
   it("keeps role activities to their owners", () => {
     // Arrange
     const life = new OfficeLife(Math.random);

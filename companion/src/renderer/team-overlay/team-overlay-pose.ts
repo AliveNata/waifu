@@ -31,6 +31,12 @@ export function speakerPose(input: SpeakerPoseInput): Pose {
       bones.head = addRotation(bones.head, { x: Math.max(0, nod) });
       break;
     }
+    case "shake": {
+      // A slow, damped head shake: "not quite" rather than a hard "no".
+      const shake = 0.13 * Math.sin(t * 8) * Math.exp(-t * 1.3);
+      bones.head = addRotation(bones.head, { y: shake, x: 0.04 * Math.exp(-t) });
+      break;
+    }
     case "point": {
       // Right arm swings forward toward the viewer for the first two seconds.
       const raise = t < 2 ? Math.min(1, t * 4) : Math.max(0, 1 - (t - 2) * 2);

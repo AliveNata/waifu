@@ -44,13 +44,20 @@ Greeting dan done balik ke idle sendiri setelah beberapa detik. Mood lain bertah
 | Kejadian | Yang ngomong | Contoh (mode simulasi) | Gesture |
 |---|---|---|---|
 | 2B ngoper tugas | 2B | "Asuna, tolong bantu ya." | nunjuk |
-| Subagent mulai | Anggota itu | "Oke, aku cek pipeline datanya." | ngangguk |
+| Subagent mulai | Anggota itu | "Oke, aku cek dulu ya." | ngangguk |
 | Subagent pakai tool | Anggota itu | "Aku baca kodenya dulu." (maksimal sekali per 8 detik) | mikir atau ngetik |
 | Subagent selesai | Anggota itu | "Review selesai. Hasilnya ada di laporan." | ngangguk atau sorak |
 
 Kalimat simulasi cuma ngegambarin aktivitas, nggak pernah ngarang hasil. Tag "simulasi" muncul di pojok kotak dialog.
 
-**Isi asli**: tombol **Isi asli** di overlay tim (samar, jadi jelas pas di-hover), atau **Menu > Tampilkan isi percakapan asli**. Kalau dinyalain, 2B nyebut judul tugas yang beneran, dan anggota tim nutup dengan ringkasan laporan akhirnya (maksimal 280 karakter). Matiin lagi sebelum share screen.
+**Isi asli**: tombol **Isi asli** di overlay tim (samar, jadi jelas pas di-hover), atau **Menu > Tampilkan isi percakapan asli**. Kalau dinyalain, 2B nyebut judul tugas yang beneran, anggotanya jawab "oke, aku cek dulu", terus pas selesai dia ngejelasin laporan akhirnya kalimat per kalimat. Matiin lagi sebelum share screen.
+
+Cara laporan dibacain:
+- Diambil dari awal laporan akhir subagent, maksimal 1200 karakter. Format markdown dibuang, blok kode dilewatin, tiap poin atau kalimat jadi satu baris dialog.
+- Maksimal 6 kalimat. Kalau laporannya lebih panjang, baris terakhirnya "Sisanya lengkap di laporan ke 2B ya."
+- Ekspresi dan gesture ngikutin isi kalimatnya: kabar baik ("test lulus", "nggak ada error") senyum dan ngangguk, masalah ("gagal", "belum", "bug") muka khawatir dan geleng pelan, saran ("sebaiknya ...") nunjuk, pertanyaan mikir. Tebakannya dari kata kunci Indonesia dan Inggris, jadi kadang meleset, tapi yang meleset cuma ekspresinya, isi kalimatnya tetap persis dari laporan.
+
+Overlay tim sengaja lebih kecil dari overlay 2B (300 x 380).
 
 Overlay tim bisa digeser kayak overlay 2B.
 
@@ -86,7 +93,10 @@ Setup meja sesuai role:
 **Pas nggak ada tugas**, tiap cast milih kegiatan sendiri dan jalan ke sana tanpa nembus furnitur atau cast lain: kerja santai di meja, bikin kopi, ngemil di kulkas, nonton TV, main game di sofa, main arcade, nyiram tanaman, rebahan di beanbag, baca, ngobrol di meja bar, meeting di meja tengah, atau main pingpong. Kira-kira setengah waktunya di meja, setengahnya istirahat. Biar nggak monoton:
 - Kegiatan yang sama nggak dipilih dua kali berturut-turut, dan tiap kegiatan punya jeda sebelum bisa diulang.
 - Tiap cast punya kesukaan sendiri. Kobayashi sering main arcade, Erza sering ngemil, Rias sering baca, Yor sering ngecek rak server, Ruby sering selfie di depan ring light.
-- Satu tempat cuma dipakai satu orang. Kalau ada yang udah di bar, meja meeting, atau meja pingpong, yang lain lebih mungkin nyamperin.
+- Satu tempat cuma dipakai satu orang. Kalau ada yang udah di bar atau meja meeting, yang lain lebih mungkin nyamperin.
+- Pingpong selalu berdua. Yang mulai ngajak cast yang paling lama nganggur, dan nunggu di meja sambil pegang raket sampai lawannya dateng. Bolanya baru jalan pas dua-duanya udah di posisi, dan kalau satu pergi, yang lain ikut berhenti.
+- Laptop di meja meeting ada empat, satu per kursi dan menghadap kursinya. Layarnya nyala dan bergerak cuma pas ada yang duduk di kursi itu.
+- Pintu kulkas kebuka pas ada yang ngemil, terus ketutup lagi pas dia pergi.
 - Yang punya meja bawa gelasnya ke pantry, bikin kopi, terus balik naruh gelasnya di samping keyboard. Rias dan Chizuru minum kopinya di tempat tujuan berikutnya.
 - Barang di tangan ngikutin kegiatan: HP pas rebahan atau selfie, buku pas baca, stik pas main game, raket pas pingpong, penyiram pas nyiram tanaman.
 - Abis kelar tugas, cast istirahat dulu, nggak langsung balik ke meja.
@@ -199,7 +209,7 @@ Hook-nya jalan dengan `"async": true`, jadi Claude Code nggak nungguin companion
 
 ## Data apa yang dikirim
 
-Bridge cuma nerusin field ini ke `127.0.0.1`: nama event, nama tool (misalnya `Bash`), pesan notifikasi, ID dan nama subagent, judul tugas pendek dari 2B (maksimal 120 karakter), dan awal laporan akhir subagent (maksimal 280 karakter). Dua yang terakhir cuma ditampilin kalau **isi asli** dinyalain. Isi file, command, prompt lo, prompt lengkap ke subagent, dan path transcript dibuang di bridge sebelum dikirim. Server companion cuma dengerin di localhost dan nolak request yang bukan `application/json`, jadi website random di browser nggak bisa nembak endpoint-nya.
+Bridge cuma nerusin field ini ke `127.0.0.1`: nama event, nama tool (misalnya `Bash`), pesan notifikasi, ID dan nama subagent, judul tugas pendek dari 2B (maksimal 120 karakter), dan awal laporan akhir subagent (maksimal 1200 karakter, baris barunya dipertahanin biar bisa dipecah per kalimat). Dua yang terakhir cuma ditampilin kalau **isi asli** dinyalain. Isi file, command, prompt lo, prompt lengkap ke subagent, dan path transcript dibuang di bridge sebelum dikirim. Server companion cuma dengerin di localhost dan nolak request yang bukan `application/json`, jadi website random di browser nggak bisa nembak endpoint-nya.
 
 ## Ganti port
 

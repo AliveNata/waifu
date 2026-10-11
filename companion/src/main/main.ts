@@ -23,7 +23,8 @@ import { hookResponse, PermissionGate } from "./chat/permission-gate.js";
 import { type CompanionSettings, loadSettings, saveSettings } from "./settings-store.js";
 
 const overlaySize = { width: 340, height: 440 };
-const teamOverlaySize = { width: 360, height: 480 };
+/** Smaller than 2B's window: the team member is a guest on the desktop, 2B is the companion. */
+const teamOverlaySize = { width: 300, height: 380 };
 const overlayMargin = 24;
 const cursorPollMs = 50;
 

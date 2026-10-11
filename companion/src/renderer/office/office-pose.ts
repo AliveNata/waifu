@@ -355,6 +355,20 @@ function pingpongBody(input: OfficePoseInput): UpperBody {
   };
 }
 
+/** Paddle ready, bouncing lightly on the toes while the opponent walks over. */
+function pingpongWaitBody(input: OfficePoseInput): UpperBody {
+  return {
+    bones: {
+      ...armsRelaxed,
+      spine: { x: 0.1, y: 0, z: 0 },
+      head: { x: 0, y: 0.2 * Math.sin(input.time * 0.6), z: 0 },
+      rightUpperArm: { x: -0.6, y: 0, z: 0.95 },
+      rightLowerArm: { x: 0, y: 0.8, z: 0 },
+    },
+    standingHipsY: 0.008 * Math.abs(Math.sin(input.time * 4)),
+  };
+}
+
 function upperBody(action: OfficeAction, input: OfficePoseInput): UpperBody {
   switch (action) {
     case "type":
@@ -400,6 +414,8 @@ function upperBody(action: OfficeAction, input: OfficePoseInput): UpperBody {
       return meetingBody(input);
     case "pingpong":
       return pingpongBody(input);
+    case "pingpong-wait":
+      return pingpongWaitBody(input);
   }
 }
 

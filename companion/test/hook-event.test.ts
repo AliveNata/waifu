@@ -38,7 +38,7 @@ describe("parseHookPayload", () => {
         hook_event_name: "SubagentStop",
         agent_id: "agent-1",
         agent_type: "reviewer",
-        summary: "Verdict: PASS All tests green.",
+        summary: "Verdict: PASS\n\nAll tests green.",
       },
     });
   });

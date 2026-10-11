@@ -295,4 +295,23 @@ test.describe("team overlay", () => {
     await expect(page.locator("#dialog-text")).toHaveText("Erza, tolong: Review diff orders", { timeout: 15_000 });
     await expect(page.locator("#dialog-tag")).toBeHidden();
   });
+  test("reads a finished report out one sentence at a time", async ({ page }) => {
+    // Arrange
+    await openPage(page, "/team-overlay/");
+    await page.getByRole("button", { name: "Isi asli: mati" }).click();
+
+    // Act
+    await postHook(page, {
+      hook_event_name: "SubagentStop",
+      agent_id: "agent-e2e",
+      agent_type: "erza",
+      last_assistant_message: "## Verdict: PASS\n\n- Semua test lulus.\n- Sebaiknya tambah test untuk input kosong.",
+    });
+
+    // Assert
+    await expect(page.locator("#dialog-name")).toContainText("Erza");
+    await expect(page.locator("#dialog-text")).toHaveText("Verdict: PASS", { timeout: 15_000 });
+    await expect(page.locator("#dialog-text")).toHaveText("Semua test lulus.", { timeout: 15_000 });
+    await expect(page.locator("#dialog-tag")).toBeHidden();
+  });
 });
