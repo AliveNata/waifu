@@ -504,7 +504,8 @@ export function yawToward(from: Point, to: Point): number {
   return Math.atan2(to.x - from.x, to.z - from.z);
 }
 
-const boardStandX = -6.3;
+/** Close enough to the boards (surface at x -6.91) that a chibi arm reaches the writing. */
+const boardStandX = -6.68;
 
 export const stations: Record<StationId, Station> = {
   "desk-asuna": deskRowStation("desk-asuna", deskRowX.asuna),

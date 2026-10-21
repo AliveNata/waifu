@@ -15,7 +15,23 @@ export interface OfficePoseInput {
   keystrokes: number;
   /** Something held in the right hand while walking, such as a mug: that arm stays bent instead of swinging. */
   carrying: boolean;
+  /** The pen, while working at a board; absent everywhere else. */
+  board?: BoardFocus | null;
 }
+
+/** The pen in the avatar's own frame (x to its left, y up from the floor, z ahead), plus the step back. */
+export interface BoardFocus {
+  x: number;
+  y: number;
+  z: number;
+  /** 0..1: how far into stepping back to look the drawing over. */
+  review: number;
+  /** 0..1: shuffling sideways along the board to keep up with the pen. */
+  stepping: number;
+}
+
+/** Eyes of a standing chibi, in the avatar's frame. */
+const standingEyeY = 0.88;
 
 /** Upper body of one action. Legs and hips come from the posture, so any action works standing or seated. */
 interface UpperBody {
@@ -105,14 +121,45 @@ function stretchBody(input: OfficePoseInput): UpperBody {
   };
 }
 
-/** Base for drawing and sticking notes. IK then moves the right hand onto the board. */
+/**
+ * Drawing and sticking notes. IK moves the right hand onto the board; the head follows the pen
+ * and the shoulders turn part of the way with it, the way people track their own handwriting.
+ * Reviewing, they lean back with the marker lowered to look the whole thing over.
+ */
 function boardBody(input: OfficePoseInput): UpperBody {
+  const focus = input.board ?? null;
+  const ahead = Math.max(0.2, focus?.z ?? 1);
+  const turn = focus === null ? 0 : Math.max(-0.9, Math.min(0.9, Math.atan2(focus.x, ahead)));
+  const tilt = focus === null ? 0 : Math.max(-0.6, Math.min(0.5, Math.atan2(standingEyeY - focus.y, ahead)));
+  const review = focus?.review ?? 0;
+  const drawingArm = { upper: { x: -0.9, y: 0, z: 0.3 }, lower: { x: 0, y: 0.6, z: 0 } };
+  const loweredArm = { upper: { x: -0.2, y: 0, z: 1.2 }, lower: { x: 0, y: 0.9, z: 0 } };
+  const mix = (a: number, b: number): number => a + (b - a) * review;
+  // Small quick steps while shuffling along the board, feet together again once there.
+  const shuffle = 0.22 * (focus?.stepping ?? 0) * Math.sin(input.time * 11);
   return {
+    standingHipsY: 0.008 * Math.abs(shuffle) * 4,
     bones: {
       ...armsRelaxed,
-      rightUpperArm: { x: -0.9, y: 0, z: 0.3 },
-      rightLowerArm: { x: 0, y: 0.6, z: 0 },
-      head: { x: 0.02, y: 0, z: 0.06 * Math.sin(input.time * 0.8) },
+      leftUpperLeg: { x: -shuffle, y: 0, z: 0 },
+      rightUpperLeg: { x: shuffle, y: 0, z: 0 },
+      leftLowerLeg: { x: Math.max(0, shuffle) * 1.4, y: 0, z: 0 },
+      rightLowerLeg: { x: Math.max(0, -shuffle) * 1.4, y: 0, z: 0 },
+      // Leaning in toward the board while writing, back while looking it over.
+      spine: { x: mix(0.1, -0.12), y: turn * 0.3, z: 0 },
+      chest: { x: 0, y: turn * 0.15, z: 0 },
+      rightUpperArm: {
+        x: mix(drawingArm.upper.x, loweredArm.upper.x),
+        y: 0,
+        z: mix(drawingArm.upper.z, loweredArm.upper.z),
+      },
+      rightLowerArm: { x: 0, y: mix(drawingArm.lower.y, loweredArm.lower.y), z: 0 },
+      // Looking the drawing over: a slow scan across it with the head tipped a little.
+      head: {
+        x: tilt * (1 - review) + mix(0, -0.05),
+        y: turn * 0.55 * (1 - review) + review * 0.25 * Math.sin(input.time * 0.9),
+        z: 0.06 * Math.sin(input.time * 0.8) + review * 0.08,
+      },
     },
   };
 }

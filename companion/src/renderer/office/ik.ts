@@ -23,6 +23,7 @@ const jointPosition = new Vector3();
 const toEffector = new Vector3();
 const toTarget = new Vector3();
 const delta = new Quaternion();
+const clamped = new Quaternion();
 const identity = new Quaternion();
 const worldRotation = new Quaternion();
 const parentRotation = new Quaternion();
@@ -48,12 +49,11 @@ export function solveCcd(chain: IkChain, target: Vector3, iterations = 10, toler
       }
       delta.setFromUnitVectors(toEffector.normalize(), toTarget.normalize());
       const angle = 2 * Math.acos(Math.min(1, Math.abs(delta.w)));
-      if (angle > maxStepRadians) {
-        delta.copy(identity).slerp(delta, maxStepRadians / angle);
-      }
+      // A separate quaternion: slerping `delta` toward itself after resetting it would be a no-op.
+      clamped.copy(identity).slerp(delta, Math.min(1, maxStepRadians / angle));
 
       joint.rotate.getWorldQuaternion(worldRotation);
-      worldRotation.premultiply(delta);
+      worldRotation.premultiply(clamped);
       if (joint.rotate.parent !== null) {
         joint.rotate.parent.getWorldQuaternion(parentRotation);
         worldRotation.premultiply(parentRotation.invert());

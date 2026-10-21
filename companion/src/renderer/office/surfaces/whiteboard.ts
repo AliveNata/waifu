@@ -1,5 +1,6 @@
 import { CanvasTexture, SRGBColorSpace } from "three";
-import { arrow, type Diagram, diagramInk, inkProgress, rect, strokeInk, text, type Vec2 } from "./drawing.js";
+import { BoardPen, type PenState } from "./board-pen.js";
+import { arrow, type Diagram, inkProgress, rect, strokeInk, text, type Vec2 } from "./drawing.js";
 
 /** Simulated sketches. Rias compares architecture options, 2B plans the sprint. */
 export const riasDiagrams: readonly Diagram[] = [
@@ -62,7 +63,6 @@ export const twobDiagrams: readonly Diagram[] = [
 
 const canvasWidth = 1040;
 const canvasHeight = 400;
-const inkPerSecond = 0.45;
 const holdSeconds = 3;
 const eraseSeconds = 0.8;
 const handwriting = "'Segoe Print', 'Comic Sans MS', cursive";
@@ -74,7 +74,7 @@ interface Region {
   color: string;
   diagrams: readonly Diagram[];
   diagramIndex: number;
-  ink: number;
+  pen: BoardPen;
   phase: "drawing" | "holding" | "erasing";
   timer: number;
   dirty: boolean;
@@ -102,7 +102,7 @@ export class Whiteboard {
     this.regions = regions.map((region) => ({
       ...region,
       diagramIndex: 0,
-      ink: 0,
+      pen: new BoardPen(region.diagrams[0] ?? []),
       phase: "drawing",
       timer: 0,
       dirty: true,
@@ -113,51 +113,58 @@ export class Whiteboard {
   }
 
   /**
-   * Advances the region a character is drawing in. Returns the pen tip in
-   * board UV (0..1 over the whole board) while the pen is on the board, else null.
+   * Advances the region a character is drawing in. Returns the pen and what the hand is doing,
+   * in board UV (0..1 over the whole board), or null when nobody is drawing there.
    */
-  update(regionIndex: number, deltaSeconds: number, drawing: boolean): Vec2 | null {
+  update(regionIndex: number, deltaSeconds: number, drawing: boolean): PenState | null {
     const region = this.regions[regionIndex];
     if (region === undefined || !drawing) {
       return null;
     }
-    const diagram = region.diagrams[region.diagramIndex] as Diagram;
-    let pen: Vec2 | null = null;
-
+    let state: PenState;
     switch (region.phase) {
-      case "drawing": {
-        region.ink += deltaSeconds * inkPerSecond;
-        if (region.ink >= diagramInk(diagram)) {
-          region.ink = diagramInk(diagram);
+      case "drawing":
+        state = region.pen.advance(deltaSeconds);
+        if (region.pen.finished) {
           region.phase = "holding";
           region.timer = holdSeconds;
         }
-        pen = inkProgress(diagram, region.ink).pen;
         break;
-      }
       case "holding":
         region.timer -= deltaSeconds;
         if (region.timer <= 0) {
           region.phase = "erasing";
           region.timer = eraseSeconds;
         }
-        return null;
-      case "erasing":
+        // A finished drawing gets looked over from a step back before it is wiped.
+        return { ...this.lastPen(region), touching: false, reviewing: true };
+      case "erasing": {
         region.timer -= deltaSeconds;
+        const wiped = 1 - Math.max(0, region.timer) / eraseSeconds;
+        // The hand sweeps the eraser across, zigzagging down the board as it goes.
+        state = { at: [wiped, 0.5 + 0.3 * Math.sin(wiped * Math.PI * 5)], touching: true, reviewing: false };
         if (region.timer <= 0) {
           region.diagramIndex = (region.diagramIndex + 1) % region.diagrams.length;
-          region.ink = 0;
+          region.pen = new BoardPen(region.diagrams[region.diagramIndex] ?? []);
           region.phase = "drawing";
         }
         break;
+      }
     }
 
     const eraseFraction = region.phase === "erasing" ? 1 - region.timer / eraseSeconds : null;
     this.drawRegion(regionIndex, eraseFraction);
-    if (pen === null) {
-      return null;
-    }
-    return [region.u0 + pen[0] * (region.u1 - region.u0), pen[1]];
+    return { ...state, at: this.toBoard(region, state.at) };
+  }
+
+  private lastPen(region: Region): PenState {
+    const diagram = region.diagrams[region.diagramIndex] as Diagram;
+    const pen = inkProgress(diagram, region.pen.ink).pen ?? [0.5, 0.5];
+    return { at: this.toBoard(region, pen), touching: false, reviewing: false };
+  }
+
+  private toBoard(region: Region, at: Vec2): Vec2 {
+    return [region.u0 + at[0] * (region.u1 - region.u0), at[1]];
   }
 
   private drawRegion(regionIndex: number, eraseFraction: number | null): void {
@@ -170,7 +177,7 @@ export class Whiteboard {
     ctx.fillStyle = "#f6f5ef";
     ctx.fillRect(x0, 0, regionWidth, canvasHeight);
     const diagram = region.diagrams[region.diagramIndex] as Diagram;
-    const { strokes } = inkProgress(diagram, region.ink);
+    const { strokes } = inkProgress(diagram, region.pen.ink);
     ctx.strokeStyle = region.color;
     ctx.fillStyle = region.color;
     ctx.lineWidth = 4;

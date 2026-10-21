@@ -45,13 +45,13 @@ import {
 import { OfficeLife } from "./office-life.js";
 import { initialMug, type MugState, stepMug } from "./office-mug.js";
 import { distance, type StationId, stations, surface } from "./office-plan.js";
-import { officePose } from "./office-pose.js";
+import { type BoardFocus, officePose } from "./office-pose.js";
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
 import { PlaceholderAvatar } from "./placeholder.js";
 import { HandProps } from "./scene/hand-props.js";
 import { sceneQuality } from "./scene/palette.js";
 import { fitSeat } from "./seating.js";
-import type { Vec2 } from "./surfaces/drawing.js";
+import type { PenState } from "./surfaces/board-pen.js";
 import { applyMemberSignal, emptyTeamRuntime, endAllRuns, memberBehavior, type TeamRuntime } from "./team-state.js";
 import { handForKey, MouseHabit, TypingHands } from "./typing-hands.js";
 
@@ -124,6 +124,13 @@ interface MemberRig {
    * from keys to mouse (or from its rest pose onto the keys) instead of jumping there.
    */
   reach: Record<ArmSide, Vector3 | null>;
+  /** Which point of the hand the aim was for, kept while easing out after the work lets go. */
+  reachTip: ArmTip;
+  /** 0..1, eased: how far into a step back from the board. */
+  review: number;
+  /** Meters to the member's left along the board, eased toward the goal. */
+  sidestep: number;
+  sidestepGoal: number;
 }
 
 /** World targets for the hands this frame; null leaves that arm to the pose. */
@@ -131,11 +138,30 @@ interface HandTargets {
   left: Vector3 | null;
   right: Vector3 | null;
   tip: ArmTip;
+  /** The pen on a board the member is working at, for the head and body to follow. */
+  board: { pen: Vector3; reviewing: boolean } | null;
 }
 
-const noHandTargets: HandTargets = { left: null, right: null, tip: "wrist" };
+const noHandTargets: HandTargets = { left: null, right: null, tip: "wrist", board: null };
+/** How far the hand comes off the board between strokes, in meters. */
+const penLift = 0.07;
+/** Wrist to marker tip on a chibi hand. */
+const wristBehindPen = 0.06;
+/** How far someone steps back from a board to look their drawing over. */
+const reviewStepBack = 0.22;
+/** Furthest a member shuffles along a board from their spot to follow the pen, in meters. */
+const maxSidestep = 0.6;
+/** How far the pen may wander from the comfortable spot before the member shuffles after it. */
+const shuffleThreshold = 0.15;
+/** Pen this far left of the body's center sits right in front of the right shoulder. */
+const penAheadOfCenter = 0.05;
+/** Per second: a step back or aside takes about half a second. */
+const stepRate = 4;
+const settleRate = 8;
 /** Per second. Quick enough that typing strokes survive the easing, slow enough to glide. */
 const reachRate = 28;
+/** Close enough to the posed hand that letting go of IK is invisible. */
+const releaseDistance = 0.004;
 const armSides: readonly ArmSide[] = ["left", "right"];
 
 export interface CloseupRect {
@@ -466,6 +492,10 @@ export class OfficeStage {
       typingHands: null,
       mouseHabit: new MouseHabit(this.elapsed),
       reach: { left: null, right: null },
+      reachTip: "wrist",
+      review: 0,
+      sidestep: 0,
+      sidestepGoal: 0,
     };
   }
 
@@ -557,46 +587,112 @@ export class OfficeStage {
             ? mouse.gripPoint(new Vector3())
             : keyboard.root.localToWorld(hands.fingertip("right", new Vector3())),
           tip: "fingertip",
+          board: null,
         };
       }
     }
 
-    let pen: Vec2 | null = null;
+    let pen: PenState | null = null;
     if (memberId === "rias") {
       pen = this.office.whiteboard.update(1, delta, action === "draw");
     } else if (memberId === "twob") {
       pen = this.office.whiteboard.update(0, delta, action === "draw");
     } else if (memberId === "chizuru") {
-      pen = this.office.ideaBoard.update(delta, action === "stick");
+      const note = this.office.ideaBoard.update(delta, action === "stick");
+      pen = note === null ? null : { at: note, touching: true, reviewing: false };
     }
     if (pen === null || action === null || !usesHandIk(action)) {
       return noHandTargets;
     }
-    const right =
-      memberId === "chizuru" ? this.office.ideaBoardPoint(pen[0], pen[1]) : this.office.whiteboardPoint(pen[0], pen[1]);
-    return { left: null, right, tip: "wrist" };
+    const [u, v] = pen.at;
+    const onBoard = memberId === "chizuru" ? this.office.ideaBoardPoint(u, v) : this.office.whiteboardPoint(u, v);
+    const board = { pen: onBoard, reviewing: pen.reviewing };
+    if (pen.reviewing) {
+      // Hands down while looking it over; the arm eases back to the pose.
+      return { left: null, right: null, tip: "wrist", board };
+    }
+    // IK places the wrist, which sits a hand and a marker back from the tip touching the board;
+    // between strokes the whole hand comes further off, the way a pen lifts away.
+    const right = onBoard.clone();
+    const { position } = rig.actor;
+    const away = new Vector3(position.x - right.x, 0, position.z - right.z);
+    if (away.lengthSq() > 1e-6) {
+      right.addScaledVector(away.normalize(), wristBehindPen + (pen.touching ? 0 : penLift));
+    }
+    return { left: null, right, tip: "wrist", board };
   }
 
-  /** Eases each hand's IK aim toward its target and solves the arm onto it. */
+  /**
+   * Eases each hand's IK aim toward its target and solves the arm onto it. When the work lets go
+   * of a hand, the aim eases back to where the pose holds it before IK lets go, so it never snaps.
+   */
   private reachFor(rig: MemberRig, targets: HandTargets, delta: number): void {
     const blend = 1 - Math.exp(-reachRate * delta);
     for (const side of armSides) {
       const target = targets[side];
-      const arm = target === null ? null : rig.avatar.arm(side, targets.tip);
-      if (target === null || arm === null) {
+      const current = rig.reach[side];
+      if (target === null && current === null) {
+        continue;
+      }
+      if (target !== null) {
+        rig.reachTip = targets.tip;
+      }
+      const arm = rig.avatar.arm(side, rig.reachTip);
+      if (arm === null) {
         rig.reach[side] = null;
         continue;
       }
       rig.avatar.syncPose();
-      let aim = rig.reach[side];
-      if (aim === null) {
-        // Start from where the posed hand already is, so the arm moves onto the work.
-        aim = arm.effector.getWorldPosition(new Vector3());
-        rig.reach[side] = aim;
+      const posed = arm.effector.getWorldPosition(new Vector3());
+      const aim = current ?? posed.clone();
+      rig.reach[side] = aim;
+      if (target === null) {
+        aim.lerp(posed, blend);
+        if (aim.distanceTo(posed) < releaseDistance) {
+          rig.reach[side] = null;
+          continue;
+        }
+      } else {
+        aim.lerp(target, blend);
       }
-      aim.lerp(target, blend);
       solveCcd(arm, aim);
     }
+  }
+
+  /**
+   * At a board the body follows the pen: a sidestep along the board toward where it is writing,
+   * a step back while looking the drawing over. Returns the pen for the head and shoulders to track.
+   */
+  private boardFocus(rig: MemberRig, targets: HandTargets, delta: number): BoardFocus | null {
+    const { root } = rig.avatar;
+    const board = targets.board;
+    if (board === null) {
+      rig.sidestepGoal = 0;
+    } else {
+      root.updateMatrixWorld();
+      // The writing hand is the right one, a little right of center: keep the pen just in front of it.
+      const wanted = root.worldToLocal(board.pen.clone()).x + penAheadOfCenter;
+      // People write a few words, then shuffle over; they do not glide along with every letter.
+      if (Math.abs(wanted - rig.sidestepGoal) > shuffleThreshold) {
+        rig.sidestepGoal = Math.max(-maxSidestep, Math.min(maxSidestep, wanted));
+      }
+    }
+    // Leaving the board, the offsets settle fast so the walk away starts from the real spot.
+    const rate = board === null ? settleRate : stepRate;
+    const ease = 1 - Math.exp(-rate * delta);
+    rig.sidestep += (rig.sidestepGoal - rig.sidestep) * ease;
+    rig.review += ((board?.reviewing === true ? 1 : 0) - rig.review) * ease;
+    const yaw = root.rotation.y;
+    // The avatar faces +z at yaw 0, so its left is +x and its back is -z, both turned by the yaw.
+    root.position.x += Math.cos(yaw) * rig.sidestep - Math.sin(yaw) * reviewStepBack * rig.review;
+    root.position.z += -Math.sin(yaw) * rig.sidestep - Math.cos(yaw) * reviewStepBack * rig.review;
+    if (board === null) {
+      return null;
+    }
+    root.updateMatrixWorld();
+    const local = root.worldToLocal(board.pen.clone());
+    const stepping = Math.min(1, Math.abs(rig.sidestepGoal - rig.sidestep) / 0.1);
+    return { x: local.x, y: local.y, z: local.z, review: rig.review, stepping };
   }
 
   private updateMember(memberId: MemberId, delta: number, now: number): void {
@@ -633,6 +729,7 @@ export class OfficeStage {
     avatar.root.position.set(actor.position.x, 0, actor.position.z);
     avatar.root.rotation.y = actor.yaw;
     const seatHeight = stations[plan.station].seatHeight;
+    const board = this.boardFocus(rig, handTargets, delta);
     const pose = officePose({
       action,
       walkPhase: actor.walkPhase,
@@ -641,6 +738,7 @@ export class OfficeStage {
       seat: action === null || seatHeight === null ? null : fitSeat(avatar.legs, seatHeight),
       keystrokes: rig.keystrokes,
       carrying: rig.mug.inHand,
+      board,
     });
     rig.poseApplier.apply(avatar.poseTarget, pose, delta);
 

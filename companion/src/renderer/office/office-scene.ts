@@ -370,8 +370,9 @@ export function buildOffice(): OfficeProps {
   const whiteboardSpec: BoardSpec = {
     centerZ: whiteboardPiece.z,
     width: whiteboardPiece.depth,
-    // Lower edge near a chibi's waist, upper edge inside its reach, so writing never needs a ladder.
-    bottom: 0.25,
+    // Just above the skirting, so even the top line is within a chibi arm's reach (shoulders are
+    // about 0.7 m up and the arm about 0.33 m long).
+    bottom: 0.14,
     height: 0.85,
   };
   // Left half (+z side) for 2B's planning, right half for Rias's architecture sketches.
@@ -382,7 +383,7 @@ export function buildOffice(): OfficeProps {
   root.add(leftWallPlane(whiteboard.texture, whiteboardSpec, palette.frame));
 
   const ideaPiece = pieceById("idea-board");
-  const ideaSpec: BoardSpec = { centerZ: ideaPiece.z, width: ideaPiece.depth, bottom: 0.28, height: 0.78 };
+  const ideaSpec: BoardSpec = { centerZ: ideaPiece.z, width: ideaPiece.depth, bottom: 0.16, height: 0.78 };
   const ideaBoard = new IdeaBoard();
   root.add(leftWallPlane(ideaBoard.texture, ideaSpec, palette.skirting));
 
