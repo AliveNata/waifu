@@ -16,6 +16,7 @@ import { loadVrm } from "../common/vrm-loader.js";
 import { VrmOfficeAvatar } from "./avatar.js";
 import { ChatPanel } from "./chat-panel.js";
 import { type CloseupRect, closeupRect, OfficeStage, portraitSize, teamDialogDock } from "./office-stage.js";
+import { setSceneQuality } from "./scene/palette.js";
 
 /** Head and shoulders: the portrait is small, so the face has to fill it. */
 const portraitFraming: SpeakerFraming = { height: 0.55, drop: 0.06 };
@@ -342,4 +343,17 @@ if (!(canvas instanceof HTMLCanvasElement)) {
 }
 // Started before the 3D scene, so the chat still works on a machine where WebGL fails.
 new ChatPanel(bridge).start();
-new OfficePage(bridge, canvas).start();
+// Materials read the quality as they are built, so it has to be known before the office exists.
+bridge
+  .getOfficeQuality()
+  .catch((error: unknown) => {
+    console.error("[office] could not read the graphics quality, using low", error);
+    return "low" as const;
+  })
+  .then((quality) => {
+    setSceneQuality(quality);
+    new OfficePage(bridge, canvas).start();
+  })
+  .catch((error: unknown) => {
+    console.error("[office] failed to start the office scene", error);
+  });

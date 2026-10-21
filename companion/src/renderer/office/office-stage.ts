@@ -2,6 +2,7 @@ import {
   ACESFilmicToneMapping,
   Color,
   DirectionalLight,
+  HalfFloatType,
   HemisphereLight,
   type Object3D,
   PCFShadowMap,
@@ -12,8 +13,13 @@ import {
   Timer,
   Vector3,
   WebGLRenderer,
+  WebGLRenderTarget,
 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { idleReaction, type MemberSignal, type Reaction } from "../../shared/reaction.js";
 import { type MemberId, memberIds, roster } from "../../shared/team.js";
 import {
@@ -43,6 +49,7 @@ import { officePose } from "./office-pose.js";
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
 import { PlaceholderAvatar } from "./placeholder.js";
 import { HandProps } from "./scene/hand-props.js";
+import { sceneQuality } from "./scene/palette.js";
 import { fitSeat } from "./seating.js";
 import type { Vec2 } from "./surfaces/drawing.js";
 import { applyMemberSignal, emptyTeamRuntime, endAllRuns, memberBehavior, type TeamRuntime } from "./team-state.js";
@@ -201,6 +208,7 @@ const actionLabels: Record<OfficeAction, string> = {
 };
 
 export class OfficeStage {
+  private composer: EffectComposer | null = null;
   private readonly renderer: WebGLRenderer;
   private readonly scene = new Scene();
   private readonly camera = new PerspectiveCamera(30, 1.6, 0.1, 120);
@@ -287,6 +295,9 @@ export class OfficeStage {
       memberIds.map((memberId) => [memberId, this.createRig(memberId, new PlaceholderAvatar(memberLooks[memberId]))]),
     ) as Record<MemberId, MemberRig>;
 
+    if (sceneQuality() === "high") {
+      this.composer = this.createComposer();
+    }
     window.addEventListener("resize", () => this.resize());
     this.resize();
     this.resetView();
@@ -432,12 +443,33 @@ export class OfficeStage {
     };
   }
 
+  /**
+   * High quality: ambient occlusion darkens where surfaces meet (under desks, between cushions,
+   * along walls), which is what makes the room read as solid. The frame stays transparent through
+   * every pass, so the page color shows behind the room exactly as without post-processing; a
+   * scene background would go through tone mapping and come out grayer than the page.
+   */
+  private createComposer(): EffectComposer {
+    // The canvas's own antialiasing does not apply to offscreen targets, so they get their own.
+    const target = new WebGLRenderTarget(1, 1, { type: HalfFloatType, samples: 4 });
+    const composer = new EffectComposer(this.renderer, target);
+    composer.addPass(new RenderPass(this.scene, this.camera));
+    const ao = new GTAOPass(this.scene, this.camera, 512, 512);
+    ao.blendIntensity = 0.85;
+    // Room-sized radius: a chibi desk is under a meter, so a wide radius would gray whole walls.
+    ao.updateGtaoMaterial({ radius: 0.35, distanceExponent: 1.5, thickness: 1, scale: 1 });
+    composer.addPass(ao);
+    composer.addPass(new OutputPass());
+    return composer;
+  }
+
   private resize(): void {
     const width = window.innerWidth;
     const height = window.innerHeight;
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
+    this.composer?.setSize(width, height);
   }
 
   private planFor(memberId: MemberId, now: number, rig: MemberRig | null): MemberPlan {
@@ -720,9 +752,13 @@ export class OfficeStage {
     const height = this.canvas.clientHeight;
     this.renderer.setScissorTest(false);
     this.renderer.setViewport(0, 0, width, height);
-    this.renderer.setClearColor(0x000000, 0);
-    this.renderer.clear();
-    this.renderer.render(this.scene, this.camera);
+    if (this.composer !== null) {
+      this.composer.render(delta);
+    } else {
+      this.renderer.setClearColor(0x000000, 0);
+      this.renderer.clear();
+      this.renderer.render(this.scene, this.camera);
+    }
 
     if (this.closeupEnabled && this.focus !== null) {
       const rect = this.closeupLayout ?? closeupRect(width, height, null);

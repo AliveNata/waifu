@@ -168,6 +168,8 @@ const deskRow: Furniture[] = (Object.entries(deskRowX) as [keyof typeof deskRowX
 ]);
 
 const frontDeskZ = 1.95;
+/** Where Ruby sits at her desk; her camera and ring light both aim here. */
+const rubySeat = { x: -1.9, z: 1.4 } as const;
 
 /** Chairs around the meeting table: two on the back side facing the camera, two on the front side. */
 const meetingSeats = [
@@ -217,7 +219,8 @@ export const furniture: readonly Furniture[] = [
     z: 1.75,
     width: 0.35,
     depth: 0.35,
-    yaw: facing.camera,
+    // Lights Ruby's face at her desk, from her front left, like a key light.
+    yaw: yawToward({ x: -2.85, z: 1.75 }, rubySeat),
     blocksWalking: true,
   },
   {
@@ -227,7 +230,8 @@ export const furniture: readonly Furniture[] = [
     z: 2.75,
     width: 0.4,
     depth: 0.4,
-    yaw: facing.backWall,
+    // The lens points at Ruby in her chair, the same subject the ring light is lighting.
+    yaw: yawToward({ x: -1.0, z: 2.75 }, rubySeat),
     blocksWalking: true,
   },
   {
@@ -508,7 +512,7 @@ export const stations: Record<StationId, Station> = {
   "desk-yor": deskRowStation("desk-yor", deskRowX.yor),
   "desk-ruby": {
     id: "desk-ruby",
-    spot: { x: -1.9, z: 1.4 },
+    spot: rubySeat,
     facing: facing.camera,
     approach: { x: -1.9 + chairSideStep, z: 1.4 },
     seatHeight: chairSeatHeight,

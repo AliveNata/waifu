@@ -468,3 +468,23 @@ describe("office director", () => {
     expect(usesHandIk("type")).toBe(false);
   });
 });
+
+describe("Ruby's filming rig", () => {
+  it("points the ring light and the camera at the same seat", () => {
+    // Arrange
+    const seat = stations["desk-ruby"].spot;
+    const rig = furniture.filter((piece) => piece.kind === "ring-light" || piece.kind === "camera-tripod");
+
+    // Act
+    const misses = rig.map((piece) => {
+      const toSeat = Math.atan2(seat.x - piece.x, seat.z - piece.z);
+      return Math.abs(angleDelta(piece.yaw, toSeat));
+    });
+
+    // Assert
+    expect(rig).toHaveLength(2);
+    for (const miss of misses) {
+      expect(miss).toBeLessThan(1e-6);
+    }
+  });
+});

@@ -1,6 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { type ConversationMode, isConversationMode } from "../shared/protocol.js";
+import { type ConversationMode, isConversationMode, isOfficeQuality, type OfficeQuality } from "../shared/protocol.js";
 import { isMemberId, type MemberId } from "../shared/team.js";
 
 export interface CompanionSettings {
@@ -9,6 +9,7 @@ export interface CompanionSettings {
   officeOpen: boolean;
   conversationMode: ConversationMode;
   closeupEnabled: boolean;
+  officeQuality: OfficeQuality;
   /** Shows 2B's desktop companion window. */
   companionVisible: boolean;
   /** Shows the chat to Claude in the office. */
@@ -27,6 +28,7 @@ export const defaultSettings: CompanionSettings = {
   officeOpen: false,
   conversationMode: "simulated",
   closeupEnabled: true,
+  officeQuality: "high",
   companionVisible: true,
   chatEnabled: true,
   chatProjectDir: null,
@@ -60,6 +62,7 @@ export function normalizeSettings(input: unknown): CompanionSettings {
       ? record.conversationMode
       : defaultSettings.conversationMode,
     closeupEnabled: typeof record.closeupEnabled === "boolean" ? record.closeupEnabled : defaultSettings.closeupEnabled,
+    officeQuality: isOfficeQuality(record.officeQuality) ? record.officeQuality : defaultSettings.officeQuality,
     companionVisible:
       typeof record.companionVisible === "boolean" ? record.companionVisible : defaultSettings.companionVisible,
     chatEnabled: typeof record.chatEnabled === "boolean" ? record.chatEnabled : defaultSettings.chatEnabled,

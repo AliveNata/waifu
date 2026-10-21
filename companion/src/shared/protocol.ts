@@ -34,6 +34,13 @@ export interface CursorOffset {
 /** "simulated" shows role-flavored lines, "real" shows the actual task titles and report summaries. */
 export type ConversationMode = "simulated" | "real";
 
+/** "high": rounded edges, surface textures and ambient occlusion. "low": plain boxes for slower GPUs. */
+export type OfficeQuality = "high" | "low";
+
+export function isOfficeQuality(value: unknown): value is OfficeQuality {
+  return value === "high" || value === "low";
+}
+
 export function isConversationMode(value: unknown): value is ConversationMode {
   return value === "simulated" || value === "real";
 }
@@ -52,6 +59,8 @@ export interface CompanionApi {
   getCloseupEnabled(): Promise<boolean>;
   setCloseupEnabled(enabled: boolean): void;
   onCloseupEnabled(listener: (enabled: boolean) => void): () => void;
+  /** Graphics quality of the office, read once when the office page loads. */
+  getOfficeQuality(): Promise<OfficeQuality>;
   /** Whether 2B's desktop companion window is shown. */
   getCompanionVisible(): Promise<boolean>;
   setCompanionVisible(visible: boolean): void;
@@ -117,6 +126,7 @@ export const ipcChannels = {
   getCloseupEnabled: "companion:get-closeup-enabled",
   setCloseupEnabled: "companion:set-closeup-enabled",
   closeupEnabled: "companion:closeup-enabled",
+  getOfficeQuality: "companion:get-office-quality",
   getCompanionVisible: "companion:get-companion-visible",
   setCompanionVisible: "companion:set-companion-visible",
   companionVisible: "companion:companion-visible",
