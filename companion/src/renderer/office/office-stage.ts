@@ -33,7 +33,8 @@ import { PoseApplier } from "../common/pose.js";
 import type { ArmSide, ArmTip, OfficeAvatar } from "./avatar.js";
 import { nightFactor } from "./daylight.js";
 import { solveCcd } from "./ik.js";
-import { type ActorState, initialActor, isWalking, stepActor } from "./office-actor.js";
+import { type ActorState, angleDelta, initialActor, isWalking, stepActor } from "./office-actor.js";
+import { ChatterDirector } from "./office-chatter.js";
 import {
   type MemberPlan,
   memberPlan,
@@ -54,6 +55,7 @@ import { fitSeat } from "./seating.js";
 import type { PenState } from "./surfaces/board-pen.js";
 import { applyMemberSignal, emptyTeamRuntime, endAllRuns, memberBehavior, type TeamRuntime } from "./team-state.js";
 import { handForKey, MouseHabit, TypingHands } from "./typing-hands.js";
+import { WalkHabits, walkStyles } from "./walk-life.js";
 
 const closeupBackground = new Color("#e9e4da");
 const keyScratch = new Vector3();
@@ -131,6 +133,9 @@ interface MemberRig {
   /** Meters to the member's left along the board, eased toward the goal. */
   sidestep: number;
   sidestepGoal: number;
+  walkHabits: WalkHabits;
+  /** Who this member last waved at, to turn toward them during the wave. */
+  greeted: MemberId | null;
 }
 
 /** World targets for the hands this frame; null leaves that arm to the pose. */
@@ -149,6 +154,20 @@ const penLift = 0.07;
 const wristBehindPen = 0.06;
 /** How far someone steps back from a board to look their drawing over. */
 const reviewStepBack = 0.22;
+/** Teammates closer than this while one of them walks by say hello. */
+const greetDistance = 1.1;
+/** Where a speech bubble's tail points: this far above the head bone, over the hair. */
+const bubbleAboveHead = 0.3;
+
+/** A line of small talk and where on screen its speaker's head is. */
+export interface SpeechAnchor {
+  memberId: MemberId;
+  text: string;
+  x: number;
+  y: number;
+  shownFor: number;
+}
+
 /** Furthest a member shuffles along a board from their spot to follow the pen, in meters. */
 const maxSidestep = 0.6;
 /** How far the pen may wander from the comfortable spot before the member shuffles after it. */
@@ -257,6 +276,7 @@ const actionLabels: Record<OfficeAction, string> = {
 
 export class OfficeStage {
   private composer: EffectComposer | null = null;
+  private readonly chatter = new ChatterDirector();
   private readonly renderer: WebGLRenderer;
   private readonly scene = new Scene();
   private readonly camera = new PerspectiveCamera(30, 1.6, 0.1, 120);
@@ -496,6 +516,8 @@ export class OfficeStage {
       review: 0,
       sidestep: 0,
       sidestepGoal: 0,
+      walkHabits: new WalkHabits(this.elapsed),
+      greeted: null,
     };
   }
 
@@ -730,6 +752,7 @@ export class OfficeStage {
     avatar.root.rotation.y = actor.yaw;
     const seatHeight = stations[plan.station].seatHeight;
     const board = this.boardFocus(rig, handTargets, delta);
+    const gimmick = rig.walkHabits.update(this.elapsed, action === null, rig.mug.inHand);
     const pose = officePose({
       action,
       walkPhase: actor.walkPhase,
@@ -739,21 +762,125 @@ export class OfficeStage {
       keystrokes: rig.keystrokes,
       carrying: rig.mug.inHand,
       board,
+      walkStyle: walkStyles[memberId],
+      gimmick,
+      chatter: this.chatter.reactionOf(memberId),
+      lookYaw: this.lookYawFor(memberId, rig, gimmick?.kind === "wave"),
     });
     rig.poseApplier.apply(avatar.poseTarget, pose, delta);
 
     this.reachFor(rig, handTargets, delta);
 
-    rig.expressions = stepExpressionWeights(rig.expressions, expressionTargetsForMood(plan.mood), delta);
+    const reaction = this.chatter.reactionOf(memberId);
+    const moodTargets = expressionTargetsForMood(plan.mood);
+    const targets = reaction === "laugh" ? { ...moodTargets, happy: 1 } : moodTargets;
+    rig.expressions = stepExpressionWeights(rig.expressions, targets, delta);
     const happy = rig.expressions.happy ?? 0;
-    avatar.setExpressions(rig.expressions, rig.blink.weightAt(this.elapsed + phaseOffset) * (1 - happy));
+    // The mouth flaps while a line is up; too quick for the eased weights, so it is added on top.
+    const talking = this.chatter.speechOf(memberId) !== null;
+    const shown = talking
+      ? { ...rig.expressions, aa: 0.45 * Math.abs(Math.sin((this.elapsed + phaseOffset) * 11)) }
+      : rig.expressions;
+    avatar.setExpressions(shown, rig.blink.weightAt(this.elapsed + phaseOffset) * (1 - happy));
     avatar.update(delta);
 
     // Board work needs the hand free; otherwise the action's own prop wins over a carried mug.
+    const onPhone = gimmick?.kind === "phone" ? "phone" : null;
     const held =
-      action !== null && usesHandIk(action) ? null : (propForAction(action) ?? (rig.mug.inHand ? "mug" : null));
+      action !== null && usesHandIk(action) ? null : (propForAction(action) ?? (rig.mug.inHand ? "mug" : onPhone));
     rig.props.show(held);
     rig.props.follow(rig.hand, actor.yaw);
+  }
+
+  /**
+   * Pairs at the bar or the pantry talk; anyone walking past a teammate on a break waves and
+   * says hello.
+   */
+  private updateChatter(delta: number): void {
+    const settledAt = (station: StationId, action: OfficeAction): MemberId | null =>
+      memberIds.find((memberId) => {
+        const rig = this.rigs[memberId];
+        return rig.action === action && rig.actor.target === station && !isWalking(rig.actor);
+      }) ?? null;
+    const pairs: [MemberId, MemberId][] = [];
+    const barLeft = settledAt("bar-left", "chat");
+    const barRight = settledAt("bar-right", "chat");
+    if (barLeft !== null && barRight !== null) {
+      pairs.push([barLeft, barRight]);
+    }
+    const brewing = settledAt("coffee", "brew");
+    const snacking = settledAt("fridge", "snack");
+    if (brewing !== null && snacking !== null) {
+      pairs.push([brewing, snacking]);
+    }
+    this.chatter.update(this.elapsed, delta, pairs);
+
+    for (const [index, first] of memberIds.entries()) {
+      for (const second of memberIds.slice(index + 1)) {
+        const a = this.rigs[first];
+        const b = this.rigs[second];
+        const someoneWalking = isWalking(a.actor) || isWalking(b.actor);
+        if (!someoneWalking || a.wasWorking || b.wasWorking) {
+          continue;
+        }
+        if (distance(a.actor.position, b.actor.position) > greetDistance) {
+          continue;
+        }
+        if (!this.chatter.greet(first, second, this.elapsed)) {
+          continue;
+        }
+        for (const [rig, other] of [
+          [a, second],
+          [b, first],
+        ] as const) {
+          rig.greeted = other;
+          if (isWalking(rig.actor)) {
+            rig.walkHabits.wave(this.elapsed);
+          }
+        }
+      }
+    }
+  }
+
+  /** Head turn toward a conversation partner, or toward whoever is being waved at. */
+  private lookYawFor(memberId: MemberId, rig: MemberRig, waving: boolean): number {
+    const other = waving ? rig.greeted : this.chatter.partnerOf(memberId);
+    if (other === null) {
+      return 0;
+    }
+    const target = this.rigs[other].actor.position;
+    const { position, yaw } = rig.actor;
+    const toward = Math.atan2(target.x - position.x, target.z - position.z);
+    return angleDelta(yaw, toward);
+  }
+
+  /** Where each speech bubble goes on screen this frame. */
+  speechAnchors(): SpeechAnchor[] {
+    const width = this.canvas.clientWidth;
+    const height = this.canvas.clientHeight;
+    const anchors: SpeechAnchor[] = [];
+    for (const memberId of memberIds) {
+      const speech = this.chatter.speechOf(memberId);
+      const head = this.rigs[memberId].avatar.poseTarget.node("head");
+      if (speech === null || head === null) {
+        continue;
+      }
+      const point = head.getWorldPosition(new Vector3());
+      point.y += bubbleAboveHead;
+      point.project(this.camera);
+      // Behind the camera or outside the view: no bubble pointing at nothing.
+      if (point.z > 1 || Math.abs(point.x) > 1 || Math.abs(point.y) > 1) {
+        continue;
+      }
+      anchors.push({
+        memberId,
+        text: speech.text,
+        x: ((point.x + 1) / 2) * width,
+        y: ((1 - point.y) / 2) * height,
+        shownFor: speech.shownFor,
+      });
+    }
+    return anchors;
   }
 
   private updateMug(memberId: MemberId, rig: MemberRig, arrived: boolean, departedFrom: StationId | null): void {
@@ -891,6 +1018,7 @@ export class OfficeStage {
     const now = Date.now();
     this.onFrame();
 
+    this.updateChatter(delta);
     for (const memberId of memberIds) {
       this.updateMember(memberId, delta, now);
     }

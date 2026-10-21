@@ -1,6 +1,8 @@
 import { addRotation, armsRelaxed, type Pose, type PoseBones } from "../common/pose.js";
+import type { ChatReaction } from "./office-chatter.js";
 import type { OfficeAction } from "./office-director.js";
 import type { SeatFit } from "./seating.js";
+import type { ActiveGimmick, WalkStyle } from "./walk-life.js";
 
 export interface OfficePoseInput {
   /** Null while walking. */
@@ -17,7 +19,17 @@ export interface OfficePoseInput {
   carrying: boolean;
   /** The pen, while working at a board; absent everywhere else. */
   board?: BoardFocus | null;
+  /** The member's own way of walking; the plain cycle when absent. */
+  walkStyle?: WalkStyle;
+  /** Something done on the way (phone, stretch, wave), while walking. */
+  gimmick?: ActiveGimmick | null;
+  /** Small talk: talking, nodding along, or laughing. */
+  chatter?: ChatReaction | null;
+  /** Turns the head toward someone, in radians to the avatar's left. */
+  lookYaw?: number;
 }
+
+const plainWalk: WalkStyle = { stride: 1, armSwing: 1, bounce: 1, sway: 1, lean: 0.04 };
 
 /** The pen in the avatar's own frame (x to its left, y up from the floor, z ahead), plus the step back. */
 export interface BoardFocus {
@@ -55,24 +67,72 @@ function seatedLegs(seat: SeatFit): PoseBones {
  * Short steps with a small hip sway. A wide stride drags long skirts and dresses
  * (skinned to the thighs) into stretched shapes; small swings keep them hanging naturally.
  */
-function walkPose(phase: number): Pose {
+function walkPose(phase: number, style: WalkStyle): Pose {
   const swing = Math.sin(phase);
   const bob = Math.abs(Math.cos(phase));
+  const stride = 0.32 * style.stride;
+  const arms = 0.3 * style.armSwing;
   return {
     bones: {
       ...armsRelaxed,
-      leftUpperArm: addRotation(armsRelaxed.leftUpperArm, { x: 0.3 * swing }),
-      rightUpperArm: addRotation(armsRelaxed.rightUpperArm, { x: -0.3 * swing }),
-      hips: { x: 0, y: 0.06 * swing, z: 0.025 * swing },
-      leftUpperLeg: { x: -0.32 * swing, y: 0, z: 0 },
-      rightUpperLeg: { x: 0.32 * swing, y: 0, z: 0 },
+      leftUpperArm: addRotation(armsRelaxed.leftUpperArm, { x: arms * swing }),
+      rightUpperArm: addRotation(armsRelaxed.rightUpperArm, { x: -arms * swing }),
+      hips: { x: 0, y: 0.06 * style.sway * swing, z: 0.025 * style.sway * swing },
+      leftUpperLeg: { x: -stride * swing, y: 0, z: 0 },
+      rightUpperLeg: { x: stride * swing, y: 0, z: 0 },
       // Knees only bend backward, on the leg that is swinging through.
-      leftLowerLeg: { x: 0.45 * Math.max(0, -Math.cos(phase)), y: 0, z: 0 },
-      rightLowerLeg: { x: 0.45 * Math.max(0, Math.cos(phase)), y: 0, z: 0 },
-      spine: { x: 0.04, y: -0.04 * swing, z: 0 },
+      leftLowerLeg: { x: 0.45 * style.stride * Math.max(0, -Math.cos(phase)), y: 0, z: 0 },
+      rightLowerLeg: { x: 0.45 * style.stride * Math.max(0, Math.cos(phase)), y: 0, z: 0 },
+      spine: { x: style.lean, y: -0.04 * swing, z: 0 },
     },
-    hipsOffsetY: 0.014 * bob,
+    hipsOffsetY: 0.014 * style.bounce * bob,
   };
+}
+
+/** Upper body overrides for a gimmick on the move; the legs keep walking underneath. */
+function gimmickBones(gimmick: ActiveGimmick, input: OfficePoseInput): PoseBones {
+  const t = gimmick.elapsed / gimmick.duration;
+  switch (gimmick.kind) {
+    case "look-around":
+      // A glance one way, then the other, then eyes front again.
+      return { head: { x: -0.05, y: 0.65 * Math.sin(t * Math.PI * 2), z: 0 } };
+    case "phone":
+      return {
+        head: { x: 0.38, y: 0, z: 0 },
+        rightUpperArm: { x: -0.55, y: 0, z: 1.1 },
+        rightLowerArm: { x: 0, y: 1.7, z: 0 },
+      };
+    case "stretch": {
+      // Arms up and back down within the gimmick, eased so it does not snap.
+      const up = Math.sin(Math.min(1, t) * Math.PI);
+      return {
+        head: { x: -0.18 * up, y: 0, z: 0 },
+        leftUpperArm: { x: 0, y: 0, z: -1.22 + 2.4 * up },
+        rightUpperArm: { x: 0, y: 0, z: 1.22 - 2.4 * up },
+        leftLowerArm: { x: 0, y: -0.25 * (1 - up), z: 0 },
+        rightLowerArm: { x: 0, y: 0.25 * (1 - up), z: 0 },
+      };
+    }
+    case "wave":
+      return {
+        rightUpperArm: { x: 0, y: 0, z: 0.05 },
+        rightLowerArm: { x: 0, y: 0, z: -1.4 + 0.35 * Math.sin(input.time * 9) },
+        head: { x: 0, y: 0, z: -0.12 },
+      };
+  }
+}
+
+/** Head motion of small talk, on top of whatever the body is doing. */
+function chatterHead(reaction: ChatReaction, time: number): { x: number; y: number; z: number } {
+  switch (reaction) {
+    case "talk":
+      return { x: 0.05 * Math.sin(time * 5), y: 0, z: 0.04 * Math.sin(time * 1.7) };
+    case "nod":
+      // A nod every second or so, not a constant bobble.
+      return { x: 0.16 * Math.max(0, Math.sin(time * 6)) * (Math.sin(time * 1.1) > 0 ? 1 : 0.3), y: 0, z: 0 };
+    case "laugh":
+      return { x: -0.15 + 0.06 * Math.sin(time * 16), y: 0, z: 0.08 };
+  }
 }
 
 function typeBody(input: OfficePoseInput): UpperBody {
@@ -471,10 +531,13 @@ function upperBody(action: OfficeAction, input: OfficePoseInput): UpperBody {
 export function officePose(input: OfficePoseInput): Pose {
   let pose: Pose;
   if (input.action === null) {
-    pose = walkPose(input.walkPhase);
+    pose = walkPose(input.walkPhase, input.walkStyle ?? plainWalk);
     if (input.carrying) {
       pose.bones.rightUpperArm = { x: -0.3, y: 0, z: 1.3 };
       pose.bones.rightLowerArm = { x: 0, y: 1.4, z: 0 };
+    }
+    if (input.gimmick !== undefined && input.gimmick !== null) {
+      pose.bones = { ...pose.bones, ...gimmickBones(input.gimmick, input) };
     }
   } else {
     const body = upperBody(input.action, input);
@@ -482,6 +545,18 @@ export function officePose(input: OfficePoseInput): Pose {
       input.seat === null
         ? { bones: body.bones, hipsOffsetY: body.standingHipsY ?? 0 }
         : { bones: { ...body.bones, ...seatedLegs(input.seat) }, hipsOffsetY: -input.seat.hipsDrop };
+  }
+  if (input.chatter !== undefined && input.chatter !== null) {
+    pose.bones.head = addRotation(pose.bones.head, chatterHead(input.chatter, input.time));
+    if (input.chatter === "laugh") {
+      pose.bones.chest = addRotation(pose.bones.chest, { x: -0.06 + 0.04 * Math.sin(input.time * 16) });
+    }
+  }
+  if (input.lookYaw !== undefined && input.lookYaw !== 0) {
+    // Mostly the head, a little of the chest, the way people turn to someone beside them.
+    const yaw = Math.max(-1, Math.min(1, input.lookYaw));
+    pose.bones.head = addRotation(pose.bones.head, { y: yaw * 0.7 });
+    pose.bones.chest = addRotation(pose.bones.chest, { y: yaw * 0.25 });
   }
   const breath = 0.015 * Math.sin((input.time * 2 * Math.PI) / 4);
   pose.bones.chest = addRotation(pose.bones.chest, { x: breath });

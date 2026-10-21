@@ -106,14 +106,18 @@ Setup meja sesuai role:
 
 | Anggota | Setup | Pas kerja |
 |---|---|---|
-| Asuna | Monitor SQL, DAG pipeline, monitor vertikal job run, PC tower | Ngetik SQL, teks muncul per karakter dan tuts yang dipencet nyala |
+| Asuna | Monitor SQL, DAG pipeline, monitor vertikal job run, PC tower | Ngetik SQL, teks muncul per karakter, jarinya mencet tuts yang sesuai dan tuts itu nyala |
 | Kobayashi | Monitor ultrawide, monitor vertikal daftar PR, konsol handheld di dock, boneka naga, PC tower | Ngetik kode aplikasi |
 | Erza | Monitor diff horizontal, checklist review di monitor vertikal, kue stroberi, PC tower | Ngetik catatan review |
 | Yor | Terminal dan monitoring, stand headset, mawar, PC tower | Ngetik command read-only |
 | 2B | Dua monitor dan kanban tim, PC tower | Ngetik plan, atau nulis di papan tulis pas mikir |
 | Ruby | Laptop, mic, ring light | Ngetik draft post |
-| Rias | Papan tulis | Gambar diagram, tangannya ngikutin ujung spidol |
+| Rias | Papan tulis | Gambar diagram, tangannya ngikutin ujung spidol, kepala dan badannya ngikutin tulisan |
 | Chizuru | Papan ide | Nempel sticky note satu-satu |
+
+**Ngetik**: tiap karakter yang muncul di layar dipencet jari beneran. Tangan kiri pegang separuh kiri keyboard (1 sampai 5, Q sampai T, A sampai G, Z sampai B), tangan kanan sisanya, spasi, dan Enter, kayak touch typing. Tiap meja juga punya mouse di kanan keyboard. Sesekali tangan kanan pindah ke mouse beberapa detik, mouse-nya geser geser dan tombolnya nyala pas diklik, dan teks di layar berhenti dulu sampai tangannya balik ke keyboard.
+
+**Nulis di papan tulis**: spidolnya diangkat dari papan dan dibawa ke awal coretan berikutnya, nggak loncat. Kadang berhenti sebentar kayak mikir, kadang mundur selangkah buat ngelihat hasilnya dengan tangan turun. Kalau tulisannya makin ke samping, dia geser beberapa langkah kecil ngikutin. Abis diagram selesai dia mundur ngelihat seluruhnya, terus ngapus papan dengan gerakan nyapu.
 
 **Pas nggak ada tugas**, tiap cast milih kegiatan sendiri dan jalan ke sana tanpa nembus furnitur atau cast lain: kerja santai di meja, bikin kopi, ngemil di kulkas, nonton TV, main game di sofa, main arcade, nyiram tanaman, rebahan di beanbag, baca, ngobrol di meja bar, meeting di meja tengah, atau main pingpong. Kira-kira setengah waktunya di meja, setengahnya istirahat. Biar nggak monoton:
 - Kegiatan yang sama nggak dipilih dua kali berturut-turut, dan tiap kegiatan punya jeda sebelum bisa diulang.
@@ -125,6 +129,9 @@ Setup meja sesuai role:
 - Yang punya meja bawa gelasnya ke pantry, bikin kopi, terus balik naruh gelasnya di samping keyboard. Rias dan Chizuru minum kopinya di tempat tujuan berikutnya.
 - Barang di tangan ngikutin kegiatan: HP pas rebahan atau selfie, buku pas baca, stik pas main game, raket pas pingpong, penyiram pas nyiram tanaman.
 - Abis kelar tugas, cast istirahat dulu, nggak langsung balik ke meja.
+- Tiap cast jalannya beda: Chizuru dan Ruby melompat lompat, Rias melenggang pelan, Erza kayak baris berbaris, Kobayashi agak bungkuk. Di jalan kadang nengok kiri kanan, ngecek HP, atau peregangan sebentar (HP dan peregangan nggak dilakuin kalau lagi bawa gelas).
+- Kalau papasan sama teman yang lagi nggak kerja, mereka saling sapa: yang jalan melambai, dan dua duanya nyapa lewat balon kecil di atas kepala. Orang yang sama nggak nyapa terus terusan.
+- Dua orang di meja bar, atau satu di mesin kopi dan satu di kulkas, ngobrol santai. Kalimatnya muncul di balon di atas kepala, gantian, ditulis per karakter dan per topik (kerjaan, makanan, santai, kantor). Yang dengerin ngangguk, atau ketawa kalau kalimatnya lucu. Obrolan ini cuma naskah, nggak pakai Claude, dan bukan isi kerjaan asli.
 - Begitu dipanggil Claude Code, cast langsung ninggalin kegiatannya dan jalan ke mejanya.
 
 Kursi, stool, dan beanbag nggak bisa dilewatin. Kursi kerja dan kursi meeting dimasukin dari samping, sofa dari depan lewat jalur antara sofa dan meja kopi, jadi nggak ada yang nembus sandaran. Yang duduk keluar lewat jalur yang sama waktu masuk, dan kursi yang baru ditinggal baru bisa dipakai orang lain setelah yang lama beneran pergi. Cast juga nggak saling tembus: yang lagi diam dihindari kayak furnitur, kalau papasan keduanya minggir ke kanan, dan kalau jalannya sempit salah satu nunggu atau minggir sebentar buat ngasih jalan.
@@ -132,6 +139,8 @@ Kursi, stool, dan beanbag nggak bisa dilewatin. Kursi kerja dan kursi meeting di
 TV nyala sendiri pas ada yang nonton atau main game, layar arcade makin rame pas dimainin, dan lampu rak server kedip cepat pas Yor ngecek.
 
 Pose duduk diukur dari panjang kaki tiap model. Di kursi rendah lututnya naik dan telapak kakinya napak, di stool tinggi kakinya menggantung. Sandaran kursi dan sofa dibikin rendah, terus ujung atasnya, sandaran sofa, dudukan stool, punggung beanbag, dan lantai jadi penghalang buat physics rambut, jadi rambut panjang jatuh ke balik sandaran, bukan nembus. Langkah jalannya pendek dengan goyang pinggul kecil, biar rok dan dress panjang (misalnya dress hitam Yor) tetap jatuh natural.
+
+**Grafis**: dengan **Menu > Grafis kantor tinggi** (default nyala), furnitur pakai sudut membulat, tekstur permukaan (serat kayu, anyaman kain, logam, plester dinding, dan alur papan lantai), dan ambient occlusion yang bikin sudut serta kolong meja lebih gelap. Bayangan lembut di bawah furnitur dan di pertemuan dinding dan lantai tetap ada di dua mode. Kalau laptop lo ngos ngosan, hapus centangnya: kantor dimuat ulang dengan grafis ringan. Di mode browser, tambahin `?quality=low` di URL kantor.
 
 **Mode malam** ngikutin jam PC. Mulai sekitar 17.30 lampu meredup pelan sampai gelap penuh jam 19.00, jendela berubah jadi pemandangan kota malam, dan LED neon jadi sumber cahaya utama. Pagi kebalikannya, terang lagi antara 05.00 dan 06.30. Di mode browser, tambahin `?clock=21:30` di URL kantor buat lihat jam lain tanpa nunggu malam.
 
@@ -177,7 +186,7 @@ Batasannya:
 
 ## Sesi 2B (ngobrol sama 2B, tanpa Claude)
 
-Ketik **@2B** di chat kantor (2B ada paling atas di daftar @), lalu pesan lo. Chat masuk ke **Sesi 2B**: judulnya berubah, ada label **Tanpa Claude**, dan obrolannya pisah dari chat Claude. Selama Sesi 2B, nggak ada pesan yang lewat Claude Code, jadi kuota Claude lo nggak kepakai sama sekali. Klik **Akhiri sesi 2B** buat balik ke Claude; obrolannya langsung dihapus dan ada catatan "Pesan berikutnya ke Claude."
+Ketik **@2B** di chat kantor (2B ada paling atas di daftar @), lalu pesan lo. Chat masuk ke **Sesi 2B**: judulnya berubah, ada label **Tanpa Claude**, dan obrolannya pisah dari chat Claude. Selama Sesi 2B, nggak ada pesan yang lewat Claude Code, jadi kuota Claude lo nggak kepakai sama sekali. Klik **Akhiri sesi 2B** buat balik ke Claude, obrolannya langsung dihapus dan ada catatan "Pesan berikutnya ke Claude."
 
 - **Curhat atau ngobrol**: dibales 2B lewat API Groq pakai key lo sendiri. Isi pesannya dikirim ke Groq, tapi nggak disimpan di disk dan hilang pas sesi diakhiri atau kantor ditutup. Ekspresi dan pose 2B di desktop ngikutin balasannya, dan kalimat pertamanya muncul di gelembung samping dia.
 - **Pose**: pesan yang isinya cuma nama pose diproses langsung tanpa Groq: angkat tangan, merenung, dadah, peace, jempol, silang tangan, tepuk tangan, garuk kepala, ngulet, melet. Ekspresi juga bisa: senyum, cemberut, kaget, sedih, marah, ngantuk. Kata kayak "coba", "dong", atau "ya" boleh ikut ("coba melet dong").

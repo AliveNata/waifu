@@ -17,6 +17,7 @@ import { VrmOfficeAvatar } from "./avatar.js";
 import { ChatPanel } from "./chat-panel.js";
 import { type CloseupRect, closeupRect, OfficeStage, portraitSize, teamDialogDock } from "./office-stage.js";
 import { setSceneQuality } from "./scene/palette.js";
+import { SpeechBubbles } from "./speech-bubbles.js";
 
 /** Head and shoulders: the portrait is small, so the face has to fill it. */
 const portraitFraming: SpeakerFraming = { height: 0.55, drop: 0.06 };
@@ -26,6 +27,7 @@ const portraitHoldMs = 1500;
 class OfficePage {
   private readonly status = new StatusChip(requireElement("status", HTMLElement));
   private readonly caption = requireElement("closeup-caption", HTMLElement);
+  private readonly speechBubbles = new SpeechBubbles(requireElement("speech-layer", HTMLElement));
   private readonly chatPanel = requireElement("chat", HTMLElement);
   private readonly dialogBox = new DialogBox(requireElement("office-dialog", HTMLElement));
   private readonly portraitCanvas = requireElement("speaker-portrait", HTMLCanvasElement);
@@ -236,6 +238,7 @@ class OfficePage {
     this.status.render(reaction, now);
     const rect = this.layoutCloseup();
     this.renderCaption(rect);
+    this.speechBubbles.render(this.stage.speechAnchors(), this.stage.closeupFocus() === null ? null : rect);
     this.renderDialog(now);
   }
 
