@@ -11,6 +11,7 @@ import {
 import type { MemberId } from "../../../shared/team.js";
 import { type Furniture, surface } from "../office-plan.js";
 import { Keyboard } from "../surfaces/keyboard.js";
+import { DeskMouse } from "../surfaces/mouse.js";
 import { type ScreenSize, ScreenSurface } from "../surfaces/screen.js";
 import { screenScripts } from "../surfaces/screen-scripts.js";
 import { box, glow, mesh, palette, standard, unlit } from "./palette.js";
@@ -34,6 +35,8 @@ export type DeskMember = Extract<MemberId, "asuna" | "kobayashi" | "erza" | "yor
 export interface Workstation {
   screen: ScreenSurface;
   keyboard: Keyboard;
+  /** To the right of the keyboard, for the typist's occasional mouse work. */
+  mouse: DeskMouse;
   /** The member's own mug on the desk. Hidden while they carry it to the pantry and back. */
   mug: Group;
 }
@@ -124,11 +127,23 @@ function headsetStand(x: number, z: number): Group {
   return group;
 }
 
+/** Near the front edge, the way people pull a keyboard close: chibi arms are short. */
+function keyboardZ(deskDepth: number): number {
+  return deskDepth / 2 - 0.115;
+}
+
 function keyboardFor(member: DeskMember, z: number): Keyboard {
   const keyboard = new Keyboard(palette.accent, palette.inkDeep, palette.inkSoft);
   keyboard.root.position.set(0, deskTop, z);
   keyboard.root.name = `keyboard-${member}`;
   return keyboard;
+}
+
+/** Just right of the keyboard, within a chibi arm's reach and clear of the mugs at x 0.42 and beyond. */
+function mouseBeside(keyboard: Keyboard, accent: string, base: string): DeskMouse {
+  const mouse = new DeskMouse(accent, base);
+  mouse.root.position.set(keyboard.root.position.x + 0.26, deskTop, keyboard.root.position.z + 0.02);
+  return mouse;
 }
 
 function placedDesk(piece: Furniture, inner: Group): Group {
@@ -157,10 +172,11 @@ function asunaDesk(piece: Furniture): BuiltDesk {
     monitor(jobRunsTexture(), portrait.width, portrait.height, 0.38, back + 0.05, -0.35),
     pcTower(width / 2 - 0.14, 0, "#5fa8d3"),
   );
-  const keyboard = keyboardFor("asuna", depth / 2 - 0.2);
+  const keyboard = keyboardFor("asuna", keyboardZ(depth));
+  const mouse = mouseBeside(keyboard, palette.accent, palette.inkDeep);
   const mug = coffeeMug(0.42, depth / 2 - 0.18);
-  inner.add(keyboard.root, mug);
-  return { root: placedDesk(piece, inner), workstation: { screen, keyboard, mug } };
+  inner.add(keyboard.root, mouse.root, mug);
+  return { root: placedDesk(piece, inner), workstation: { screen, keyboard, mouse, mug } };
 }
 
 /** Full stack: an ultrawide for code and preview, a vertical screen for PRs, a docked console and a dragon plush. */
@@ -175,7 +191,8 @@ function kobayashiDesk(piece: Furniture): BuiltDesk {
     handheldDock(0.6, back + 0.08),
     pcTower(-width / 2 + 0.14, 0),
   );
-  const keyboard = keyboardFor("kobayashi", depth / 2 - 0.2);
+  const keyboard = keyboardFor("kobayashi", keyboardZ(depth));
+  const mouse = mouseBeside(keyboard, palette.accent, palette.inkDeep);
   const plush = new Group();
   const body = mesh(new SphereGeometry(0.045, 12, 10), standard("#9fd6b4", 0.9));
   body.scale.set(1, 0.85, 1.1);
@@ -186,8 +203,8 @@ function kobayashiDesk(piece: Furniture): BuiltDesk {
   plush.add(body, horn, hornLeft);
   plush.position.set(-0.6, deskTop + 0.04, depth / 2 - 0.22);
   const mug = coffeeMug(0.5, depth / 2 - 0.18);
-  inner.add(keyboard.root, plush, mug);
-  return { root: placedDesk(piece, inner), workstation: { screen, keyboard, mug } };
+  inner.add(keyboard.root, mouse.root, plush, mug);
+  return { root: placedDesk(piece, inner), workstation: { screen, keyboard, mouse, mug } };
 }
 
 /** Reviewer: the diff on a wide screen, her checklist on a vertical one, and a slice of strawberry cake. */
@@ -201,15 +218,16 @@ function erzaDesk(piece: Furniture): BuiltDesk {
     monitor(checklistTexture(), portrait.width, portrait.height, 0.28, back + 0.03, -0.25),
     pcTower(width / 2 - 0.14, 0, "#e35d5d"),
   );
-  const keyboard = keyboardFor("erza", depth / 2 - 0.2);
+  const keyboard = keyboardFor("erza", keyboardZ(depth));
+  const mouse = mouseBeside(keyboard, palette.accent, palette.inkDeep);
   const plate = mesh(new CylinderGeometry(0.05, 0.05, 0.006, 20), standard(palette.laminate, 0.4));
   plate.position.set(-0.55, deskTop + 0.003, depth / 2 - 0.2);
   const cake = box(0.05, 0.045, 0.035, standard("#f6efe4", 0.8), -0.55, deskTop + 0.006, depth / 2 - 0.2);
   const berry = mesh(new SphereGeometry(0.01, 10, 8), standard("#d23b4a", 0.5));
   berry.position.set(-0.55, deskTop + 0.06, depth / 2 - 0.2);
   const mug = coffeeMug(0.45, depth / 2 - 0.18);
-  inner.add(keyboard.root, plate, cake, berry, mug);
-  return { root: placedDesk(piece, inner), workstation: { screen, keyboard, mug } };
+  inner.add(keyboard.root, mouse.root, plate, cake, berry, mug);
+  return { root: placedDesk(piece, inner), workstation: { screen, keyboard, mouse, mug } };
 }
 
 /** Platform/SRE: terminal plus monitoring, a headset for incident calls, and a single rose. */
@@ -224,7 +242,8 @@ function yorDesk(piece: Furniture): BuiltDesk {
     headsetStand(-0.6, back + 0.04),
     pcTower(-width / 2 + 0.14, 0, "#5fd38d"),
   );
-  const keyboard = keyboardFor("yor", depth / 2 - 0.2);
+  const keyboard = keyboardFor("yor", keyboardZ(depth));
+  const mouse = mouseBeside(keyboard, palette.accent, palette.inkDeep);
   const vase = mesh(new CylinderGeometry(0.018, 0.022, 0.09, 12), standard(palette.glass, 0.1));
   vase.position.set(0.6, deskTop + 0.045, depth / 2 - 0.25);
   const stem = mesh(new CylinderGeometry(0.003, 0.003, 0.1, 6), standard(palette.leafDark, 0.8));
@@ -232,8 +251,8 @@ function yorDesk(piece: Furniture): BuiltDesk {
   const rose = mesh(new IcosahedronGeometry(0.018, 1), standard("#b3262f", 0.7));
   rose.position.set(0.6, deskTop + 0.19, depth / 2 - 0.25);
   const mug = coffeeMug(0.42, depth / 2 - 0.18);
-  inner.add(keyboard.root, vase, stem, rose, mug);
-  return { root: placedDesk(piece, inner), workstation: { screen, keyboard, mug } };
+  inner.add(keyboard.root, mouse.root, vase, stem, rose, mug);
+  return { root: placedDesk(piece, inner), workstation: { screen, keyboard, mouse, mug } };
 }
 
 /** PA + PM: the plan she types and the team's sprint, with the printer cabinet at her side. */
@@ -247,10 +266,11 @@ function twobDesk(piece: Furniture, kanban: Texture): BuiltDesk {
     monitor(kanban, landscape.width, landscape.height, 0.24, back, -0.12),
     pcTower(width / 2 - 0.14, 0),
   );
-  const keyboard = keyboardFor("twob", depth / 2 - 0.18);
+  const keyboard = keyboardFor("twob", keyboardZ(depth));
+  const mouse = mouseBeside(keyboard, palette.accent, palette.inkDeep);
   const mug = coffeeMug(-0.55, depth / 2 - 0.18);
-  inner.add(keyboard.root, mug);
-  return { root: placedDesk(piece, inner), workstation: { screen, keyboard, mug } };
+  inner.add(keyboard.root, mouse.root, mug);
+  return { root: placedDesk(piece, inner), workstation: { screen, keyboard, mouse, mug } };
 }
 
 /** Content creator: laptop for drafting, a boom mic for voice-overs. */
@@ -259,9 +279,10 @@ function rubyDesk(piece: Furniture): BuiltDesk {
   const inner = deskBase(width, depth);
   const screen = new ScreenSurface(screenScripts.ruby);
   const keyboard = new Keyboard(palette.accent, "#d9d4cc", "#efebe5");
-  keyboard.root.position.set(0, deskTop, depth / 2 - 0.2);
+  keyboard.root.position.set(0, deskTop, keyboardZ(depth));
+  const mouse = mouseBeside(keyboard, palette.accent, "#efebe5");
   const lid = new Group();
-  lid.position.set(0, deskTop + 0.01, depth / 2 - 0.31);
+  lid.position.set(0, deskTop + 0.01, keyboardZ(depth) - 0.11);
   lid.rotation.x = 0.25;
   lid.add(box(0.38, 0.24, 0.012, standard("#d9d4cc", 0.5), 0, 0, -0.006));
   const panel = mesh(new PlaneGeometry(0.36, 0.225), unlit(screen.texture), false);
@@ -275,8 +296,8 @@ function rubyDesk(piece: Furniture): BuiltDesk {
   boom.add(mic, box(0.01, 0.01, 0.008, glow(), 0, deskTop + 0.245, 0.24));
   boom.position.set(-0.45, 0, -depth / 2 + 0.1);
   const mug = coffeeMug(0.42, depth / 2 - 0.18);
-  inner.add(keyboard.root, lid, boom, mug);
-  return { root: placedDesk(piece, inner), workstation: { screen, keyboard, mug } };
+  inner.add(keyboard.root, mouse.root, lid, boom, mug);
+  return { root: placedDesk(piece, inner), workstation: { screen, keyboard, mouse, mug } };
 }
 
 function coffeeMug(x: number, z: number): Group {

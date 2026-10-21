@@ -65,8 +65,10 @@ function typeBody(input: OfficePoseInput): UpperBody {
   const dip = 0.12;
   return {
     bones: {
-      spine: { x: 0.12, y: 0, z: 0 },
-      head: { x: 0.16, y: 0.04 * Math.sin(input.time * 0.6), z: 0 },
+      // Leaning in brings the shoulders over the keyboard; the head tips back up to the screen.
+      spine: { x: 0.3, y: 0, z: 0 },
+      chest: { x: 0.08, y: 0, z: 0 },
+      head: { x: 0.02, y: 0.04 * Math.sin(input.time * 0.6), z: 0 },
       leftUpperArm: { x: -0.75, y: 0, z: -1.15 },
       rightUpperArm: { x: -0.75, y: 0, z: 1.15 },
       leftLowerArm: { x: 0, y: -1.1, z: leftHandActive ? dip : -0.04 },

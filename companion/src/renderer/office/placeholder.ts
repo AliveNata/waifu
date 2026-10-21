@@ -15,7 +15,7 @@ import {
 import type { ExpressionWeights } from "../common/expressions.js";
 import type { MemberLook } from "../common/looks.js";
 import type { PoseTarget } from "../common/pose.js";
-import type { OfficeAvatar } from "./avatar.js";
+import type { ArmSide, ArmTip, OfficeAvatar } from "./avatar.js";
 import type { IkChain } from "./ik.js";
 import type { LegMetrics } from "./seating.js";
 
@@ -113,6 +113,9 @@ export class PlaceholderAvatar implements OfficeAvatar {
   private readonly eyes: Mesh[] = [];
   private readonly mouth: Mesh;
   private readonly rightHand: Group;
+  private readonly leftHand: Group;
+  /** Empty nodes at the far end of each mitten, the IK tip for typing. */
+  private readonly fingertips: Record<ArmSide, Group>;
 
   constructor(look: MemberLook) {
     const hips = this.add(joint("hips", this.root, 0, dims.hipsY));
@@ -167,10 +170,19 @@ export class PlaceholderAvatar implements OfficeAvatar {
       hand.add(mesh(new SphereGeometry(0.03, 6, 4), look.skin, side * 0.02, 0, 0));
     }
     const rightHand = this.joints.get("rightHand");
-    if (rightHand === undefined) {
-      throw new Error("placeholder is missing its right hand joint");
+    const leftHand = this.joints.get("leftHand");
+    if (rightHand === undefined || leftHand === undefined) {
+      throw new Error("placeholder is missing a hand joint");
     }
     this.rightHand = rightHand;
+    this.leftHand = leftHand;
+    const fingertip = (hand: Group, side: 1 | -1): Group => {
+      const tip = new Group();
+      tip.position.x = side * 0.05;
+      hand.add(tip);
+      return tip;
+    };
+    this.fingertips = { left: fingertip(leftHand, 1), right: fingertip(rightHand, -1) };
 
     // Legs hang straight down.
     for (const side of [1, -1] as const) {
@@ -194,18 +206,20 @@ export class PlaceholderAvatar implements OfficeAvatar {
     this.root.updateMatrixWorld(true);
   }
 
-  rightArm(): IkChain | null {
-    const upper = this.joints.get("rightUpperArm");
-    const lower = this.joints.get("rightLowerArm");
+  /** Placeholder hands are mittens, so the fingertip is the end of the hand block. */
+  arm(side: ArmSide, tip: ArmTip): IkChain | null {
+    const upper = this.joints.get(`${side}UpperArm`);
+    const lower = this.joints.get(`${side}LowerArm`);
     if (upper === undefined || lower === undefined) {
       return null;
     }
+    const hand = side === "right" ? this.rightHand : this.leftHand;
     return {
       joints: [
         { rotate: upper, measure: upper },
         { rotate: lower, measure: lower },
       ],
-      effector: this.rightHand,
+      effector: tip === "fingertip" ? this.fingertips[side] : hand,
       sync: () => this.syncPose(),
     };
   }

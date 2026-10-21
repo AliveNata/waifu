@@ -127,7 +127,8 @@ export interface Station {
   seatHeight: number | null;
 }
 
-const deskRowSeatZ = -3.72;
+/** Pulled up close, about as far from the desk edge as the front desks' chairs, so short arms reach the keys. */
+const deskRowSeatZ = -3.92;
 /** Office chairs are sized for chibi legs: low enough that most feet reach the floor. */
 export const chairSeatHeight = 0.28;
 const sofaSeatHeight = 0.26;

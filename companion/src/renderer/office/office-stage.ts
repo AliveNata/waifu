@@ -30,7 +30,7 @@ import {
 } from "../common/expressions.js";
 import { memberLooks } from "../common/looks.js";
 import { PoseApplier } from "../common/pose.js";
-import type { OfficeAvatar } from "./avatar.js";
+import type { ArmSide, ArmTip, OfficeAvatar } from "./avatar.js";
 import { nightFactor } from "./daylight.js";
 import { solveCcd } from "./ik.js";
 import { type ActorState, initialActor, isWalking, stepActor } from "./office-actor.js";
@@ -53,8 +53,10 @@ import { sceneQuality } from "./scene/palette.js";
 import { fitSeat } from "./seating.js";
 import type { Vec2 } from "./surfaces/drawing.js";
 import { applyMemberSignal, emptyTeamRuntime, endAllRuns, memberBehavior, type TeamRuntime } from "./team-state.js";
+import { handForKey, MouseHabit, TypingHands } from "./typing-hands.js";
 
 const closeupBackground = new Color("#e9e4da");
+const keyScratch = new Vector3();
 /** Keeps the close-up on the last worker a little after they finish, so the "done" moment is visible. */
 const closeupHoldMs = 3500;
 
@@ -114,7 +116,27 @@ interface MemberRig {
   /** The avatar's right hand bone, which hand props follow. */
   hand: Object3D | null;
   mug: MugState;
+  /** Fingertips over the member's own keyboard; made on first use, since only desk members type. */
+  typingHands: TypingHands | null;
+  mouseHabit: MouseHabit;
+  /**
+   * Where each hand's IK is aiming this frame, eased toward the work's target so a hand glides
+   * from keys to mouse (or from its rest pose onto the keys) instead of jumping there.
+   */
+  reach: Record<ArmSide, Vector3 | null>;
 }
+
+/** World targets for the hands this frame; null leaves that arm to the pose. */
+interface HandTargets {
+  left: Vector3 | null;
+  right: Vector3 | null;
+  tip: ArmTip;
+}
+
+const noHandTargets: HandTargets = { left: null, right: null, tip: "wrist" };
+/** Per second. Quick enough that typing strokes survive the easing, slow enough to glide. */
+const reachRate = 28;
+const armSides: readonly ArmSide[] = ["left", "right"];
 
 export interface CloseupRect {
   x: number;
@@ -333,7 +355,8 @@ export class OfficeStage {
     rig.avatar = avatar;
     rig.poseApplier.reset();
     rig.expressions = {};
-    rig.hand = avatar.rightArm()?.effector ?? null;
+    rig.hand = avatar.arm("right", "wrist")?.effector ?? null;
+    rig.reach = { left: null, right: null };
     avatar.addHairColliders(this.office.hairColliders);
     this.scene.add(avatar.root);
   }
@@ -438,8 +461,11 @@ export class OfficeStage {
       plan,
       wasWorking: false,
       props,
-      hand: avatar.rightArm()?.effector ?? null,
+      hand: avatar.arm("right", "wrist")?.effector ?? null,
       mug: initialMug,
+      typingHands: null,
+      mouseHabit: new MouseHabit(this.elapsed),
+      reach: { left: null, right: null },
     };
   }
 
@@ -506,17 +532,33 @@ export class OfficeStage {
   }
 
   /** Advances the member's work surface and returns where the hand should be, if anywhere. */
-  private updateSurface(memberId: MemberId, rig: MemberRig, delta: number): Vector3 | null {
+  private updateSurface(memberId: MemberId, rig: MemberRig, delta: number): HandTargets {
     const action = rig.action;
     if (memberId in this.office.workstations) {
-      const workstation = this.office.workstations[memberId as DeskMember];
+      const { screen, keyboard, mouse } = this.office.workstations[memberId as DeskMember];
       const typing = action === "type" && rig.plan.station === `desk-${memberId}`;
-      const typed = workstation.screen.update(delta, typing);
+      // The text stops while the right hand is off the keys.
+      const mousing = rig.mouseHabit.using(this.elapsed, typing);
+      const typed = screen.update(delta, typing && !mousing);
+      rig.typingHands ??= new TypingHands({ left: keyboard.keyTop("f"), right: keyboard.keyTop("j") });
+      const hands = rig.typingHands;
       for (const character of typed) {
-        workstation.keyboard.press(character);
+        keyboard.press(character);
+        hands.strike(handForKey(character), keyboard.keyTop(character, keyScratch));
       }
       rig.keystrokes += typed.length;
-      workstation.keyboard.update(delta);
+      keyboard.update(delta);
+      hands.update(delta);
+      mouse.update(delta, mousing);
+      if (typing) {
+        return {
+          left: keyboard.root.localToWorld(hands.fingertip("left", new Vector3())),
+          right: mousing
+            ? mouse.gripPoint(new Vector3())
+            : keyboard.root.localToWorld(hands.fingertip("right", new Vector3())),
+          tip: "fingertip",
+        };
+      }
     }
 
     let pen: Vec2 | null = null;
@@ -527,12 +569,34 @@ export class OfficeStage {
     } else if (memberId === "chizuru") {
       pen = this.office.ideaBoard.update(delta, action === "stick");
     }
-    if (pen === null) {
-      return null;
+    if (pen === null || action === null || !usesHandIk(action)) {
+      return noHandTargets;
     }
-    return memberId === "chizuru"
-      ? this.office.ideaBoardPoint(pen[0], pen[1])
-      : this.office.whiteboardPoint(pen[0], pen[1]);
+    const right =
+      memberId === "chizuru" ? this.office.ideaBoardPoint(pen[0], pen[1]) : this.office.whiteboardPoint(pen[0], pen[1]);
+    return { left: null, right, tip: "wrist" };
+  }
+
+  /** Eases each hand's IK aim toward its target and solves the arm onto it. */
+  private reachFor(rig: MemberRig, targets: HandTargets, delta: number): void {
+    const blend = 1 - Math.exp(-reachRate * delta);
+    for (const side of armSides) {
+      const target = targets[side];
+      const arm = target === null ? null : rig.avatar.arm(side, targets.tip);
+      if (target === null || arm === null) {
+        rig.reach[side] = null;
+        continue;
+      }
+      rig.avatar.syncPose();
+      let aim = rig.reach[side];
+      if (aim === null) {
+        // Start from where the posed hand already is, so the arm moves onto the work.
+        aim = arm.effector.getWorldPosition(new Vector3());
+        rig.reach[side] = aim;
+      }
+      aim.lerp(target, blend);
+      solveCcd(arm, aim);
+    }
   }
 
   private updateMember(memberId: MemberId, delta: number, now: number): void {
@@ -561,7 +625,7 @@ export class OfficeStage {
       rig.actionStartedAt = this.elapsed;
     }
 
-    const handTarget = this.updateSurface(memberId, rig, delta);
+    const handTargets = this.updateSurface(memberId, rig, delta);
     // Offset each member's idle loops so the room does not move in lockstep.
     const phaseOffset = memberIds.indexOf(memberId) * 1.7;
 
@@ -580,13 +644,7 @@ export class OfficeStage {
     });
     rig.poseApplier.apply(avatar.poseTarget, pose, delta);
 
-    if (action !== null && usesHandIk(action) && handTarget !== null) {
-      const arm = avatar.rightArm();
-      if (arm !== null) {
-        avatar.syncPose();
-        solveCcd(arm, handTarget);
-      }
-    }
+    this.reachFor(rig, handTargets, delta);
 
     rig.expressions = stepExpressionWeights(rig.expressions, expressionTargetsForMood(plan.mood), delta);
     const happy = rig.expressions.happy ?? 0;
