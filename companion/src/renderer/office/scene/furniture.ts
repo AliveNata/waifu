@@ -14,7 +14,7 @@ import {
   TorusGeometry,
   Vector3,
 } from "three";
-import { chibi, type Furniture, surface } from "../office-plan.js";
+import { boardStepHeight, chibi, type Furniture, surface } from "../office-plan.js";
 import { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./animated.js";
 import { box, glow, mesh, palette, printed, standard, unlit } from "./palette.js";
 import { kanbanTexture, type SignLettering } from "./textures.js";
@@ -402,6 +402,18 @@ export function buildTvConsole(piece: Furniture): Group {
     box(width - 0.14, 0.012, 0.01, glow(), 0, 0.04, (depth - 0.1) / 2 + 0.005),
     box(0.22, 0.05, 0.16, standard(palette.inkDeep, 0.3, 0.2), -0.25, 0.26, 0),
     box(0.01, 0.01, 0.01, glow(), -0.17, 0.29, 0.081),
+  );
+  return root;
+}
+
+/** The low step in front of a board: an oak tread on a dark riser, like the desks' panel legs. */
+export function buildBoardStep(piece: Furniture): Group {
+  const root = placed(piece);
+  const { width, depth } = localSize(piece);
+  const tread = 0.025;
+  root.add(
+    box(width, boardStepHeight - tread, depth, standard(palette.ink, 0.6), 0, 0, 0),
+    box(width, tread, depth, standard(palette.oak, 0.7), 0, boardStepHeight - tread, 0),
   );
   return root;
 }

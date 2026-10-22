@@ -45,7 +45,7 @@ import {
 } from "./office-director.js";
 import { OfficeLife } from "./office-life.js";
 import { initialMug, type MugState, stepMug } from "./office-mug.js";
-import { distance, type StationId, stations, surface } from "./office-plan.js";
+import { boardStepHeight, distance, type StationId, stations, surface } from "./office-plan.js";
 import { type BoardFocus, officePose } from "./office-pose.js";
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
 import { PlaceholderAvatar } from "./placeholder.js";
@@ -133,6 +133,10 @@ interface MemberRig {
   /** Meters to the member's left along the board, eased toward the goal. */
   sidestep: number;
   sidestepGoal: number;
+  /** 0..1, eased: how far up onto a board's step. */
+  raised: number;
+  /** Writing on the top half of a board, which needs the step. */
+  highWork: boolean;
   walkHabits: WalkHabits;
   /** Who this member last waved at, to turn toward them during the wave. */
   greeted: MemberId | null;
@@ -167,6 +171,14 @@ export interface SpeechAnchor {
   y: number;
   shownFor: number;
 }
+
+/** Stations in front of a board, where the step is. */
+const boardStations: ReadonlySet<StationId> = new Set(["board-twob", "board-rias", "idea-board"]);
+/** Per second: one step up or down takes about a third of a second. */
+const riseRate = 7;
+/** Pen heights, in meters, that send a writer up onto the step or back down to the floor. */
+const highWorkAbove = 0.68;
+const lowWorkBelow = 0.6;
 
 /** Furthest a member shuffles along a board from their spot to follow the pen, in meters. */
 const maxSidestep = 0.6;
@@ -516,6 +528,8 @@ export class OfficeStage {
       review: 0,
       sidestep: 0,
       sidestepGoal: 0,
+      raised: 0,
+      highWork: false,
       walkHabits: new WalkHabits(this.elapsed),
       greeted: null,
     };
@@ -708,12 +722,33 @@ export class OfficeStage {
     // The avatar faces +z at yaw 0, so its left is +x and its back is -z, both turned by the yaw.
     root.position.x += Math.cos(yaw) * rig.sidestep - Math.sin(yaw) * reviewStepBack * rig.review;
     root.position.z += -Math.sin(yaw) * rig.sidestep - Math.cos(yaw) * reviewStepBack * rig.review;
+    // Up onto the board's step on arrival, down again for a step back to look, and off when leaving.
+    const target = rig.actor.target;
+    if (board !== null) {
+      // Up for the top half of the board, down for the bottom half; the gap keeps a line that runs
+      // along the middle from sending them up and down.
+      if (board.pen.y > highWorkAbove) {
+        rig.highWork = true;
+      } else if (board.pen.y < lowWorkBelow) {
+        rig.highWork = false;
+      }
+    }
+    const onStep =
+      rig.highWork &&
+      boardStations.has(target) &&
+      distance(rig.actor.position, stations[target].spot) < 0.3 &&
+      rig.review < 0.5;
+    const stepGoal = onStep ? 1 : 0;
+    rig.raised += (stepGoal - rig.raised) * (1 - Math.exp(-riseRate * delta));
+    root.position.y = boardStepHeight * rig.raised;
     if (board === null) {
       return null;
     }
     root.updateMatrixWorld();
     const local = root.worldToLocal(board.pen.clone());
-    const stepping = Math.min(1, Math.abs(rig.sidestepGoal - rig.sidestep) / 0.1);
+    const shuffling = Math.abs(rig.sidestepGoal - rig.sidestep) / 0.1;
+    const climbing = Math.abs(stepGoal - rig.raised) / 0.3;
+    const stepping = Math.min(1, Math.max(shuffling, climbing));
     return { x: local.x, y: local.y, z: local.z, review: rig.review, stepping };
   }
 
