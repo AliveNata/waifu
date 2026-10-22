@@ -1,8 +1,12 @@
 import { Box3, Group } from "three";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { furniture, room, stations } from "../src/renderer/office/office-plan.js";
 import { portraitSize, teamDialogDock } from "../src/renderer/office/office-stage.js";
 import { buildFridge, FridgeDoor } from "../src/renderer/office/scene/furniture.js";
+import { setSceneQuality } from "../src/renderer/office/scene/palette.js";
+
+// High quality paints surface textures on a DOM canvas, which Node has none of; geometry is the same.
+beforeAll(() => setSceneQuality("low"));
 
 describe("FridgeDoor", () => {
   it("swings outward while someone is at the fridge and closes after", () => {

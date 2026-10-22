@@ -14,6 +14,7 @@ import type { MemberId } from "../../shared/team.js";
 import logoUrl from "./assets/alyxlabs-logo.png";
 import { chairSeatHeight, type Furniture, furniture, room, stations } from "./office-plan.js";
 import type { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./scene/animated.js";
+import { buildContactShadows } from "./scene/contact-shadows.js";
 import { buildDesk, type DeskMember, deskTop, type Workstation } from "./scene/desks.js";
 import {
   buildArcade,
@@ -40,7 +41,8 @@ import {
   type FridgeDoor,
 } from "./scene/furniture.js";
 import { NeonStrips } from "./scene/neon.js";
-import { box, glow, mesh, palette, printed, standard, unlit } from "./scene/palette.js";
+import { box, glow, mesh, palette, printed, sceneQuality, standard, unlit } from "./scene/palette.js";
+import { surfaceMaps } from "./scene/surface-detail.js";
 import { floorTexture, kanbanTexture, signTextTexture, windowTexture } from "./scene/textures.js";
 import { IdeaBoard } from "./surfaces/idea-board.js";
 import { riasDiagrams, twobDiagrams, Whiteboard } from "./surfaces/whiteboard.js";
@@ -129,8 +131,15 @@ function buildRoomShell(root: Group, logo: Texture): { nightGlass: MeshBasicMate
 
   const floorMap = floorTexture();
   floorMap.repeat.set(width / 1.45, depth / 1.45);
-  const floor = new Mesh(new PlaneGeometry(width, depth), standard(palette.floor, 0.85));
-  (floor.material as ReturnType<typeof standard>).map = floorMap;
+  const floorMaterial = standard(palette.floor, 0.85);
+  floorMaterial.map = floorMap;
+  if (sceneQuality() === "high") {
+    // Wood grain per plank, on the same tiling as the planks themselves.
+    const grain = surfaceMaps("planks").normalMap.clone();
+    grain.repeat.copy(floorMap.repeat);
+    floorMaterial.normalMap = grain;
+  }
+  const floor = new Mesh(new PlaneGeometry(width, depth), floorMaterial);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(centerX, 0, centerZ);
   floor.receiveShadow = true;
@@ -241,6 +250,7 @@ export function buildOffice(): OfficeProps {
   let meetingLaptops: LaptopScreen[] = [];
   let fridgeDoor: FridgeDoor | null = null;
 
+  root.add(buildContactShadows(furniture));
   for (const piece of furniture) {
     switch (piece.kind) {
       case "desk-asuna":
@@ -360,8 +370,9 @@ export function buildOffice(): OfficeProps {
   const whiteboardSpec: BoardSpec = {
     centerZ: whiteboardPiece.z,
     width: whiteboardPiece.depth,
-    // Lower edge near a chibi's waist, upper edge inside its reach, so writing never needs a ladder.
-    bottom: 0.25,
+    // Just above the skirting, so even the top line is within a chibi arm's reach (shoulders are
+    // about 0.7 m up and the arm about 0.33 m long).
+    bottom: 0.14,
     height: 0.85,
   };
   // Left half (+z side) for 2B's planning, right half for Rias's architecture sketches.
@@ -372,7 +383,7 @@ export function buildOffice(): OfficeProps {
   root.add(leftWallPlane(whiteboard.texture, whiteboardSpec, palette.frame));
 
   const ideaPiece = pieceById("idea-board");
-  const ideaSpec: BoardSpec = { centerZ: ideaPiece.z, width: ideaPiece.depth, bottom: 0.28, height: 0.78 };
+  const ideaSpec: BoardSpec = { centerZ: ideaPiece.z, width: ideaPiece.depth, bottom: 0.16, height: 0.78 };
   const ideaBoard = new IdeaBoard();
   root.add(leftWallPlane(ideaBoard.texture, ideaSpec, palette.skirting));
 

@@ -8,6 +8,8 @@ import {
   MeshStandardMaterial,
   type Texture,
 } from "three";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
+import { type SurfaceKind, surfaceMaps } from "./surface-detail.js";
 
 /*
  * AlyxLabs palette (antislop R-29/R-31), read as: a bright, warm office with
@@ -42,8 +44,51 @@ export const palette = {
   glass: "#dfe9f2",
 } as const;
 
+export type SceneQuality = "high" | "low";
+
+let quality: SceneQuality = "high";
+
+/** Set before the office is built: "high" adds rounded edges and surface detail, "low" keeps plain boxes. */
+export function setSceneQuality(next: SceneQuality): void {
+  quality = next;
+}
+
+export function sceneQuality(): SceneQuality {
+  return quality;
+}
+
+/**
+ * Each palette color stands for one material in the room, so its surface detail follows the color:
+ * oak is wood, fabric and cushion are cloth, steel is brushed metal, walls are plaster, and the
+ * ink furniture is a satin finish.
+ */
+const surfaceByColor: Readonly<Record<string, SurfaceKind>> = {
+  [palette.oak]: "wood",
+  [palette.fabric]: "fabric",
+  [palette.cushion]: "fabric",
+  [palette.rug]: "fabric",
+  [palette.inkSoft]: "fabric",
+  [palette.steel]: "metal",
+  [palette.frame]: "metal",
+  [palette.backWall]: "plaster",
+  [palette.sideWall]: "plaster",
+  [palette.ink]: "satin",
+  [palette.inkDeep]: "satin",
+  [palette.laminate]: "satin",
+};
+
 export function standard(color: string, roughness = 0.8, metalness = 0): MeshStandardMaterial {
-  return new MeshStandardMaterial({ color: new Color(color), roughness, metalness });
+  const material = new MeshStandardMaterial({ color: new Color(color), roughness, metalness });
+  const kind = quality === "high" ? surfaceByColor[color] : undefined;
+  if (kind !== undefined) {
+    const maps = surfaceMaps(kind);
+    material.normalMap = maps.normalMap;
+    material.normalScale.set(maps.normalScale, maps.normalScale);
+    if (maps.map !== null) {
+      material.map = maps.map;
+    }
+  }
+  return material;
 }
 
 /** The single accent glow. Emissive so it reads as light even in shade, toned down to stay an accent. */
@@ -82,9 +127,22 @@ export function mesh(geometry: BufferGeometry, material: Material, castShadow = 
   return part;
 }
 
-/** Box positioned by its bottom face, which keeps furniture math readable. */
+/** Edges round off to at most 2 cm, never more than a fifth of the thinnest side. */
+const maxEdgeRadius = 0.02;
+const minRoundedSide = 0.012;
+
+/**
+ * Box positioned by its bottom face, which keeps furniture math readable. On high quality the
+ * edges are rounded: real furniture has no knife edges, and the highlight along a soft edge is
+ * much of what makes a shape read as solid.
+ */
 export function box(width: number, height: number, depth: number, material: Material, x = 0, y = 0, z = 0): Mesh {
-  const part = mesh(new BoxGeometry(width, height, depth), material);
+  const thinnest = Math.min(width, height, depth);
+  const geometry =
+    quality === "high" && thinnest >= minRoundedSide
+      ? new RoundedBoxGeometry(width, height, depth, 2, Math.min(maxEdgeRadius, thinnest * 0.2))
+      : new BoxGeometry(width, height, depth);
+  const part = mesh(geometry, material);
   part.position.set(x, y + height / 2, z);
   return part;
 }

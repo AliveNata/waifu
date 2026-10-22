@@ -1,10 +1,12 @@
-import { BoxGeometry, Color, Group, Mesh, MeshStandardMaterial } from "three";
+import { BoxGeometry, Color, Group, Mesh, MeshStandardMaterial, Vector3 } from "three";
 
 const rows = ["1234567890", "qwertyuiop", "asdfghjkl;", "zxcvbnm,./"];
 const keySize = 0.032;
 const keyGap = 0.006;
 const pressDepth = 0.006;
 const pressSeconds = 0.12;
+/** Key caps sit at y 0.02 and are 0.01 tall. */
+const keyTopY = 0.025;
 
 interface Key {
   mesh: Mesh;
@@ -65,19 +67,25 @@ export class Keyboard {
   }
 
   press(character: string): void {
-    const lower = character.toLowerCase();
-    let key: Key | undefined;
+    this.keyFor(character).pressedFor = pressSeconds;
+  }
+
+  /** Top center of the key a character is typed on, in this keyboard's local space. */
+  keyTop(character: string, out = new Vector3()): Vector3 {
+    const { position } = this.keyFor(character).mesh;
+    return out.set(position.x, keyTopY, position.z);
+  }
+
+  private keyFor(character: string): Key {
     if (character === " ") {
-      key = this.space;
-    } else if (character === "\n") {
-      key = this.enter;
-    } else {
-      // Symbols without their own key land on a stable pseudo-random key so the motion still reads.
-      key = this.keys.get(lower) ?? this.allKeys[lower.charCodeAt(0) % this.allKeys.length];
+      return this.space;
     }
-    if (key !== undefined) {
-      key.pressedFor = pressSeconds;
+    if (character === "\n") {
+      return this.enter;
     }
+    const lower = character.toLowerCase();
+    // Symbols without their own key land on a stable pseudo-random key so the motion still reads.
+    return this.keys.get(lower) ?? this.allKeys[lower.charCodeAt(0) % this.allKeys.length] ?? this.space;
   }
 
   update(deltaSeconds: number): void {

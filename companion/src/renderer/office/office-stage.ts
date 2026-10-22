@@ -2,6 +2,7 @@ import {
   ACESFilmicToneMapping,
   Color,
   DirectionalLight,
+  HalfFloatType,
   HemisphereLight,
   type Object3D,
   PCFShadowMap,
@@ -12,8 +13,13 @@ import {
   Timer,
   Vector3,
   WebGLRenderer,
+  WebGLRenderTarget,
 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { idleReaction, type MemberSignal, type Reaction } from "../../shared/reaction.js";
 import { type MemberId, memberIds, roster } from "../../shared/team.js";
 import {
@@ -24,10 +30,11 @@ import {
 } from "../common/expressions.js";
 import { memberLooks } from "../common/looks.js";
 import { PoseApplier } from "../common/pose.js";
-import type { OfficeAvatar } from "./avatar.js";
+import type { ArmSide, ArmTip, OfficeAvatar } from "./avatar.js";
 import { nightFactor } from "./daylight.js";
 import { solveCcd } from "./ik.js";
-import { type ActorState, initialActor, isWalking, stepActor } from "./office-actor.js";
+import { type ActorState, angleDelta, initialActor, isWalking, stepActor } from "./office-actor.js";
+import { ChatterDirector } from "./office-chatter.js";
 import {
   type MemberPlan,
   memberPlan,
@@ -39,15 +46,19 @@ import {
 import { OfficeLife } from "./office-life.js";
 import { initialMug, type MugState, stepMug } from "./office-mug.js";
 import { distance, type StationId, stations, surface } from "./office-plan.js";
-import { officePose } from "./office-pose.js";
+import { type BoardFocus, officePose } from "./office-pose.js";
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
 import { PlaceholderAvatar } from "./placeholder.js";
 import { HandProps } from "./scene/hand-props.js";
+import { sceneQuality } from "./scene/palette.js";
 import { fitSeat } from "./seating.js";
-import type { Vec2 } from "./surfaces/drawing.js";
+import type { PenState } from "./surfaces/board-pen.js";
 import { applyMemberSignal, emptyTeamRuntime, endAllRuns, memberBehavior, type TeamRuntime } from "./team-state.js";
+import { handForKey, MouseHabit, TypingHands } from "./typing-hands.js";
+import { WalkHabits, walkStyles } from "./walk-life.js";
 
 const closeupBackground = new Color("#e9e4da");
+const keyScratch = new Vector3();
 /** Keeps the close-up on the last worker a little after they finish, so the "done" moment is visible. */
 const closeupHoldMs = 3500;
 
@@ -107,7 +118,70 @@ interface MemberRig {
   /** The avatar's right hand bone, which hand props follow. */
   hand: Object3D | null;
   mug: MugState;
+  /** Fingertips over the member's own keyboard; made on first use, since only desk members type. */
+  typingHands: TypingHands | null;
+  mouseHabit: MouseHabit;
+  /**
+   * Where each hand's IK is aiming this frame, eased toward the work's target so a hand glides
+   * from keys to mouse (or from its rest pose onto the keys) instead of jumping there.
+   */
+  reach: Record<ArmSide, Vector3 | null>;
+  /** Which point of the hand the aim was for, kept while easing out after the work lets go. */
+  reachTip: ArmTip;
+  /** 0..1, eased: how far into a step back from the board. */
+  review: number;
+  /** Meters to the member's left along the board, eased toward the goal. */
+  sidestep: number;
+  sidestepGoal: number;
+  walkHabits: WalkHabits;
+  /** Who this member last waved at, to turn toward them during the wave. */
+  greeted: MemberId | null;
 }
+
+/** World targets for the hands this frame; null leaves that arm to the pose. */
+interface HandTargets {
+  left: Vector3 | null;
+  right: Vector3 | null;
+  tip: ArmTip;
+  /** The pen on a board the member is working at, for the head and body to follow. */
+  board: { pen: Vector3; reviewing: boolean } | null;
+}
+
+const noHandTargets: HandTargets = { left: null, right: null, tip: "wrist", board: null };
+/** How far the hand comes off the board between strokes, in meters. */
+const penLift = 0.07;
+/** Wrist to marker tip on a chibi hand. */
+const wristBehindPen = 0.06;
+/** How far someone steps back from a board to look their drawing over. */
+const reviewStepBack = 0.22;
+/** Teammates closer than this while one of them walks by say hello. */
+const greetDistance = 1.1;
+/** Where a speech bubble's tail points: this far above the head bone, over the hair. */
+const bubbleAboveHead = 0.3;
+
+/** A line of small talk and where on screen its speaker's head is. */
+export interface SpeechAnchor {
+  memberId: MemberId;
+  text: string;
+  x: number;
+  y: number;
+  shownFor: number;
+}
+
+/** Furthest a member shuffles along a board from their spot to follow the pen, in meters. */
+const maxSidestep = 0.6;
+/** How far the pen may wander from the comfortable spot before the member shuffles after it. */
+const shuffleThreshold = 0.15;
+/** Pen this far left of the body's center sits right in front of the right shoulder. */
+const penAheadOfCenter = 0.05;
+/** Per second: a step back or aside takes about half a second. */
+const stepRate = 4;
+const settleRate = 8;
+/** Per second. Quick enough that typing strokes survive the easing, slow enough to glide. */
+const reachRate = 28;
+/** Close enough to the posed hand that letting go of IK is invisible. */
+const releaseDistance = 0.004;
+const armSides: readonly ArmSide[] = ["left", "right"];
 
 export interface CloseupRect {
   x: number;
@@ -201,6 +275,8 @@ const actionLabels: Record<OfficeAction, string> = {
 };
 
 export class OfficeStage {
+  private composer: EffectComposer | null = null;
+  private readonly chatter = new ChatterDirector();
   private readonly renderer: WebGLRenderer;
   private readonly scene = new Scene();
   private readonly camera = new PerspectiveCamera(30, 1.6, 0.1, 120);
@@ -287,6 +363,9 @@ export class OfficeStage {
       memberIds.map((memberId) => [memberId, this.createRig(memberId, new PlaceholderAvatar(memberLooks[memberId]))]),
     ) as Record<MemberId, MemberRig>;
 
+    if (sceneQuality() === "high") {
+      this.composer = this.createComposer();
+    }
     window.addEventListener("resize", () => this.resize());
     this.resize();
     this.resetView();
@@ -322,7 +401,8 @@ export class OfficeStage {
     rig.avatar = avatar;
     rig.poseApplier.reset();
     rig.expressions = {};
-    rig.hand = avatar.rightArm()?.effector ?? null;
+    rig.hand = avatar.arm("right", "wrist")?.effector ?? null;
+    rig.reach = { left: null, right: null };
     avatar.addHairColliders(this.office.hairColliders);
     this.scene.add(avatar.root);
   }
@@ -427,9 +507,38 @@ export class OfficeStage {
       plan,
       wasWorking: false,
       props,
-      hand: avatar.rightArm()?.effector ?? null,
+      hand: avatar.arm("right", "wrist")?.effector ?? null,
       mug: initialMug,
+      typingHands: null,
+      mouseHabit: new MouseHabit(this.elapsed),
+      reach: { left: null, right: null },
+      reachTip: "wrist",
+      review: 0,
+      sidestep: 0,
+      sidestepGoal: 0,
+      walkHabits: new WalkHabits(this.elapsed),
+      greeted: null,
     };
+  }
+
+  /**
+   * High quality: ambient occlusion darkens where surfaces meet (under desks, between cushions,
+   * along walls), which is what makes the room read as solid. The frame stays transparent through
+   * every pass, so the page color shows behind the room exactly as without post-processing; a
+   * scene background would go through tone mapping and come out grayer than the page.
+   */
+  private createComposer(): EffectComposer {
+    // The canvas's own antialiasing does not apply to offscreen targets, so they get their own.
+    const target = new WebGLRenderTarget(1, 1, { type: HalfFloatType, samples: 4 });
+    const composer = new EffectComposer(this.renderer, target);
+    composer.addPass(new RenderPass(this.scene, this.camera));
+    const ao = new GTAOPass(this.scene, this.camera, 512, 512);
+    ao.blendIntensity = 0.85;
+    // Room-sized radius: a chibi desk is under a meter, so a wide radius would gray whole walls.
+    ao.updateGtaoMaterial({ radius: 0.35, distanceExponent: 1.5, thickness: 1, scale: 1 });
+    composer.addPass(ao);
+    composer.addPass(new OutputPass());
+    return composer;
   }
 
   private resize(): void {
@@ -438,6 +547,7 @@ export class OfficeStage {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
+    this.composer?.setSize(width, height);
   }
 
   private planFor(memberId: MemberId, now: number, rig: MemberRig | null): MemberPlan {
@@ -474,33 +584,137 @@ export class OfficeStage {
   }
 
   /** Advances the member's work surface and returns where the hand should be, if anywhere. */
-  private updateSurface(memberId: MemberId, rig: MemberRig, delta: number): Vector3 | null {
+  private updateSurface(memberId: MemberId, rig: MemberRig, delta: number): HandTargets {
     const action = rig.action;
     if (memberId in this.office.workstations) {
-      const workstation = this.office.workstations[memberId as DeskMember];
+      const { screen, keyboard, mouse } = this.office.workstations[memberId as DeskMember];
       const typing = action === "type" && rig.plan.station === `desk-${memberId}`;
-      const typed = workstation.screen.update(delta, typing);
+      // The text stops while the right hand is off the keys.
+      const mousing = rig.mouseHabit.using(this.elapsed, typing);
+      const typed = screen.update(delta, typing && !mousing);
+      rig.typingHands ??= new TypingHands({ left: keyboard.keyTop("f"), right: keyboard.keyTop("j") });
+      const hands = rig.typingHands;
       for (const character of typed) {
-        workstation.keyboard.press(character);
+        keyboard.press(character);
+        hands.strike(handForKey(character), keyboard.keyTop(character, keyScratch));
       }
       rig.keystrokes += typed.length;
-      workstation.keyboard.update(delta);
+      keyboard.update(delta);
+      hands.update(delta);
+      mouse.update(delta, mousing);
+      if (typing) {
+        return {
+          left: keyboard.root.localToWorld(hands.fingertip("left", new Vector3())),
+          right: mousing
+            ? mouse.gripPoint(new Vector3())
+            : keyboard.root.localToWorld(hands.fingertip("right", new Vector3())),
+          tip: "fingertip",
+          board: null,
+        };
+      }
     }
 
-    let pen: Vec2 | null = null;
+    let pen: PenState | null = null;
     if (memberId === "rias") {
       pen = this.office.whiteboard.update(1, delta, action === "draw");
     } else if (memberId === "twob") {
       pen = this.office.whiteboard.update(0, delta, action === "draw");
     } else if (memberId === "chizuru") {
-      pen = this.office.ideaBoard.update(delta, action === "stick");
+      const note = this.office.ideaBoard.update(delta, action === "stick");
+      pen = note === null ? null : { at: note, touching: true, reviewing: false };
     }
-    if (pen === null) {
+    if (pen === null || action === null || !usesHandIk(action)) {
+      return noHandTargets;
+    }
+    const [u, v] = pen.at;
+    const onBoard = memberId === "chizuru" ? this.office.ideaBoardPoint(u, v) : this.office.whiteboardPoint(u, v);
+    const board = { pen: onBoard, reviewing: pen.reviewing };
+    if (pen.reviewing) {
+      // Hands down while looking it over; the arm eases back to the pose.
+      return { left: null, right: null, tip: "wrist", board };
+    }
+    // IK places the wrist, which sits a hand and a marker back from the tip touching the board;
+    // between strokes the whole hand comes further off, the way a pen lifts away.
+    const right = onBoard.clone();
+    const { position } = rig.actor;
+    const away = new Vector3(position.x - right.x, 0, position.z - right.z);
+    if (away.lengthSq() > 1e-6) {
+      right.addScaledVector(away.normalize(), wristBehindPen + (pen.touching ? 0 : penLift));
+    }
+    return { left: null, right, tip: "wrist", board };
+  }
+
+  /**
+   * Eases each hand's IK aim toward its target and solves the arm onto it. When the work lets go
+   * of a hand, the aim eases back to where the pose holds it before IK lets go, so it never snaps.
+   */
+  private reachFor(rig: MemberRig, targets: HandTargets, delta: number): void {
+    const blend = 1 - Math.exp(-reachRate * delta);
+    for (const side of armSides) {
+      const target = targets[side];
+      const current = rig.reach[side];
+      if (target === null && current === null) {
+        continue;
+      }
+      if (target !== null) {
+        rig.reachTip = targets.tip;
+      }
+      const arm = rig.avatar.arm(side, rig.reachTip);
+      if (arm === null) {
+        rig.reach[side] = null;
+        continue;
+      }
+      rig.avatar.syncPose();
+      const posed = arm.effector.getWorldPosition(new Vector3());
+      const aim = current ?? posed.clone();
+      rig.reach[side] = aim;
+      if (target === null) {
+        aim.lerp(posed, blend);
+        if (aim.distanceTo(posed) < releaseDistance) {
+          rig.reach[side] = null;
+          continue;
+        }
+      } else {
+        aim.lerp(target, blend);
+      }
+      solveCcd(arm, aim);
+    }
+  }
+
+  /**
+   * At a board the body follows the pen: a sidestep along the board toward where it is writing,
+   * a step back while looking the drawing over. Returns the pen for the head and shoulders to track.
+   */
+  private boardFocus(rig: MemberRig, targets: HandTargets, delta: number): BoardFocus | null {
+    const { root } = rig.avatar;
+    const board = targets.board;
+    if (board === null) {
+      rig.sidestepGoal = 0;
+    } else {
+      root.updateMatrixWorld();
+      // The writing hand is the right one, a little right of center: keep the pen just in front of it.
+      const wanted = root.worldToLocal(board.pen.clone()).x + penAheadOfCenter;
+      // People write a few words, then shuffle over; they do not glide along with every letter.
+      if (Math.abs(wanted - rig.sidestepGoal) > shuffleThreshold) {
+        rig.sidestepGoal = Math.max(-maxSidestep, Math.min(maxSidestep, wanted));
+      }
+    }
+    // Leaving the board, the offsets settle fast so the walk away starts from the real spot.
+    const rate = board === null ? settleRate : stepRate;
+    const ease = 1 - Math.exp(-rate * delta);
+    rig.sidestep += (rig.sidestepGoal - rig.sidestep) * ease;
+    rig.review += ((board?.reviewing === true ? 1 : 0) - rig.review) * ease;
+    const yaw = root.rotation.y;
+    // The avatar faces +z at yaw 0, so its left is +x and its back is -z, both turned by the yaw.
+    root.position.x += Math.cos(yaw) * rig.sidestep - Math.sin(yaw) * reviewStepBack * rig.review;
+    root.position.z += -Math.sin(yaw) * rig.sidestep - Math.cos(yaw) * reviewStepBack * rig.review;
+    if (board === null) {
       return null;
     }
-    return memberId === "chizuru"
-      ? this.office.ideaBoardPoint(pen[0], pen[1])
-      : this.office.whiteboardPoint(pen[0], pen[1]);
+    root.updateMatrixWorld();
+    const local = root.worldToLocal(board.pen.clone());
+    const stepping = Math.min(1, Math.abs(rig.sidestepGoal - rig.sidestep) / 0.1);
+    return { x: local.x, y: local.y, z: local.z, review: rig.review, stepping };
   }
 
   private updateMember(memberId: MemberId, delta: number, now: number): void {
@@ -529,7 +743,7 @@ export class OfficeStage {
       rig.actionStartedAt = this.elapsed;
     }
 
-    const handTarget = this.updateSurface(memberId, rig, delta);
+    const handTargets = this.updateSurface(memberId, rig, delta);
     // Offset each member's idle loops so the room does not move in lockstep.
     const phaseOffset = memberIds.indexOf(memberId) * 1.7;
 
@@ -537,6 +751,8 @@ export class OfficeStage {
     avatar.root.position.set(actor.position.x, 0, actor.position.z);
     avatar.root.rotation.y = actor.yaw;
     const seatHeight = stations[plan.station].seatHeight;
+    const board = this.boardFocus(rig, handTargets, delta);
+    const gimmick = rig.walkHabits.update(this.elapsed, action === null, rig.mug.inHand);
     const pose = officePose({
       action,
       walkPhase: actor.walkPhase,
@@ -545,27 +761,126 @@ export class OfficeStage {
       seat: action === null || seatHeight === null ? null : fitSeat(avatar.legs, seatHeight),
       keystrokes: rig.keystrokes,
       carrying: rig.mug.inHand,
+      board,
+      walkStyle: walkStyles[memberId],
+      gimmick,
+      chatter: this.chatter.reactionOf(memberId),
+      lookYaw: this.lookYawFor(memberId, rig, gimmick?.kind === "wave"),
     });
     rig.poseApplier.apply(avatar.poseTarget, pose, delta);
 
-    if (action !== null && usesHandIk(action) && handTarget !== null) {
-      const arm = avatar.rightArm();
-      if (arm !== null) {
-        avatar.syncPose();
-        solveCcd(arm, handTarget);
-      }
-    }
+    this.reachFor(rig, handTargets, delta);
 
-    rig.expressions = stepExpressionWeights(rig.expressions, expressionTargetsForMood(plan.mood), delta);
+    const reaction = this.chatter.reactionOf(memberId);
+    const moodTargets = expressionTargetsForMood(plan.mood);
+    const targets = reaction === "laugh" ? { ...moodTargets, happy: 1 } : moodTargets;
+    rig.expressions = stepExpressionWeights(rig.expressions, targets, delta);
     const happy = rig.expressions.happy ?? 0;
-    avatar.setExpressions(rig.expressions, rig.blink.weightAt(this.elapsed + phaseOffset) * (1 - happy));
+    // The mouth flaps while a line is up; too quick for the eased weights, so it is added on top.
+    const talking = this.chatter.speechOf(memberId) !== null;
+    const shown = talking
+      ? { ...rig.expressions, aa: 0.45 * Math.abs(Math.sin((this.elapsed + phaseOffset) * 11)) }
+      : rig.expressions;
+    avatar.setExpressions(shown, rig.blink.weightAt(this.elapsed + phaseOffset) * (1 - happy));
     avatar.update(delta);
 
     // Board work needs the hand free; otherwise the action's own prop wins over a carried mug.
+    const onPhone = gimmick?.kind === "phone" ? "phone" : null;
     const held =
-      action !== null && usesHandIk(action) ? null : (propForAction(action) ?? (rig.mug.inHand ? "mug" : null));
+      action !== null && usesHandIk(action) ? null : (propForAction(action) ?? (rig.mug.inHand ? "mug" : onPhone));
     rig.props.show(held);
     rig.props.follow(rig.hand, actor.yaw);
+  }
+
+  /**
+   * Pairs at the bar or the pantry talk; anyone walking past a teammate on a break waves and
+   * says hello.
+   */
+  private updateChatter(delta: number): void {
+    const settledAt = (station: StationId, action: OfficeAction): MemberId | null =>
+      memberIds.find((memberId) => {
+        const rig = this.rigs[memberId];
+        return rig.action === action && rig.actor.target === station && !isWalking(rig.actor);
+      }) ?? null;
+    const pairs: [MemberId, MemberId][] = [];
+    const barLeft = settledAt("bar-left", "chat");
+    const barRight = settledAt("bar-right", "chat");
+    if (barLeft !== null && barRight !== null) {
+      pairs.push([barLeft, barRight]);
+    }
+    const brewing = settledAt("coffee", "brew");
+    const snacking = settledAt("fridge", "snack");
+    if (brewing !== null && snacking !== null) {
+      pairs.push([brewing, snacking]);
+    }
+    this.chatter.update(this.elapsed, delta, pairs);
+
+    for (const [index, first] of memberIds.entries()) {
+      for (const second of memberIds.slice(index + 1)) {
+        const a = this.rigs[first];
+        const b = this.rigs[second];
+        const someoneWalking = isWalking(a.actor) || isWalking(b.actor);
+        if (!someoneWalking || a.wasWorking || b.wasWorking) {
+          continue;
+        }
+        if (distance(a.actor.position, b.actor.position) > greetDistance) {
+          continue;
+        }
+        if (!this.chatter.greet(first, second, this.elapsed)) {
+          continue;
+        }
+        for (const [rig, other] of [
+          [a, second],
+          [b, first],
+        ] as const) {
+          rig.greeted = other;
+          if (isWalking(rig.actor)) {
+            rig.walkHabits.wave(this.elapsed);
+          }
+        }
+      }
+    }
+  }
+
+  /** Head turn toward a conversation partner, or toward whoever is being waved at. */
+  private lookYawFor(memberId: MemberId, rig: MemberRig, waving: boolean): number {
+    const other = waving ? rig.greeted : this.chatter.partnerOf(memberId);
+    if (other === null) {
+      return 0;
+    }
+    const target = this.rigs[other].actor.position;
+    const { position, yaw } = rig.actor;
+    const toward = Math.atan2(target.x - position.x, target.z - position.z);
+    return angleDelta(yaw, toward);
+  }
+
+  /** Where each speech bubble goes on screen this frame. */
+  speechAnchors(): SpeechAnchor[] {
+    const width = this.canvas.clientWidth;
+    const height = this.canvas.clientHeight;
+    const anchors: SpeechAnchor[] = [];
+    for (const memberId of memberIds) {
+      const speech = this.chatter.speechOf(memberId);
+      const head = this.rigs[memberId].avatar.poseTarget.node("head");
+      if (speech === null || head === null) {
+        continue;
+      }
+      const point = head.getWorldPosition(new Vector3());
+      point.y += bubbleAboveHead;
+      point.project(this.camera);
+      // Behind the camera or outside the view: no bubble pointing at nothing.
+      if (point.z > 1 || Math.abs(point.x) > 1 || Math.abs(point.y) > 1) {
+        continue;
+      }
+      anchors.push({
+        memberId,
+        text: speech.text,
+        x: ((point.x + 1) / 2) * width,
+        y: ((1 - point.y) / 2) * height,
+        shownFor: speech.shownFor,
+      });
+    }
+    return anchors;
   }
 
   private updateMug(memberId: MemberId, rig: MemberRig, arrived: boolean, departedFrom: StationId | null): void {
@@ -703,6 +1018,7 @@ export class OfficeStage {
     const now = Date.now();
     this.onFrame();
 
+    this.updateChatter(delta);
     for (const memberId of memberIds) {
       this.updateMember(memberId, delta, now);
     }
@@ -720,9 +1036,13 @@ export class OfficeStage {
     const height = this.canvas.clientHeight;
     this.renderer.setScissorTest(false);
     this.renderer.setViewport(0, 0, width, height);
-    this.renderer.setClearColor(0x000000, 0);
-    this.renderer.clear();
-    this.renderer.render(this.scene, this.camera);
+    if (this.composer !== null) {
+      this.composer.render(delta);
+    } else {
+      this.renderer.setClearColor(0x000000, 0);
+      this.renderer.clear();
+      this.renderer.render(this.scene, this.camera);
+    }
 
     if (this.closeupEnabled && this.focus !== null) {
       const rect = this.closeupLayout ?? closeupRect(width, height, null);

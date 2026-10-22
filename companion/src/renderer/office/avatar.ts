@@ -8,6 +8,9 @@ import { applyChibi } from "./chibi.js";
 import type { IkChain } from "./ik.js";
 import type { LegMetrics } from "./seating.js";
 
+export type ArmSide = "left" | "right";
+export type ArmTip = "wrist" | "fingertip";
+
 /** A character in the office: either a chibi VRM or a low-poly placeholder. */
 export interface OfficeAvatar {
   readonly kind: "vrm" | "placeholder";
@@ -18,7 +21,11 @@ export interface OfficeAvatar {
   readonly poseTarget: PoseTarget;
   /** Brings world matrices up to date after the pose, before IK reads positions. */
   syncPose(): void;
-  rightArm(): IkChain | null;
+  /**
+   * Upper and lower arm as an IK chain. The tip is the wrist, or the index fingertip for work that
+   * touches something small, like a key; a model without finger bones falls back to the wrist.
+   */
+  arm(side: ArmSide, tip: ArmTip): IkChain | null;
   /** Lets hair and skirts collide with the room (floor, backrests). Placeholders have no springs. */
   addHairColliders(colliders: readonly VRMSpringBoneCollider[]): void;
   setExpressions(weights: ExpressionWeights, blink: number): void;
@@ -49,13 +56,13 @@ export class VrmOfficeAvatar implements OfficeAvatar {
     this.root.updateMatrixWorld(true);
   }
 
-  rightArm(): IkChain | null {
+  arm(side: ArmSide, tip: ArmTip): IkChain | null {
     const humanoid = this.vrm.humanoid;
-    const upperRotate = humanoid.getNormalizedBoneNode("rightUpperArm");
-    const lowerRotate = humanoid.getNormalizedBoneNode("rightLowerArm");
-    const upperMeasure = humanoid.getRawBoneNode("rightUpperArm");
-    const lowerMeasure = humanoid.getRawBoneNode("rightLowerArm");
-    const hand = humanoid.getRawBoneNode("rightHand");
+    const upperRotate = humanoid.getNormalizedBoneNode(`${side}UpperArm`);
+    const lowerRotate = humanoid.getNormalizedBoneNode(`${side}LowerArm`);
+    const upperMeasure = humanoid.getRawBoneNode(`${side}UpperArm`);
+    const lowerMeasure = humanoid.getRawBoneNode(`${side}LowerArm`);
+    const hand = humanoid.getRawBoneNode(`${side}Hand`);
     if (
       upperRotate === null ||
       lowerRotate === null ||
@@ -65,12 +72,13 @@ export class VrmOfficeAvatar implements OfficeAvatar {
     ) {
       return null;
     }
+    const finger = tip === "fingertip" ? humanoid.getRawBoneNode(`${side}IndexDistal`) : null;
     return {
       joints: [
         { rotate: upperRotate, measure: upperMeasure },
         { rotate: lowerRotate, measure: lowerMeasure },
       ],
-      effector: hand,
+      effector: finger ?? hand,
       sync: () => this.syncPose(),
     };
   }

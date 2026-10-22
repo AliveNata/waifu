@@ -127,7 +127,8 @@ export interface Station {
   seatHeight: number | null;
 }
 
-const deskRowSeatZ = -3.72;
+/** Pulled up close, about as far from the desk edge as the front desks' chairs, so short arms reach the keys. */
+const deskRowSeatZ = -3.92;
 /** Office chairs are sized for chibi legs: low enough that most feet reach the floor. */
 export const chairSeatHeight = 0.28;
 const sofaSeatHeight = 0.26;
@@ -168,6 +169,8 @@ const deskRow: Furniture[] = (Object.entries(deskRowX) as [keyof typeof deskRowX
 ]);
 
 const frontDeskZ = 1.95;
+/** Where Ruby sits at her desk; her camera and ring light both aim here. */
+const rubySeat = { x: -1.9, z: 1.4 } as const;
 
 /** Chairs around the meeting table: two on the back side facing the camera, two on the front side. */
 const meetingSeats = [
@@ -217,7 +220,8 @@ export const furniture: readonly Furniture[] = [
     z: 1.75,
     width: 0.35,
     depth: 0.35,
-    yaw: facing.camera,
+    // Lights Ruby's face at her desk, from her front left, like a key light.
+    yaw: yawToward({ x: -2.85, z: 1.75 }, rubySeat),
     blocksWalking: true,
   },
   {
@@ -227,7 +231,8 @@ export const furniture: readonly Furniture[] = [
     z: 2.75,
     width: 0.4,
     depth: 0.4,
-    yaw: facing.backWall,
+    // The lens points at Ruby in her chair, the same subject the ring light is lighting.
+    yaw: yawToward({ x: -1.0, z: 2.75 }, rubySeat),
     blocksWalking: true,
   },
   {
@@ -499,7 +504,8 @@ export function yawToward(from: Point, to: Point): number {
   return Math.atan2(to.x - from.x, to.z - from.z);
 }
 
-const boardStandX = -6.3;
+/** Close enough to the boards (surface at x -6.91) that a chibi arm reaches the writing. */
+const boardStandX = -6.68;
 
 export const stations: Record<StationId, Station> = {
   "desk-asuna": deskRowStation("desk-asuna", deskRowX.asuna),
@@ -508,7 +514,7 @@ export const stations: Record<StationId, Station> = {
   "desk-yor": deskRowStation("desk-yor", deskRowX.yor),
   "desk-ruby": {
     id: "desk-ruby",
-    spot: { x: -1.9, z: 1.4 },
+    spot: rubySeat,
     facing: facing.camera,
     approach: { x: -1.9 + chairSideStep, z: 1.4 },
     seatHeight: chairSeatHeight,

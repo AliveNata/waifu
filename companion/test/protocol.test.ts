@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { defaultHookPort, ipcChannels, resolveHookPort } from "../src/shared/protocol.js";
+import { defaultHookPort, ipcChannels, isOfficeQuality, resolveHookPort } from "../src/shared/protocol.js";
 
 describe("resolveHookPort", () => {
   it("defaults when the env var is missing", () => {
@@ -27,5 +27,15 @@ describe("preload channel names", () => {
 
     // Assert
     expect(missing).toEqual([]);
+  });
+});
+
+describe("isOfficeQuality", () => {
+  it.each(["high", "low"])("accepts %s", (value) => {
+    expect(isOfficeQuality(value)).toBe(true);
+  });
+
+  it.each(["medium", "", null, 1])("rejects %s", (value) => {
+    expect(isOfficeQuality(value)).toBe(false);
   });
 });

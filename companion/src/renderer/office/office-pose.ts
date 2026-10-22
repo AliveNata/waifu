@@ -1,6 +1,8 @@
 import { addRotation, armsRelaxed, type Pose, type PoseBones } from "../common/pose.js";
+import type { ChatReaction } from "./office-chatter.js";
 import type { OfficeAction } from "./office-director.js";
 import type { SeatFit } from "./seating.js";
+import type { ActiveGimmick, WalkStyle } from "./walk-life.js";
 
 export interface OfficePoseInput {
   /** Null while walking. */
@@ -15,7 +17,33 @@ export interface OfficePoseInput {
   keystrokes: number;
   /** Something held in the right hand while walking, such as a mug: that arm stays bent instead of swinging. */
   carrying: boolean;
+  /** The pen, while working at a board; absent everywhere else. */
+  board?: BoardFocus | null;
+  /** The member's own way of walking; the plain cycle when absent. */
+  walkStyle?: WalkStyle;
+  /** Something done on the way (phone, stretch, wave), while walking. */
+  gimmick?: ActiveGimmick | null;
+  /** Small talk: talking, nodding along, or laughing. */
+  chatter?: ChatReaction | null;
+  /** Turns the head toward someone, in radians to the avatar's left. */
+  lookYaw?: number;
 }
+
+const plainWalk: WalkStyle = { stride: 1, armSwing: 1, bounce: 1, sway: 1, lean: 0.04 };
+
+/** The pen in the avatar's own frame (x to its left, y up from the floor, z ahead), plus the step back. */
+export interface BoardFocus {
+  x: number;
+  y: number;
+  z: number;
+  /** 0..1: how far into stepping back to look the drawing over. */
+  review: number;
+  /** 0..1: shuffling sideways along the board to keep up with the pen. */
+  stepping: number;
+}
+
+/** Eyes of a standing chibi, in the avatar's frame. */
+const standingEyeY = 0.88;
 
 /** Upper body of one action. Legs and hips come from the posture, so any action works standing or seated. */
 interface UpperBody {
@@ -39,24 +67,72 @@ function seatedLegs(seat: SeatFit): PoseBones {
  * Short steps with a small hip sway. A wide stride drags long skirts and dresses
  * (skinned to the thighs) into stretched shapes; small swings keep them hanging naturally.
  */
-function walkPose(phase: number): Pose {
+function walkPose(phase: number, style: WalkStyle): Pose {
   const swing = Math.sin(phase);
   const bob = Math.abs(Math.cos(phase));
+  const stride = 0.32 * style.stride;
+  const arms = 0.3 * style.armSwing;
   return {
     bones: {
       ...armsRelaxed,
-      leftUpperArm: addRotation(armsRelaxed.leftUpperArm, { x: 0.3 * swing }),
-      rightUpperArm: addRotation(armsRelaxed.rightUpperArm, { x: -0.3 * swing }),
-      hips: { x: 0, y: 0.06 * swing, z: 0.025 * swing },
-      leftUpperLeg: { x: -0.32 * swing, y: 0, z: 0 },
-      rightUpperLeg: { x: 0.32 * swing, y: 0, z: 0 },
+      leftUpperArm: addRotation(armsRelaxed.leftUpperArm, { x: arms * swing }),
+      rightUpperArm: addRotation(armsRelaxed.rightUpperArm, { x: -arms * swing }),
+      hips: { x: 0, y: 0.06 * style.sway * swing, z: 0.025 * style.sway * swing },
+      leftUpperLeg: { x: -stride * swing, y: 0, z: 0 },
+      rightUpperLeg: { x: stride * swing, y: 0, z: 0 },
       // Knees only bend backward, on the leg that is swinging through.
-      leftLowerLeg: { x: 0.45 * Math.max(0, -Math.cos(phase)), y: 0, z: 0 },
-      rightLowerLeg: { x: 0.45 * Math.max(0, Math.cos(phase)), y: 0, z: 0 },
-      spine: { x: 0.04, y: -0.04 * swing, z: 0 },
+      leftLowerLeg: { x: 0.45 * style.stride * Math.max(0, -Math.cos(phase)), y: 0, z: 0 },
+      rightLowerLeg: { x: 0.45 * style.stride * Math.max(0, Math.cos(phase)), y: 0, z: 0 },
+      spine: { x: style.lean, y: -0.04 * swing, z: 0 },
     },
-    hipsOffsetY: 0.014 * bob,
+    hipsOffsetY: 0.014 * style.bounce * bob,
   };
+}
+
+/** Upper body overrides for a gimmick on the move; the legs keep walking underneath. */
+function gimmickBones(gimmick: ActiveGimmick, input: OfficePoseInput): PoseBones {
+  const t = gimmick.elapsed / gimmick.duration;
+  switch (gimmick.kind) {
+    case "look-around":
+      // A glance one way, then the other, then eyes front again.
+      return { head: { x: -0.05, y: 0.65 * Math.sin(t * Math.PI * 2), z: 0 } };
+    case "phone":
+      return {
+        head: { x: 0.38, y: 0, z: 0 },
+        rightUpperArm: { x: -0.55, y: 0, z: 1.1 },
+        rightLowerArm: { x: 0, y: 1.7, z: 0 },
+      };
+    case "stretch": {
+      // Arms up and back down within the gimmick, eased so it does not snap.
+      const up = Math.sin(Math.min(1, t) * Math.PI);
+      return {
+        head: { x: -0.18 * up, y: 0, z: 0 },
+        leftUpperArm: { x: 0, y: 0, z: -1.22 + 2.4 * up },
+        rightUpperArm: { x: 0, y: 0, z: 1.22 - 2.4 * up },
+        leftLowerArm: { x: 0, y: -0.25 * (1 - up), z: 0 },
+        rightLowerArm: { x: 0, y: 0.25 * (1 - up), z: 0 },
+      };
+    }
+    case "wave":
+      return {
+        rightUpperArm: { x: 0, y: 0, z: 0.05 },
+        rightLowerArm: { x: 0, y: 0, z: -1.4 + 0.35 * Math.sin(input.time * 9) },
+        head: { x: 0, y: 0, z: -0.12 },
+      };
+  }
+}
+
+/** Head motion of small talk, on top of whatever the body is doing. */
+function chatterHead(reaction: ChatReaction, time: number): { x: number; y: number; z: number } {
+  switch (reaction) {
+    case "talk":
+      return { x: 0.05 * Math.sin(time * 5), y: 0, z: 0.04 * Math.sin(time * 1.7) };
+    case "nod":
+      // A nod every second or so, not a constant bobble.
+      return { x: 0.16 * Math.max(0, Math.sin(time * 6)) * (Math.sin(time * 1.1) > 0 ? 1 : 0.3), y: 0, z: 0 };
+    case "laugh":
+      return { x: -0.15 + 0.06 * Math.sin(time * 16), y: 0, z: 0.08 };
+  }
 }
 
 function typeBody(input: OfficePoseInput): UpperBody {
@@ -65,8 +141,10 @@ function typeBody(input: OfficePoseInput): UpperBody {
   const dip = 0.12;
   return {
     bones: {
-      spine: { x: 0.12, y: 0, z: 0 },
-      head: { x: 0.16, y: 0.04 * Math.sin(input.time * 0.6), z: 0 },
+      // Leaning in brings the shoulders over the keyboard; the head tips back up to the screen.
+      spine: { x: 0.3, y: 0, z: 0 },
+      chest: { x: 0.08, y: 0, z: 0 },
+      head: { x: 0.02, y: 0.04 * Math.sin(input.time * 0.6), z: 0 },
       leftUpperArm: { x: -0.75, y: 0, z: -1.15 },
       rightUpperArm: { x: -0.75, y: 0, z: 1.15 },
       leftLowerArm: { x: 0, y: -1.1, z: leftHandActive ? dip : -0.04 },
@@ -103,14 +181,45 @@ function stretchBody(input: OfficePoseInput): UpperBody {
   };
 }
 
-/** Base for drawing and sticking notes. IK then moves the right hand onto the board. */
+/**
+ * Drawing and sticking notes. IK moves the right hand onto the board; the head follows the pen
+ * and the shoulders turn part of the way with it, the way people track their own handwriting.
+ * Reviewing, they lean back with the marker lowered to look the whole thing over.
+ */
 function boardBody(input: OfficePoseInput): UpperBody {
+  const focus = input.board ?? null;
+  const ahead = Math.max(0.2, focus?.z ?? 1);
+  const turn = focus === null ? 0 : Math.max(-0.9, Math.min(0.9, Math.atan2(focus.x, ahead)));
+  const tilt = focus === null ? 0 : Math.max(-0.6, Math.min(0.5, Math.atan2(standingEyeY - focus.y, ahead)));
+  const review = focus?.review ?? 0;
+  const drawingArm = { upper: { x: -0.9, y: 0, z: 0.3 }, lower: { x: 0, y: 0.6, z: 0 } };
+  const loweredArm = { upper: { x: -0.2, y: 0, z: 1.2 }, lower: { x: 0, y: 0.9, z: 0 } };
+  const mix = (a: number, b: number): number => a + (b - a) * review;
+  // Small quick steps while shuffling along the board, feet together again once there.
+  const shuffle = 0.22 * (focus?.stepping ?? 0) * Math.sin(input.time * 11);
   return {
+    standingHipsY: 0.008 * Math.abs(shuffle) * 4,
     bones: {
       ...armsRelaxed,
-      rightUpperArm: { x: -0.9, y: 0, z: 0.3 },
-      rightLowerArm: { x: 0, y: 0.6, z: 0 },
-      head: { x: 0.02, y: 0, z: 0.06 * Math.sin(input.time * 0.8) },
+      leftUpperLeg: { x: -shuffle, y: 0, z: 0 },
+      rightUpperLeg: { x: shuffle, y: 0, z: 0 },
+      leftLowerLeg: { x: Math.max(0, shuffle) * 1.4, y: 0, z: 0 },
+      rightLowerLeg: { x: Math.max(0, -shuffle) * 1.4, y: 0, z: 0 },
+      // Leaning in toward the board while writing, back while looking it over.
+      spine: { x: mix(0.1, -0.12), y: turn * 0.3, z: 0 },
+      chest: { x: 0, y: turn * 0.15, z: 0 },
+      rightUpperArm: {
+        x: mix(drawingArm.upper.x, loweredArm.upper.x),
+        y: 0,
+        z: mix(drawingArm.upper.z, loweredArm.upper.z),
+      },
+      rightLowerArm: { x: 0, y: mix(drawingArm.lower.y, loweredArm.lower.y), z: 0 },
+      // Looking the drawing over: a slow scan across it with the head tipped a little.
+      head: {
+        x: tilt * (1 - review) + mix(0, -0.05),
+        y: turn * 0.55 * (1 - review) + review * 0.25 * Math.sin(input.time * 0.9),
+        z: 0.06 * Math.sin(input.time * 0.8) + review * 0.08,
+      },
     },
   };
 }
@@ -422,10 +531,13 @@ function upperBody(action: OfficeAction, input: OfficePoseInput): UpperBody {
 export function officePose(input: OfficePoseInput): Pose {
   let pose: Pose;
   if (input.action === null) {
-    pose = walkPose(input.walkPhase);
+    pose = walkPose(input.walkPhase, input.walkStyle ?? plainWalk);
     if (input.carrying) {
       pose.bones.rightUpperArm = { x: -0.3, y: 0, z: 1.3 };
       pose.bones.rightLowerArm = { x: 0, y: 1.4, z: 0 };
+    }
+    if (input.gimmick !== undefined && input.gimmick !== null) {
+      pose.bones = { ...pose.bones, ...gimmickBones(input.gimmick, input) };
     }
   } else {
     const body = upperBody(input.action, input);
@@ -433,6 +545,18 @@ export function officePose(input: OfficePoseInput): Pose {
       input.seat === null
         ? { bones: body.bones, hipsOffsetY: body.standingHipsY ?? 0 }
         : { bones: { ...body.bones, ...seatedLegs(input.seat) }, hipsOffsetY: -input.seat.hipsDrop };
+  }
+  if (input.chatter !== undefined && input.chatter !== null) {
+    pose.bones.head = addRotation(pose.bones.head, chatterHead(input.chatter, input.time));
+    if (input.chatter === "laugh") {
+      pose.bones.chest = addRotation(pose.bones.chest, { x: -0.06 + 0.04 * Math.sin(input.time * 16) });
+    }
+  }
+  if (input.lookYaw !== undefined && input.lookYaw !== 0) {
+    // Mostly the head, a little of the chest, the way people turn to someone beside them.
+    const yaw = Math.max(-1, Math.min(1, input.lookYaw));
+    pose.bones.head = addRotation(pose.bones.head, { y: yaw * 0.7 });
+    pose.bones.chest = addRotation(pose.bones.chest, { y: yaw * 0.25 });
   }
   const breath = 0.015 * Math.sin((input.time * 2 * Math.PI) / 4);
   pose.bones.chest = addRotation(pose.bones.chest, { x: breath });

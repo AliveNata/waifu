@@ -5,7 +5,7 @@ import type {
   HookServerStatus,
   ModelFile,
 } from "../../shared/protocol.js";
-import { isConversationMode } from "../../shared/protocol.js";
+import { isConversationMode, isOfficeQuality, type OfficeQuality } from "../../shared/protocol.js";
 import type { CompanionSignal } from "../../shared/reaction.js";
 import type { MemberId } from "../../shared/team.js";
 
@@ -101,6 +101,12 @@ function storeCloseup(enabled: boolean): void {
   }
 }
 
+/** Browser preview: ?quality=low on the office URL, for checking how slower machines see it. */
+function webOfficeQuality(): OfficeQuality {
+  const asked = new URLSearchParams(window.location.search).get("quality");
+  return isOfficeQuality(asked) ? asked : "high";
+}
+
 function createWebBridge(): RendererBridge {
   let events: EventSource | null = null;
   let conversationMode = readStoredMode();
@@ -150,6 +156,9 @@ function createWebBridge(): RendererBridge {
     },
     async getCloseupEnabled() {
       return closeupEnabled;
+    },
+    async getOfficeQuality() {
+      return webOfficeQuality();
     },
     setCloseupEnabled(enabled) {
       closeupEnabled = enabled;

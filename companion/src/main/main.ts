@@ -12,6 +12,7 @@ import {
   ipcChannels,
   isConversationMode,
   type ModelFile,
+  type OfficeQuality,
   resolveHookPort,
 } from "../shared/protocol.js";
 import type { CompanionSignal } from "../shared/reaction.js";
@@ -338,6 +339,12 @@ function showMenu(window: BrowserWindow): void {
       click: (item) => setCloseupEnabled(item.checked),
     },
     {
+      label: "Grafis kantor tinggi",
+      type: "checkbox",
+      checked: settings.officeQuality === "high",
+      click: (item) => setOfficeQuality(item.checked ? "high" : "low"),
+    },
+    {
       label: "Tampilkan 2B di desktop",
       type: "checkbox",
       checked: settings.companionVisible,
@@ -403,6 +410,17 @@ function requestTwobKey(): void {
   } else {
     sendToOffice(ipcChannels.twobKeyRequested);
   }
+}
+
+/** The office builds its scene once, so a new quality takes effect by reloading the page. */
+function setOfficeQuality(quality: OfficeQuality): void {
+  updateSettings({ officeQuality: quality })
+    .then(() => {
+      if (officeWindow !== null && !officeWindow.isDestroyed()) {
+        officeWindow.webContents.reload();
+      }
+    })
+    .catch((error: unknown) => console.error("[main] failed to save settings", error));
 }
 
 function sendToOffice(channel: string, value?: unknown): void {
@@ -571,6 +589,7 @@ function registerChatIpc(): void {
 
 function registerIpc(): void {
   registerChatIpc();
+  ipcMain.handle(ipcChannels.getOfficeQuality, () => settings.officeQuality);
   twob = new TwobService({
     currentModel: () => settings.twobModel,
     saveModel: (model) => updateSettings({ twobModel: model }),

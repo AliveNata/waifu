@@ -3,7 +3,14 @@
 // the two lists in sync.
 import { contextBridge, type IpcRendererEvent, ipcRenderer } from "electron";
 import type { ChatEvent, ChatSessionList, ChatStatus } from "../shared/office-chat.js";
-import type { CompanionApi, ConversationMode, CursorOffset, HookServerStatus, ModelFile } from "../shared/protocol.js";
+import type {
+  CompanionApi,
+  ConversationMode,
+  CursorOffset,
+  HookServerStatus,
+  ModelFile,
+  OfficeQuality,
+} from "../shared/protocol.js";
 import type { CompanionSignal } from "../shared/reaction.js";
 import type { MemberId } from "../shared/team.js";
 import type { CompanionCommand, TwobReply, TwobStatus } from "../shared/twob-chat.js";
@@ -18,6 +25,7 @@ const channels = {
   getCloseupEnabled: "companion:get-closeup-enabled",
   setCloseupEnabled: "companion:set-closeup-enabled",
   closeupEnabled: "companion:closeup-enabled",
+  getOfficeQuality: "companion:get-office-quality",
   getCompanionVisible: "companion:get-companion-visible",
   setCompanionVisible: "companion:set-companion-visible",
   companionVisible: "companion:companion-visible",
@@ -75,6 +83,7 @@ const api: CompanionApi = {
   getCloseupEnabled: () => ipcRenderer.invoke(channels.getCloseupEnabled) as Promise<boolean>,
   setCloseupEnabled: (enabled) => ipcRenderer.send(channels.setCloseupEnabled, enabled),
   onCloseupEnabled: (listener) => subscribe<boolean>(channels.closeupEnabled, listener),
+  getOfficeQuality: () => ipcRenderer.invoke(channels.getOfficeQuality) as Promise<OfficeQuality>,
   getCompanionVisible: () => ipcRenderer.invoke(channels.getCompanionVisible) as Promise<boolean>,
   setCompanionVisible: (visible) => ipcRenderer.send(channels.setCompanionVisible, visible),
   onCompanionVisible: (listener) => subscribe<boolean>(channels.companionVisible, listener),

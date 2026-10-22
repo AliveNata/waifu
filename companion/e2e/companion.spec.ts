@@ -16,7 +16,9 @@ function collectErrors(page: Page): string[] {
 }
 
 async function openPage(page: Page, path: string): Promise<void> {
-  await page.goto(path);
+  // CI renders with software WebGL, where the office's ambient occlusion runs at well under one
+  // frame a second; these tests check behavior, so the office loads with the light graphics.
+  await page.goto(path === "/office/" ? "/office/?quality=low" : path);
   await expect(page.locator("html")).toHaveAttribute("data-events", "connected");
 }
 
