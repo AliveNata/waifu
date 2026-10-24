@@ -3,6 +3,7 @@ import {
   CylinderGeometry,
   Group,
   IcosahedronGeometry,
+  type Mesh,
   type Object3D,
   SphereGeometry,
   TorusGeometry,
@@ -17,18 +18,25 @@ import { box, glow, mesh, palette, standard } from "./palette.js";
  * +z like the avatar, and sized for chibi hands. Desks use the same models for the things that
  * get picked up, so what lands in the hand is what was on the desk.
  */
-export function handPropModel(kind: HandPropKind): Group {
+export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook): Group {
   const group = new Group();
   switch (kind) {
     case "mug": {
-      const material = standard(palette.laminate, 0.4);
+      const material = standard(look.mug, 0.4);
       const cup = mesh(new CylinderGeometry(0.022, 0.019, 0.05, 12), material);
       cup.position.y = 0.01;
       const handle = mesh(new TorusGeometry(0.012, 0.0035, 6, 12), material);
       handle.position.set(-0.025, 0.012, 0);
-      const coffee = mesh(new CylinderGeometry(0.019, 0.019, 0.002, 12), standard("#5a3a24", 0.3));
-      coffee.position.y = 0.032;
-      group.add(cup, handle, coffee);
+      group.add(cup, handle, cupFill(0.019, -0.013, 0.032));
+      break;
+    }
+    case "laptop": {
+      // Folded shut and carried flat, a thin line of the screen bezel showing at the hinge.
+      const shell = standard(look.shell, 0.5);
+      group.add(
+        box(0.26, 0.022, 0.18, shell, 0, -0.011, 0),
+        box(0.24, 0.002, 0.004, standard(palette.inkDeep, 0.4), 0, 0.006, -0.088),
+      );
       break;
     }
     case "paddle": {
@@ -133,11 +141,9 @@ export function handPropModel(kind: HandPropKind): Group {
       const rim = mesh(new TorusGeometry(0.024, 0.0018, 6, 18), standard("#c9a24a", 0.3, 0.6));
       rim.rotation.x = Math.PI / 2;
       rim.position.y = 0.015;
-      const tea = mesh(new CylinderGeometry(0.022, 0.022, 0.002, 14), standard("#9a5a2a", 0.2));
-      tea.position.y = 0.012;
       const handle = mesh(new TorusGeometry(0.009, 0.0025, 6, 10), china);
       handle.position.set(-0.026, 0.002, 0);
-      group.add(cup, rim, tea, handle);
+      group.add(cup, rim, cupFill(0.021, -0.012, 0.012, "#9a5a2a"), handle);
       break;
     }
     case "marker": {
@@ -162,6 +168,37 @@ export function handPropModel(kind: HandPropKind): Group {
   return group;
 }
 
+/** Colors that differ per member: their mug, and the shell of the laptop they carry to meetings. */
+export interface PropLook {
+  mug: string;
+  shell: string;
+}
+
+const defaultLook: PropLook = { mug: palette.laminate, shell: "#d9d4cc" };
+
+/**
+ * The drink in a cup, as a disc that rises and falls with how full it is. It remembers the cup's
+ * bottom and brim so `setCupFill` can place it.
+ */
+function cupFill(radius: number, bottom: number, brim: number, color = "#5a3a24"): Mesh {
+  const drink = mesh(new CylinderGeometry(radius, radius, 0.002, 12), standard(color, 0.3), false);
+  drink.name = "drink";
+  drink.userData.fill = [bottom, brim];
+  drink.position.y = brim;
+  return drink;
+}
+
+/** Shows how full a cup is, 0 empty to 1 full, on any mug or teacup model under `root`. */
+export function setCupFill(root: Object3D, level: number): void {
+  const drink = root.getObjectByName("drink");
+  if (drink === undefined) {
+    return;
+  }
+  const [bottom, brim] = drink.userData.fill as [number, number];
+  drink.visible = level > 0.02;
+  drink.position.y = bottom + (brim - bottom) * Math.min(1, level);
+}
+
 /** Where the prop sits relative to the hand, in the avatar's own frame (x right, z forward). */
 const gripOffset: Record<HandPropKind, { x: number; y: number; z: number; tilt: number; turn: number }> = {
   mug: { x: 0, y: -0.015, z: 0.015, tilt: 0, turn: 0 },
@@ -184,6 +221,8 @@ const gripOffset: Record<HandPropKind, { x: number; y: number; z: number; tilt: 
   rose: { x: 0, y: 0, z: 0.01, tilt: -0.2, turn: 0 },
   teacup: { x: 0, y: -0.01, z: 0.015, tilt: 0, turn: 0 },
   marker: { x: 0, y: 0, z: 0.01, tilt: 0, turn: 0 },
+  // Flat on the palm and forearm, held in front.
+  laptop: { x: 0.04, y: -0.015, z: 0.06, tilt: 0, turn: 0 },
 };
 
 const handPosition = new Vector3();
@@ -194,6 +233,18 @@ export class HandProps {
   private readonly built = new Map<HandPropKind, Group>();
   private shown: HandPropKind | null = null;
   private side: ArmSide = "right";
+
+  constructor(private readonly look: PropLook = defaultLook) {}
+
+  /** How full the mug or teacup in the hand is. */
+  setFill(level: number): void {
+    for (const kind of ["mug", "teacup"] as const) {
+      const cup = this.built.get(kind);
+      if (cup !== undefined) {
+        setCupFill(cup, level);
+      }
+    }
+  }
 
   /** Most props are held in the right hand; a few desk things are picked up with the left. */
   show(kind: HandPropKind | null, side: ArmSide = "right"): void {
@@ -210,7 +261,7 @@ export class HandProps {
     }
     let prop = this.built.get(kind);
     if (prop === undefined) {
-      prop = handPropModel(kind);
+      prop = handPropModel(kind, this.look);
       this.built.set(kind, prop);
       this.root.add(prop);
     }

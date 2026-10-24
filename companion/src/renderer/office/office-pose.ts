@@ -1,5 +1,5 @@
 import { addRotation, armsRelaxed, type BoneRotation, type Pose, type PoseBones } from "../common/pose.js";
-import { type ActiveDeskBit, deskBitSpec, reachingForItem, reachSeconds } from "./desk-habits.js";
+import { type ActiveDeskBit, reachingForItem, reachSeconds } from "./desk-habits.js";
 import type { ChatGesture, ChatReaction } from "./office-chatter.js";
 import { type OfficeAction, ovenStep } from "./office-director.js";
 import type { SeatFit } from "./seating.js";
@@ -37,6 +37,8 @@ export interface OfficePoseInput {
   pingpongBeat?: number | null;
   /** Something being done with the things on the member's own desk, while idling there. */
   deskBit?: ActiveDeskBit | null;
+  /** While fetching or putting something down: the side it is on, which the body leans toward. */
+  fetchSide?: "left" | "right";
 }
 
 const plainWalk: WalkStyle = { stride: 1, armSwing: 1, bounce: 1, sway: 1, lean: 0.04 };
@@ -414,7 +416,7 @@ function mixRotation(from: BoneRotation, to: BoneRotation, t: number): BoneRotat
  * in between, the pose shows what the member does with the thing in their hand.
  */
 function deskBitBody(bit: ActiveDeskBit, input: OfficePoseInput): UpperBody {
-  const { hand } = deskBitSpec(bit.kind);
+  const { hand } = bit;
   const toward = hand === "left" ? 1 : -1;
   const lean = reachLean(bit);
   // Seconds into using the thing, after picking it up.
@@ -505,7 +507,7 @@ function deskBitBody(bit: ActiveDeskBit, input: OfficePoseInput): UpperBody {
     case "desk-selfie":
       Object.assign(bones, selfieBody({ ...input, actionElapsed: bit.elapsed }).bones);
       break;
-    case "tea": {
+    case "sip": {
       // A sip, the cup lowered to the chest, another sip.
       const sip = cycle(using, 2.6);
       setArm(
@@ -543,6 +545,22 @@ function deskBitBody(bit: ActiveDeskBit, input: OfficePoseInput): UpperBody {
       break;
   }
   return { bones };
+}
+
+/**
+ * Taking something or putting it down: a mug, the laptop from the drawer, a clean mug off the
+ * rack. IK puts the hand on it; the body leans forward and over to that side to get there.
+ */
+function fetchBody(input: OfficePoseInput): UpperBody {
+  const toward = input.fetchSide === "left" ? 1 : -1;
+  return {
+    bones: {
+      spine: { x: 0.32, y: 0, z: -0.2 * toward },
+      chest: { x: 0.06, y: 0.2 * toward, z: 0 },
+      head: { x: 0.25, y: 0.25 * toward, z: 0 },
+      ...armsRelaxed,
+    },
+  };
 }
 
 function stretchBody(input: OfficePoseInput): UpperBody {
@@ -962,6 +980,9 @@ function upperBody(action: OfficeAction, input: OfficePoseInput): UpperBody {
       return washBody(input);
     case "oven":
       return ovenBody(input);
+    case "fetch":
+    case "pick":
+      return fetchBody(input);
     case "type":
       return typeBody(input);
     case "desk-idle":
