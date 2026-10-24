@@ -1,7 +1,10 @@
 import {
+  AdditiveBlending,
+  Color,
   CylinderGeometry,
   DataTexture,
   Group,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   NearestFilter,
   type Object3D,
@@ -64,6 +67,84 @@ export interface Workstation {
   drawer: Group | null;
   /** On laptop desks: the lid, hinged at the back of the keyboard, and the shell's color. */
   lid: Group | null;
+  /** Switched on in the evening. */
+  lamp: DeskLamp;
+}
+
+/**
+ * A desk lamp at the back of the desk, its shade over the work area. Lit, the bulb glows and a
+ * warm pool of light shows on the desktop; a faked pool rather than a real light, so eight lamps
+ * cost nothing on a slow laptop.
+ */
+export class DeskLamp {
+  constructor(
+    readonly root: Group,
+    private readonly bulb: MeshStandardMaterial,
+    private readonly pool: MeshBasicMaterial,
+  ) {}
+
+  /** 0 off to 1 fully on. */
+  setLevel(level: number): void {
+    this.bulb.emissiveIntensity = 2.2 * level;
+    this.pool.opacity = 0.5 * level;
+    this.pool.visible = level > 0.01;
+  }
+}
+
+/** A soft round falloff, generated in memory so it needs no canvas. */
+function poolTexture(): DataTexture {
+  const size = 64;
+  const pixels = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const distance = Math.hypot(x - size / 2 + 0.5, y - size / 2 + 0.5) / (size / 2);
+      const falloff = Math.max(0, 1 - distance) ** 1.6;
+      pixels.set([255, 255, 255, Math.round(255 * falloff)], (y * size + x) * 4);
+    }
+  }
+  const texture = new DataTexture(pixels, size, size);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/**
+ * The lamp at (x, z) in the desk's frame, its arm reaching toward the sitter's side of the desk.
+ * The pool of light lands about a quarter meter in front of it.
+ */
+function deskLamp(x: number, z: number, depth: number): DeskLamp {
+  const root = new Group();
+  const ink = standard(palette.inkDeep, 0.4, 0.3);
+  const base = mesh(new CylinderGeometry(0.04, 0.045, 0.012, 16), ink);
+  base.position.y = deskTop + 0.006;
+  const pole = mesh(new CylinderGeometry(0.006, 0.006, 0.3, 8), ink);
+  pole.position.y = deskTop + 0.15;
+  const arm = mesh(new CylinderGeometry(0.005, 0.005, 0.14, 8), ink);
+  arm.rotation.x = Math.PI / 2;
+  arm.position.set(0, deskTop + 0.3, 0.07);
+  const shade = mesh(new CylinderGeometry(0.022, 0.05, 0.06, 16, 1, true), standard(palette.accent, 0.5));
+  shade.position.set(0, deskTop + 0.28, 0.14);
+  const bulbMaterial = glow("#ffd9a0", 0);
+  const bulb = mesh(new SphereGeometry(0.016, 10, 8), bulbMaterial, false);
+  bulb.position.set(0, deskTop + 0.265, 0.14);
+  root.add(base, pole, arm, shade, bulb);
+  root.position.set(x, 0, z);
+  // Aim the arm at the middle of the desk's front edge.
+  root.rotation.y = Math.atan2(-x, depth / 2 - z);
+  const poolMaterial = new MeshBasicMaterial({
+    map: poolTexture(),
+    color: new Color("#ffc27a"),
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: AdditiveBlending,
+  });
+  const pool = mesh(new PlaneGeometry(0.6, 0.6), poolMaterial, false);
+  pool.rotation.x = -Math.PI / 2;
+  pool.position.set(0, deskTop + 0.002, 0.24);
+  root.add(pool);
+  const lamp = new DeskLamp(root, bulbMaterial, poolMaterial);
+  lamp.setLevel(0);
+  return lamp;
 }
 
 const noDeskThings = {
@@ -258,7 +339,7 @@ function deskSize(piece: Furniture): { width: number; depth: number } {
 }
 
 /** Data engineer: SQL in the middle, the pipeline DAG on the left, job runs on a vertical screen. */
-function asunaDesk(piece: Furniture): BuiltDesk {
+function asunaDesk(piece: Furniture): DeskBuild {
   const { width, depth } = deskSize(piece);
   const inner = deskBase(width, depth);
   const screen = new ScreenSurface(screenScripts.asuna);
@@ -284,7 +365,7 @@ function asunaDesk(piece: Furniture): BuiltDesk {
 }
 
 /** Full stack: an ultrawide for code and preview, a vertical screen for PRs, a docked console and a dragon plush. */
-function kobayashiDesk(piece: Furniture): BuiltDesk {
+function kobayashiDesk(piece: Furniture): DeskBuild {
   const { width, depth } = deskSize(piece);
   const inner = deskBase(width, depth);
   const screen = new ScreenSurface(screenScripts.kobayashi, ultrawideScreen);
@@ -319,7 +400,7 @@ function kobayashiDesk(piece: Furniture): BuiltDesk {
 }
 
 /** Reviewer: the diff on a wide screen, her checklist on a vertical one, and a slice of strawberry cake. */
-function erzaDesk(piece: Furniture): BuiltDesk {
+function erzaDesk(piece: Furniture): DeskBuild {
   const { width, depth } = deskSize(piece);
   const inner = deskBase(width, depth);
   const screen = new ScreenSurface(screenScripts.erza);
@@ -356,7 +437,7 @@ function erzaDesk(piece: Furniture): BuiltDesk {
 }
 
 /** Platform/SRE: terminal plus monitoring, a headset for incident calls, and a single rose. */
-function yorDesk(piece: Furniture): BuiltDesk {
+function yorDesk(piece: Furniture): DeskBuild {
   const { width, depth } = deskSize(piece);
   const inner = deskBase(width, depth);
   const screen = new ScreenSurface(screenScripts.yor);
@@ -385,7 +466,7 @@ function yorDesk(piece: Furniture): BuiltDesk {
 }
 
 /** PA + PM: the plan she types and the team's sprint, with the printer cabinet at her side. */
-function twobDesk(piece: Furniture, kanban: Texture): BuiltDesk {
+function twobDesk(piece: Furniture, kanban: Texture): DeskBuild {
   const { width, depth } = deskSize(piece);
   const inner = deskBase(width, depth);
   const screen = new ScreenSurface(screenScripts.twob);
@@ -439,7 +520,7 @@ function laptop(screen: ScreenSurface, depth: number, shell: string, keys: strin
 }
 
 /** Content creator: laptop for drafting, a boom mic for voice-overs. */
-function rubyDesk(piece: Furniture): BuiltDesk {
+function rubyDesk(piece: Furniture): DeskBuild {
   const { width, depth } = deskSize(piece);
   const inner = deskBase(width, depth);
   const screen = new ScreenSurface(screenScripts.ruby);
@@ -493,7 +574,7 @@ function chessPiece(color: string, height: number): Group {
  * Architect: the design doc on a laptop, a game of chess in progress, books and rolled-up
  * blueprints, and tea in a proper cup instead of a mug.
  */
-function riasDesk(piece: Furniture): BuiltDesk {
+function riasDesk(piece: Furniture): DeskBuild {
   const { width, depth } = deskSize(piece);
   const inner = deskBase(width, depth);
   const screen = new ScreenSurface(screenScripts.rias);
@@ -574,7 +655,7 @@ function riasDesk(piece: Furniture): BuiltDesk {
 }
 
 /** Brainstormer: a laptop full of half-formed ideas, sticky pads in every color, markers, a little plant. */
-function chizuruDesk(piece: Furniture): BuiltDesk {
+function chizuruDesk(piece: Furniture): DeskBuild {
   const { width, depth } = deskSize(piece);
   const inner = deskBase(width, depth);
   const screen = new ScreenSurface(screenScripts.chizuru);
@@ -647,7 +728,13 @@ function chizuruDesk(piece: Furniture): BuiltDesk {
   };
 }
 
-export function buildDesk(member: DeskMember, piece: Furniture, kanban: Texture): BuiltDesk {
+/** A desk as its builder makes it; the lamp is added the same way to every desk. */
+interface DeskBuild {
+  root: Group;
+  workstation: Omit<Workstation, "lamp">;
+}
+
+function deskParts(member: DeskMember, piece: Furniture, kanban: Texture): DeskBuild {
   switch (member) {
     case "asuna":
       return asunaDesk(piece);
@@ -666,4 +753,26 @@ export function buildDesk(member: DeskMember, piece: Furniture, kanban: Texture)
     case "chizuru":
       return chizuruDesk(piece);
   }
+}
+
+/** Where the lamp stands on each desk, along its back edge where nothing else is. */
+const lampX: Record<DeskMember, number> = {
+  asuna: 0.7,
+  kobayashi: 0.7,
+  erza: 0.7,
+  yor: 0.7,
+  twob: 0.7,
+  ruby: 0.6,
+  // Books and blueprints, or markers and a plant, take the corners.
+  rias: 0.2,
+  chizuru: 0.2,
+};
+
+export function buildDesk(member: DeskMember, piece: Furniture, kanban: Texture): BuiltDesk {
+  const built = deskParts(member, piece, kanban);
+  const { depth } = deskSize(piece);
+  const lamp = deskLamp(lampX[member], -depth / 2 + 0.1, depth);
+  // The desk's root holds the desk frame, so the lamp goes in at desk coordinates.
+  built.root.add(lamp.root);
+  return { root: built.root, workstation: { ...built.workstation, lamp } };
 }

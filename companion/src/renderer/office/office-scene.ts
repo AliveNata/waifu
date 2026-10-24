@@ -13,7 +13,15 @@ import {
 } from "three";
 import { type MemberId, memberIds } from "../../shared/team.js";
 import logoUrl from "./assets/alyxlabs-logo.png";
-import { chairSeatHeight, type Furniture, furniture, meetingStationIds, room, stations } from "./office-plan.js";
+import {
+  boardStepHeight,
+  chairSeatHeight,
+  type Furniture,
+  furniture,
+  meetingStationIds,
+  room,
+  stations,
+} from "./office-plan.js";
 import type { ArcadeScreen, RackLights, TvScreen } from "./scene/animated.js";
 import { buildContactShadows } from "./scene/contact-shadows.js";
 import { buildDesk, type DeskMember, deskTop, memberPropLooks, type Workstation } from "./scene/desks.js";
@@ -22,6 +30,7 @@ import {
   buildBackdrop,
   buildBarCounter,
   buildBeanbag,
+  buildBoardStep,
   buildCameraTripod,
   buildChair,
   buildCoffeeTable,
@@ -48,6 +57,7 @@ import { NeonStrips } from "./scene/neon.js";
 import { box, glow, mesh, palette, printed, sceneQuality, standard, unlit } from "./scene/palette.js";
 import { surfaceMaps } from "./scene/surface-detail.js";
 import { floorTexture, kanbanTexture, signTextTexture, windowTexture } from "./scene/textures.js";
+import { WallClock } from "./scene/wall-clock.js";
 import { IdeaBoard } from "./surfaces/idea-board.js";
 import { riasDiagrams, twobDiagrams, Whiteboard } from "./surfaces/whiteboard.js";
 
@@ -83,8 +93,10 @@ export interface OfficeProps {
   oven: Oven;
   /** Each member's cup on the drying rack by the sink, shown while their mug is drying there. */
   rackCups: Record<MemberId, Object3D>;
-  /** Cross-fades the window view between day (0) and night (1). */
-  setNight(night: number): void;
+  /** Fades the window view from day to night (0..1), with the dawn or dusk glow on top. */
+  setSky(sky: { night: number; twilight: number }): void;
+  /** The big clock on the pantry wall. */
+  wallClock: WallClock;
 }
 
 interface BoardSpec {
@@ -131,7 +143,13 @@ function leftWallPlane(map: Texture, spec: BoardSpec, frameColor: string): Group
   return group;
 }
 
-function buildRoomShell(root: Group, logo: Texture): { nightGlass: MeshBasicMaterial[] } {
+/** The window overlays faded over the daytime view: night, and the dawn or dusk glow on top. */
+interface SkyGlass {
+  night: MeshBasicMaterial[];
+  twilight: MeshBasicMaterial[];
+}
+
+function buildRoomShell(root: Group, logo: Texture): SkyGlass {
   const width = room.maxX - room.minX;
   const depth = room.maxZ - room.minZ;
   const centerX = (room.minX + room.maxX) / 2;
@@ -181,7 +199,7 @@ function buildRoomShell(root: Group, logo: Texture): { nightGlass: MeshBasicMate
   // The sills clear the monitors and the tops stay under a chibi-scaled 2.2 m wall.
   const sill = 1.0;
   const windowHeight = 0.85;
-  const nightGlass: MeshBasicMaterial[] = [];
+  const sky: SkyGlass = { night: [], twilight: [] };
   for (const [index, [left, right]] of (
     [
       [-3.6, -1.05],
@@ -192,13 +210,17 @@ function buildRoomShell(root: Group, logo: Texture): { nightGlass: MeshBasicMate
     const x = (left + right) / 2;
     const glass = mesh(new PlaneGeometry(windowWidth, windowHeight), unlit(windowTexture(index * 7 + 3)), false);
     glass.position.set(x, sill + windowHeight / 2, room.minZ + 0.012);
-    // The night view sits just in front and fades in, so dusk blends instead of switching.
-    const nightMaterial = unlit(windowTexture(index * 7 + 3, true), true);
-    nightMaterial.opacity = 0;
-    nightMaterial.depthWrite = false;
-    nightGlass.push(nightMaterial);
-    const nightPane = mesh(new PlaneGeometry(windowWidth, windowHeight), nightMaterial, false);
-    nightPane.position.set(x, sill + windowHeight / 2, room.minZ + 0.014);
+    // The night view and the dawn or dusk glow sit just in front and fade in, so the sky blends
+    // through the day instead of switching.
+    const overlays = (["night", "twilight"] as const).map((view, layer) => {
+      const material = unlit(windowTexture(index * 7 + 3, view), true);
+      material.opacity = 0;
+      material.depthWrite = false;
+      sky[view].push(material);
+      const pane = mesh(new PlaneGeometry(windowWidth, windowHeight), material, false);
+      pane.position.set(x, sill + windowHeight / 2, room.minZ + 0.014 + layer * 0.002);
+      return pane;
+    });
     const frame = standard(palette.laminate, 0.5);
     root.add(
       glass,
@@ -207,7 +229,7 @@ function buildRoomShell(root: Group, logo: Texture): { nightGlass: MeshBasicMate
       box(0.05, windowHeight + 0.05, 0.05, frame, left - 0.02, sill - 0.025, room.minZ + 0.02),
       box(0.05, windowHeight + 0.05, 0.05, frame, right + 0.02, sill - 0.025, room.minZ + 0.02),
       box(0.03, windowHeight, 0.04, frame, x, sill, room.minZ + 0.02),
-      nightPane,
+      ...overlays,
     );
   }
 
@@ -217,7 +239,7 @@ function buildRoomShell(root: Group, logo: Texture): { nightGlass: MeshBasicMate
   const lettering = mesh(new PlaneGeometry(1.1, 0.275), unlit(signTextTexture().texture, true), false);
   lettering.position.set(0.66, signY - 0.02, room.minZ + 0.015);
   root.add(logoMark, lettering, box(1.6, 0.02, 0.03, glow(palette.accent, 1.6), 0.25, signY - 0.33, room.minZ + 0.02));
-  return { nightGlass };
+  return sky;
 }
 
 /**
@@ -242,7 +264,7 @@ export function buildOffice(): OfficeProps {
   const root = new Group();
   const logo = new TextureLoader().load(logoUrl);
   logo.colorSpace = SRGBColorSpace;
-  const { nightGlass } = buildRoomShell(root, logo);
+  const skyGlass = buildRoomShell(root, logo);
   const neon = buildNeon();
   root.add(neon.mesh);
   const pingpongBall = mesh(new SphereGeometry(0.018, 12, 8), standard("#fff4e0", 0.4));
@@ -257,6 +279,7 @@ export function buildOffice(): OfficeProps {
   let rackLights: RackLights | null = null;
   let meetingLaptops: MeetingLaptop[] = [];
   let rackCups: Object3D[] = [];
+  let wallClock: WallClock | null = null;
   let fridgeDoor: FridgeDoor | null = null;
   let sink: SinkTap | null = null;
   let oven: Oven | null = null;
@@ -386,6 +409,13 @@ export function buildOffice(): OfficeProps {
       case "idea-board":
         // Built below with their drawing surfaces.
         break;
+      case "board-step":
+        root.add(buildBoardStep(piece, boardStepHeight));
+        break;
+      case "wall-clock":
+        wallClock = new WallClock(piece);
+        root.add(wallClock.root);
+        break;
     }
   }
   if (
@@ -396,7 +426,8 @@ export function buildOffice(): OfficeProps {
     sink === null ||
     oven === null ||
     meetingLaptops.length !== meetingStationIds.length ||
-    rackCups.length !== memberIds.length
+    rackCups.length !== memberIds.length ||
+    wallClock === null
   ) {
     throw new Error("Floor plan is missing the TV, arcade, server rack, fridge or meeting table");
   }
@@ -405,10 +436,10 @@ export function buildOffice(): OfficeProps {
   const whiteboardSpec: BoardSpec = {
     centerZ: whiteboardPiece.z,
     width: whiteboardPiece.depth,
-    // Raised to a normal wall height, and short enough (0.55 m) that standing in front of it a
-    // chibi reaches the whole board: shoulders are about 0.7 m up, the arm and hand about 0.3 m.
+    // A normal board's proportions. Standing on the step in front, a chibi's shoulders are about
+    // 0.9 m up and the hand reaches about 0.3 m higher: that is the top of the writing band.
     bottom: 0.45,
-    height: 0.55,
+    height: 0.85,
   };
   // Left half (+z side) for 2B's planning, right half for Rias's architecture sketches.
   const whiteboard = new Whiteboard([
@@ -418,7 +449,7 @@ export function buildOffice(): OfficeProps {
   root.add(leftWallPlane(whiteboard.texture, whiteboardSpec, palette.frame));
 
   const ideaPiece = pieceById("idea-board");
-  const ideaSpec: BoardSpec = { centerZ: ideaPiece.z, width: ideaPiece.depth, bottom: 0.45, height: 0.55 };
+  const ideaSpec: BoardSpec = { centerZ: ideaPiece.z, width: ideaPiece.depth, bottom: 0.45, height: 0.85 };
   const ideaBoard = new IdeaBoard();
   root.add(leftWallPlane(ideaBoard.texture, ideaSpec, palette.skirting));
 
@@ -459,11 +490,15 @@ export function buildOffice(): OfficeProps {
       MemberId,
       Object3D
     >,
-    setNight: (night) => {
-      for (const material of nightGlass) {
+    setSky: ({ night, twilight }) => {
+      for (const material of skyGlass.night) {
         material.opacity = night;
       }
+      for (const material of skyGlass.twilight) {
+        material.opacity = 0.85 * twilight;
+      }
     },
+    wallClock,
   };
 }
 

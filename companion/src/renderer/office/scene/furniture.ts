@@ -796,6 +796,18 @@ export function buildMeetingTable(piece: Furniture): { root: Group; laptops: Mee
   return { root, laptops };
 }
 
+/** The low step along a board: oak top, dark sides, a thin glow along its front edge. */
+export function buildBoardStep(piece: Furniture, height: number): Group {
+  const root = placed(piece);
+  const { width, depth } = localSize(piece);
+  root.add(
+    box(width, height - 0.02, depth, standard(palette.ink, 0.6), 0, 0, 0),
+    box(width, 0.02, depth, standard(palette.oak, 0.55), 0, height - 0.02, 0),
+    box(width - 0.06, 0.008, 0.008, glow(palette.accent, 1.2), 0, height - 0.04, depth / 2 + 0.002),
+  );
+  return root;
+}
+
 /** Chibi-scale ping-pong table: ink top with white lines and a net, accent paddles at each end. */
 export function buildPingpongTable(piece: Furniture): Group {
   const root = placed(piece);

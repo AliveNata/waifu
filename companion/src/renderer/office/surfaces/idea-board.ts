@@ -1,5 +1,6 @@
 import { CanvasTexture, SRGBColorSpace } from "three";
 import type { Vec2 } from "./drawing.js";
+import { writingBand } from "./whiteboard.js";
 
 /** Simulated ideas. They are examples of what a brainstorm looks like, not the user's real backlog. */
 export const ideaPool: readonly string[] = [
@@ -19,11 +20,11 @@ export const ideaPool: readonly string[] = [
   "lineage dbt di docs",
 ];
 
-/** Same aspect as the board on the wall, 1.3 by 0.55 m: two rows of four notes. */
+/** Same aspect as the board on the wall, 1.3 by 0.85 m: three rows of four notes, kept in reach. */
 const canvasWidth = 800;
-const canvasHeight = 340;
+const canvasHeight = 520;
 const columns = 4;
-const rowsCount = 2;
+const rowsCount = 3;
 const noteColors = ["#f7e27a", "#f5a8c2", "#9fe0c0", "#a9cdf5"];
 const placeSeconds = 1.1;
 const holdSeconds = 3;
@@ -81,7 +82,8 @@ export class IdeaBoard {
   private noteCenter(index: number): Vec2 {
     const column = index % columns;
     const row = Math.floor(index / columns);
-    return [(column + 0.5) / columns, (row + 0.5) / rowsCount];
+    const v = (row + 0.5) / rowsCount;
+    return [(column + 0.5) / columns, writingBand.top + v * (writingBand.bottom - writingBand.top)];
   }
 
   private draw(nextNoteOpacity: number): void {
@@ -100,7 +102,7 @@ export class IdeaBoard {
     const ctx = this.context;
     const [u, v] = this.noteCenter(index);
     const noteWidth = 170;
-    const noteHeight = 120;
+    const noteHeight = 124;
     const x = u * canvasWidth - noteWidth / 2;
     const y = v * canvasHeight - noteHeight / 2;
     // Stable tilt per slot so the wall looks hand-placed.

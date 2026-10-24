@@ -57,12 +57,23 @@ export function floorTexture(): CanvasTexture {
  * The view through the back windows: a soft sky over a low skyline, no detail to compete with the
  * room. At night the sky goes navy and a scatter of lit office windows shows in the towers.
  */
-export function windowTexture(seed: number, night = false): CanvasTexture {
+/** The view out of a window: clear day, the orange and pink of dawn or dusk, or the city at night. */
+export type WindowView = "day" | "twilight" | "night";
+
+const skyColors: Record<WindowView, readonly [string, string, string]> = {
+  day: ["#b9d7f0", "#eaf2f7", "#f6efe4"],
+  twilight: ["#3f4f8f", "#e98a6a", "#ffcf8f"],
+  night: ["#0d1230", "#24204a", "#3a2a5c"],
+};
+
+export function windowTexture(seed: number, view: WindowView = "day"): CanvasTexture {
   const { canvas: element, ctx } = canvas(512, 256);
   const sky = ctx.createLinearGradient(0, 0, 0, 256);
-  sky.addColorStop(0, night ? "#0d1230" : "#b9d7f0");
-  sky.addColorStop(0.75, night ? "#24204a" : "#eaf2f7");
-  sky.addColorStop(1, night ? "#3a2a5c" : "#f6efe4");
+  const [top, middle, bottom] = skyColors[view];
+  sky.addColorStop(0, top);
+  sky.addColorStop(0.75, middle);
+  sky.addColorStop(1, bottom);
+  const night = view !== "day";
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, 512, 256);
   let x = 0;
@@ -73,12 +84,14 @@ export function windowTexture(seed: number, night = false): CanvasTexture {
     const towerHeight = 40 + (step % 90);
     const towerTop = 256 - towerHeight;
     if (night) {
-      ctx.fillStyle = step % 3 === 0 ? "#151632" : "#1c1b3d";
+      // At dusk the towers are dark against the glow, with fewer windows lit so far.
+      ctx.fillStyle =
+        view === "twilight" ? (step % 3 === 0 ? "#3a2f4f" : "#47375a") : step % 3 === 0 ? "#151632" : "#1c1b3d";
       ctx.fillRect(x, towerTop, towerWidth - 4, towerHeight);
       for (let wy = towerTop + 8; wy < 250; wy += 12) {
         for (let wx = x + 5; wx < x + towerWidth - 9; wx += 9) {
           step = (step * 9301 + 49297) % 233280;
-          if (step % 5 === 0) {
+          if (step % (view === "twilight" ? 11 : 5) === 0) {
             ctx.fillStyle = step % 2 === 0 ? "#ffd98a" : "#cfa0ff";
             ctx.fillRect(wx, wy, 4, 5);
           }
@@ -256,7 +269,7 @@ export function kanbanTexture(): CanvasTexture {
       ],
     ],
     [
-      "Jalan",
+      "Running",
       [
         ["Model dbt", "Asuna"],
         ["API + chart", "Kobayashi"],
@@ -264,7 +277,7 @@ export function kanbanTexture(): CanvasTexture {
     ],
     ["Review", [["Cek diff", "Erza"]]],
     [
-      "Selesai",
+      "Done",
       [
         ["Opsi arsitektur", "Rias"],
         ["Dry-run deploy", "Yor"],

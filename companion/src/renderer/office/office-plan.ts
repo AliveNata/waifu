@@ -51,6 +51,8 @@ export type FurnitureKind =
   | "stool"
   | "whiteboard"
   | "idea-board"
+  | "board-step"
+  | "wall-clock"
   | "tv-wall"
   | "tv-console"
   | "sofa"
@@ -114,7 +116,6 @@ export type StationId =
   | "plant-lounge"
   | "plant-corner"
   | "plant-desks"
-  | "plant-center"
   | "meeting-1"
   | "meeting-2"
   | "meeting-3"
@@ -354,7 +355,8 @@ export const furniture: readonly Furniture[] = [
     x: -6.95,
     z: -2.0,
     width: 0.1,
-    // 2.2 x 0.55 m: short enough that a chibi standing in front reaches the top line.
+    // 2.2 x 0.85 m, bottom edge 0.45 m up: a normal board's proportions. The writing stays in
+    // the part a chibi reaches from the low step in front.
     depth: 2.2,
     yaw: facing.right,
     blocksWalking: true,
@@ -368,6 +370,38 @@ export const furniture: readonly Furniture[] = [
     depth: 1.3,
     yaw: facing.right,
     blocksWalking: true,
+  },
+  // A low step along each board, so the top of the writing is in reach. Walked onto, not around.
+  {
+    id: "step-whiteboard",
+    kind: "board-step",
+    x: -6.7,
+    z: -2.0,
+    width: 0.6,
+    depth: 2.4,
+    yaw: facing.right,
+    blocksWalking: false,
+  },
+  {
+    id: "step-idea-board",
+    kind: "board-step",
+    x: -6.7,
+    z: 0.55,
+    width: 0.6,
+    depth: 1.5,
+    yaw: facing.right,
+    blocksWalking: false,
+  },
+  // A big digital clock on the pantry wall, above the open shelf.
+  {
+    id: "wall-clock",
+    kind: "wall-clock",
+    x: -5.15,
+    z: -4.96,
+    width: 0.72,
+    depth: 0.04,
+    yaw: facing.camera,
+    blocksWalking: false,
   },
   {
     id: "beanbag-chizuru",
@@ -446,16 +480,6 @@ export const furniture: readonly Furniture[] = [
     z: -4.65,
     width: 0.4,
     depth: 0.4,
-    yaw: facing.camera,
-    blocksWalking: true,
-  },
-  {
-    id: "plant-center",
-    kind: "plant",
-    x: 1.45,
-    z: -0.35,
-    width: 0.5,
-    depth: 0.5,
     yaw: facing.camera,
     blocksWalking: true,
   },
@@ -555,6 +579,23 @@ function standing(id: StationId, spot: Point, yaw: number, approach: Point = spo
   return { id, spot, facing: yaw, approach, seatHeight: null };
 }
 
+/** How high the board steps are. */
+export const boardStepHeight = 0.18;
+
+/** Height of the floor under `point`: the top of a board step there, else the floor itself. */
+export function floorHeightAt(point: Point): number {
+  for (const piece of furniture) {
+    if (
+      piece.kind === "board-step" &&
+      Math.abs(point.x - piece.x) <= piece.width / 2 &&
+      Math.abs(point.z - piece.z) <= piece.depth / 2
+    ) {
+      return boardStepHeight;
+    }
+  }
+  return 0;
+}
+
 /** Yaw that turns someone at `from` toward `to`. */
 export function yawToward(from: Point, to: Point): number {
   return Math.atan2(to.x - from.x, to.z - from.z);
@@ -650,7 +691,6 @@ export const stations: Record<StationId, Station> = {
   "plant-corner": standing("plant-corner", { x: 5.85, z: 3.05 }, yawToward({ x: 5.85, z: 3.05 }, { x: 6.4, z: 3.4 })),
   "plant-desks": standing("plant-desks", { x: 4.55, z: -3.9 }, facing.backWall),
   // From the open side by the meeting table, not the narrow lane to 2B's desk on the other side.
-  "plant-center": standing("plant-center", { x: 1.45, z: -0.95 }, facing.camera),
   ...meetingStations(),
   // Players stand off each end of the table, facing each other across it.
   "pingpong-west": standing("pingpong-west", { x: 2.2, z: -1.2 }, facing.right),

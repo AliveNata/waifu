@@ -1,4 +1,5 @@
 import { type MemberId, memberIds } from "../../shared/team.js";
+import type { DayPart } from "./office-time.js";
 
 /**
  * Small talk between teammates on a break. Lines are written per character, in their own voice,
@@ -10,10 +11,15 @@ interface Line {
   text: string;
   /** Funny enough that whoever is listening laughs instead of nodding. */
   laugh?: boolean;
+  /** Only said at these times of day, for lines that name one ("tadi pagi", "makan siang"). */
+  when?: readonly DayPart[];
 }
 
 interface Voice {
+  /** Hellos that fit any hour. */
   greetings: readonly string[];
+  /** Hellos for one part of the day, so nobody says good morning at night. */
+  timedGreetings: Record<DayPart, readonly string[]>;
   openers: Record<ChatTopic, readonly Line[]>;
   replies: Record<ChatTopic, readonly Line[]>;
 }
@@ -21,11 +27,23 @@ interface Voice {
 const voices: Record<MemberId, Voice> = {
   twob: {
     greetings: ["Halo.", "Lanjut kerja, ya.", "Hai."],
+    timedGreetings: {
+      pagi: ["Selamat pagi."],
+      siang: ["Selamat siang."],
+      sore: ["Sore. Masih semangat?"],
+      malam: ["Jangan lembur kelamaan, ya."],
+    },
     openers: {
-      kerjaan: [{ text: "Sprint ini tinggal dua task lagi." }, { text: "Review jam tiga, jangan lupa." }],
-      makan: [{ text: "Udah makan siang belum?" }],
+      kerjaan: [
+        { text: "Sprint ini tinggal dua task lagi." },
+        { text: "Review jam tiga, jangan lupa.", when: ["pagi", "siang"] },
+      ],
+      makan: [{ text: "Udah makan siang belum?", when: ["siang"] }, { text: "Jangan lupa makan, ya." }],
       santai: [{ text: "Weekend kemarin ngapain?" }],
-      kantor: [{ text: "Kanban udah aku rapihin tadi pagi." }],
+      kantor: [
+        { text: "Kanban udah aku rapihin tadi pagi.", when: ["siang", "sore", "malam"] },
+        { text: "Board tim udah aku update." },
+      ],
     },
     replies: {
       kerjaan: [{ text: "Oke, aku catat di board." }, { text: "Nanti aku sesuaikan prioritasnya." }],
@@ -35,7 +53,13 @@ const voices: Record<MemberId, Voice> = {
     },
   },
   chizuru: {
-    greetings: ["Haii!", "Eh, halo!", "Pagi pagi!"],
+    greetings: ["Haii!", "Eh, halo!"],
+    timedGreetings: {
+      pagi: ["Pagi pagi!"],
+      siang: ["Siang siang!"],
+      sore: ["Soreee!"],
+      malam: ["Malem malem masih di sini?"],
+    },
     openers: {
       kerjaan: [{ text: "Aku ada ide gila buat fitur baru!" }, { text: "Gimana kalau onboarding-nya pakai kuis?" }],
       makan: [{ text: "Bikin hari croissant di kantor yuk!", laugh: true }],
@@ -50,10 +74,19 @@ const voices: Record<MemberId, Voice> = {
     },
   },
   rias: {
-    greetings: ["Halo, sayang.", "Selamat siang.", "Hai."],
+    greetings: ["Halo, sayang.", "Hai."],
+    timedGreetings: {
+      pagi: ["Selamat pagi, sayang."],
+      siang: ["Selamat siang."],
+      sore: ["Selamat sore."],
+      malam: ["Malam yang tenang, ya."],
+    },
     openers: {
       kerjaan: [{ text: "Skema data kita perlu dirapikan." }, { text: "Opsi streaming masih aku timbang." }],
-      makan: [{ text: "Teh siang ini enak sekali." }],
+      makan: [
+        { text: "Teh siang ini enak sekali.", when: ["siang", "sore"] },
+        { text: "Aku bawa kue kering hari ini." },
+      ],
       santai: [{ text: "Aku baru selesai baca soal desain sistem." }],
       kantor: [{ text: "Whiteboard-nya kurang besar untukku.", laugh: true }],
     },
@@ -66,8 +99,17 @@ const voices: Record<MemberId, Voice> = {
   },
   asuna: {
     greetings: ["Halo!", "Hai, semangat ya!", "Yo!"],
+    timedGreetings: {
+      pagi: ["Pagi! Semangat!"],
+      siang: ["Siang! Udah makan?"],
+      sore: ["Sore!"],
+      malam: ["Malem! Masih lembur?"],
+    },
     openers: {
-      kerjaan: [{ text: "Pipeline semalam jalan mulus." }, { text: "Query-nya aku bikin lebih hemat scan." }],
+      kerjaan: [
+        { text: "Pipeline semalam jalan mulus.", when: ["pagi", "siang"] },
+        { text: "Query-nya aku bikin lebih hemat scan." },
+      ],
       makan: [{ text: "Aku bawa bekal kebanyakan, mau?" }],
       santai: [{ text: "Aku nyoba resep baru kemarin." }],
       kantor: [{ text: "Kopi di pantry habis lagi." }],
@@ -80,11 +122,15 @@ const voices: Record<MemberId, Voice> = {
     },
   },
   kobayashi: {
-    greetings: ["Yo.", "Pagi.", "Hai hai."],
+    greetings: ["Yo.", "Hai hai."],
+    timedGreetings: { pagi: ["Pagi."], siang: ["Siang."], sore: ["Sore."], malam: ["Malem. Ngoding lagi?"] },
     openers: {
       kerjaan: [{ text: "Bug kemarin ternyata cuma typo.", laugh: true }, { text: "Endpoint baru udah aku deploy." }],
       makan: [{ text: "Hari ini makan mi lagi aja." }],
-      santai: [{ text: "Semalam main game sampai jam dua.", laugh: true }],
+      santai: [
+        { text: "Semalam main game sampai jam dua.", laugh: true, when: ["pagi", "siang"] },
+        { text: "Aku nemu game indie bagus." },
+      ],
       kantor: [{ text: "Kursiku bunyi terus tiap nyender." }],
     },
     replies: {
@@ -95,9 +141,18 @@ const voices: Record<MemberId, Voice> = {
     },
   },
   yor: {
-    greetings: ["Ah, halo.", "Selamat siang.", "Hai, permisi."],
+    greetings: ["Ah, halo.", "Hai, permisi."],
+    timedGreetings: {
+      pagi: ["Selamat pagi."],
+      siang: ["Selamat siang."],
+      sore: ["Selamat sore."],
+      malam: ["Selamat malam."],
+    },
     openers: {
-      kerjaan: [{ text: "Server semalam aman, tidak ada alert." }, { text: "Minggu ini giliranku on-call." }],
+      kerjaan: [
+        { text: "Server semalam aman, tidak ada alert.", when: ["pagi", "siang"] },
+        { text: "Minggu ini giliranku on-call." },
+      ],
       makan: [{ text: "Aku coba bikin bekal sendiri." }],
       santai: [{ text: "Aku sempat jalan sore kemarin." }],
       kantor: [{ text: "Rak server-nya sudah aku rapikan." }],
@@ -111,10 +166,19 @@ const voices: Record<MemberId, Voice> = {
   },
   erza: {
     greetings: ["Halo.", "Selamat bekerja.", "Hai."],
+    timedGreetings: {
+      pagi: ["Pagi. Disiplin dari awal."],
+      siang: ["Siang."],
+      sore: ["Sore."],
+      malam: ["Malam. Jangan begadang."],
+    },
     openers: {
       kerjaan: [{ text: "PR tadi butuh satu test lagi." }, { text: "Review hari ini lumayan banyak." }],
       makan: [{ text: "Kue stroberi di kulkas punyaku." }],
-      santai: [{ text: "Aku latihan pagi ini." }],
+      santai: [
+        { text: "Aku latihan pagi ini.", when: ["pagi", "siang", "sore"] },
+        { text: "Aku baru ganti armor latihan." },
+      ],
       kantor: [{ text: "Meja meeting harus tetap rapi." }],
     },
     replies: {
@@ -126,6 +190,12 @@ const voices: Record<MemberId, Voice> = {
   },
   ruby: {
     greetings: ["Haii! Senyum dong!", "Halo halo!", "Hai!"],
+    timedGreetings: {
+      pagi: ["Pagi! Senyum dong!"],
+      siang: ["Siang siang!"],
+      sore: ["Sore! Golden hour nih!"],
+      malam: ["Malem! Mau live bareng?"],
+    },
     openers: {
       kerjaan: [{ text: "Konten minggu ini udah aku jadwalin." }, { text: "Thumbnail baru udah jadi!" }],
       makan: [{ text: "Foto makanan dulu sebelum dimakan!", laugh: true }],
@@ -203,23 +273,46 @@ function turn(speaker: MemberId, line: Line, topic: ChatTopic, random: () => num
   };
 }
 
-/** A short exchange on one topic: an opener, a reply, the opener's answer, and a last reply. */
-export function planConversation(first: MemberId, second: MemberId, random: () => number = Math.random): ChatTurn[] {
-  const topic = pick(chatTopics, random);
+/** Lines that fit the time of day: those without a `when`, and those whose `when` includes it. */
+function fitting(lines: readonly Line[], part: DayPart | null): readonly Line[] {
+  return part === null ? lines : lines.filter((line) => line.when === undefined || line.when.includes(part));
+}
+
+/**
+ * A short exchange on one topic: an opener, a reply, the opener's answer, and a last reply.
+ * `part` keeps out openers that name another time of day; null allows them all.
+ */
+export function planConversation(
+  first: MemberId,
+  second: MemberId,
+  random: () => number = Math.random,
+  part: DayPart | null = null,
+): ChatTurn[] {
   const a = voices[first];
   const b = voices[second];
+  const topics = chatTopics.filter((candidate) => fitting(a.openers[candidate], part).length > 0);
+  const topic = pick(topics, random);
   const [bFirst, bSecond] = random() < 0.5 ? [0, 1] : [1, 0];
   return [
-    turn(first, pick(a.openers[topic], random), topic, random),
+    turn(first, pick(fitting(a.openers[topic], part), random), topic, random),
     turn(second, b.replies[topic][bFirst] ?? pick(b.replies[topic], random), topic, random),
     turn(first, pick(a.replies[topic], random), topic, random),
     turn(second, b.replies[topic][bSecond] ?? pick(b.replies[topic], random), topic, random),
   ];
 }
 
-export function greetingFor(memberId: MemberId, random: () => number = Math.random): string {
-  return pick(voices[memberId].greetings, random);
+/** Half the time a hello for the hour ("Selamat pagi."), otherwise one that fits any time. */
+export function greetingFor(
+  memberId: MemberId,
+  random: () => number = Math.random,
+  part: DayPart | null = null,
+): string {
+  const voice = voices[memberId];
+  const timed = random() < 0.5;
+  return part !== null && timed ? pick(voice.timedGreetings[part], random) : pick(voice.greetings, random);
 }
+
+const dayParts: readonly DayPart[] = ["pagi", "siang", "sore", "malam"];
 
 /** Every member has lines for every topic, so any pair can talk. Used by tests. */
 export function voiceCoverage(): { memberId: MemberId; topic: ChatTopic; openers: number; replies: number }[] {
@@ -227,7 +320,8 @@ export function voiceCoverage(): { memberId: MemberId; topic: ChatTopic; openers
     chatTopics.map((topic) => ({
       memberId,
       topic,
-      openers: voices[memberId].openers[topic].length,
+      // The fewest openers at any hour, so a topic never runs dry at night.
+      openers: Math.min(...dayParts.map((part) => fitting(voices[memberId].openers[topic], part).length)),
       replies: voices[memberId].replies[topic].length,
     })),
   );
@@ -283,7 +377,11 @@ export class ChatterDirector {
   private readonly lastGreetedAnyone = new Map<MemberId, number>();
   private now = 0;
 
-  constructor(private readonly random: () => number = Math.random) {}
+  /** `dayPart` says the time of day in the office, so hellos and topics fit the hour. */
+  constructor(
+    private readonly random: () => number = Math.random,
+    private readonly dayPart: () => DayPart | null = () => null,
+  ) {}
 
   /** `pairs` are the teammates together at the bar or the pantry right now. */
   update(now: number, deltaSeconds: number, pairs: readonly (readonly [MemberId, MemberId])[]): void {
@@ -297,7 +395,7 @@ export class ChatterDirector {
         const [opener, other] = this.random() < 0.5 ? [first, second] : [second, first];
         this.talks.set(key, {
           members: [opener, other],
-          turns: planConversation(opener, other, this.random),
+          turns: planConversation(opener, other, this.random, this.dayPart()),
           index: 0,
           elapsed: 0,
           opening: 0,
@@ -336,10 +434,14 @@ export class ChatterDirector {
     this.lastGreeted.set(key, now);
     this.lastGreetedAnyone.set(first, now);
     this.lastGreetedAnyone.set(second, now);
-    this.greetings.set(first, { text: greetingFor(first, this.random), until: now + greetingSeconds, startedAt: now });
+    this.greetings.set(first, {
+      text: greetingFor(first, this.random, this.dayPart()),
+      until: now + greetingSeconds,
+      startedAt: now,
+    });
     // The other answers a beat later, the way a greeting gets returned.
     this.greetings.set(second, {
-      text: greetingFor(second, this.random),
+      text: greetingFor(second, this.random, this.dayPart()),
       until: now + greetingSeconds + 0.6,
       startedAt: now + 0.6,
     });
@@ -453,7 +555,7 @@ export class ChatterDirector {
     if (talk.index >= talk.turns.length) {
       // A quiet stretch, then another topic while they are still together.
       const [first, second] = talk.members;
-      talk.turns = planConversation(first, second, this.random);
+      talk.turns = planConversation(first, second, this.random, this.dayPart());
       talk.index = 0;
       talk.elapsed = -(4 + this.random() * 5);
     }

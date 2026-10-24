@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   ChatterDirector,
+  greetingFor,
   lineSeconds,
   planConversation,
   voiceCoverage,
 } from "../src/renderer/office/office-chatter.js";
 import { WalkHabits } from "../src/renderer/office/walk-life.js";
+import { memberIds } from "../src/shared/team.js";
 
 function sequence(...values: number[]): () => number {
   let index = 0;
@@ -19,6 +21,36 @@ describe("voices", () => {
 
     // Assert
     expect(gaps).toEqual([]);
+  });
+});
+
+describe("time of day", () => {
+  const timeWords = /pagi|siang|sore|malam|malem|semalam/i;
+
+  it("never says good morning at night", () => {
+    // Act: every greeting each member can pick at night.
+    const greetings = memberIds.flatMap((memberId) =>
+      [0, 0.2, 0.4, 0.6, 0.8, 0.95].map((roll) => greetingFor(memberId, sequence(roll, roll), "malam")),
+    );
+
+    // Assert
+    expect(greetings.filter((text) => /pagi|siang|sore/i.test(text))).toEqual([]);
+  });
+
+  it("keeps openers that name another time of day out of the conversation", () => {
+    // Act
+    const evening = memberIds.flatMap((first) =>
+      memberIds
+        .filter((second) => second !== first)
+        .flatMap((second) =>
+          [0.1, 0.4, 0.7, 0.9].map((roll) => planConversation(first, second, sequence(roll), "malam")[0]?.text ?? ""),
+        ),
+    );
+
+    // Assert: at night nobody opens with "tadi pagi", "makan siang" or last night's news.
+    // Yesterday's afternoon ("sore kemarin") fits any time.
+    const misplaced = evening.filter((text) => timeWords.test(text) && !/malam|malem|kemarin/i.test(text));
+    expect(misplaced).toEqual([]);
   });
 });
 
