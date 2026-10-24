@@ -4,6 +4,7 @@ import { isCompanionFace, isCompanionPose } from "../../shared/companion-pose.js
 import { getBridge } from "../common/bridge.js";
 import { CompanionPage } from "../common/page.js";
 import { requireElement } from "../common/status-chip.js";
+import { CursorHand } from "./cursor-hand.js";
 import { OverlayStage } from "./overlay-stage.js";
 import { PointerGestures } from "./pointer-gestures.js";
 import type { TouchReaction } from "./touch-reactions.js";
@@ -51,9 +52,35 @@ bridge.onCompanionCommand((command) => {
   }
 });
 
+const hand = new CursorHand(root);
+// Hovering: the hand shows over her body. One hit test per frame at most, however fast the mouse.
+let hoverAt: { x: number; y: number } | null = null;
+root.addEventListener("pointermove", (event) => {
+  if (event.pointerType !== "mouse") {
+    return;
+  }
+  const pending = hoverAt === null;
+  hoverAt = { x: event.clientX, y: event.clientY };
+  if (pending) {
+    requestAnimationFrame(() => {
+      if (hoverAt !== null) {
+        hand.hover(hoverAt.x, hoverAt.y, stage.zoneAt(hoverAt.x, hoverAt.y)?.zone ?? null);
+      }
+      hoverAt = null;
+    });
+  }
+});
+root.addEventListener("pointerleave", () => hand.hide());
+
 new PointerGestures(root, {
   zoneAt: (x, y) => stage.zoneAt(x, y)?.zone ?? null,
-  touch: (x, y, kind) => say(stage.touchAt(x, y, kind)),
+  touch: (x, y, kind) => {
+    const zone = stage.zoneAt(x, y)?.zone ?? null;
+    if (zone !== null) {
+      hand.act(zone, kind);
+    }
+    say(stage.touchAt(x, y, kind));
+  },
   beginDrag: () => bridge.beginWindowDrag(),
   drag: (dx, dy) => bridge.dragWindow(dx, dy),
 }).start();

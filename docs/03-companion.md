@@ -45,6 +45,17 @@ Biar 2B nggak itu-itu aja, posisi kepala tiap mood ada beberapa versi dan dipili
 
 Klik 2B buat nyentuh dia. Tahan lalu geser di badannya atau di area kosong sekitarnya buat mindahin window-nya. Kalau geser di kepala atau rambut, itu dihitung ngusap, bukan mindahin. Klik kanan tetap ngebuka menu.
 
+Di atas badan 2B, kursornya berubah jadi tangan yang kelima jarinya kebuka. Begitu diklik, tangannya nunjukin sentuhannya, terus balik kebuka lagi:
+
+| Zona | Gerakan tangan |
+|---|---|
+| Kepala, rambut | Usap usap, telapak geser kiri kanan. Selama lo ngelus sambil geser, usapannya jalan terus |
+| Jidat, hidung, pipi | Nyentil: jari tengah ditahan jempol, terus dilepas |
+| Bahu, badan | Colek pakai telunjuk |
+| Tangan | Tos |
+
+Di luar badannya, kursor balik ke panah biasa. Kalau setting sistem lo minta animasi dikurangi, bentuk tangannya tetap berubah tapi tanpa gerakan.
+
 | Disentuh | Reaksi pertama | Kalau diulang atau ditahan |
 |---|---|---|
 | Kepala (klik atau usap) | merem senang, nyender | ditahan: santai, matanya sayu |
