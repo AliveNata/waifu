@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
-import { app, BrowserWindow, dialog, ipcMain, Menu, screen } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, screen, session, shell } from "electron";
 import { HookServer, permissionPath } from "../server/hook-server.js";
 import type { ChatEvent, ChatSessionList } from "../shared/office-chat.js";
 import {
@@ -32,6 +32,7 @@ import {
 import { type CompanionSettings, loadSettings, saveSettings } from "./settings-store.js";
 import { TwobService } from "./twob/twob-ipc.js";
 import { type DragOrigin, dragBounds } from "./window-drag.js";
+import { allowYoutubeEmbeds, isYoutubeLink } from "./youtube-embeds.js";
 
 const overlaySize = { width: 340, height: 440 };
 /** Smaller than 2B's window: the team member is a guest on the desktop, 2B is the companion. */
@@ -247,9 +248,17 @@ function openOfficeWindow(): void {
     title: "AlyxLabs Office",
     backgroundColor: "#e9e4da",
     autoHideMenuBar: true,
-    webPreferences,
+    // Music only starts after it was switched on, so it may come back on when the office reopens.
+    webPreferences: { ...webPreferences, autoplayPolicy: "no-user-gesture-required" },
   });
   watchRenderer(officeWindow, "office");
+  // Links in the music player (its logo, the video title) open in the browser, never in the app.
+  officeWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isYoutubeLink(url)) {
+      shell.openExternal(url).catch((error: unknown) => console.error("[main] could not open the link", error));
+    }
+    return { action: "deny" };
+  });
   officeWindow.on("show", applyTeamOverlayVisibility);
   officeWindow.on("hide", applyTeamOverlayVisibility);
   officeWindow.on("minimize", applyTeamOverlayVisibility);
@@ -707,6 +716,7 @@ async function bootstrap(): Promise<void> {
   settingsPath = join(app.getPath("userData"), "companion-settings.json");
   settings = await loadSettings(settingsPath);
   registerIpc();
+  allowYoutubeEmbeds(session.defaultSession);
   await twob?.loadKey().catch((error: unknown) => console.error("[main] could not read the saved Groq key", error));
   const server = await startHookServer();
   startOfficeChat();

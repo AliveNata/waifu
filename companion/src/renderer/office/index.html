@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self' blob: data:"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self' blob: data:; frame-src https://www.youtube-nocookie.com"
     />
     <!-- No app icon yet. An empty one stops the browser from requesting /favicon.ico. -->
     <link rel="icon" href="data:," />
@@ -79,8 +79,43 @@
         </form>
         <p class="visually-hidden" id="chat-announce" aria-live="polite"></p>
       </section>
+      <section class="music" id="music" aria-labelledby="music-title" hidden>
+        <header class="music-header">
+          <h2 class="music-title" id="music-title">Musik</h2>
+          <button class="chat-link" id="music-close" type="button">Tutup</button>
+        </header>
+        <!-- YouTube's player has to stay in view while it plays, so it is never shrunk or hidden. -->
+        <div class="music-screen" id="music-screen">
+          <p class="music-note" id="music-note">Musik mati</p>
+        </div>
+        <p class="music-now" id="music-now" aria-live="polite"></p>
+        <div class="music-controls">
+          <button class="button" id="music-power" type="button" aria-pressed="false">Putar</button>
+          <button class="button music-secondary" id="music-next" type="button">Lagu berikutnya</button>
+        </div>
+        <ol class="music-list" id="music-list" aria-label="Daftar lagu"></ol>
+        <form class="music-add" id="music-add">
+          <label class="music-label" for="music-link">Tambah link YouTube</label>
+          <div class="music-add-row">
+            <input
+              class="chat-input"
+              id="music-link"
+              type="text"
+              inputmode="url"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="youtube.com/watch?v=..."
+            />
+            <button class="button" type="submit">Tambah</button>
+          </div>
+          <p class="music-error" id="music-error" role="alert" hidden></p>
+        </form>
+      </section>
       <div class="hud">
         <p class="status" id="status" role="status" hidden></p>
+        <button class="button hud-button" id="music-toggle" type="button" aria-expanded="false" aria-controls="music" hidden>
+          Musik
+        </button>
         <button class="button hud-button" id="companion-toggle" type="button" hidden>Sembunyiin 2B</button>
         <button class="button hud-button" id="chat-toggle" type="button" aria-expanded="false" aria-controls="chat" hidden>
           Buka chat

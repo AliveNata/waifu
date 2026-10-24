@@ -15,6 +15,7 @@ import { requireElement, StatusChip } from "../common/status-chip.js";
 import { loadVrm } from "../common/vrm-loader.js";
 import { VrmOfficeAvatar } from "./avatar.js";
 import { ChatPanel } from "./chat-panel.js";
+import { MusicPanel } from "./music-panel.js";
 import { type CloseupRect, closeupRect, OfficeStage, portraitSize, teamDialogDock } from "./office-stage.js";
 import { setSceneQuality } from "./scene/palette.js";
 import { SpeechBubbles } from "./speech-bubbles.js";
@@ -344,8 +345,9 @@ const canvas = document.getElementById("scene");
 if (!(canvas instanceof HTMLCanvasElement)) {
   throw new Error("#scene canvas is missing");
 }
-// Started before the 3D scene, so the chat still works on a machine where WebGL fails.
+// Started before the 3D scene, so the chat and the music still work on a machine where WebGL fails.
 new ChatPanel(bridge).start();
+new MusicPanel().start();
 // Materials read the quality as they are built, so it has to be known before the office exists.
 bridge
   .getOfficeQuality()
