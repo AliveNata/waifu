@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { angleDelta, initialActor, isWalking, stepActor } from "../src/renderer/office/office-actor.js";
-import { memberPlan, propForAction, twobPlan, usesHandIk } from "../src/renderer/office/office-director.js";
+import { memberPlan, ovenStep, propForAction, twobPlan, usesHandIk } from "../src/renderer/office/office-director.js";
 import { homeStations } from "../src/renderer/office/office-layout.js";
 import { OfficeLife } from "../src/renderer/office/office-life.js";
 import { bodyRadius, navGrid, planPath } from "../src/renderer/office/office-nav.js";
@@ -486,5 +486,42 @@ describe("Ruby's filming rig", () => {
     for (const miss of misses) {
       expect(miss).toBeLessThan(1e-6);
     }
+  });
+});
+
+describe("ovenStep", () => {
+  it("opens the door to load, cooks with it shut, opens again to unload, then leaves the plate in hand", () => {
+    // Act
+    const loading = ovenStep(0.5);
+    const cooking = ovenStep(3);
+    const unloading = ovenStep(6.2);
+    const done = ovenStep(9);
+
+    // Assert
+    expect(loading).toMatchObject({ oven: "open", reaching: true, plateInHand: false });
+    expect(cooking).toMatchObject({ oven: "cooking", foodInside: true, reaching: false });
+    expect(unloading).toMatchObject({ oven: "open", reaching: true });
+    expect(done).toMatchObject({ oven: "off", foodInside: false, plateInHand: true });
+  });
+});
+
+describe("the pantry and the meeting table", () => {
+  it("seats six around the meeting table", () => {
+    // Act
+    const seats = stationIds.filter((id) => id.startsWith("meeting-"));
+
+    // Assert
+    expect(seats).toHaveLength(6);
+  });
+
+  it("turns the two bar stools a little toward each other", () => {
+    // Act
+    const left = stations["bar-left"];
+    const right = stations["bar-right"];
+
+    // Assert: the northern stool turns south (toward +z), the southern one north.
+    expect(left.spot.z).toBeLessThan(right.spot.z);
+    expect(Math.cos(left.facing)).toBeGreaterThan(0);
+    expect(Math.cos(right.facing)).toBeLessThan(0);
   });
 });

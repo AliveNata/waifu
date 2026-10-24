@@ -1,6 +1,6 @@
 import { addRotation, armsRelaxed, type BoneRotation, type Pose, type PoseBones } from "../common/pose.js";
 import type { ChatGesture, ChatReaction } from "./office-chatter.js";
-import type { OfficeAction } from "./office-director.js";
+import { type OfficeAction, ovenStep } from "./office-director.js";
 import type { SeatFit } from "./seating.js";
 import type { ActiveGimmick, WalkStyle } from "./walk-life.js";
 
@@ -729,8 +729,76 @@ function pingpongWaitBody(input: OfficePoseInput): UpperBody {
   };
 }
 
+/** Hands under the tap, rubbing together, head bowed over the sink. */
+function washBody(input: OfficePoseInput): UpperBody {
+  const scrub = Math.sin(input.time * 9);
+  return {
+    bones: {
+      ...armsRelaxed,
+      spine: { x: 0.15, y: 0, z: 0 },
+      head: { x: 0.35, y: 0, z: 0 },
+      rightUpperArm: { x: -0.75, y: 0.35, z: 1.0 },
+      rightLowerArm: { x: 0, y: 0.95 + 0.15 * scrub, z: 0 },
+      leftUpperArm: { x: -0.75, y: -0.35, z: -1.0 },
+      leftLowerArm: { x: 0, y: -0.95 + 0.15 * scrub, z: 0 },
+    },
+  };
+}
+
+/**
+ * At the oven: crouching with both hands at the low door while putting food in and taking it out,
+ * standing and watching through the window while it cooks, then holding the plate.
+ */
+function ovenBody(input: OfficePoseInput): UpperBody {
+  const step = ovenStep(input.actionElapsed);
+  if (step.reaching) {
+    return {
+      bones: {
+        ...armsRelaxed,
+        spine: { x: 0.45, y: 0, z: 0 },
+        head: { x: 0.2, y: 0, z: 0 },
+        rightUpperArm: { x: -0.95, y: 0.2, z: 1.0 },
+        rightLowerArm: { x: 0, y: 0.35, z: 0 },
+        leftUpperArm: { x: -0.95, y: -0.2, z: -1.0 },
+        leftLowerArm: { x: 0, y: -0.35, z: 0 },
+        leftUpperLeg: { x: -0.85, y: 0, z: 0.1 },
+        rightUpperLeg: { x: -0.85, y: 0, z: -0.1 },
+        leftLowerLeg: { x: 1.7, y: 0, z: 0 },
+        rightLowerLeg: { x: 1.7, y: 0, z: 0 },
+      },
+      standingHipsY: -0.11,
+    };
+  }
+  if (step.plateInHand) {
+    return {
+      bones: {
+        ...armsRelaxed,
+        head: { x: 0.25, y: 0, z: 0 },
+        rightUpperArm: { x: -0.45, y: 0, z: 1.15 },
+        rightLowerArm: { x: 0, y: 1.3, z: 0 },
+      },
+    };
+  }
+  // Waiting: bent a little to peer through the window, hands loosely together.
+  return {
+    bones: {
+      ...armsRelaxed,
+      spine: { x: 0.18, y: 0, z: 0 },
+      head: { x: 0.4, y: 0.06 * Math.sin(input.time * 0.8), z: 0 },
+      rightUpperArm: { x: -0.35, y: 0.5, z: 1.1 },
+      rightLowerArm: { x: 0, y: 1.0, z: 0 },
+      leftUpperArm: { x: -0.35, y: -0.5, z: -1.1 },
+      leftLowerArm: { x: 0, y: -1.0, z: 0 },
+    },
+  };
+}
+
 function upperBody(action: OfficeAction, input: OfficePoseInput): UpperBody {
   switch (action) {
+    case "wash":
+      return washBody(input);
+    case "oven":
+      return ovenBody(input);
     case "type":
       return typeBody(input);
     case "desk-idle":

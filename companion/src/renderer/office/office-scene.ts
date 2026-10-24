@@ -12,14 +12,14 @@ import {
 } from "three";
 import type { MemberId } from "../../shared/team.js";
 import logoUrl from "./assets/alyxlabs-logo.png";
-import { chairSeatHeight, type Furniture, furniture, room, stations } from "./office-plan.js";
+import { chairSeatHeight, type Furniture, furniture, meetingStationIds, room, stations } from "./office-plan.js";
 import type { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./scene/animated.js";
 import { buildContactShadows } from "./scene/contact-shadows.js";
 import { buildDesk, type DeskMember, deskTop, type Workstation } from "./scene/desks.js";
 import {
   buildArcade,
   buildBackdrop,
-  buildBarTable,
+  buildBarCounter,
   buildBeanbag,
   buildCameraTripod,
   buildChair,
@@ -39,6 +39,8 @@ import {
   buildTvConsole,
   buildTvWall,
   type FridgeDoor,
+  type Oven,
+  type SinkTap,
 } from "./scene/furniture.js";
 import { NeonStrips } from "./scene/neon.js";
 import { box, glow, mesh, palette, printed, sceneQuality, standard, unlit } from "./scene/palette.js";
@@ -72,9 +74,11 @@ export interface OfficeProps {
   neon: NeonStrips;
   /** Hidden unless two players are at the table. */
   pingpongBall: Mesh;
-  /** One per meeting chair, in seat order meeting-1..4. */
+  /** One per meeting chair, in seat order meeting-1..6. */
   meetingLaptops: LaptopScreen[];
   fridgeDoor: FridgeDoor;
+  sink: SinkTap;
+  oven: Oven;
   /** Cross-fades the window view between day (0) and night (1). */
   setNight(night: number): void;
 }
@@ -249,6 +253,8 @@ export function buildOffice(): OfficeProps {
   let rackLights: RackLights | null = null;
   let meetingLaptops: LaptopScreen[] = [];
   let fridgeDoor: FridgeDoor | null = null;
+  let sink: SinkTap | null = null;
+  let oven: Oven | null = null;
 
   root.add(buildContactShadows(furniture));
   for (const piece of furniture) {
@@ -301,12 +307,20 @@ export function buildOffice(): OfficeProps {
       case "printer-cabinet":
         root.add(buildPrinterCabinet(piece));
         break;
-      case "bar-table":
-        root.add(buildBarTable(piece));
+      case "bar-counter":
+        root.add(buildBarCounter(piece));
         break;
-      case "pantry-counter":
-        root.add(buildPantryCounter(piece, stations.coffee.spot.x));
+      case "pantry-counter": {
+        const built = buildPantryCounter(piece, {
+          coffee: stations.coffee.spot.x,
+          sink: stations.sink.spot.x,
+          oven: stations.oven.spot.x,
+        });
+        root.add(built.root);
+        sink = built.sink;
+        oven = built.oven;
         break;
+      }
       case "fridge": {
         const built = buildFridge(piece);
         root.add(built.root);
@@ -362,7 +376,15 @@ export function buildOffice(): OfficeProps {
         break;
     }
   }
-  if (tv === null || arcade === null || rackLights === null || fridgeDoor === null || meetingLaptops.length !== 4) {
+  if (
+    tv === null ||
+    arcade === null ||
+    rackLights === null ||
+    fridgeDoor === null ||
+    sink === null ||
+    oven === null ||
+    meetingLaptops.length !== meetingStationIds.length
+  ) {
     throw new Error("Floor plan is missing the TV, arcade, server rack, fridge or meeting table");
   }
 
@@ -418,6 +440,8 @@ export function buildOffice(): OfficeProps {
     pingpongBall,
     meetingLaptops,
     fridgeDoor,
+    sink,
+    oven,
     setNight: (night) => {
       for (const material of nightGlass) {
         material.opacity = night;

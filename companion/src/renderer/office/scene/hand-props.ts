@@ -62,6 +62,13 @@ function buildProp(kind: HandPropKind): Group {
       group.add(body, spout, grip);
       break;
     }
+    case "plate": {
+      // A warmed-up plate: a white dish with a slice of something on it, carried flat.
+      const dish = mesh(new CylinderGeometry(0.05, 0.042, 0.008, 20), standard("#fbfaf7", 0.4));
+      const food = box(0.04, 0.02, 0.03, standard("#d9a05b", 0.7), 0, 0.004, 0);
+      group.add(dish, food);
+      break;
+    }
     case "controller": {
       const shell = standard("#26222e", 0.5);
       group.add(
@@ -85,6 +92,8 @@ const gripOffset: Record<HandPropKind, { x: number; y: number; z: number; tilt: 
   book: { x: -0.045, y: 0.01, z: 0.03, tilt: 0, turn: Math.PI },
   can: { x: 0, y: -0.01, z: 0.01, tilt: 0.35, turn: 0 },
   controller: { x: -0.04, y: 0, z: 0.03, tilt: 0.3, turn: 0 },
+  // Flat on the palm, held out in front.
+  plate: { x: -0.02, y: 0.012, z: 0.04, tilt: 0, turn: 0 },
 };
 
 const handPosition = new Vector3();
