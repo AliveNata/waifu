@@ -42,9 +42,9 @@ describe("ChatterDirector", () => {
     const chatter = new ChatterDirector(sequence(0.1));
     const pair = [["rias", "ruby"]] as const;
 
-    // Act: past the short pause before the first line.
+    // Act: past catching each other's eye, which comes before the first line.
     chatter.update(0, 0, pair);
-    chatter.update(1.5, 1.5, pair);
+    chatter.update(2.5, 2.5, pair);
 
     // Assert
     const riasSpeech = chatter.speechOf("rias");
@@ -61,7 +61,7 @@ describe("ChatterDirector", () => {
     // Arrange
     const chatter = new ChatterDirector(sequence(0.1));
     chatter.update(0, 0, [["rias", "ruby"]]);
-    chatter.update(1.5, 1.5, [["rias", "ruby"]]);
+    chatter.update(2.5, 2.5, [["rias", "ruby"]]);
 
     // Act
     chatter.update(2, 0.5, []);
@@ -69,6 +69,44 @@ describe("ChatterDirector", () => {
     // Assert
     expect(chatter.speechOf("rias")).toBeNull();
     expect(chatter.partnerOf("ruby")).toBeNull();
+  });
+
+  it("has them catch each other's eye before anyone speaks", () => {
+    // Arrange: 0.1 makes rias the opener.
+    const chatter = new ChatterDirector(sequence(0.1));
+    const pair = [["rias", "ruby"]] as const;
+    chatter.update(0, 0, pair);
+
+    // Act
+    chatter.update(0.3, 0.3, pair);
+    const openerFirst = { rias: chatter.gazeOf("rias"), ruby: chatter.gazeOf("ruby") };
+    chatter.update(1.5, 1.2, pair);
+    const eyesMeet = { rias: chatter.reactionOf("rias"), ruby: chatter.reactionOf("ruby") };
+    const speechDuringOpening = chatter.speechOf("rias") ?? chatter.speechOf("ruby");
+
+    // Assert
+    expect(openerFirst.rias).toBeGreaterThan(0.5);
+    expect(openerFirst.ruby).toBe(0);
+    expect(eyesMeet).toEqual({ rias: "acknowledge", ruby: "acknowledge" });
+    expect(speechDuringOpening).toBeNull();
+  });
+
+  it("gives the speaker a gesture and the listener a posture for each line", () => {
+    // Arrange
+    const chatter = new ChatterDirector(sequence(0.1));
+    const pair = [["asuna", "erza"]] as const;
+    chatter.update(0, 0, pair);
+    chatter.update(2.5, 2.5, pair);
+
+    // Act
+    const speaker = chatter.speechOf("asuna") === null ? "erza" : "asuna";
+    const listener = speaker === "asuna" ? "erza" : "asuna";
+    const speakerGesture = chatter.gestureOf(speaker);
+    const listenerGesture = chatter.gestureOf(listener);
+
+    // Assert
+    expect(["explain", "point", "count", "chin", "shrug", "hips", "clasp", "wave-off"]).toContain(speakerGesture?.kind);
+    expect(["relaxed", "arms-crossed", "head-tilt", "chin", "cover-laugh"]).toContain(listenerGesture?.kind);
   });
 
   it("greets a pair once, then not again while on cooldown", () => {

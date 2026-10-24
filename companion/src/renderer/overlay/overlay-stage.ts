@@ -24,6 +24,7 @@ import {
 import type { Stage } from "../common/page.js";
 import { PoseApplier, vrmPoseTarget } from "../common/pose.js";
 import { updateVrmStable } from "../common/vrm-update.js";
+import { FidgetScheduler, fidgetFace } from "./idle-fidgets.js";
 import { cursorAim, overlayPose } from "./overlay-pose.js";
 import { commandFace, envelope, poseFocusShift, poseHoldSeconds, poseNeedsWideFrame } from "./pose-bones.js";
 import { createTongue, type Tongue } from "./tongue.js";
@@ -98,6 +99,9 @@ export class OverlayStage implements Stage {
   private focusShift = -0.2;
   private reaction: Reaction = idleReaction(Date.now());
   private moodStartedAt = 0;
+  /** Picked each time a mood starts, so she holds a repeated mood a little differently. */
+  private moodVariant = 0;
+  private readonly fidgets = new FidgetScheduler(0);
   private aim = { yaw: 0, pitch: 0 };
   private expressionWeights: ExpressionWeights = {};
   private elapsed = 0;
@@ -156,6 +160,7 @@ export class OverlayStage implements Stage {
   setReaction(reaction: Reaction): void {
     if (reaction.mood !== this.reaction.mood || reaction.receivedAt !== this.reaction.receivedAt) {
       this.moodStartedAt = this.elapsed;
+      this.moodVariant = Math.floor(Math.random() * 3);
     }
     this.reaction = reaction;
   }
@@ -291,6 +296,7 @@ export class OverlayStage implements Stage {
       this.framing += (target - this.framing) * Math.min(1, framingRate * delta);
       this.placeCamera((this.framing - framedHeight) / (wideFramedHeight - framedHeight));
 
+      const fidget = this.fidgets.update(this.elapsed, mood, command !== null || activeTouch !== null);
       const pose = overlayPose({
         mood,
         time: this.elapsed,
@@ -309,6 +315,8 @@ export class OverlayStage implements Stage {
                 aimPitch: this.aim.pitch,
               },
         command: command?.pose == null ? null : { pose: command.pose, elapsed: command.elapsed },
+        fidget,
+        variant: this.moodVariant,
       });
       this.poseApplier.apply(vrmPoseTarget(vrm), pose, delta);
 
@@ -324,7 +332,9 @@ export class OverlayStage implements Stage {
       // A pose's face wins over a touch's, which wins over the mood.
       const touchFace = activeTouch === null ? null : reactionFace(activeTouch.reaction, touchElapsed);
       const targets =
-        command !== null ? commandFace(command.pose, command.face) : (touchFace ?? expressionTargetsForMood(mood));
+        command !== null
+          ? commandFace(command.pose, command.face)
+          : (touchFace ?? { ...expressionTargetsForMood(mood), ...(fidget === null ? null : fidgetFace(fidget)) });
       this.expressionWeights = stepExpressionWeights(this.expressionWeights, targets, delta, 6);
       const expressions = vrm.expressionManager;
       if (expressions != null) {
