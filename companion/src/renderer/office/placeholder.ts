@@ -16,7 +16,7 @@ import type { ExpressionWeights } from "../common/expressions.js";
 import type { MemberLook } from "../common/looks.js";
 import type { PoseTarget } from "../common/pose.js";
 import type { ArmSide, ArmTip, OfficeAvatar } from "./avatar.js";
-import type { IkChain } from "./ik.js";
+import type { HandAim, IkChain } from "./ik.js";
 import type { LegMetrics } from "./seating.js";
 
 /** Joint layout in meters, T-pose, facing +Z: the same conventions as normalized VRM bones. */
@@ -222,6 +222,11 @@ export class PlaceholderAvatar implements OfficeAvatar {
       effector: tip === "fingertip" ? this.fingertips[side] : hand,
       sync: () => this.syncPose(),
     };
+  }
+
+  hand(side: ArmSide): HandAim | null {
+    const hand = side === "right" ? this.rightHand : this.leftHand;
+    return { rotate: hand, pivot: hand, tip: this.fingertips[side], sync: () => this.syncPose() };
   }
 
   addHairColliders(): void {

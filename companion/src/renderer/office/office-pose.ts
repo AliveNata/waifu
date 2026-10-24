@@ -27,6 +27,11 @@ export interface OfficePoseInput {
   chatter?: ChatReaction | null;
   /** Turns the head toward someone, in radians to the avatar's left. */
   lookYaw?: number;
+  /**
+   * Where the rally is for this player, 0..1 over one full there-and-back of the ball, with 0 the
+   * moment it reaches their paddle. Absent while no ball is in play.
+   */
+  pingpongBeat?: number | null;
 }
 
 const plainWalk: WalkStyle = { stride: 1, armSwing: 1, bounce: 1, sway: 1, lean: 0.04 };
@@ -48,6 +53,9 @@ const crouchBelowY = 0.55;
 const crouchRange = 0.25;
 /** How far the hips drop in the deepest crouch. */
 const crouchDrop = 0.11;
+/** Pen higher than this and the writer goes up on tiptoe, lifting the hips this much. */
+const tiptoeAboveY = 0.85;
+const tiptoeLift = 0.03;
 
 /** Eyes of a standing chibi, in the avatar's frame. */
 const standingEyeY = 0.88;
@@ -79,20 +87,36 @@ function walkPose(phase: number, style: WalkStyle): Pose {
   const bob = Math.abs(Math.cos(phase));
   const stride = 0.32 * style.stride;
   const arms = 0.3 * style.armSwing;
+  // Each arm bends at the elbow as it comes forward and straightens as it goes back.
+  const leftForward = Math.max(0, -swing);
+  const rightForward = Math.max(0, swing);
+  // Heel first as the foot lands in front, rolling onto the toes as it pushes off behind.
+  const footRoll = 0.22 * style.stride * swing;
+  // Twist through the body: hips turn with the stepping leg, the chest against them, and the
+  // head against the chest so the eyes stay level and forward.
+  const twist = 0.06 * style.sway * swing;
   return {
     bones: {
       ...armsRelaxed,
       leftUpperArm: addRotation(armsRelaxed.leftUpperArm, { x: arms * swing }),
       rightUpperArm: addRotation(armsRelaxed.rightUpperArm, { x: -arms * swing }),
-      hips: { x: 0, y: 0.06 * style.sway * swing, z: 0.025 * style.sway * swing },
+      leftLowerArm: { x: 0, y: -0.2 - 0.45 * style.armSwing * leftForward, z: 0 },
+      rightLowerArm: { x: 0, y: 0.2 + 0.45 * style.armSwing * rightForward, z: 0 },
+      hips: { x: 0, y: twist, z: 0.025 * style.sway * swing },
+      spine: { x: style.lean, y: -twist * 0.6, z: 0 },
+      chest: { x: 0, y: -twist * 0.8, z: -0.012 * style.sway * swing },
+      head: { x: 0.02 * bob, y: twist * 0.9, z: 0 },
       leftUpperLeg: { x: -stride * swing, y: 0, z: 0 },
       rightUpperLeg: { x: stride * swing, y: 0, z: 0 },
-      // Knees only bend backward, on the leg that is swinging through.
-      leftLowerLeg: { x: 0.45 * style.stride * Math.max(0, -Math.cos(phase)), y: 0, z: 0 },
-      rightLowerLeg: { x: 0.45 * style.stride * Math.max(0, Math.cos(phase)), y: 0, z: 0 },
-      spine: { x: style.lean, y: -0.04 * swing, z: 0 },
+      // Knees only bend backward: a lot on the leg swinging through, a little on the one carrying
+      // the weight, never locked straight.
+      leftLowerLeg: { x: 0.08 + 0.45 * style.stride * Math.max(0, -Math.cos(phase)), y: 0, z: 0 },
+      rightLowerLeg: { x: 0.08 + 0.45 * style.stride * Math.max(0, Math.cos(phase)), y: 0, z: 0 },
+      leftFoot: { x: -footRoll, y: 0, z: 0 },
+      rightFoot: { x: footRoll, y: 0, z: 0 },
     },
-    hipsOffsetY: 0.014 * style.bounce * bob,
+    // Lowest as the feet pass each other, highest over the standing leg.
+    hipsOffsetY: 0.014 * style.bounce * bob - 0.006,
   };
 }
 
@@ -156,8 +180,28 @@ function typeBody(input: OfficePoseInput): UpperBody {
       rightUpperArm: { x: -0.75, y: 0, z: 1.15 },
       leftLowerArm: { x: 0, y: -1.1, z: leftHandActive ? dip : -0.04 },
       rightLowerArm: { x: 0, y: 1.1, z: leftHandActive ? 0.04 : -dip },
+      ...curledFingers(0.32),
     },
   };
+}
+
+const curlingFingers = ["Index", "Middle", "Ring", "Little"] as const;
+const fingerJoints = ["Proximal", "Intermediate", "Distal"] as const;
+
+/**
+ * Fingers bent at every joint, the relaxed curve of hands over a keyboard. In the normalized rig
+ * fingers lie along x, so bending them down toward the palm turns about z: negative on the left
+ * hand, positive on the right.
+ */
+function curledFingers(amount: number): PoseBones {
+  const bones: PoseBones = {};
+  for (const finger of curlingFingers) {
+    for (const joint of fingerJoints) {
+      bones[`left${finger}${joint}`] = { x: 0, y: 0, z: -amount };
+      bones[`right${finger}${joint}`] = { x: 0, y: 0, z: amount };
+    }
+  }
+  return bones;
 }
 
 function deskIdleBody(input: OfficePoseInput): UpperBody {
@@ -208,14 +252,19 @@ function boardBody(input: OfficePoseInput): UpperBody {
   // the feet under the hips while the hips drop.
   const crouch = focus === null ? 0 : Math.max(0, Math.min(1, (crouchBelowY - focus.y) / crouchRange));
   const thigh = 0.85 * crouch * (1 - review);
+  // Up on the toes for the top line.
+  const tiptoe = focus === null ? 0 : Math.max(0, Math.min(1, (focus.y - tiptoeAboveY) / 0.1)) * (1 - review);
   return {
-    standingHipsY: 0.008 * Math.abs(shuffle) * 4 - crouchDrop * crouch * (1 - review),
+    standingHipsY: 0.008 * Math.abs(shuffle) * 4 - crouchDrop * crouch * (1 - review) + tiptoeLift * tiptoe,
     bones: {
       ...armsRelaxed,
       leftUpperLeg: { x: -shuffle - thigh, y: 0, z: 0 },
       rightUpperLeg: { x: shuffle - thigh, y: 0, z: 0 },
       leftLowerLeg: { x: Math.max(0, shuffle) * 1.4 + thigh * 2, y: 0, z: 0 },
       rightLowerLeg: { x: Math.max(0, -shuffle) * 1.4 + thigh * 2, y: 0, z: 0 },
+      // Toes pointed down, heels off the floor.
+      leftFoot: { x: 0.55 * tiptoe, y: 0, z: 0 },
+      rightFoot: { x: 0.55 * tiptoe, y: 0, z: 0 },
       // Leaning in toward the board while writing (more when crouched), back while looking it over.
       spine: { x: mix(0.1 + 0.25 * crouch, -0.12), y: turn * 0.3, z: 0 },
       chest: { x: 0, y: turn * 0.15, z: 0 },
@@ -453,10 +502,24 @@ function meetingBody(input: OfficePoseInput): UpperBody {
   return { bones: { ...typing.bones, head: { x: 0.2, y: 0.05 * Math.sin(input.time * 0.5), z: 0 } } };
 }
 
+/**
+ * Forehand stroke against the ball's timing: a short wind-up before it arrives, the paddle moving
+ * forward through contact, the follow-through right after. Negative is the wind-up.
+ */
+export function pingpongSwing(beat: number | null): number {
+  if (beat === null) {
+    return 0;
+  }
+  // -0.5..0.5 of a rally, 0 at contact.
+  const around = beat > 0.5 ? beat - 1 : beat;
+  const windUp = -0.5 * Math.sin(Math.PI * Math.min(1, Math.max(0, (around + 0.32) / 0.22)));
+  const stroke = Math.sin(Math.PI * Math.min(1, Math.max(0, (around + 0.1) / 0.3)));
+  return around < -0.1 ? windUp : stroke;
+}
+
 function pingpongBody(input: OfficePoseInput): UpperBody {
-  // Ready stance, paddle out front, a forehand swing about once a second and a hop on the return.
-  const cycle = (input.time * 1.1) % 1;
-  const swing = cycle < 0.3 ? Math.sin((cycle / 0.3) * Math.PI) : 0;
+  // Ready stance, paddle out front, the swing timed to the ball, a little bounce on the toes.
+  const swing = pingpongSwing(input.pingpongBeat ?? null);
   return {
     bones: {
       ...armsRelaxed,

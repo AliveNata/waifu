@@ -61,8 +61,11 @@ export const twobDiagrams: readonly Diagram[] = [
   ],
 ];
 
+/** Same aspect as the board on the wall, 2.2 by 0.55 m. */
 const canvasWidth = 1040;
-const canvasHeight = 400;
+const canvasHeight = 260;
+/** Handwriting size at text size 1, in canvas pixels. */
+const fontPixels = 20;
 const holdSeconds = 3;
 const eraseSeconds = 0.8;
 const handwriting = "'Segoe Print', 'Comic Sans MS', cursive";
@@ -186,7 +189,7 @@ export class Whiteboard {
 
     for (const { stroke, fraction } of strokes) {
       if (stroke.kind === "text") {
-        ctx.font = `${Math.round(30 * stroke.size)}px ${handwriting}`;
+        ctx.font = `${Math.round(fontPixels * stroke.size)}px ${handwriting}`;
         ctx.textBaseline = "middle";
         const [x, y] = toCanvas(stroke.at);
         ctx.fillText(stroke.text.slice(0, Math.floor(stroke.text.length * fraction)), x, y);

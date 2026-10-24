@@ -5,7 +5,7 @@ import { type PoseTarget, vrmPoseTarget } from "../common/pose.js";
 import { disposeVrm } from "../common/vrm-loader.js";
 import { updateVrmStable } from "../common/vrm-update.js";
 import { applyChibi } from "./chibi.js";
-import type { IkChain } from "./ik.js";
+import type { HandAim, IkChain } from "./ik.js";
 import type { LegMetrics } from "./seating.js";
 
 export type ArmSide = "left" | "right";
@@ -26,6 +26,8 @@ export interface OfficeAvatar {
    * touches something small, like a key; a model without finger bones falls back to the wrist.
    */
   arm(side: ArmSide, tip: ArmTip): IkChain | null;
+  /** The hand below the wrist, to point the fingers once the arm has placed the wrist. */
+  hand(side: ArmSide): HandAim | null;
   /** Lets hair and skirts collide with the room (floor, backrests). Placeholders have no springs. */
   addHairColliders(colliders: readonly VRMSpringBoneCollider[]): void;
   setExpressions(weights: ExpressionWeights, blink: number): void;
@@ -81,6 +83,17 @@ export class VrmOfficeAvatar implements OfficeAvatar {
       effector: finger ?? hand,
       sync: () => this.syncPose(),
     };
+  }
+
+  hand(side: ArmSide): HandAim | null {
+    const humanoid = this.vrm.humanoid;
+    const rotate = humanoid.getNormalizedBoneNode(`${side}Hand`);
+    const pivot = humanoid.getRawBoneNode(`${side}Hand`);
+    const tip = humanoid.getRawBoneNode(`${side}IndexDistal`);
+    if (rotate === null || pivot === null || tip === null) {
+      return null;
+    }
+    return { rotate, pivot, tip, sync: () => this.syncPose() };
   }
 
   addHairColliders(colliders: readonly VRMSpringBoneCollider[]): void {

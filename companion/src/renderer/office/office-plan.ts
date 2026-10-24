@@ -62,8 +62,7 @@ export type FurnitureKind =
   | "backdrop"
   | "meeting-table"
   | "pingpong-table"
-  | "printer-cabinet"
-  | "board-step";
+  | "printer-cabinet";
 
 export interface Furniture {
   id: string;
@@ -171,11 +170,6 @@ const deskRow: Furniture[] = (Object.entries(deskRowX) as [keyof typeof deskRowX
 
 const frontDeskZ = 1.95;
 
-/** Height of the step in front of each board. */
-export const boardStepHeight = 0.2;
-/** From the wall out to just past where people stand, so a step back for a look lands on the floor. */
-const boardStepDepth = 0.43;
-const boardStepCenterX = room.minX + 0.07 + boardStepDepth / 2;
 /** Where Ruby sits at her desk; her camera and ring light both aim here. */
 const rubySeat = { x: -1.9, z: 1.4 } as const;
 
@@ -315,22 +309,10 @@ export const furniture: readonly Furniture[] = [
     x: -6.95,
     z: -2.0,
     width: 0.1,
-    // 2.2 x 0.85 m keeps the canvas aspect; the step in front puts the top line within reach.
+    // 2.2 x 0.55 m: short enough that a chibi standing in front reaches the top line.
     depth: 2.2,
     yaw: facing.right,
     blocksWalking: true,
-  },
-  // Low steps the length of each board: whoever writes stands on one, so a wall board can hang at
-  // a normal height and the top line is still within a chibi's reach. People walk over them.
-  {
-    id: "whiteboard-step",
-    kind: "board-step",
-    x: boardStepCenterX,
-    z: -2.0,
-    width: boardStepDepth,
-    depth: 2.3,
-    yaw: facing.right,
-    blocksWalking: false,
   },
   {
     id: "idea-board",
@@ -341,16 +323,6 @@ export const furniture: readonly Furniture[] = [
     depth: 1.3,
     yaw: facing.right,
     blocksWalking: true,
-  },
-  {
-    id: "idea-board-step",
-    kind: "board-step",
-    x: boardStepCenterX,
-    z: 0.55,
-    width: boardStepDepth,
-    depth: 1.4,
-    yaw: facing.right,
-    blocksWalking: false,
   },
   {
     id: "beanbag-chizuru",

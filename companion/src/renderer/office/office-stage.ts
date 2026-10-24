@@ -32,7 +32,7 @@ import { memberLooks } from "../common/looks.js";
 import { PoseApplier } from "../common/pose.js";
 import type { ArmSide, ArmTip, OfficeAvatar } from "./avatar.js";
 import { nightFactor } from "./daylight.js";
-import { solveCcd } from "./ik.js";
+import { aimHand, solveCcd } from "./ik.js";
 import { type ActorState, angleDelta, initialActor, isWalking, stepActor } from "./office-actor.js";
 import { ChatterDirector } from "./office-chatter.js";
 import {
@@ -45,7 +45,7 @@ import {
 } from "./office-director.js";
 import { OfficeLife } from "./office-life.js";
 import { initialMug, type MugState, stepMug } from "./office-mug.js";
-import { boardStepHeight, distance, type StationId, stations, surface } from "./office-plan.js";
+import { distance, type StationId, stations, surface } from "./office-plan.js";
 import { type BoardFocus, officePose } from "./office-pose.js";
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
 import { PlaceholderAvatar } from "./placeholder.js";
@@ -128,15 +128,13 @@ interface MemberRig {
   reach: Record<ArmSide, Vector3 | null>;
   /** Which point of the hand the aim was for, kept while easing out after the work lets go. */
   reachTip: ArmTip;
+  /** The last approach each finger came in along, kept for easing out the same way. */
+  reachApproach: Record<ArmSide, Vector3>;
   /** 0..1, eased: how far into a step back from the board. */
   review: number;
   /** Meters to the member's left along the board, eased toward the goal. */
   sidestep: number;
   sidestepGoal: number;
-  /** 0..1, eased: how far up onto a board's step. */
-  raised: number;
-  /** Writing on the top half of a board, which needs the step. */
-  highWork: boolean;
   walkHabits: WalkHabits;
   /** Who this member last waved at, to turn toward them during the wave. */
   greeted: MemberId | null;
@@ -147,17 +145,36 @@ interface HandTargets {
   left: Vector3 | null;
   right: Vector3 | null;
   tip: ArmTip;
+  /**
+   * With a fingertip target, the way the finger points onto it. The wrist goes a hand's length
+   * back along this line and the hand turns to point down it, so the palm stays clear of
+   * whatever the finger touches instead of sinking into it.
+   */
+  approach: Vector3 | null;
   /** The pen on a board the member is working at, for the head and body to follow. */
   board: { pen: Vector3; reviewing: boolean } | null;
 }
 
-const noHandTargets: HandTargets = { left: null, right: null, tip: "wrist", board: null };
+const noHandTargets: HandTargets = { left: null, right: null, tip: "wrist", approach: null, board: null };
+/** Fingers come down onto keys and the mouse at this angle below horizontal, in radians. */
+const typingFingerPitch = 0.5;
+/** The index finger bone ends at its last knuckle; the real fingertip reaches a little further. */
+const fingertipBeyondBone = 0.006;
 /** How far the hand comes off the board between strokes, in meters. */
 const penLift = 0.07;
-/** Wrist to marker tip on a chibi hand. */
-const wristBehindPen = 0.06;
 /** How far someone steps back from a board to look their drawing over. */
 const reviewStepBack = 0.22;
+/** The ball's trip: 0..1 from the west paddle to the east one, 1..2 back again. */
+function rallyLeg(elapsed: number): number {
+  return (elapsed * 1.1) % 2;
+}
+
+/** Where the rally is for one player: 0 when the ball reaches their paddle, wrapping at 1. */
+export function pingpongBeat(elapsed: number, side: "west" | "east"): number {
+  const contact = side === "west" ? 0 : 1;
+  return ((((rallyLeg(elapsed) - contact) / 2) % 1) + 1) % 1;
+}
+
 /** Teammates closer than this while one of them walks by say hello. */
 const greetDistance = 1.1;
 /** Where a speech bubble's tail points: this far above the head bone, over the hair. */
@@ -171,14 +188,6 @@ export interface SpeechAnchor {
   y: number;
   shownFor: number;
 }
-
-/** Stations in front of a board, where the step is. */
-const boardStations: ReadonlySet<StationId> = new Set(["board-twob", "board-rias", "idea-board"]);
-/** Per second: one step up or down takes about a third of a second. */
-const riseRate = 7;
-/** Pen heights, in meters, that send a writer up onto the step or back down to the floor. */
-const highWorkAbove = 0.68;
-const lowWorkBelow = 0.6;
 
 /** Furthest a member shuffles along a board from their spot to follow the pen, in meters. */
 const maxSidestep = 0.6;
@@ -525,11 +534,10 @@ export class OfficeStage {
       mouseHabit: new MouseHabit(this.elapsed),
       reach: { left: null, right: null },
       reachTip: "wrist",
+      reachApproach: { left: new Vector3(0, -1, 0), right: new Vector3(0, -1, 0) },
       review: 0,
       sidestep: 0,
       sidestepGoal: 0,
-      raised: 0,
-      highWork: false,
       walkHabits: new WalkHabits(this.elapsed),
       greeted: null,
     };
@@ -623,6 +631,7 @@ export class OfficeStage {
             ? mouse.gripPoint(new Vector3())
             : keyboard.root.localToWorld(hands.fingertip("right", new Vector3())),
           tip: "fingertip",
+          approach: this.fingersDown(rig),
           board: null,
         };
       }
@@ -645,17 +654,19 @@ export class OfficeStage {
     const board = { pen: onBoard, reviewing: pen.reviewing };
     if (pen.reviewing) {
       // Hands down while looking it over; the arm eases back to the pose.
-      return { left: null, right: null, tip: "wrist", board };
+      return { left: null, right: null, tip: "wrist", approach: null, board };
     }
-    // IK places the wrist, which sits a hand and a marker back from the tip touching the board;
-    // between strokes the whole hand comes further off, the way a pen lifts away.
+    // The marker tip on the board, the hand pointing straight at it; between strokes the whole
+    // hand comes off, the way a pen lifts away.
     const right = onBoard.clone();
     const { position } = rig.actor;
     const away = new Vector3(position.x - right.x, 0, position.z - right.z);
-    if (away.lengthSq() > 1e-6) {
-      right.addScaledVector(away.normalize(), wristBehindPen + (pen.touching ? 0 : penLift));
+    if (away.lengthSq() < 1e-6) {
+      return { left: null, right, tip: "wrist", approach: null, board };
     }
-    return { left: null, right, tip: "wrist", board };
+    away.normalize();
+    right.addScaledVector(away, pen.touching ? 0 : penLift);
+    return { left: null, right, tip: "fingertip", approach: away.negate(), board };
   }
 
   /**
@@ -672,14 +683,18 @@ export class OfficeStage {
       }
       if (target !== null) {
         rig.reachTip = targets.tip;
+        if (targets.approach !== null) {
+          rig.reachApproach[side].copy(targets.approach);
+        }
       }
-      const arm = rig.avatar.arm(side, rig.reachTip);
+      const arm = rig.avatar.arm(side, "wrist");
+      const hand = rig.reachTip === "fingertip" ? rig.avatar.hand(side) : null;
       if (arm === null) {
         rig.reach[side] = null;
         continue;
       }
       rig.avatar.syncPose();
-      const posed = arm.effector.getWorldPosition(new Vector3());
+      const posed = (hand?.tip ?? arm.effector).getWorldPosition(new Vector3());
       const aim = current ?? posed.clone();
       rig.reach[side] = aim;
       if (target === null) {
@@ -691,8 +706,24 @@ export class OfficeStage {
       } else {
         aim.lerp(target, blend);
       }
-      solveCcd(arm, aim);
+      if (hand === null) {
+        solveCcd(arm, aim);
+        continue;
+      }
+      const length =
+        hand.tip.getWorldPosition(new Vector3()).distanceTo(hand.pivot.getWorldPosition(new Vector3())) +
+        fingertipBeyondBone;
+      const wrist = aim.clone().addScaledVector(rig.reachApproach[side], -length);
+      solveCcd(arm, wrist);
+      aimHand(hand, aim);
     }
+  }
+
+  /** Forward from the member and tipped down, the way fingers come onto a keyboard or mouse. */
+  private fingersDown(rig: MemberRig): Vector3 {
+    const yaw = rig.avatar.root.rotation.y;
+    const flat = Math.cos(typingFingerPitch);
+    return new Vector3(Math.sin(yaw) * flat, -Math.sin(typingFingerPitch), Math.cos(yaw) * flat);
   }
 
   /**
@@ -722,33 +753,12 @@ export class OfficeStage {
     // The avatar faces +z at yaw 0, so its left is +x and its back is -z, both turned by the yaw.
     root.position.x += Math.cos(yaw) * rig.sidestep - Math.sin(yaw) * reviewStepBack * rig.review;
     root.position.z += -Math.sin(yaw) * rig.sidestep - Math.cos(yaw) * reviewStepBack * rig.review;
-    // Up onto the board's step on arrival, down again for a step back to look, and off when leaving.
-    const target = rig.actor.target;
-    if (board !== null) {
-      // Up for the top half of the board, down for the bottom half; the gap keeps a line that runs
-      // along the middle from sending them up and down.
-      if (board.pen.y > highWorkAbove) {
-        rig.highWork = true;
-      } else if (board.pen.y < lowWorkBelow) {
-        rig.highWork = false;
-      }
-    }
-    const onStep =
-      rig.highWork &&
-      boardStations.has(target) &&
-      distance(rig.actor.position, stations[target].spot) < 0.3 &&
-      rig.review < 0.5;
-    const stepGoal = onStep ? 1 : 0;
-    rig.raised += (stepGoal - rig.raised) * (1 - Math.exp(-riseRate * delta));
-    root.position.y = boardStepHeight * rig.raised;
     if (board === null) {
       return null;
     }
     root.updateMatrixWorld();
     const local = root.worldToLocal(board.pen.clone());
-    const shuffling = Math.abs(rig.sidestepGoal - rig.sidestep) / 0.1;
-    const climbing = Math.abs(stepGoal - rig.raised) / 0.3;
-    const stepping = Math.min(1, Math.max(shuffling, climbing));
+    const stepping = Math.min(1, Math.abs(rig.sidestepGoal - rig.sidestep) / 0.1);
     return { x: local.x, y: local.y, z: local.z, review: rig.review, stepping };
   }
 
@@ -801,6 +811,10 @@ export class OfficeStage {
       gimmick,
       chatter: this.chatter.reactionOf(memberId),
       lookYaw: this.lookYawFor(memberId, rig, gimmick?.kind === "wave"),
+      pingpongBeat:
+        action === "pingpong" && this.office.pingpongBall.visible
+          ? pingpongBeat(this.elapsed, rig.actor.target === "pingpong-west" ? "west" : "east")
+          : null,
     });
     rig.poseApplier.apply(avatar.poseTarget, pose, delta);
 
@@ -958,13 +972,14 @@ export class OfficeStage {
    */
   private updatePingpongBall(rally: boolean): void {
     const ball = this.office.pingpongBall;
+    // Same clock as pingpongBeat, so the ball and the swings stay in step.
     ball.visible = rally;
     if (!rally) {
       return;
     }
     const west = stations["pingpong-west"].spot;
     const east = stations["pingpong-east"].spot;
-    const leg = (this.elapsed * 1.1) % 2;
+    const leg = rallyLeg(this.elapsed);
     // 0..1 west to east, 1..2 back again; the ends stay just inside the paddles.
     const t = leg < 1 ? leg : 2 - leg;
     const fromX = west.x + 0.3;
