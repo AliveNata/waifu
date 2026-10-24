@@ -264,7 +264,9 @@ export function buildOffice(): OfficeProps {
       case "desk-erza":
       case "desk-yor":
       case "desk-twob":
-      case "desk-ruby": {
+      case "desk-ruby":
+      case "desk-rias":
+      case "desk-chizuru": {
         const member = piece.kind.slice("desk-".length) as DeskMember;
         const built = buildDesk(member, piece, kanban);
         root.add(built.root);

@@ -136,8 +136,8 @@ const preferences: Record<MemberId, Partial<Record<ActivityId, number>>> = {
 /** Where a member idles when the "desk" activity comes up, and what they do there. */
 const idleHome: Record<MemberId, { station: StationId; action: OfficeAction }> = {
   twob: { station: "desk-twob", action: "desk-idle" },
-  chizuru: { station: "beanbag-chizuru", action: "lounge" },
-  rias: { station: homeStations.rias, action: "ponder" },
+  chizuru: { station: "desk-chizuru", action: "desk-idle" },
+  rias: { station: "desk-rias", action: "desk-idle" },
   asuna: { station: homeStations.asuna, action: "desk-idle" },
   kobayashi: { station: homeStations.kobayashi, action: "desk-idle" },
   yor: { station: homeStations.yor, action: "desk-idle" },

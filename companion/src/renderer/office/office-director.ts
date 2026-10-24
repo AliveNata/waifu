@@ -80,7 +80,21 @@ export function usesHandIk(action: OfficeAction): boolean {
   return action === "draw" || action === "stick";
 }
 
-export type HandPropKind = "mug" | "paddle" | "phone" | "book" | "can" | "controller" | "plate";
+export type HandPropKind =
+  | "mug"
+  | "paddle"
+  | "phone"
+  | "book"
+  | "can"
+  | "controller"
+  | "plate"
+  | "duck"
+  | "console"
+  | "plush"
+  | "fork"
+  | "rose"
+  | "teacup"
+  | "marker";
 
 /** The prop an action puts in the right hand, or null for empty-handed actions. */
 export function propForAction(action: OfficeAction | null): HandPropKind | null {

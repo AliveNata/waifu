@@ -1,4 +1,5 @@
 import { addRotation, armsRelaxed, type BoneRotation, type Pose, type PoseBones } from "../common/pose.js";
+import { type ActiveDeskBit, deskBitSpec, reachingForItem, reachSeconds } from "./desk-habits.js";
 import type { ChatGesture, ChatReaction } from "./office-chatter.js";
 import { type OfficeAction, ovenStep } from "./office-director.js";
 import type { SeatFit } from "./seating.js";
@@ -34,6 +35,8 @@ export interface OfficePoseInput {
    * moment it reaches their paddle. Absent while no ball is in play.
    */
   pingpongBeat?: number | null;
+  /** Something being done with the things on the member's own desk, while idling there. */
+  deskBit?: ActiveDeskBit | null;
 }
 
 const plainWalk: WalkStyle = { stride: 1, armSwing: 1, bounce: 1, sway: 1, lean: 0.04 };
@@ -370,6 +373,9 @@ function curledFingers(amount: number): PoseBones {
 }
 
 function deskIdleBody(input: OfficePoseInput): UpperBody {
+  if (input.deskBit !== undefined && input.deskBit !== null) {
+    return deskBitBody(input.deskBit, input);
+  }
   return {
     bones: {
       spine: { x: -0.06, y: 0, z: 0 },
@@ -380,6 +386,163 @@ function deskIdleBody(input: OfficePoseInput): UpperBody {
       rightLowerArm: { x: 0, y: 0.6, z: 0 },
     },
   };
+}
+
+/** 0..1, eased: leaning toward the desk while a hand goes out to an item or puts it back. */
+function reachLean(bit: ActiveDeskBit): number {
+  if (!reachingForItem(bit)) {
+    return 0;
+  }
+  const fromStart = bit.elapsed / reachSeconds;
+  const fromEnd = (bit.duration - bit.elapsed) / reachSeconds;
+  const k = Math.min(1, Math.max(0, Math.min(fromStart, fromEnd) * 2));
+  return k * k * (3 - 2 * k);
+}
+
+/** 0..1 back and forth with `period` seconds per round trip, resting at 0 at the start. */
+function cycle(seconds: number, period: number): number {
+  return 0.5 - 0.5 * Math.cos((seconds / period) * Math.PI * 2);
+}
+
+function mixRotation(from: BoneRotation, to: BoneRotation, t: number): BoneRotation {
+  return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t, z: from.z + (to.z - from.z) * t };
+}
+
+/**
+ * Doing something with what is on the desk. Reaching out and putting things back is IK on the
+ * bit's hand, so the pose leans the body toward the desk and turns the chest to the item's side;
+ * in between, the pose shows what the member does with the thing in their hand.
+ */
+function deskBitBody(bit: ActiveDeskBit, input: OfficePoseInput): UpperBody {
+  const { hand } = deskBitSpec(bit.kind);
+  const toward = hand === "left" ? 1 : -1;
+  const lean = reachLean(bit);
+  // Seconds into using the thing, after picking it up.
+  const using = Math.max(0, bit.elapsed - reachSeconds);
+  const bones: PoseBones = {
+    // Leaning sideways too brings the shoulder over things off to the side of the keyboard.
+    spine: { x: -0.02 + 0.28 * lean, y: 0, z: -0.22 * toward * lean },
+    chest: { x: 0.06 * lean, y: 0.22 * toward * lean, z: 0 },
+    head: { x: 0.2 * lean, y: 0.25 * toward * lean, z: 0 },
+    leftUpperArm: { x: -0.35, y: 0, z: -1.25 },
+    rightUpperArm: { x: -0.35, y: 0, z: 1.25 },
+    leftLowerArm: { x: 0, y: -0.6, z: 0 },
+    rightLowerArm: { x: 0, y: 0.6, z: 0 },
+  };
+  const other: Side = hand === "left" ? "right" : "left";
+  switch (bit.kind) {
+    case "kanban-check":
+      // Leaning in to the sprint board on the right-hand screen, hand to the chin, a small nod.
+      bones.spine = { x: 0.18, y: 0, z: 0 };
+      bones.head = { x: 0.04 + 0.05 * Math.max(0, Math.sin(bit.elapsed * 3)), y: -0.4, z: -0.05 };
+      setArm(bones, "right", { x: -0.9, y: 0, z: 0.9 }, { x: 0, y: 2.2, z: 0 });
+      break;
+    case "monitor-check":
+      // Up close to the job runs on the vertical screen, hands on the desk edge.
+      bones.spine = { x: 0.3, y: 0, z: 0 };
+      bones.head = { x: -0.06, y: -0.42 + 0.06 * Math.sin(bit.elapsed * 1.3), z: 0 };
+      setArm(bones, "left", { x: -0.6, y: 0, z: 1.1 }, { x: 0, y: 0.9, z: 0 });
+      setArm(bones, "right", { x: -0.6, y: 0, z: 1.1 }, { x: 0, y: 0.9, z: 0 });
+      break;
+    case "planner": {
+      // Open in both hands, head bowed over it, a page turned now and then.
+      const page = Math.max(0, Math.sin(using * 1.4) - 0.85) * 5;
+      setArm(bones, "left", { x: -0.35, y: 0, z: 1.3 }, { x: 0, y: 1.35, z: 0 });
+      setArm(bones, "right", { x: -0.35 - 0.15 * page, y: 0, z: 1.3 }, { x: 0, y: 1.35 - 0.3 * page, z: 0 });
+      bones.head = addRotation(bones.head, { x: 0.28 });
+      break;
+    }
+    case "duck": {
+      // Held up at eye level and talked to, squeezed now and then.
+      setArm(bones, hand, { x: -1.0, y: 0, z: 0.75 }, { x: 0, y: 1.6, z: 0 });
+      bones.head = addRotation(bones.head, { x: 0.04, y: 0.15 * toward, z: 0.12 * Math.sin(using * 1.5) });
+      Object.assign(bones, curledFingers(0.35 + 0.4 * Math.max(0, Math.sin(using * 4))));
+      break;
+    }
+    case "console": {
+      // Held up in both hands in front of the chest, thumbs going, leaning into the game.
+      const thumbs = 0.05 * Math.sin(input.time * 11);
+      setArm(bones, "left", { x: -0.6, y: 0, z: 0.95 }, { x: 0, y: 1.9, z: thumbs });
+      setArm(bones, "right", { x: -0.6, y: 0, z: 0.95 }, { x: 0, y: 1.9, z: -thumbs });
+      bones.spine = { x: 0.12, y: 0, z: 0.04 * Math.sin(using * 0.9) };
+      bones.head = { x: 0.25, y: 0, z: 0 };
+      break;
+    }
+    case "plush-hug":
+      // Arms wrapped round it at the chest, rocking a little side to side.
+      setArm(bones, "left", { x: -0.6, y: 0, z: 0.95 }, { x: 0, y: 1.85, z: 0 });
+      setArm(bones, "right", { x: -0.6, y: 0, z: 0.95 }, { x: 0, y: 1.85, z: 0 });
+      bones.spine = { x: 0.06, y: 0, z: 0.09 * Math.sin(using * 2.2) };
+      bones.head = { x: 0.12, y: 0, z: 0.18 };
+      break;
+    case "cake": {
+      // Fork from the plate up to the mouth, a bite, back down for the next.
+      const bite = cycle(using, 2.2);
+      const atPlate = { upper: { x: -0.85, y: 0, z: 0.95 }, lower: { x: 0, y: 1.0, z: 0 } };
+      const atMouth = { upper: { x: -0.6, y: 0, z: 1.0 }, lower: { x: 0, y: 2.3, z: 0 } };
+      setArm(
+        bones,
+        hand,
+        mixRotation(atPlate.upper, atMouth.upper, bite),
+        mixRotation(atPlate.lower, atMouth.lower, bite),
+      );
+      bones.head = { x: 0.22 - 0.2 * bite, y: 0.15 * toward * (1 - bite), z: 0 };
+      break;
+    }
+    case "rose":
+      // Brought up to the face for the scent, eyes half closed.
+      setArm(bones, hand, { x: -0.7, y: 0, z: 0.95 }, { x: 0, y: 2.25, z: 0 });
+      bones.head = { x: 0.1, y: 0, z: -0.12 };
+      bones.spine = { x: -0.05, y: 0, z: 0 };
+      break;
+    case "mic":
+      // Leaning into the boom mic at the back left, the free hand talking along.
+      bones.spine = { x: 0.2, y: 0, z: 0 };
+      bones.chest = { x: 0, y: 0.25, z: 0 };
+      bones.head = { x: -0.06, y: 0.3, z: 0.05 * Math.sin(bit.elapsed * 2) };
+      setArm(bones, "right", { x: -0.7, y: 0, z: 1.0 }, { x: 0, y: 1.4 + 0.25 * Math.sin(bit.elapsed * 3), z: 0 });
+      break;
+    case "desk-selfie":
+      Object.assign(bones, selfieBody({ ...input, actionElapsed: bit.elapsed }).bones);
+      break;
+    case "tea": {
+      // A sip, the cup lowered to the chest, another sip.
+      const sip = cycle(using, 2.6);
+      setArm(
+        bones,
+        hand,
+        mixRotation({ x: -0.55, y: 0, z: 1.1 }, { x: -0.6, y: 0, z: 0.95 }, sip),
+        mixRotation({ x: 0, y: 1.5, z: 0 }, { x: 0, y: 2.3, z: 0 }, sip),
+      );
+      setArm(bones, other, { x: -0.5, y: 0, z: 1.15 }, { x: 0, y: 1.3, z: 0 });
+      bones.head = { x: 0.12 - 0.18 * sip, y: 0, z: 0.05 };
+      break;
+    }
+    case "chess":
+      // After the move: chin on the hand, studying the board on the left.
+      if (!reachingForItem(bit)) {
+        setArm(bones, "right", { x: -0.95, y: 0, z: 0.85 }, { x: 0, y: 2.3, z: 0 });
+        bones.head = { x: 0.3, y: 0.3, z: 0.08 };
+        bones.spine = { x: 0.15, y: 0, z: 0 };
+      }
+      break;
+    case "sticky":
+      // Writing on the pad at the right: IK keeps the marker on it, the other hand holds it down.
+      // Turned to the pad rather than bent over it, clear of the laptop lid.
+      bones.spine = { x: 0.1, y: 0, z: 0.12 };
+      bones.chest = { x: 0.04, y: -0.25, z: 0 };
+      bones.head = { x: 0.3, y: -0.3, z: 0 };
+      setArm(bones, other, { x: -0.65, y: 0, z: 1.05 }, { x: 0, y: 1.0, z: 0 });
+      break;
+    case "idea-pop":
+      // Sits up straight, index finger up: she has it.
+      bones.spine = { x: -0.1, y: 0, z: 0 };
+      bones.head = { x: -0.12, y: 0, z: -0.08 };
+      setArm(bones, "right", { x: -0.5, y: 0, z: 1.0 }, { x: 0, y: 2.0, z: 0 });
+      pointingFingers(bones, "right", 1);
+      break;
+  }
+  return { bones };
 }
 
 function stretchBody(input: OfficePoseInput): UpperBody {

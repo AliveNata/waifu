@@ -40,6 +40,8 @@ export type FurnitureKind =
   | "desk-yor"
   | "desk-twob"
   | "desk-ruby"
+  | "desk-rias"
+  | "desk-chizuru"
   | "chair"
   | "server-rack"
   | "arcade"
@@ -89,6 +91,8 @@ export type StationId =
   | "desk-yor"
   | "desk-twob"
   | "desk-ruby"
+  | "desk-rias"
+  | "desk-chizuru"
   | "board-rias"
   | "board-twob"
   | "idea-board"
@@ -173,6 +177,9 @@ const deskRow: Furniture[] = (Object.entries(deskRowX) as [keyof typeof deskRowX
 ]);
 
 const frontDeskZ = 1.95;
+
+/** x of the front-row desks east of 2B's. */
+const frontRowDeskX = { rias: 4.55, chizuru: 6.1 } as const;
 
 /** Where Ruby sits at her desk; her camera and ring light both aim here. */
 const rubySeat = { x: -1.9, z: 1.4 } as const;
@@ -269,6 +276,30 @@ export const furniture: readonly Furniture[] = [
     blocksWalking: true,
   },
   { id: "chair-twob", kind: "chair", x: 2.4, z: 1.4, width: 0.5, depth: 0.5, yaw: facing.camera, blocksWalking: true },
+  // Rias and Chizuru work at their boards, but between tasks they have desks of their own in the
+  // front row, facing the camera like Ruby's and 2B's.
+  ...(["rias", "chizuru"] as const).flatMap((member): Furniture[] => [
+    {
+      id: `desk-${member}`,
+      kind: `desk-${member}`,
+      x: frontRowDeskX[member],
+      z: frontDeskZ,
+      width: 1.3,
+      depth: 0.65,
+      yaw: facing.backWall,
+      blocksWalking: true,
+    },
+    {
+      id: `chair-${member}`,
+      kind: "chair",
+      x: frontRowDeskX[member],
+      z: 1.4,
+      width: 0.5,
+      depth: 0.5,
+      yaw: facing.camera,
+      blocksWalking: true,
+    },
+  ]),
   { id: "kanban", kind: "kanban", x: 2.4, z: 0.55, width: 1.3, depth: 0.12, yaw: facing.camera, blocksWalking: true },
 
   {
@@ -510,6 +541,16 @@ function deskRowStation(id: StationId, x: number): Station {
   };
 }
 
+function frontRowStation(id: StationId, x: number): Station {
+  return {
+    id,
+    spot: { x, z: 1.4 },
+    facing: facing.camera,
+    approach: { x: x + chairSideStep, z: 1.4 },
+    seatHeight: chairSeatHeight,
+  };
+}
+
 function standing(id: StationId, spot: Point, yaw: number, approach: Point = spot): Station {
   return { id, spot, facing: yaw, approach, seatHeight: null };
 }
@@ -541,6 +582,8 @@ export const stations: Record<StationId, Station> = {
     approach: { x: 2.4 + chairSideStep, z: 1.4 },
     seatHeight: chairSeatHeight,
   },
+  "desk-rias": frontRowStation("desk-rias", frontRowDeskX.rias),
+  "desk-chizuru": frontRowStation("desk-chizuru", frontRowDeskX.chizuru),
   // Facing the left wall, the board's left half (+z side) is 2B's plan and the right half Rias's sketches.
   "board-twob": standing("board-twob", { x: boardStandX, z: -1.4 }, facing.leftWall),
   "board-rias": standing("board-rias", { x: boardStandX, z: -2.65 }, facing.leftWall),
