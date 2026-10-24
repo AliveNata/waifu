@@ -4,9 +4,10 @@ import {
   VRMSpringBoneColliderShapeSphere,
 } from "@pixiv/three-vrm";
 import {
+  BoxGeometry,
   CylinderGeometry,
   Group,
-  type MeshStandardMaterial,
+  MeshStandardMaterial,
   PlaneGeometry,
   SphereGeometry,
   type Texture,
@@ -187,20 +188,6 @@ export function buildStool(piece: Furniture, seatHeight: number): BuiltPiece {
   };
 }
 
-export function buildBarTable(piece: Furniture): Group {
-  const root = placed(piece);
-  const ink = standard(palette.ink, 0.5);
-  const top = surface.barTable;
-  const post = mesh(new CylinderGeometry(0.035, 0.035, top - 0.04, 10), ink);
-  post.position.y = (top - 0.04) / 2;
-  const tabletop = mesh(new CylinderGeometry(0.3, 0.3, 0.035, 28), standard(palette.laminate, 0.5));
-  tabletop.position.y = top - 0.0175;
-  const base = mesh(new CylinderGeometry(0.2, 0.22, 0.025, 20), ink);
-  base.position.y = 0.0125;
-  root.add(post, tabletop, base, mug(0.1, top, 0.05), mug(-0.12, top, -0.06));
-  return root;
-}
-
 /** A coffee mug sized for chibi hands. */
 export function mug(x = 0, y = 0, z = 0): Group {
   const group = new Group();
@@ -217,11 +204,27 @@ export function mug(x = 0, y = 0, z = 0): Group {
 }
 
 /** Pantry counter at chibi working height, with the coffee machine where the "coffee" station stands. */
-export function buildPantryCounter(piece: Furniture, coffeeX: number): Group {
+/** The pantry counter's working parts, which the stage switches on while someone uses them. */
+export interface PantryCounter {
+  root: Group;
+  sink: SinkTap;
+  oven: Oven;
+}
+
+/**
+ * Counter along the back wall: a sink on the left, the coffee machine in the middle, and an oven
+ * built in under the right end. Positions are world x, so they line up with the stations.
+ */
+export function buildPantryCounter(
+  piece: Furniture,
+  at: { coffee: number; sink: number; oven: number },
+): PantryCounter {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const ink = standard(palette.ink, 0.6);
   const top = surface.counter;
+  const front = depth / 2;
+  const ovenX = at.oven - piece.x;
   root.add(
     box(width, top - 0.03, depth - 0.04, ink, 0, 0, 0),
     box(width + 0.02, 0.03, depth, standard(palette.laminate, 0.4), 0, top - 0.03, 0),
@@ -230,26 +233,21 @@ export function buildPantryCounter(piece: Furniture, coffeeX: number): Group {
     box(width * 0.8, 0.025, 0.18, standard(palette.oak, 0.6), 0, top + 0.42, -depth / 2 + 0.1),
   );
   for (let door = 0; door < 4; door++) {
-    root.add(
-      box(
-        0.015,
-        top * 0.6,
-        0.01,
-        standard(palette.inkSoft, 0.5),
-        -width / 2 + (width / 4) * (door + 0.5),
-        0.08,
-        depth / 2 - 0.015,
-      ),
-    );
+    const x = -width / 2 + (width / 4) * (door + 0.5);
+    // No cupboard line across the oven's face.
+    if (Math.abs(x - ovenX) < ovenWidth / 2 + 0.03) {
+      continue;
+    }
+    root.add(box(0.015, top * 0.6, 0.01, standard(palette.inkSoft, 0.5), x, 0.08, front - 0.015));
   }
-  const machineX = coffeeX - piece.x;
+  const machineX = at.coffee - piece.x;
   root.add(
     box(0.22, 0.28, 0.22, standard(palette.inkDeep, 0.35, 0.3), machineX, top, -0.08),
     box(0.16, 0.025, 0.09, standard(palette.steel, 0.3, 0.6), machineX, top + 0.04, 0.05),
     box(0.05, 0.01, 0.01, glow(), machineX + 0.06, top + 0.24, 0.031),
     mug(machineX, top + 0.065, 0.04),
-    mug(machineX + 0.55, top, 0.05),
-    mug(machineX + 0.65, top, -0.04),
+    mug(machineX + 0.45, top, 0.05),
+    mug(machineX + 0.55, top, -0.04),
   );
   for (let jar = 0; jar < 4; jar++) {
     const glass = mesh(new CylinderGeometry(0.035, 0.035, 0.1, 12), standard(palette.glass, 0.15));
@@ -257,8 +255,144 @@ export function buildPantryCounter(piece: Furniture, coffeeX: number): Group {
     root.add(glass);
   }
   const kettle = mesh(new CylinderGeometry(0.05, 0.065, 0.14, 14), standard(palette.steel, 0.25, 0.7));
-  kettle.position.set(machineX - 0.5, top + 0.07, -0.05);
+  kettle.position.set(width / 2 - 0.12, top + 0.07, -0.05);
   root.add(kettle);
+  const sink = buildSink(at.sink - piece.x, top);
+  const oven = buildOven(ovenX, front);
+  root.add(sink.root, oven.root);
+  return { root, sink: sink.tap, oven: oven.oven };
+}
+
+/** Water from the tap while someone is at the sink: a thin stream that wavers a little. */
+export class SinkTap {
+  constructor(private readonly stream: ReturnType<typeof mesh>) {}
+
+  update(running: boolean, time: number): void {
+    this.stream.visible = running;
+    if (running) {
+      const waver = 1 + 0.12 * Math.sin(time * 23) + 0.06 * Math.sin(time * 37);
+      this.stream.scale.set(waver, 1, waver);
+    }
+  }
+}
+
+function buildSink(x: number, top: number): { root: Group; tap: SinkTap } {
+  const root = new Group();
+  root.position.set(x, 0, 0.02);
+  const steel = standard(palette.steel, 0.25, 0.7);
+  // A basin set into the top: a steel rim around a dark bowl.
+  root.add(
+    box(0.34, 0.006, 0.26, steel, 0, top, 0),
+    box(0.3, 0.004, 0.22, standard("#2c3036", 0.35, 0.6), 0, top + 0.003, 0),
+  );
+  const riser = mesh(new CylinderGeometry(0.01, 0.012, 0.2, 10), steel);
+  riser.position.set(0, top + 0.1, -0.15);
+  const spout = mesh(new CylinderGeometry(0.009, 0.009, 0.1, 10), steel);
+  spout.rotation.x = Math.PI / 2;
+  spout.position.set(0, top + 0.195, -0.105);
+  const stream = mesh(new CylinderGeometry(0.006, 0.008, 0.18, 8), standard("#cfe8f7", 0.05, 0.1), false);
+  const material = stream.material as MeshStandardMaterial;
+  material.transparent = true;
+  material.opacity = 0.65;
+  stream.position.set(0, top + 0.095, -0.06);
+  stream.visible = false;
+  root.add(riser, spout, stream);
+  return { root, tap: new SinkTap(stream) };
+}
+
+const ovenWidth = 0.36;
+const ovenHeight = 0.3;
+/** Radians the door falls open on its bottom hinge. */
+const ovenOpenAngle = 1.35;
+
+export type OvenState = "off" | "open" | "cooking";
+
+/**
+ * An oven built in under the counter: the door drops open on its bottom hinge, and the inside
+ * glows warm while it cooks, seen through the door's window.
+ */
+export class Oven {
+  private angle = 0;
+
+  constructor(
+    private readonly door: Group,
+    private readonly light: MeshStandardMaterial,
+    private readonly window: MeshStandardMaterial,
+    private readonly dish: Group,
+  ) {}
+
+  update(state: OvenState, holdsFood: boolean, delta: number, time: number): void {
+    const target = state === "open" ? ovenOpenAngle : 0;
+    this.angle += (target - this.angle) * Math.min(1, 6 * delta);
+    this.door.rotation.x = this.angle;
+    const glowing = state === "cooking" ? 1.4 + 0.15 * Math.sin(time * 3) : state === "open" ? 0.6 : 0;
+    this.light.emissiveIntensity = glowing;
+    // The window is dark glass; while cooking the warm light inside shows through it.
+    this.window.emissiveIntensity = state === "cooking" ? glowing * 0.45 : 0;
+    this.dish.visible = holdsFood;
+  }
+}
+
+function buildOven(x: number, front: number): { root: Group; oven: Oven } {
+  const root = new Group();
+  const bottom = 0.1;
+  root.position.set(x, 0, front);
+  const steel = standard(palette.steel, 0.3, 0.6);
+  // The cavity: dark walls with a warm light panel at the back that comes on while cooking.
+  const light = new MeshStandardMaterial({ color: "#2a1d14", emissive: "#ffb066", emissiveIntensity: 0 });
+  root.add(
+    box(ovenWidth, ovenHeight, 0.02, steel, 0, bottom, -0.005),
+    box(ovenWidth - 0.04, ovenHeight - 0.05, 0.01, standard("#15171c", 0.6), 0, bottom + 0.025, -0.01),
+    mesh(new BoxGeometry(ovenWidth - 0.06, ovenHeight - 0.08, 0.004), light, false),
+  );
+  const back = root.children[root.children.length - 1];
+  back?.position.set(0, bottom + ovenHeight / 2, -0.25);
+  const dish = new Group();
+  dish.add(
+    mesh(new CylinderGeometry(0.06, 0.05, 0.01, 18), standard("#fbfaf7", 0.4)),
+    box(0.05, 0.025, 0.035, standard("#d9a05b", 0.7), 0, 0.005, 0),
+  );
+  dish.position.set(0, bottom + 0.06, -0.14);
+  dish.visible = false;
+  root.add(dish);
+  // The door, hinged along its bottom edge.
+  const door = new Group();
+  door.position.set(0, bottom, 0.012);
+  const glass = new MeshStandardMaterial({
+    color: "#1a1c22",
+    roughness: 0.1,
+    metalness: 0.3,
+    emissive: "#ff9a4a",
+    emissiveIntensity: 0,
+  });
+  door.add(
+    box(ovenWidth - 0.01, ovenHeight - 0.01, 0.02, steel, 0, 0, 0),
+    box(ovenWidth - 0.1, ovenHeight * 0.45, 0.004, glass, 0, ovenHeight * 0.3, 0.011),
+    box(ovenWidth - 0.08, 0.016, 0.02, standard(palette.ink, 0.4), 0, ovenHeight - 0.05, 0.025),
+  );
+  root.add(door);
+  return { root, oven: new Oven(door, light, glass, dish) };
+}
+
+/**
+ * The bar that runs out from the end of the pantry counter, making the L: a raised top with an
+ * overhang on the stool side for knees, and a footrest rail along it.
+ */
+export function buildBarCounter(piece: Furniture): Group {
+  const root = placed(piece);
+  const { width, depth } = localSize(piece);
+  const top = surface.barTable;
+  const ink = standard(palette.ink, 0.6);
+  const overhang = 0.14;
+  root.add(
+    box(width - 0.06, top - 0.035, depth, ink, -0.03, 0, 0),
+    box(width + overhang, 0.035, depth + 0.02, standard(palette.laminate, 0.4), overhang / 2, top - 0.035, 0),
+    box(0.01, 0.012, depth - 0.2, glow(), width / 2 - 0.035, top - 0.05, 0),
+  );
+  const rail = mesh(new CylinderGeometry(0.012, 0.012, depth - 0.3, 10), standard(palette.steel, 0.3, 0.6));
+  rail.rotation.x = Math.PI / 2;
+  rail.position.set(width / 2 - 0.02, 0.16, 0);
+  root.add(rail, mug(width / 2 - 0.02, top, 0.36), mug(width / 2 - 0.04, top, 0.9));
   return root;
 }
 
@@ -558,10 +692,12 @@ export function buildMeetingTable(piece: Furniture): { root: Group; laptops: Lap
   // turned half way round; the front-row seats sit at +z and take it as built.
   const laptops = (
     [
-      [-0.5, -0.22, Math.PI],
-      [0.5, -0.22, Math.PI],
-      [-0.5, 0.22, 0],
-      [0.5, 0.22, 0],
+      [-0.8, -0.22, Math.PI],
+      [0, -0.22, Math.PI],
+      [0.8, -0.22, Math.PI],
+      [-0.8, 0.22, 0],
+      [0, 0.22, 0],
+      [0.8, 0.22, 0],
     ] as const
   ).map(([x, z, yaw], index) => {
     const screen = new LaptopScreen(index + 1);
@@ -576,7 +712,8 @@ export function buildMeetingTable(piece: Furniture): { root: Group; laptops: Lap
     root.add(laptop);
     return screen;
   });
-  root.add(box(0.14, 0.004, 0.2, standard("#fbfaf7", 0.9), 0.05, top, 0.0), mug(-0.05, top, 0.05));
+  // Between the laptops: a printout and a shared mug.
+  root.add(box(0.14, 0.004, 0.2, standard("#fbfaf7", 0.9), 0.4, top, 0), mug(-0.4, top, 0));
   return { root, laptops };
 }
 

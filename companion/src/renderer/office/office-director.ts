@@ -27,7 +27,9 @@ export type OfficeAction =
   | "chat"
   | "meeting"
   | "pingpong"
-  | "pingpong-wait";
+  | "pingpong-wait"
+  | "wash"
+  | "oven";
 
 export interface MemberPlan {
   station: StationId;
@@ -78,7 +80,7 @@ export function usesHandIk(action: OfficeAction): boolean {
   return action === "draw" || action === "stick";
 }
 
-export type HandPropKind = "mug" | "paddle" | "phone" | "book" | "can" | "controller";
+export type HandPropKind = "mug" | "paddle" | "phone" | "book" | "can" | "controller" | "plate";
 
 /** The prop an action puts in the right hand, or null for empty-handed actions. */
 export function propForAction(action: OfficeAction | null): HandPropKind | null {
@@ -100,4 +102,34 @@ export function propForAction(action: OfficeAction | null): HandPropKind | null 
     default:
       return null;
   }
+}
+
+/** Where someone heating food is in the job, from how long they have been at the oven. */
+export interface OvenStep {
+  /** Door open, inside lit and cooking, or off. */
+  oven: "off" | "open" | "cooking";
+  foodInside: boolean;
+  plateInHand: boolean;
+  /** Bending down to the oven door rather than standing and waiting. */
+  reaching: boolean;
+}
+
+/** Seconds: putting the plate in, then cooking, then taking it out again. */
+const ovenLoadedAt = 1.1;
+const ovenDoneAt = 6;
+const ovenEmptiedAt = 7.2;
+
+export function ovenStep(elapsed: number): OvenStep {
+  if (elapsed < ovenLoadedAt) {
+    // Door down, plate going in.
+    return { oven: "open", foodInside: elapsed > ovenLoadedAt * 0.6, plateInHand: false, reaching: true };
+  }
+  if (elapsed < ovenDoneAt) {
+    return { oven: "cooking", foodInside: true, plateInHand: false, reaching: false };
+  }
+  if (elapsed < ovenEmptiedAt) {
+    const out = elapsed > ovenDoneAt + (ovenEmptiedAt - ovenDoneAt) * 0.6;
+    return { oven: "open", foodInside: !out, plateInHand: out, reaching: true };
+  }
+  return { oven: "off", foodInside: false, plateInHand: true, reaching: false };
 }

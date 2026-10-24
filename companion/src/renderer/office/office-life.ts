@@ -1,7 +1,7 @@
 import type { MemberId } from "../../shared/team.js";
 import type { OfficeAction } from "./office-director.js";
 import { homeStations } from "./office-layout.js";
-import type { StationId } from "./office-plan.js";
+import { meetingStationIds, type StationId } from "./office-plan.js";
 
 /**
  * What the team does between tasks. Each member picks weighted activities with
@@ -23,7 +23,9 @@ export type ActivityId =
   | "selfie"
   | "rack"
   | "meeting"
-  | "pingpong";
+  | "pingpong"
+  | "wash"
+  | "heat";
 
 interface Activity {
   /** Null means the member's own idle spot. */
@@ -74,7 +76,7 @@ const activities: Record<ActivityId, Activity> = {
     social: true,
   },
   meeting: {
-    stations: ["meeting-1", "meeting-2", "meeting-3", "meeting-4"],
+    stations: meetingStationIds,
     action: "meeting",
     durationSeconds: [20, 40],
     weight: 0.7,
@@ -89,6 +91,9 @@ const activities: Record<ActivityId, Activity> = {
     weight: 0.5,
     cooldownSeconds: 120,
   },
+  wash: { stations: ["sink"], action: "wash", durationSeconds: [6, 10], weight: 0.4, cooldownSeconds: 120 },
+  // Long enough for the whole oven job: in, cook, out, and a moment with the plate.
+  heat: { stations: ["oven"], action: "oven", durationSeconds: [10, 14], weight: 0.5, cooldownSeconds: 150 },
   read: {
     stations: [...sofaSeats, "beanbag-lounge"],
     action: "read",

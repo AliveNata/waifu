@@ -97,11 +97,11 @@ Ruangannya terang dengan aksen ungu dari logo AlyxLabs: LED neon yang "lari" di 
 | Zona | Isi |
 |---|---|
 | Deretan meja belakang | Meja Asuna, Kobayashi, Erza, dan Yor, lemari printer, plus rak server di sebelah Yor |
-| Tengah | Meja meeting empat kursi dengan laptop, meja pingpong, tanaman |
+| Tengah | Meja meeting enam kursi dengan laptop, meja pingpong, tanaman |
 | Depan | Meja komando 2B dengan papan kanban dan printer di samping, dan pojok konten Ruby dengan backdrop logo, ring light, kamera, dan mic |
 | Dinding kiri | Papan tulis (2B dan Rias), papan ide dan beanbag Chizuru, TV lounge |
 | Lounge | Sofa menghadap TV, meja kopi, beanbag |
-| Pantry | Mesin kopi, kulkas, meja bar dengan dua stool |
+| Pantry | Counter bentuk L: wastafel, mesin kopi, dan oven di counter belakang, lalu meja bar yang nyambung ke ujungnya dengan dua bar stool, plus kulkas |
 | Pojok game | Mesin arcade |
 
 Setup meja sesuai role:
@@ -121,13 +121,16 @@ Setup meja sesuai role:
 
 **Nulis di papan tulis**: spidolnya diangkat dari papan dan dibawa ke awal coretan berikutnya, nggak loncat. Kadang berhenti sebentar kayak mikir, kadang mundur selangkah buat ngelihat hasilnya dengan tangan turun. Kalau tulisannya makin ke samping, dia geser beberapa langkah kecil ngikutin. Papan tulis dan papan ide dipasang setinggi papan kantor biasa tapi dibikin pendek, jadi seluruh papan kejangkau sambil berdiri: buat baris paling atas dia jinjit, buat baris paling bawah dia nekuk lutut. Abis diagram selesai dia mundur ngelihat seluruhnya, terus ngapus papan dengan gerakan nyapu.
 
-**Pas nggak ada tugas**, tiap cast milih kegiatan sendiri dan jalan ke sana tanpa nembus furnitur atau cast lain: kerja santai di meja, bikin kopi, ngemil di kulkas, nonton TV, main game di sofa, main arcade, nyiram tanaman, rebahan di beanbag, baca, ngobrol di meja bar, meeting di meja tengah, atau main pingpong. Kira-kira setengah waktunya di meja, setengahnya istirahat. Biar nggak monoton:
+**Pas nggak ada tugas**, tiap cast milih kegiatan sendiri dan jalan ke sana tanpa nembus furnitur atau cast lain: kerja santai di meja, bikin kopi, ngemil di kulkas, cuci tangan di wastafel, manasin makanan di oven, nonton TV, main game di sofa, main arcade, nyiram tanaman, rebahan di beanbag, baca, ngobrol di meja bar, meeting di meja tengah, atau main pingpong. Kira-kira setengah waktunya di meja, setengahnya istirahat. Biar nggak monoton:
 - Kegiatan yang sama nggak dipilih dua kali berturut-turut, dan tiap kegiatan punya jeda sebelum bisa diulang.
 - Tiap cast punya kesukaan sendiri. Kobayashi sering main arcade, Erza sering ngemil, Rias sering baca, Yor sering ngecek rak server, Ruby sering selfie di depan ring light.
 - Satu tempat cuma dipakai satu orang. Kalau ada yang udah di bar atau meja meeting, yang lain lebih mungkin nyamperin.
 - Pingpong selalu berdua. Yang mulai ngajak cast yang paling lama nganggur, dan nunggu di meja sambil pegang raket sampai lawannya dateng. Bolanya baru jalan pas dua-duanya udah di posisi, dan kalau satu pergi, yang lain ikut berhenti. Raket diayun pas bolanya nyampe ke pemain itu, bukan sebelum.
-- Laptop di meja meeting ada empat, satu per kursi dan menghadap kursinya. Layarnya nyala dan bergerak cuma pas ada yang duduk di kursi itu.
+- Laptop di meja meeting ada enam, satu per kursi dan menghadap kursinya. Layarnya nyala dan bergerak cuma pas ada yang duduk di kursi itu.
 - Pintu kulkas kebuka pas ada yang ngemil, terus ketutup lagi pas dia pergi.
+- Keran wastafel ngalir selama ada yang cuci tangan.
+- Oven dipakai berurutan: pintunya dibuka sambil jongkok buat masukin piring, ditutup, lalu jendelanya nyala oranye selama masak. Abis itu dibuka lagi buat ngambil piringnya, dan piringnya dibawa.
+- Dua bar stool agak serong saling hadap, jadi yang duduk di meja bar bisa ngobrol tanpa muter badan.
 - Yang punya meja bawa gelasnya ke pantry, bikin kopi, terus balik naruh gelasnya di samping keyboard. Rias dan Chizuru minum kopinya di tempat tujuan berikutnya.
 - Barang di tangan ngikutin kegiatan: HP pas rebahan atau selfie, buku pas baca, stik pas main game, raket pas pingpong, penyiram pas nyiram tanaman.
 - Abis kelar tugas, cast istirahat dulu, nggak langsung balik ke meja.

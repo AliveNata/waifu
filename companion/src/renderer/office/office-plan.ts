@@ -45,7 +45,7 @@ export type FurnitureKind =
   | "arcade"
   | "pantry-counter"
   | "fridge"
-  | "bar-table"
+  | "bar-counter"
   | "stool"
   | "whiteboard"
   | "idea-board"
@@ -96,6 +96,8 @@ export type StationId =
   | "front"
   | "coffee"
   | "fridge"
+  | "sink"
+  | "oven"
   | "bar-left"
   | "bar-right"
   | "sofa-1"
@@ -113,6 +115,8 @@ export type StationId =
   | "meeting-2"
   | "meeting-3"
   | "meeting-4"
+  | "meeting-5"
+  | "meeting-6"
   | "pingpong-west"
   | "pingpong-east";
 
@@ -173,13 +177,31 @@ const frontDeskZ = 1.95;
 /** Where Ruby sits at her desk; her camera and ring light both aim here. */
 const rubySeat = { x: -1.9, z: 1.4 } as const;
 
-/** Chairs around the meeting table: two on the back side facing the camera, two on the front side. */
+const meetingIds = ["meeting-1", "meeting-2", "meeting-3", "meeting-4", "meeting-5", "meeting-6"] as const;
+export type MeetingStationId = (typeof meetingIds)[number];
+
+/** The meeting table's middle, and its six chairs: three on the back side facing the camera, three in front. */
+const meetingTableX = -0.6;
+const meetingSeatXs = [meetingTableX - 0.8, meetingTableX, meetingTableX + 0.8] as const;
 const meetingSeats = [
-  { x: -1.1, z: -2.05, yaw: facing.camera },
-  { x: -0.1, z: -2.05, yaw: facing.camera },
-  { x: -1.1, z: -0.55, yaw: facing.backWall },
-  { x: -0.1, z: -0.55, yaw: facing.backWall },
+  ...meetingSeatXs.map((x) => ({ x, z: -2.05, yaw: facing.camera })),
+  ...meetingSeatXs.map((x) => ({ x, z: -0.55, yaw: facing.backWall })),
 ] as const;
+
+/**
+ * The pantry is an L: the counter along the back wall, and at its east end a raised bar running
+ * out into the room with two stools on its outer side.
+ */
+const barCounter = { x: -3.86, z: -3.86, width: 0.48, depth: 2.22 } as const;
+const barStoolX = -3.33;
+const barStools = [
+  // Turned a little toward each other, so the two can talk without twisting round.
+  { id: "stool-left", z: -3.5, yaw: facing.leftWall + 0.4 },
+  { id: "stool-right", z: -2.95, yaw: facing.leftWall - 0.4 },
+] as const;
+/** Where the sink and oven sit along the pantry counter; the coffee machine is between them. */
+const sinkX = -5.85;
+const ovenX = -4.55;
 
 export const furniture: readonly Furniture[] = [
   ...deskRow,
@@ -265,43 +287,35 @@ export const furniture: readonly Furniture[] = [
   {
     id: "pantry-counter",
     kind: "pantry-counter",
-    x: -5.1,
+    x: -5.15,
     z: -4.65,
-    width: 2.2,
+    width: 2.1,
     depth: 0.65,
     yaw: facing.camera,
     blocksWalking: true,
   },
   {
-    id: "bar-table",
-    kind: "bar-table",
-    x: -4.5,
-    z: -2.95,
-    width: 0.6,
-    depth: 0.6,
+    id: "bar-counter",
+    kind: "bar-counter",
+    x: barCounter.x,
+    z: barCounter.z,
+    width: barCounter.width,
+    depth: barCounter.depth,
     yaw: facing.camera,
     blocksWalking: true,
   },
-  {
-    id: "stool-left",
-    kind: "stool",
-    x: -5.0,
-    z: -2.95,
-    width: 0.36,
-    depth: 0.36,
-    yaw: facing.right,
-    blocksWalking: true,
-  },
-  {
-    id: "stool-right",
-    kind: "stool",
-    x: -4.0,
-    z: -2.95,
-    width: 0.36,
-    depth: 0.36,
-    yaw: facing.leftWall,
-    blocksWalking: true,
-  },
+  ...barStools.map(
+    (stool): Furniture => ({
+      id: stool.id,
+      kind: "stool",
+      x: barStoolX,
+      z: stool.z,
+      width: 0.36,
+      depth: 0.36,
+      yaw: stool.yaw,
+      blocksWalking: true,
+    }),
+  ),
 
   {
     id: "whiteboard",
@@ -418,9 +432,9 @@ export const furniture: readonly Furniture[] = [
   {
     id: "meeting-table",
     kind: "meeting-table",
-    x: -0.6,
+    x: meetingTableX,
     z: -1.3,
-    width: 2.0,
+    width: 2.6,
     depth: 0.9,
     yaw: facing.camera,
     blocksWalking: true,
@@ -541,18 +555,20 @@ export const stations: Record<StationId, Station> = {
   front: standing("front", { x: 0.4, z: 3.0 }, facingCamera),
   coffee: standing("coffee", { x: -5.35, z: -3.95 }, facing.backWall),
   fridge: standing("fridge", { x: -6.55, z: -3.85 }, facing.backWall),
+  sink: standing("sink", { x: sinkX, z: -3.95 }, facing.backWall),
+  oven: standing("oven", { x: ovenX, z: -3.85 }, facing.backWall),
   "bar-left": {
     id: "bar-left",
-    spot: { x: -5.0, z: -2.95 },
-    facing: facing.right,
-    approach: { x: -5.1, z: -2.35 },
+    spot: { x: barStoolX, z: barStools[0].z },
+    facing: barStools[0].yaw,
+    approach: { x: barStoolX + 0.5, z: barStools[0].z },
     seatHeight: stoolSeatHeight,
   },
   "bar-right": {
     id: "bar-right",
-    spot: { x: -4.0, z: -2.95 },
-    facing: facing.leftWall,
-    approach: { x: -3.9, z: -2.35 },
+    spot: { x: barStoolX, z: barStools[1].z },
+    facing: barStools[1].yaw,
+    approach: { x: barStoolX + 0.5, z: barStools[1].z },
     seatHeight: stoolSeatHeight,
   },
   "sofa-1": {
@@ -598,25 +614,24 @@ export const stations: Record<StationId, Station> = {
   "pingpong-east": standing("pingpong-east", { x: 4.4, z: -1.2 }, facing.leftWall),
 };
 
-function meetingStations(): Record<"meeting-1" | "meeting-2" | "meeting-3" | "meeting-4", Station> {
-  const ids = ["meeting-1", "meeting-2", "meeting-3", "meeting-4"] as const;
+function meetingStations(): Record<MeetingStationId, Station> {
   return Object.fromEntries(
     meetingSeats.map((seat, index) => {
-      const id = ids[index] as (typeof ids)[number];
-      return [
-        id,
-        {
-          id,
-          spot: { x: seat.x, z: seat.z },
-          facing: seat.yaw,
-          // The outer side of each pair, so neighbours never queue for the same gap.
-          approach: { x: seat.x + (seat.x < -0.6 ? -chairSideStep : chairSideStep), z: seat.z },
-          seatHeight: chairSeatHeight,
-        },
-      ];
+      const id = meetingIds[index] as MeetingStationId;
+      const back = seat.z < -1.3;
+      // End seats are entered from the outer end of the table; the middle ones from behind the
+      // chair, since a neighbour sits on either side.
+      const approach =
+        seat.x === meetingTableX
+          ? { x: seat.x, z: seat.z + (back ? -0.55 : 0.55) }
+          : { x: seat.x + (seat.x < meetingTableX ? -chairSideStep : chairSideStep), z: seat.z };
+      return [id, { id, spot: { x: seat.x, z: seat.z }, facing: seat.yaw, approach, seatHeight: chairSeatHeight }];
     }),
-  ) as Record<(typeof ids)[number], Station>;
+  ) as Record<MeetingStationId, Station>;
 }
+
+/** The meeting seats in order, for the props that belong to each one. */
+export const meetingStationIds: readonly MeetingStationId[] = meetingIds;
 
 export function distance(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.z - b.z);

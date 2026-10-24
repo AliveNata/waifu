@@ -39,13 +39,14 @@ import {
   type MemberPlan,
   memberPlan,
   type OfficeAction,
+  ovenStep,
   propForAction,
   twobPlan,
   usesHandIk,
 } from "./office-director.js";
 import { OfficeLife } from "./office-life.js";
 import { initialMug, type MugState, stepMug } from "./office-mug.js";
-import { distance, type StationId, stations, surface } from "./office-plan.js";
+import { distance, meetingStationIds, type StationId, stations, surface } from "./office-plan.js";
 import { type BoardFocus, officePose } from "./office-pose.js";
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
 import { PlaceholderAvatar } from "./placeholder.js";
@@ -292,6 +293,8 @@ const actionLabels: Record<OfficeAction, string> = {
   chat: "chatting",
   meeting: "in a meeting",
   pingpong: "playing ping-pong",
+  wash: "washing up",
+  oven: "heating food",
   "pingpong-wait": "waiting for a ping-pong partner",
 };
 
@@ -841,8 +844,11 @@ export class OfficeStage {
 
     // Board work needs the hand free; otherwise the action's own prop wins over a carried mug.
     const onPhone = gimmick?.kind === "phone" ? "phone" : null;
+    const plate = action === "oven" && ovenStep(this.elapsed - rig.actionStartedAt).plateInHand ? "plate" : null;
     const held =
-      action !== null && usesHandIk(action) ? null : (propForAction(action) ?? (rig.mug.inHand ? "mug" : onPhone));
+      action !== null && usesHandIk(action)
+        ? null
+        : (plate ?? propForAction(action) ?? (rig.mug.inHand ? "mug" : onPhone));
     rig.props.show(held);
     rig.props.follow(rig.hand, actor.yaw);
   }
@@ -967,9 +973,15 @@ export class OfficeStage {
     this.office.rackLights.update(this.elapsed, usingAt("rack", "rack"));
     this.updatePingpongBall(usingAt("pingpong-west", "pingpong") && usingAt("pingpong-east", "pingpong"));
     this.office.fridgeDoor.update(usingAt("fridge", "snack"), delta);
-    const meetingSeats = ["meeting-1", "meeting-2", "meeting-3", "meeting-4"] as const;
+    this.office.sink.update(usingAt("sink", "wash"), this.elapsed);
+    const cook = memberIds.find((memberId) => {
+      const rig = this.rigs[memberId];
+      return rig.action === "oven" && rig.plan.station === "oven";
+    });
+    const step = cook === undefined ? null : ovenStep(this.elapsed - this.rigs[cook].actionStartedAt);
+    this.office.oven.update(step?.oven ?? "off", step?.foodInside ?? false, delta, this.elapsed);
     this.office.meetingLaptops.forEach((laptop, index) => {
-      const seat = meetingSeats[index];
+      const seat = meetingStationIds[index];
       laptop.update(delta, seat !== undefined && usingAt(seat, "meeting") ? "on" : "off");
     });
   }
