@@ -42,6 +42,13 @@ export interface BoardFocus {
   stepping: number;
 }
 
+/** Pen lower than this, in the avatar's frame, and the writer starts bending the knees. */
+const crouchBelowY = 0.55;
+/** How much lower the pen goes before the crouch is as deep as it gets. */
+const crouchRange = 0.25;
+/** How far the hips drop in the deepest crouch. */
+const crouchDrop = 0.11;
+
 /** Eyes of a standing chibi, in the avatar's frame. */
 const standingEyeY = 0.88;
 
@@ -195,18 +202,22 @@ function boardBody(input: OfficePoseInput): UpperBody {
   const drawingArm = { upper: { x: -0.9, y: 0, z: 0.3 }, lower: { x: 0, y: 0.6, z: 0 } };
   const loweredArm = { upper: { x: -0.2, y: 0, z: 1.2 }, lower: { x: 0, y: 0.9, z: 0 } };
   const mix = (a: number, b: number): number => a + (b - a) * review;
-  // Small quick steps while shuffling along the board, feet together again once there.
+  // Small quick steps while shuffling along the board or onto its step, feet together once there.
   const shuffle = 0.22 * (focus?.stepping ?? 0) * Math.sin(input.time * 11);
+  // Knees bend to reach the lowest lines: thighs forward, shins back by twice as much, which keeps
+  // the feet under the hips while the hips drop.
+  const crouch = focus === null ? 0 : Math.max(0, Math.min(1, (crouchBelowY - focus.y) / crouchRange));
+  const thigh = 0.85 * crouch * (1 - review);
   return {
-    standingHipsY: 0.008 * Math.abs(shuffle) * 4,
+    standingHipsY: 0.008 * Math.abs(shuffle) * 4 - crouchDrop * crouch * (1 - review),
     bones: {
       ...armsRelaxed,
-      leftUpperLeg: { x: -shuffle, y: 0, z: 0 },
-      rightUpperLeg: { x: shuffle, y: 0, z: 0 },
-      leftLowerLeg: { x: Math.max(0, shuffle) * 1.4, y: 0, z: 0 },
-      rightLowerLeg: { x: Math.max(0, -shuffle) * 1.4, y: 0, z: 0 },
-      // Leaning in toward the board while writing, back while looking it over.
-      spine: { x: mix(0.1, -0.12), y: turn * 0.3, z: 0 },
+      leftUpperLeg: { x: -shuffle - thigh, y: 0, z: 0 },
+      rightUpperLeg: { x: shuffle - thigh, y: 0, z: 0 },
+      leftLowerLeg: { x: Math.max(0, shuffle) * 1.4 + thigh * 2, y: 0, z: 0 },
+      rightLowerLeg: { x: Math.max(0, -shuffle) * 1.4 + thigh * 2, y: 0, z: 0 },
+      // Leaning in toward the board while writing (more when crouched), back while looking it over.
+      spine: { x: mix(0.1 + 0.25 * crouch, -0.12), y: turn * 0.3, z: 0 },
       chest: { x: 0, y: turn * 0.15, z: 0 },
       rightUpperArm: {
         x: mix(drawingArm.upper.x, loweredArm.upper.x),

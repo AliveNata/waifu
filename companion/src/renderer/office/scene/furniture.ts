@@ -6,7 +6,6 @@ import {
 import {
   CylinderGeometry,
   Group,
-  IcosahedronGeometry,
   type MeshStandardMaterial,
   PlaneGeometry,
   SphereGeometry,
@@ -14,9 +13,10 @@ import {
   TorusGeometry,
   Vector3,
 } from "three";
-import { chibi, type Furniture, surface } from "../office-plan.js";
+import { boardStepHeight, chibi, type Furniture, surface } from "../office-plan.js";
 import { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./animated.js";
 import { box, glow, mesh, palette, printed, standard, unlit } from "./palette.js";
+import { leafyCrown } from "./plant.js";
 import { kanbanTexture, type SignLettering } from "./textures.js";
 
 export interface BuiltPiece {
@@ -406,6 +406,18 @@ export function buildTvConsole(piece: Furniture): Group {
   return root;
 }
 
+/** The low step in front of a board: an oak tread on a dark riser, like the desks' panel legs. */
+export function buildBoardStep(piece: Furniture): Group {
+  const root = placed(piece);
+  const { width, depth } = localSize(piece);
+  const tread = 0.025;
+  root.add(
+    box(width, boardStepHeight - tread, depth, standard(palette.ink, 0.6), 0, 0, 0),
+    box(width, tread, depth, standard(palette.oak, 0.7), 0, boardStepHeight - tread, 0),
+  );
+  return root;
+}
+
 export function buildRug(piece: Furniture): Group {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
@@ -445,21 +457,12 @@ export function buildPlant(piece: Furniture): Group {
   const band = mesh(new CylinderGeometry(radius * 0.81, radius * 0.81, 0.025, 16), standard(palette.ink, 0.5));
   band.position.y = potHeight * 0.8;
   root.add(pot, band);
-  const leaves = [palette.leaf, palette.leafDark];
-  const count = Math.round(5 + radius * 10);
-  for (let leaf = 0; leaf < count; leaf++) {
-    const angle = leaf * 2.4;
-    const height = potHeight + 0.12 + (leaf % 4) * radius * 0.4;
-    const spread = radius * (0.35 + (leaf % 3) * 0.25);
-    const blob = mesh(
-      new IcosahedronGeometry(radius * (0.5 + (leaf % 2) * 0.15), 0),
-      standard(leaves[leaf % 2] as string, 0.9),
-    );
-    blob.scale.set(1, 0.7, 1.3);
-    blob.position.set(Math.cos(angle) * spread, height, Math.sin(angle) * spread);
-    blob.rotation.set(leaf * 0.7, angle, leaf * 0.3);
-    root.add(blob);
-  }
+  // Soil a little below the rim, so the leaves grow out of something.
+  const soil = mesh(new CylinderGeometry(radius * 0.76, radius * 0.76, 0.02, 16), standard(palette.soil, 1), false);
+  soil.position.y = potHeight - 0.03;
+  const crown = leafyCrown(radius, palette.leaf, palette.leafDark);
+  crown.position.y = potHeight - 0.02;
+  root.add(soil, crown);
   return root;
 }
 
