@@ -98,7 +98,7 @@ Ruangannya terang dengan aksen ungu dari logo AlyxLabs: LED neon yang "lari" di 
 |---|---|
 | Deretan meja belakang | Meja Asuna, Kobayashi, Erza, dan Yor, lemari printer, plus rak server di sebelah Yor |
 | Tengah | Meja meeting enam kursi dengan laptop, meja pingpong, tanaman |
-| Depan | Meja komando 2B dengan papan kanban dan printer di samping, dan pojok konten Ruby dengan backdrop logo, ring light, kamera, dan mic |
+| Depan | Meja komando 2B dengan papan kanban dan printer di samping, pojok konten Ruby dengan backdrop logo, ring light, kamera, dan mic, plus meja Rias dan Chizuru di sebelah kanan 2B |
 | Dinding kiri | Papan tulis (2B dan Rias), papan ide dan beanbag Chizuru, TV lounge |
 | Lounge | Sofa menghadap TV, meja kopi, beanbag |
 | Pantry | Counter bentuk L: wastafel, mesin kopi, dan oven di counter belakang, lalu meja bar yang nyambung ke ujungnya dengan dua bar stool, plus kulkas |
@@ -108,18 +108,31 @@ Setup meja sesuai role:
 
 | Anggota | Setup | Pas kerja |
 |---|---|---|
-| Asuna | Monitor SQL, DAG pipeline, monitor vertikal job run, PC tower | Ngetik SQL, teks muncul per karakter, jarinya mencet tuts yang sesuai dan tuts itu nyala |
+| Asuna | Monitor SQL, DAG pipeline, monitor vertikal job run, bebek karet, PC tower | Ngetik SQL, teks muncul per karakter, jarinya mencet tuts yang sesuai dan tuts itu nyala |
 | Kobayashi | Monitor ultrawide, monitor vertikal daftar PR, konsol handheld di dock, boneka naga, PC tower | Ngetik kode aplikasi |
 | Erza | Monitor diff horizontal, checklist review di monitor vertikal, kue stroberi, PC tower | Ngetik catatan review |
 | Yor | Terminal dan monitoring, stand headset, mawar, PC tower | Ngetik command read-only |
-| 2B | Dua monitor dan kanban tim, PC tower | Ngetik plan, atau nulis di papan tulis pas mikir |
+| 2B | Dua monitor dan kanban tim, planner kertas, PC tower | Ngetik plan, atau nulis di papan tulis pas mikir |
 | Ruby | Laptop, mic, ring light | Ngetik draft post |
-| Rias | Papan tulis | Gambar diagram, tangannya ngikutin ujung spidol, kepala dan badannya ngikutin tulisan |
-| Chizuru | Papan ide | Nempel sticky note satu-satu |
+| Rias | Papan tulis, plus meja sendiri: laptop, papan catur, cangkir teh di atas tatakan, tumpukan buku, gulungan blueprint | Gambar diagram, tangannya ngikutin ujung spidol, kepala dan badannya ngikutin tulisan |
+| Chizuru | Papan ide, plus meja sendiri: laptop yang tutupnya ditempelin sticky note, tumpukan sticky note, gelas spidol, tanaman kecil | Nempel sticky note satu-satu |
 
 **Ngetik**: tiap karakter yang muncul di layar dipencet jari beneran. Telapak tangan ngambang di atas keyboard dengan jari ditekuk ke tuts, jadi tangan nggak tenggelam ke keyboard. Tangan kiri pegang separuh kiri keyboard (1 sampai 5, Q sampai T, A sampai G, Z sampai B), tangan kanan sisanya, spasi, dan Enter, kayak touch typing. Tiap meja juga punya mouse di kanan keyboard. Sesekali tangan kanan pindah ke mouse beberapa detik dengan telapak di atas mouse, mouse-nya geser geser dan tombolnya nyala pas diklik, dan teks di layar berhenti dulu sampai tangannya balik ke keyboard.
 
 **Nulis di papan tulis**: spidolnya diangkat dari papan dan dibawa ke awal coretan berikutnya, nggak loncat. Kadang berhenti sebentar kayak mikir, kadang mundur selangkah buat ngelihat hasilnya dengan tangan turun. Kalau tulisannya makin ke samping, dia geser beberapa langkah kecil ngikutin. Papan tulis dan papan ide dipasang setinggi papan kantor biasa tapi dibikin pendek, jadi seluruh papan kejangkau sambil berdiri: buat baris paling atas dia jinjit, buat baris paling bawah dia nekuk lutut. Abis diagram selesai dia mundur ngelihat seluruhnya, terus ngapus papan dengan gerakan nyapu.
+
+**Barang di meja dipakai**, bukan pajangan. Pas lagi santai di mejanya, tiap beberapa detik cast ngapain sesuatu sama barangnya. Barang yang diambil beneran hilang dari meja selama dipegang, terus ditaruh balik ke tempatnya. Tangannya dijulurin ke barang itu (barang di kiri meja diambil tangan kiri), badannya condong ke arah barangnya.
+
+| Anggota | Yang dilakuin |
+|---|---|
+| 2B | Condong ke kanban sambil megang dagu, atau buka planner dan baca |
+| Asuna | Ngecek job run di monitor vertikal, atau ngajak ngomong bebek karetnya |
+| Kobayashi | Ambil konsol dari dock terus main pakai dua tangan, atau meluk boneka naga sambil senyum |
+| Erza | Makan kue pakai garpu, suap demi suap |
+| Yor | Ambil mawar dari vas dan nyium wanginya |
+| Ruby | Ngomong ke mic, atau selfie pakai HP |
+| Rias | Nyeruput teh, atau mindahin bidak catur terus mikir sambil megang dagu |
+| Chizuru | Nulis di sticky note pakai spidol, atau tiba tiba dapet ide sambil ngacungin jari |
 
 **Pas nggak ada tugas**, tiap cast milih kegiatan sendiri dan jalan ke sana tanpa nembus furnitur atau cast lain: kerja santai di meja, bikin kopi, ngemil di kulkas, cuci tangan di wastafel, manasin makanan di oven, nonton TV, main game di sofa, main arcade, nyiram tanaman, rebahan di beanbag, baca, ngobrol di meja bar, meeting di meja tengah, atau main pingpong. Kira-kira setengah waktunya di meja, setengahnya istirahat. Biar nggak monoton:
 - Kegiatan yang sama nggak dipilih dua kali berturut-turut, dan tiap kegiatan punya jeda sebelum bisa diulang.
@@ -131,7 +144,7 @@ Setup meja sesuai role:
 - Keran wastafel ngalir selama ada yang cuci tangan.
 - Oven dipakai berurutan: pintunya dibuka sambil jongkok buat masukin piring, ditutup, lalu jendelanya nyala oranye selama masak. Abis itu dibuka lagi buat ngambil piringnya, dan piringnya dibawa.
 - Dua bar stool agak serong saling hadap, jadi yang duduk di meja bar bisa ngobrol tanpa muter badan.
-- Yang punya meja bawa gelasnya ke pantry, bikin kopi, terus balik naruh gelasnya di samping keyboard. Rias dan Chizuru minum kopinya di tempat tujuan berikutnya.
+- Yang punya meja bawa gelasnya ke pantry, bikin kopi, terus balik naruh gelasnya di meja. Sekarang semua cast punya meja, jadi Rias dan Chizuru juga begitu.
 - Barang di tangan ngikutin kegiatan: HP pas rebahan atau selfie, buku pas baca, stik pas main game, raket pas pingpong, penyiram pas nyiram tanaman.
 - Abis kelar tugas, cast istirahat dulu, nggak langsung balik ke meja.
 - Jalannya nggak kaku: pinggul dan dada muter berlawanan, siku nekuk pas tangan ke depan, kaki napak dari tumit ke ujung, dan kepala tetap stabil. Tiap cast juga jalannya beda: Chizuru dan Ruby melompat lompat, Rias melenggang pelan, Erza kayak baris berbaris, Kobayashi agak bungkuk. Di jalan kadang nengok kiri kanan, ngecek HP, atau peregangan sebentar (HP dan peregangan nggak dilakuin kalau lagi bawa gelas).

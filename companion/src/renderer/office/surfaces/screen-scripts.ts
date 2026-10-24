@@ -30,7 +30,7 @@ const sqlKeywords = [
   "sum",
 ];
 
-export const screenScripts: Record<Exclude<MemberId, "rias" | "chizuru">, ScreenScript> = {
+export const screenScripts: Record<MemberId, ScreenScript> = {
   asuna: {
     theme: { background: "#1b1f2a", foreground: "#e6e8ee", accent: "#f0a35e", muted: "#7c8396", header: "#2a3040" },
     keywords: sqlKeywords,
@@ -201,6 +201,63 @@ export const screenScripts: Record<Exclude<MemberId, "rias" | "chizuru">, Screen
           "[ ] review -> Erza",
           "",
           "Nunggu approval lo",
+        ].join("\n"),
+      },
+    ],
+  },
+  rias: {
+    theme: { background: "#1e1a22", foreground: "#ece6ea", accent: "#e0566a", muted: "#8c8090", header: "#2e2733" },
+    keywords: ["Konteks", "Opsi", "Keputusan", "Konsekuensi", "Status", "Diterima"],
+    documents: [
+      {
+        title: "adr/0007-orders-ke-warehouse.md",
+        text: [
+          "Status: diusulkan",
+          "",
+          "Konteks",
+          "  Dashboard revenue butuh data order harian.",
+          "",
+          "Opsi",
+          "  A. Airflow + dbt ke BigQuery",
+          "  B. Stream lewat Kafka, materialize di Postgres",
+          "",
+          "Keputusan",
+          "  A dulu. Laporan cukup harian,",
+          "  tim udah biasa pakai dbt.",
+          "",
+          "Konsekuensi",
+          "  Data telat sampai job jam 2 selesai.",
+        ].join("\n"),
+      },
+      {
+        title: "notes/tradeoff.md",
+        text: [
+          "Batch vs stream",
+          "  batch: murah, gampang di-retry",
+          "  stream: segar, tapi butuh on-call",
+          "",
+          "Tanya ke 2B: SLA laporannya apa?",
+        ].join("\n"),
+      },
+    ],
+  },
+  chizuru: {
+    theme: { background: "#fffaf0", foreground: "#2d2a26", accent: "#e8833a", muted: "#958a7c", header: "#fbe7c6" },
+    keywords: ["Ide", "Gimana", "kalau", "?", "+"],
+    documents: [
+      {
+        title: "brainstorm/dashboard-revenue.md",
+        text: [
+          "Ide liar dulu, saring belakangan",
+          "",
+          "+ revenue per region, per hari",
+          "+ gimana kalau ada alert pas turun drastis?",
+          "+ bandingin minggu ini vs minggu lalu",
+          "+ filter per channel penjualan",
+          "+ tombol export buat tim finance",
+          "",
+          "Pertanyaan buat Rias:",
+          "  harus real time atau cukup harian?",
         ].join("\n"),
       },
     ],

@@ -32,6 +32,17 @@ import { memberLooks } from "../common/looks.js";
 import { PoseApplier } from "../common/pose.js";
 import type { ArmSide, ArmTip, OfficeAvatar } from "./avatar.js";
 import { nightFactor } from "./daylight.js";
+import {
+  type ActiveDeskBit,
+  chessCarry,
+  DeskHabits,
+  deskBitFace,
+  deskBitProp,
+  deskBitSpec,
+  deskBits,
+  itemInHand,
+  reachingForItem,
+} from "./desk-habits.js";
 import { aimHand, solveCcd } from "./ik.js";
 import { type ActorState, angleDelta, initialActor, isWalking, stepActor } from "./office-actor.js";
 import { ChatterDirector } from "./office-chatter.js";
@@ -116,8 +127,8 @@ interface MemberRig {
   /** Whether the last frame was real work, to hand the member back to their routine exactly once. */
   wasWorking: boolean;
   props: HandProps;
-  /** The avatar's right hand bone, which hand props follow. */
-  hand: Object3D | null;
+  /** The avatar's wrist bones, which hand props follow. */
+  hands: Record<ArmSide, Object3D | null>;
   mug: MugState;
   /** Fingertips over the member's own keyboard; made on first use, since only desk members type. */
   typingHands: TypingHands | null;
@@ -137,6 +148,11 @@ interface MemberRig {
   sidestep: number;
   sidestepGoal: number;
   walkHabits: WalkHabits;
+  deskHabits: DeskHabits;
+  /** Which of its two squares the desk chess piece stands on, and the bit that last moved it. */
+  chess: { square: 0 | 1; movedBy: number | null };
+  /** How fast the IK aim eases, kept from the last target so letting go eases at the same pace. */
+  reachRate: number;
   /** Who this member last waved at, to turn toward them during the wave. */
   greeted: MemberId | null;
 }
@@ -154,9 +170,13 @@ interface HandTargets {
   approach: Vector3 | null;
   /** The pen on a board the member is working at, for the head and body to follow. */
   board: { pen: Vector3; reviewing: boolean } | null;
+  /** How fast the hand eases onto the target; quick for keys and pens when absent. */
+  rate?: number;
 }
 
 const noHandTargets: HandTargets = { left: null, right: null, tip: "wrist", approach: null, board: null };
+/** Reaching for something on the desk is an unhurried move, not a keystroke. */
+const deskReachRate = 7;
 /** Fingers come down onto keys and the mouse at this angle below horizontal, in radians. */
 const typingFingerPitch = 0.5;
 /** The index finger bone ends at its last knuckle; the real fingertip reaches a little further. */
@@ -425,10 +445,17 @@ export class OfficeStage {
     rig.avatar = avatar;
     rig.poseApplier.reset();
     rig.expressions = {};
-    rig.hand = avatar.arm("right", "wrist")?.effector ?? null;
+    rig.hands = this.wrists(avatar);
     rig.reach = { left: null, right: null };
     avatar.addHairColliders(this.office.hairColliders);
     this.scene.add(avatar.root);
+  }
+
+  private wrists(avatar: OfficeAvatar): Record<ArmSide, Object3D | null> {
+    return {
+      left: avatar.arm("left", "wrist")?.effector ?? null,
+      right: avatar.arm("right", "wrist")?.effector ?? null,
+    };
   }
 
   placeholderFor(memberId: MemberId): OfficeAvatar {
@@ -531,7 +558,7 @@ export class OfficeStage {
       plan,
       wasWorking: false,
       props,
-      hand: avatar.arm("right", "wrist")?.effector ?? null,
+      hands: this.wrists(avatar),
       mug: initialMug,
       typingHands: null,
       mouseHabit: new MouseHabit(this.elapsed),
@@ -542,6 +569,9 @@ export class OfficeStage {
       sidestep: 0,
       sidestepGoal: 0,
       walkHabits: new WalkHabits(this.elapsed),
+      deskHabits: new DeskHabits(deskBits[memberId]),
+      chess: { square: 0, movedBy: null },
+      reachRate,
       greeted: null,
     };
   }
@@ -677,7 +707,10 @@ export class OfficeStage {
    * of a hand, the aim eases back to where the pose holds it before IK lets go, so it never snaps.
    */
   private reachFor(rig: MemberRig, targets: HandTargets, delta: number): void {
-    const blend = 1 - Math.exp(-reachRate * delta);
+    if (targets.left !== null || targets.right !== null) {
+      rig.reachRate = targets.rate ?? reachRate;
+    }
+    const blend = 1 - Math.exp(-rig.reachRate * delta);
     for (const side of armSides) {
       const target = targets[side];
       const current = rig.reach[side];
@@ -791,7 +824,14 @@ export class OfficeStage {
       rig.actionStartedAt = this.elapsed;
     }
 
-    const handTargets = this.updateSurface(memberId, rig, delta);
+    const atOwnDesk = action === "desk-idle" && plan.station === `desk-${memberId}`;
+    const deskBit = rig.deskHabits.update(this.elapsed, atOwnDesk);
+    this.updateDeskItems(memberId, rig, deskBit);
+    const surfaceTargets = this.updateSurface(memberId, rig, delta);
+    const handTargets =
+      surfaceTargets === noHandTargets && deskBit !== null
+        ? this.deskBitTargets(memberId, rig, deskBit)
+        : surfaceTargets;
     // Offset each member's idle loops so the room does not move in lockstep.
     const phaseOffset = memberIds.indexOf(memberId) * 1.7;
 
@@ -819,13 +859,16 @@ export class OfficeStage {
         action === "pingpong" && this.office.pingpongBall.visible
           ? pingpongBeat(this.elapsed, rig.actor.target === "pingpong-west" ? "west" : "east")
           : null,
+      deskBit,
     });
     rig.poseApplier.apply(avatar.poseTarget, pose, delta);
 
     this.reachFor(rig, handTargets, delta);
 
     const reaction = this.chatter.reactionOf(memberId);
-    const moodTargets = expressionTargetsForMood(plan.mood);
+    // The mouth during a bit moves too fast to ease, so it is kept apart from the eased face.
+    const { aa: bitMouth, ...bitFace } = (deskBit === null ? null : deskBitFace(deskBit, this.elapsed)) ?? {};
+    const moodTargets = { ...expressionTargetsForMood(plan.mood), ...bitFace };
     const targets =
       reaction === "laugh"
         ? { ...moodTargets, happy: 1 }
@@ -836,21 +879,25 @@ export class OfficeStage {
     const happy = rig.expressions.happy ?? 0;
     // The mouth flaps while a line is up; too quick for the eased weights, so it is added on top.
     const talking = this.chatter.speechOf(memberId) !== null;
+    // Talking into the mic or chewing is as quick as speech, so it goes on top the same way.
     const shown = talking
       ? { ...rig.expressions, aa: 0.45 * Math.abs(Math.sin((this.elapsed + phaseOffset) * 11)) }
-      : rig.expressions;
+      : bitMouth !== undefined
+        ? { ...rig.expressions, aa: bitMouth }
+        : rig.expressions;
     avatar.setExpressions(shown, rig.blink.weightAt(this.elapsed + phaseOffset) * (1 - happy));
     avatar.update(delta);
 
     // Board work needs the hand free; otherwise the action's own prop wins over a carried mug.
     const onPhone = gimmick?.kind === "phone" ? "phone" : null;
     const plate = action === "oven" && ovenStep(this.elapsed - rig.actionStartedAt).plateInHand ? "plate" : null;
+    const fromDesk = deskBit === null ? null : deskBitProp(deskBit);
     const held =
       action !== null && usesHandIk(action)
         ? null
-        : (plate ?? propForAction(action) ?? (rig.mug.inHand ? "mug" : onPhone));
-    rig.props.show(held);
-    rig.props.follow(rig.hand, actor.yaw);
+        : (fromDesk ?? plate ?? propForAction(action) ?? (rig.mug.inHand ? "mug" : onPhone));
+    rig.props.show(held, fromDesk !== null && deskBit !== null ? deskBitSpec(deskBit.kind).hand : "right");
+    rig.props.follow(rig.hands, actor.yaw);
   }
 
   /**
@@ -957,6 +1004,87 @@ export class OfficeStage {
     if (workstation !== null) {
       workstation.mug.visible = rig.mug.onDesk;
     }
+  }
+
+  /**
+   * Things on the member's desk: hidden while in their hand, and the chess piece carried from one
+   * square to the other. With no bit running everything is back in its place.
+   */
+  private updateDeskItems(memberId: MemberId, rig: MemberRig, bit: ActiveDeskBit | null): void {
+    if (!(memberId in this.office.workstations)) {
+      return;
+    }
+    const workstation = this.office.workstations[memberId as DeskMember];
+    const held = bit !== null && itemInHand(bit) ? deskBitSpec(bit.kind).item : null;
+    for (const [item, object] of Object.entries(workstation.items)) {
+      // The teacup is also the desk mug, which may be away at the pantry.
+      const home = object !== workstation.mug || rig.mug.onDesk;
+      object.visible = home && item !== held;
+    }
+    const piece = workstation.items["chess-piece"];
+    const squares = workstation.chessMove;
+    if (piece === undefined || squares === null) {
+      return;
+    }
+    const landed = squares[rig.chess.square];
+    if (bit?.kind !== "chess" || rig.chess.movedBy === bit.startedAt) {
+      piece.position.copy(landed);
+      return;
+    }
+    const { along, lift } = chessCarry(bit);
+    piece.position.lerpVectors(landed, squares[rig.chess.square === 0 ? 1 : 0], along);
+    piece.position.y += 0.03 * lift;
+    if (along >= 1) {
+      rig.chess = { square: rig.chess.square === 0 ? 1 : 0, movedBy: bit.startedAt };
+    }
+  }
+
+  /** Where the bit's hand goes: out to the item and back, or over the sticky pad while writing. */
+  private deskBitTargets(memberId: MemberId, rig: MemberRig, bit: ActiveDeskBit): HandTargets {
+    if (!(memberId in this.office.workstations)) {
+      return noHandTargets;
+    }
+    const workstation = this.office.workstations[memberId as DeskMember];
+    const spec = deskBitSpec(bit.kind);
+    let target: Vector3 | null = null;
+    if (reachingForItem(bit) && spec.item !== null) {
+      target = workstation.items[spec.item]?.getWorldPosition(new Vector3()) ?? null;
+    } else if (bit.kind === "plush-hug" || bit.kind === "console") {
+      // Both hands meet in front of the chest, around the plush or on either side of the console.
+      const { root } = rig.avatar;
+      root.updateMatrixWorld();
+      const hug = bit.kind === "plush-hug";
+      const height = hug ? 0.5 : 0.45;
+      const ahead = hug ? 0.1 : 0.15;
+      const apart = hug ? 0.035 : 0.06;
+      return {
+        // The avatar faces +z with its left on +x.
+        left: root.localToWorld(new Vector3(apart, height, ahead)),
+        right: root.localToWorld(new Vector3(-apart, height, ahead)),
+        tip: "wrist",
+        approach: null,
+        board: null,
+        rate: deskReachRate,
+      };
+    } else if (bit.kind === "sticky" && workstation.writingPad !== null) {
+      // Short words across the note, the marker lifting off between them.
+      const t = bit.elapsed;
+      const lift = Math.sin(t * 1.9) > 0.75 ? 0.025 : 0;
+      target = workstation.writingPad.localToWorld(
+        new Vector3(0.018 * Math.sin(t * 6.5), lift, 0.012 * Math.sin(t * 0.9) + 0.004 * Math.sin(t * 13)),
+      );
+    }
+    if (target === null) {
+      return noHandTargets;
+    }
+    return {
+      left: spec.hand === "left" ? target : null,
+      right: spec.hand === "right" ? target : null,
+      tip: "fingertip",
+      approach: this.fingersDown(rig),
+      board: null,
+      rate: deskReachRate,
+    };
   }
 
   /** TV, arcade, rack, fridge and laptops react to whoever is using them, so the props look switched on by people. */
