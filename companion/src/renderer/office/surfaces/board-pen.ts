@@ -1,4 +1,4 @@
-import { type Diagram, diagramInk, penPosition, type Stroke, strokeInk, type Vec2 } from "./drawing.js";
+import { charAdvance, type Diagram, diagramInk, penPosition, type Stroke, strokeInk, type Vec2 } from "./drawing.js";
 
 /** Where the pen is and what the hand holding it is doing. */
 export interface PenState {
@@ -33,7 +33,7 @@ function tipOf(stroke: Stroke, fraction: number): Vec2 {
   }
   const characters = stroke.text.length * fraction;
   const wobble = 0.012 * stroke.size * Math.sin(characters * Math.PI * 2);
-  return [stroke.at[0] + characters * 0.022 * stroke.size, stroke.at[1] + wobble];
+  return [stroke.at[0] + characters * charAdvance * stroke.size, stroke.at[1] + wobble];
 }
 
 function smoothstep(t: number): number {

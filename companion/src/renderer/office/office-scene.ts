@@ -21,7 +21,6 @@ import {
   buildBackdrop,
   buildBarTable,
   buildBeanbag,
-  buildBoardStep,
   buildCameraTripod,
   buildChair,
   buildCoffeeTable,
@@ -357,9 +356,6 @@ export function buildOffice(): OfficeProps {
         // Light lettering: the wall sign's dark ink would vanish on the backdrop's near-black.
         root.add(buildBackdrop(piece, logo, signTextTexture("#f4f1ec", "#c9a2f5")));
         break;
-      case "board-step":
-        root.add(buildBoardStep(piece));
-        break;
       case "whiteboard":
       case "idea-board":
         // Built below with their drawing surfaces.
@@ -374,10 +370,10 @@ export function buildOffice(): OfficeProps {
   const whiteboardSpec: BoardSpec = {
     centerZ: whiteboardPiece.z,
     width: whiteboardPiece.depth,
-    // A normal wall height for the room. The top half is written standing on the step, the bottom
-    // half from the floor.
-    bottom: 0.25,
-    height: 0.85,
+    // Raised to a normal wall height, and short enough (0.55 m) that standing in front of it a
+    // chibi reaches the whole board: shoulders are about 0.7 m up, the arm and hand about 0.3 m.
+    bottom: 0.45,
+    height: 0.55,
   };
   // Left half (+z side) for 2B's planning, right half for Rias's architecture sketches.
   const whiteboard = new Whiteboard([
@@ -387,7 +383,7 @@ export function buildOffice(): OfficeProps {
   root.add(leftWallPlane(whiteboard.texture, whiteboardSpec, palette.frame));
 
   const ideaPiece = pieceById("idea-board");
-  const ideaSpec: BoardSpec = { centerZ: ideaPiece.z, width: ideaPiece.depth, bottom: 0.28, height: 0.78 };
+  const ideaSpec: BoardSpec = { centerZ: ideaPiece.z, width: ideaPiece.depth, bottom: 0.45, height: 0.55 };
   const ideaBoard = new IdeaBoard();
   root.add(leftWallPlane(ideaBoard.texture, ideaSpec, palette.skirting));
 

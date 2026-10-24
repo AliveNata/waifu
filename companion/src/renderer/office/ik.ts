@@ -7,6 +7,15 @@ export interface IkJoint {
   measure: Object3D;
 }
 
+/** A hand to point: turning `rotate` swings `tip` around `pivot`. */
+export interface HandAim {
+  rotate: Object3D;
+  /** The wrist, which IK has already placed. */
+  pivot: Object3D;
+  tip: Object3D;
+  sync(): void;
+}
+
 export interface IkChain {
   /** Root to tip, excluding the effector. */
   joints: readonly IkJoint[];
@@ -66,4 +75,25 @@ export function solveCcd(chain: IkChain, target: Vector3, iterations = 10, toler
     }
   }
   return chain.effector.getWorldPosition(effectorPosition).distanceTo(target);
+}
+
+/** Turns the hand at the wrist so its fingertip points at `target`, like one CCD step on the hand. */
+export function aimHand(hand: HandAim, target: Vector3): void {
+  hand.sync();
+  hand.tip.getWorldPosition(effectorPosition);
+  hand.pivot.getWorldPosition(jointPosition);
+  toEffector.subVectors(effectorPosition, jointPosition);
+  toTarget.subVectors(target, jointPosition);
+  if (toEffector.lengthSq() < 1e-8 || toTarget.lengthSq() < 1e-8) {
+    return;
+  }
+  delta.setFromUnitVectors(toEffector.normalize(), toTarget.normalize());
+  hand.rotate.getWorldQuaternion(worldRotation);
+  worldRotation.premultiply(delta);
+  if (hand.rotate.parent !== null) {
+    hand.rotate.parent.getWorldQuaternion(parentRotation);
+    worldRotation.premultiply(parentRotation.invert());
+  }
+  hand.rotate.quaternion.copy(worldRotation);
+  hand.sync();
 }

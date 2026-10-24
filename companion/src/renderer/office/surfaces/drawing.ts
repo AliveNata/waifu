@@ -7,6 +7,8 @@ export type Diagram = readonly Stroke[];
 
 /** Ink length of one text character, so writing takes about as long as a short line. */
 export const charInk = 0.025;
+/** How far one handwritten character advances the pen across a region, at size 1. */
+export const charAdvance = 0.0143;
 
 export function rect(x: number, y: number, w: number, h: number): Stroke {
   return {
@@ -84,7 +86,7 @@ export function inkProgress(diagram: Diagram, ink: number): { strokes: PartialSt
 export function penPosition(stroke: Stroke, fraction: number): Vec2 {
   if (stroke.kind === "text") {
     const characters = Math.floor(stroke.text.length * fraction);
-    return [stroke.at[0] + characters * 0.022 * stroke.size, stroke.at[1]];
+    return [stroke.at[0] + characters * charAdvance * stroke.size, stroke.at[1]];
   }
   let target = strokeInk(stroke) * fraction;
   for (let index = 1; index < stroke.points.length; index++) {

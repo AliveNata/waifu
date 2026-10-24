@@ -19,10 +19,11 @@ export const ideaPool: readonly string[] = [
   "lineage dbt di docs",
 ];
 
+/** Same aspect as the board on the wall, 1.3 by 0.55 m: two rows of four notes. */
 const canvasWidth = 800;
-const canvasHeight = 480;
+const canvasHeight = 340;
 const columns = 4;
-const rowsCount = 3;
+const rowsCount = 2;
 const noteColors = ["#f7e27a", "#f5a8c2", "#9fe0c0", "#a9cdf5"];
 const placeSeconds = 1.1;
 const holdSeconds = 3;
