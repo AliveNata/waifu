@@ -31,7 +31,6 @@ import {
 import { memberLooks } from "../common/looks.js";
 import { PoseApplier } from "../common/pose.js";
 import type { ArmSide, ArmTip, OfficeAvatar } from "./avatar.js";
-import { nightFactor } from "./daylight.js";
 import {
   type ActiveDeskBit,
   chessCarry,
@@ -60,9 +59,10 @@ import {
 import { type LaptopView, laptopPutSeconds, laptopTakeSeconds, laptopView } from "./office-laptop.js";
 import { type Errand, type LifeChoice, OfficeLife } from "./office-life.js";
 import { afterSip, initialMug, type MugState, mugPickSeconds, stepMug } from "./office-mug.js";
-import { distance, meetingStationIds, type StationId, stations, surface } from "./office-plan.js";
+import { distance, floorHeightAt, meetingStationIds, type StationId, stations, surface } from "./office-plan.js";
 import { type BoardFocus, officePose } from "./office-pose.js";
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
+import { atJakartaTime, type DayPart, dayPart, jakartaHours, skyAt } from "./office-time.js";
 import { PlaceholderAvatar } from "./placeholder.js";
 import { drawerTravel, memberPropLooks } from "./scene/desks.js";
 import { HandProps, setCupFill } from "./scene/hand-props.js";
@@ -94,16 +94,23 @@ const viewLimits = {
 /** After this long without input the camera drifts slowly, so a parked office still feels alive. */
 const idleDriftAfterMs = 25_000;
 
-/** Light levels at full day and full night; dusk and dawn blend between them. */
+/**
+ * Light levels at full day and full night; dusk and dawn blend between them. At night the office
+ * lights are on, so the room stays bright and only the sun and the window light drop away.
+ */
 const lighting = {
   day: { hemisphere: 1.5, sun: 2.3, windowFill: 0.55, neonGlow: 0, exposure: 1.05 },
-  night: { hemisphere: 0.32, sun: 0.25, windowFill: 0.12, neonGlow: 2.2, exposure: 0.95 },
+  night: { hemisphere: 1.05, sun: 0.35, windowFill: 0.12, neonGlow: 2.2, exposure: 1.0 },
 } as const;
 const sunDay = new Color(0xfff2e2);
+const sunTwilight = new Color(0xffa36b);
 const sunNight = new Color(0x9fb0ff);
+/** Ceiling light at night is a warmer white than the daylight it replaces. */
+const roomDay = new Color(0xfff8ee);
+const roomNight = new Color(0xffe9cf);
 
 /**
- * `?clock=21:30` on the office page previews another time of day; otherwise the PC clock decides.
+ * `?clock=21:30` on the office page previews another Jakarta time of day; otherwise it is now.
  * Handy for checking night mode without waiting for the evening.
  */
 function officeClock(): () => Date {
@@ -111,11 +118,9 @@ function officeClock(): () => Date {
   if (preview === null) {
     return () => new Date();
   }
-  return () => {
-    const date = new Date();
-    date.setHours(Number(preview[1]), Number(preview[2]), 0, 0);
-    return date;
-  };
+  // The preview keeps ticking from the chosen time, so the wall clock still moves.
+  const offset = atJakartaTime(Number(preview[1]), Number(preview[2])).getTime() - Date.now();
+  return () => new Date(Date.now() + offset);
 }
 
 interface MemberRig {
@@ -137,6 +142,8 @@ interface MemberRig {
   laptop: LaptopView;
   /** The sip bit already taken out of the mug, so one bit drinks once. */
   sippedIn: number | null;
+  /** How high the floor under the member is, eased: up on a board step, or on the floor. */
+  lift: number;
   /** Fingertips over the member's own keyboard; made on first use, since only desk members type. */
   typingHands: TypingHands | null;
   mouseHabit: MouseHabit;
@@ -182,6 +189,8 @@ interface HandTargets {
 }
 
 const noHandTargets: HandTargets = { left: null, right: null, tip: "wrist", approach: null, board: null };
+/** How fast someone steps up onto a board step or down off it. */
+const stepUpRate = 9;
 /** Reaching for something on the desk is an unhurried move, not a keystroke. */
 const deskReachRate = 7;
 /** A desk laptop's lid folded down over the keys, in radians from upright. */
@@ -331,7 +340,7 @@ const actionLabels: Record<OfficeAction, string> = {
 
 export class OfficeStage {
   private composer: EffectComposer | null = null;
-  private readonly chatter = new ChatterDirector();
+  private readonly chatter = new ChatterDirector(Math.random, () => this.dayPart());
   private readonly renderer: WebGLRenderer;
   private readonly scene = new Scene();
   private readonly camera = new PerspectiveCamera(30, 1.6, 0.1, 120);
@@ -347,6 +356,7 @@ export class OfficeStage {
     Math.random,
     (station) => this.stationCrowded(station),
     (memberId) => this.mugs[memberId],
+    () => this.dayPart(),
   );
   /** The idle step each member is on, or nothing while real work has them. */
   private readonly lifeSteps: Partial<Record<MemberId, LifeChoice>> = {};
@@ -582,6 +592,7 @@ export class OfficeStage {
       hands: this.wrists(avatar),
       laptop: laptopView({ errand: null, arrived: false, stepElapsed: 0, remaining: 0 }),
       sippedIn: null,
+      lift: 0,
       typingHands: null,
       mouseHabit: new MouseHabit(this.elapsed),
       reach: { left: null, right: null },
@@ -889,7 +900,9 @@ export class OfficeStage {
     const phaseOffset = memberIds.indexOf(memberId) * 1.7;
 
     const { avatar, actor } = rig;
-    avatar.root.position.set(actor.position.x, 0, actor.position.z);
+    // Up onto a board step and down again over a moment, not in one jump.
+    rig.lift += (floorHeightAt(actor.position) - rig.lift) * (1 - Math.exp(-stepUpRate * delta));
+    avatar.root.position.set(actor.position.x, rig.lift, actor.position.z);
     avatar.root.rotation.y = actor.yaw;
     const seatHeight = stations[plan.station].seatHeight;
     const board = this.boardFocus(rig, handTargets, delta);
@@ -1350,20 +1363,38 @@ export class OfficeStage {
     return this.office.closeups[memberId];
   }
 
-  /** Dims the room toward night and lets the neon take over, following the clock. */
+  /** The time of day in the office, Jakarta time. */
+  private dayPart(): DayPart {
+    return dayPart(jakartaHours(this.clock()));
+  }
+
+  /**
+   * Follows the Jakarta clock: daylight gives way to the office lights and the neon, the sun
+   * turns orange through dawn and dusk, and the desk lamps come on for the evening.
+   */
   private applyDaylight(): void {
-    const night = nightFactor(this.clock());
+    const sky = skyAt(jakartaHours(this.clock()));
+    const { night, twilight } = sky;
     const mix = (key: keyof typeof lighting.day): number =>
       lighting.day[key] + (lighting.night[key] - lighting.day[key]) * night;
     this.hemisphere.intensity = mix("hemisphere");
+    this.hemisphere.color.copy(roomDay).lerp(roomNight, night);
     this.sun.intensity = mix("sun");
-    this.sun.color.copy(sunDay).lerp(sunNight, night);
+    this.sun.color
+      .copy(sunDay)
+      .lerp(sunNight, night)
+      .lerp(sunTwilight, 0.6 * twilight);
     this.windowFill.intensity = mix("windowFill");
     for (const light of this.neonGlow) {
       light.intensity = mix("neonGlow");
     }
     this.renderer.toneMappingExposure = mix("exposure");
-    this.office.setNight(night);
+    this.office.setSky(sky);
+    // On once it is getting dark, not at the first hint of dusk.
+    const lamps = Math.min(1, Math.max(0, (night - 0.35) / 0.4));
+    for (const memberId of memberIds) {
+      this.office.workstations[memberId].lamp.setLevel(lamps);
+    }
     this.night = night;
   }
 
@@ -1394,6 +1425,7 @@ export class OfficeStage {
       this.applyDaylight();
     }
     this.office.neon.update(this.elapsed, this.night);
+    this.office.wallClock.update(this.clock());
     this.focus = this.chooseFocus(now);
     this.drift(delta, now);
     this.controls.update(delta);

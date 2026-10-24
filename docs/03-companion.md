@@ -97,11 +97,11 @@ Ruangannya terang dengan aksen ungu dari logo AlyxLabs: LED neon yang "lari" di 
 | Zona | Isi |
 |---|---|
 | Deretan meja belakang | Meja Asuna, Kobayashi, Erza, dan Yor, lemari printer, plus rak server di sebelah Yor |
-| Tengah | Meja meeting enam kursi dengan laptop, meja pingpong, tanaman |
+| Tengah | Meja meeting enam kursi, meja pingpong |
 | Depan | Meja komando 2B dengan papan kanban dan printer di samping, pojok konten Ruby dengan backdrop logo, ring light, kamera, dan mic, plus meja Rias dan Chizuru di sebelah kanan 2B |
-| Dinding kiri | Papan tulis (2B dan Rias), papan ide dan beanbag Chizuru, TV lounge |
+| Dinding kiri | Papan tulis (2B dan Rias) dan papan ide Chizuru, masing masing dengan panggung rendah di depannya, beanbag, TV lounge |
 | Lounge | Sofa menghadap TV, meja kopi, beanbag |
-| Pantry | Counter bentuk L: wastafel dengan rak pengering gelas di sampingnya, mesin kopi, dan oven di counter belakang, lalu meja bar yang nyambung ke ujungnya dengan dua bar stool, plus kulkas |
+| Pantry | Jam digital besar di dinding (zona Asia/Jakarta). Counter bentuk L: wastafel dengan rak pengering gelas di sampingnya, mesin kopi, dan oven di counter belakang, lalu meja bar yang nyambung ke ujungnya dengan dua bar stool, plus kulkas |
 | Pojok game | Mesin arcade |
 
 Setup meja sesuai role:
@@ -119,7 +119,7 @@ Setup meja sesuai role:
 
 **Ngetik**: tiap karakter yang muncul di layar dipencet jari beneran. Telapak tangan ngambang di atas keyboard dengan jari ditekuk ke tuts, jadi tangan nggak tenggelam ke keyboard. Tangan kiri pegang separuh kiri keyboard (1 sampai 5, Q sampai T, A sampai G, Z sampai B), tangan kanan sisanya, spasi, dan Enter, kayak touch typing. Tiap meja juga punya mouse di kanan keyboard. Sesekali tangan kanan pindah ke mouse beberapa detik dengan telapak di atas mouse, mouse-nya geser geser dan tombolnya nyala pas diklik, dan teks di layar berhenti dulu sampai tangannya balik ke keyboard.
 
-**Nulis di papan tulis**: spidolnya diangkat dari papan dan dibawa ke awal coretan berikutnya, nggak loncat. Kadang berhenti sebentar kayak mikir, kadang mundur selangkah buat ngelihat hasilnya dengan tangan turun. Kalau tulisannya makin ke samping, dia geser beberapa langkah kecil ngikutin. Papan tulis dan papan ide dipasang setinggi papan kantor biasa tapi dibikin pendek, jadi seluruh papan kejangkau sambil berdiri: buat baris paling atas dia jinjit, buat baris paling bawah dia nekuk lutut. Abis diagram selesai dia mundur ngelihat seluruhnya, terus ngapus papan dengan gerakan nyapu.
+**Nulis di papan tulis**: spidolnya diangkat dari papan dan dibawa ke awal coretan berikutnya, nggak loncat. Kadang berhenti sebentar kayak mikir, kadang mundur selangkah buat ngelihat hasilnya dengan tangan turun. Kalau tulisannya makin ke samping, dia geser beberapa langkah kecil ngikutin. Papan tulis dan papan ide ukurannya kayak papan kantor biasa (tinggi 0,85 m, mulai 0,45 m dari lantai), dengan panggung rendah setinggi 18 cm di depannya. Yang nulis naik ke panggung pas mulai dan turun pas selesai. Tulisannya cuma di bagian yang kejangkau dari panggung, jadi bagian paling atas papan dibiarin kosong. Buat baris paling atas dia jinjit, buat baris paling bawah dia nekuk lutut. Abis diagram selesai dia mundur ngelihat seluruhnya, terus ngapus papan dengan gerakan nyapu.
 
 **Barang di meja dipakai**, bukan pajangan. Pas lagi santai di mejanya, tiap beberapa detik cast ngapain sesuatu sama barangnya. Barang yang diambil beneran hilang dari meja selama dipegang, terus ditaruh balik ke tempatnya. Tangannya dijulurin ke barang itu (barang di kiri meja diambil tangan kiri), badannya condong ke arah barangnya.
 
@@ -163,7 +163,11 @@ Pose duduk diukur dari panjang kaki tiap model. Di kursi rendah lututnya naik da
 
 **Grafis**: dengan **Menu > Grafis kantor tinggi** (default nyala), furnitur pakai sudut membulat, tekstur permukaan (serat kayu, anyaman kain, logam, plester dinding, dan alur papan lantai), dan ambient occlusion yang bikin sudut serta kolong meja lebih gelap. Bayangan lembut di bawah furnitur dan di pertemuan dinding dan lantai tetap ada di dua mode. Kalau laptop lo ngos ngosan, hapus centangnya: kantor dimuat ulang dengan grafis ringan. Di mode browser, tambahin `?quality=low` di URL kantor.
 
-**Mode malam** ngikutin jam PC. Mulai sekitar 17.30 lampu meredup pelan sampai gelap penuh jam 19.00, jendela berubah jadi pemandangan kota malam, dan LED neon jadi sumber cahaya utama. Pagi kebalikannya, terang lagi antara 05.00 dan 06.30. Di mode browser, tambahin `?clock=21:30` di URL kantor buat lihat jam lain tanpa nunggu malam.
+**Jam kantor** selalu pakai zona Asia/Jakarta, apa pun setelan jam PC. Jam digital di dinding pantry, siang dan malam, obrolan, dan kegiatan semuanya ngikutin jam yang sama.
+
+**Siang dan malam**: mulai sekitar 17.30 cahaya matahari pelan pelan hilang sampai malam penuh jam 19.00, dan pagi kebalikannya antara 05.00 dan 06.30. Di tengah tengah transisi itu langit di jendela jadi oranye senja, terus berubah jadi pemandangan kota malam. Malam hari lampu kantor tetap nyala, jadi ruangan tetap terang, ditambah LED neon dan lampu meja di tiap meja kerja yang nyala pas mulai gelap. Di mode browser, tambahin `?clock=21:30` di URL kantor buat lihat jam lain tanpa nunggu malam.
+
+**Ikut jam juga**: sapaan dan obrolan disesuaikan sama waktu, jadi nggak ada "pagi" pas malam dan kalimat yang nyebut waktu tertentu (misalnya "makan siang") cuma keluar di jamnya. Kegiatan juga beda per waktu: pagi lebih sering ngopi, siang lebih sering makan di oven, kulkas, atau meja bar, sore lebih banyak santai dan main, malam lebih banyak nonton atau baca.
 
 **Kamera**: drag buat muter, scroll buat zoom, klik dua kali buat balik ke tampilan awal. Pakai keyboard: Tab ke ruangan, panah buat muter, `+` dan `-` buat zoom, `0` buat reset. Kalau lama nggak disentuh, kameranya goyang pelan sendiri.
 

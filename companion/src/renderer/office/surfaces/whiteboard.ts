@@ -61,9 +61,19 @@ export const twobDiagrams: readonly Diagram[] = [
   ],
 ];
 
-/** Same aspect as the board on the wall, 2.2 by 0.55 m. */
+/** Same aspect as the board on the wall, 2.2 by 0.85 m. */
 const canvasWidth = 1040;
-const canvasHeight = 260;
+const canvasHeight = 400;
+/**
+ * The band of the board the diagrams are drawn in, as a share of its height from the top. Above
+ * it is out of reach even from the step; the strip stays clear like the top of a real board.
+ */
+export const writingBand = { top: 0.14, bottom: 0.97 } as const;
+
+/** A diagram's own height (0..1) to the board's, inside the writing band. */
+function bandV(v: number): number {
+  return writingBand.top + v * (writingBand.bottom - writingBand.top);
+}
 /** Handwriting size at text size 1, in canvas pixels. */
 const fontPixels = 20;
 const holdSeconds = 3;
@@ -167,7 +177,7 @@ export class Whiteboard {
   }
 
   private toBoard(region: Region, at: Vec2): Vec2 {
-    return [region.u0 + at[0] * (region.u1 - region.u0), at[1]];
+    return [region.u0 + at[0] * (region.u1 - region.u0), bandV(at[1])];
   }
 
   private drawRegion(regionIndex: number, eraseFraction: number | null): void {
@@ -175,7 +185,7 @@ export class Whiteboard {
     const ctx = this.context;
     const x0 = region.u0 * canvasWidth;
     const regionWidth = (region.u1 - region.u0) * canvasWidth;
-    const toCanvas = (point: Vec2): [number, number] => [x0 + point[0] * regionWidth, point[1] * canvasHeight];
+    const toCanvas = (point: Vec2): [number, number] => [x0 + point[0] * regionWidth, bandV(point[1]) * canvasHeight];
 
     ctx.fillStyle = "#f6f5ef";
     ctx.fillRect(x0, 0, regionWidth, canvasHeight);

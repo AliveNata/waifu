@@ -2,6 +2,7 @@ import type { MemberId } from "../../shared/team.js";
 import type { OfficeAction } from "./office-director.js";
 import { homeStations } from "./office-layout.js";
 import { meetingStationIds, type StationId } from "./office-plan.js";
+import type { DayPart } from "./office-time.js";
 
 /**
  * What the team does between tasks. Each member picks weighted activities with
@@ -55,7 +56,7 @@ const activities: Record<ActivityId, Activity> = {
   console: { stations: sofaSeats, action: "game", durationSeconds: [20, 35], weight: 0.6, cooldownSeconds: 90 },
   arcade: { stations: ["arcade"], action: "arcade", durationSeconds: [15, 30], weight: 0.7, cooldownSeconds: 90 },
   plants: {
-    stations: ["plant-lounge", "plant-corner", "plant-desks", "plant-center"],
+    stations: ["plant-lounge", "plant-corner", "plant-desks"],
     action: "water",
     durationSeconds: [6, 10],
     weight: 0.6,
@@ -136,6 +137,17 @@ const preferences: Record<MemberId, Partial<Record<ActivityId, number>>> = {
   ruby: { chat: 1.5, tv: 1.2, read: 0.6 },
 };
 
+/**
+ * What people feel like doing at each time of day: coffee to start the morning, food around
+ * lunch, winding down in the afternoon, a quieter evening. Multiplies the personal preferences.
+ */
+const byTimeOfDay: Record<DayPart, Partial<Record<ActivityId, number>>> = {
+  pagi: { coffee: 2, plants: 1.4, snack: 0.6, heat: 0.4, console: 0.6, arcade: 0.6 },
+  siang: { heat: 2.5, snack: 2, chat: 1.5, coffee: 0.8 },
+  sore: { tv: 1.5, console: 1.5, pingpong: 1.5, arcade: 1.5, beanbag: 1.3, coffee: 1.2 },
+  malam: { tv: 1.3, read: 1.4, beanbag: 1.3, coffee: 0.6, pingpong: 0.7, plants: 0.5 },
+};
+
 /** Where a member idles when the "desk" activity comes up, and what they do there. */
 const idleHome: Record<MemberId, { station: StationId; action: OfficeAction }> = {
   twob: { station: "desk-twob", action: "desk-idle" },
@@ -203,6 +215,7 @@ export class OfficeLife {
     private readonly random: () => number = Math.random,
     private readonly crowded: (station: StationId) => boolean = () => false,
     private readonly mugOf: (memberId: MemberId) => MugInfo = () => ({ place: "desk", level: 0 }),
+    private readonly dayPart: () => DayPart | null = () => null,
   ) {}
 
   /** The member's current idle activity, picking a new one when the last has run its course. */
@@ -352,7 +365,9 @@ export class OfficeLife {
     ) {
       return 0;
     }
-    let weight = activity.weight * (preferences[memberId][id] ?? 1);
+    const part = this.dayPart();
+    let weight =
+      activity.weight * (preferences[memberId][id] ?? 1) * (part === null ? 1 : (byTimeOfDay[part][id] ?? 1));
     if ((id === "coffee" || id === "wash-mug") && emptyOnDesk) {
       weight *= emptyMugBoost;
     }

@@ -5,6 +5,7 @@ import { homeStations } from "../src/renderer/office/office-layout.js";
 import { type LifeChoice, OfficeLife } from "../src/renderer/office/office-life.js";
 import { bodyRadius, navGrid, planPath } from "../src/renderer/office/office-nav.js";
 import { distance, furniture, type Point, room, type StationId, stations } from "../src/renderer/office/office-plan.js";
+import type { DayPart } from "../src/renderer/office/office-time.js";
 import { fitSeat, type LegMetrics } from "../src/renderer/office/seating.js";
 import { type MemberId, memberIds } from "../src/shared/team.js";
 
@@ -652,5 +653,33 @@ describe("errands", () => {
     expect(steps[0]?.station).toBe("desk-rias");
     expect(steps[1]?.station.startsWith("meeting-")).toBe(true);
     expect(steps[2]?.station).toBe("desk-rias");
+  });
+});
+
+describe("time of day in the office", () => {
+  function share(part: DayPart, activity: string): number {
+    const life = new OfficeLife(
+      Math.random,
+      () => false,
+      () => ({ place: "hand", level: 0 }),
+      () => part,
+    );
+    let now = 0;
+    let hits = 0;
+    let picks = 0;
+    for (let turn = 0; turn < 1500; turn++) {
+      const choice = life.planFor("asuna", now);
+      life.arrived("asuna", now);
+      if (choice.step === 0) {
+        picks += 1;
+        hits += choice.activity === activity ? 1 : 0;
+      }
+      now += choice.durationMs + 1;
+    }
+    return hits / picks;
+  }
+
+  it("heats lunch around midday more than in the morning", () => {
+    expect(share("siang", "heat")).toBeGreaterThan(share("pagi", "heat"));
   });
 });

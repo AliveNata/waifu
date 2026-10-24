@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { nightFactor } from "../src/renderer/office/daylight.js";
 import {
   afterSip,
   brewSeconds,
@@ -9,35 +8,6 @@ import {
   stepMug,
   washSeconds,
 } from "../src/renderer/office/office-mug.js";
-
-function at(hours: number, minutes = 0): Date {
-  const date = new Date(2026, 9, 10);
-  date.setHours(hours, minutes, 0, 0);
-  return date;
-}
-
-describe("nightFactor", () => {
-  it.each([
-    [10, 0, 0],
-    [16, 0, 0],
-    [21, 0, 1],
-    [2, 0, 1],
-    [8, 0, 0],
-  ])("is fixed by %d:%d at %d", (hours, minutes, expected) => {
-    expect(nightFactor(at(hours, minutes))).toBe(expected);
-  });
-
-  it("dims gradually through dusk", () => {
-    // Act
-    const early = nightFactor(at(17, 50));
-    const late = nightFactor(at(18, 40));
-
-    // Assert
-    expect(early).toBeGreaterThan(0);
-    expect(late).toBeGreaterThan(early);
-    expect(late).toBeLessThan(1);
-  });
-});
 
 describe("mug", () => {
   const base: MugInput = {
