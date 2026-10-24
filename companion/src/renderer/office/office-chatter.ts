@@ -143,15 +143,40 @@ const voices: Record<MemberId, Voice> = {
 
 export const chatTopics: readonly ChatTopic[] = ["kerjaan", "makan", "santai", "kantor"];
 
-export type ChatReaction = "talk" | "nod" | "laugh";
+/** Head motion while chatting; "acknowledge" is the small nod and smile when eyes first meet. */
+export type ChatReaction = "talk" | "nod" | "laugh" | "acknowledge";
+
+/** What the speaker's hands do while a line is up. */
+export type SpeakerGesture = "explain" | "point" | "count" | "chin" | "shrug" | "hips" | "clasp" | "wave-off";
+/** How the listener holds themselves while hearing a line. */
+export type ListenerPosture = "relaxed" | "arms-crossed" | "head-tilt" | "chin" | "cover-laugh";
+
+/** The body language a member shows right now, and for how long, so it can ease in. */
+export interface ChatGesture {
+  kind: SpeakerGesture | ListenerPosture;
+  elapsed: number;
+}
 
 export interface ChatTurn {
   speaker: MemberId;
   text: string;
   /** How whoever is listening reacts while this line is up. */
-  listener: Exclude<ChatReaction, "talk">;
+  listener: "nod" | "laugh";
+  gesture: SpeakerGesture;
+  posture: ListenerPosture;
   seconds: number;
 }
+
+/** Hands follow what is being said: plans get counted and pointed at, jokes get hands clasped. */
+const gesturesByTopic: Record<ChatTopic, readonly SpeakerGesture[]> = {
+  kerjaan: ["explain", "point", "count", "chin", "explain"],
+  makan: ["explain", "clasp", "hips", "shrug"],
+  santai: ["explain", "shrug", "clasp", "hips"],
+  kantor: ["point", "shrug", "hips", "explain"],
+};
+const jokingGestures: readonly SpeakerGesture[] = ["clasp", "wave-off", "shrug"];
+const listeningPostures: readonly ListenerPosture[] = ["relaxed", "relaxed", "arms-crossed", "head-tilt", "chin"];
+const laughingPostures: readonly ListenerPosture[] = ["relaxed", "cover-laugh"];
 
 function pick<T>(items: readonly T[], random: () => number): T {
   const item = items[Math.floor(random() * items.length) % items.length];
@@ -166,8 +191,16 @@ export function lineSeconds(text: string): number {
   return Math.min(5, 1.6 + text.length * 0.06);
 }
 
-function turn(speaker: MemberId, line: Line): ChatTurn {
-  return { speaker, text: line.text, listener: line.laugh === true ? "laugh" : "nod", seconds: lineSeconds(line.text) };
+function turn(speaker: MemberId, line: Line, topic: ChatTopic, random: () => number): ChatTurn {
+  const funny = line.laugh === true;
+  return {
+    speaker,
+    text: line.text,
+    listener: funny ? "laugh" : "nod",
+    gesture: pick(funny ? jokingGestures : gesturesByTopic[topic], random),
+    posture: pick(funny ? laughingPostures : listeningPostures, random),
+    seconds: lineSeconds(line.text),
+  };
 }
 
 /** A short exchange on one topic: an opener, a reply, the opener's answer, and a last reply. */
@@ -177,10 +210,10 @@ export function planConversation(first: MemberId, second: MemberId, random: () =
   const b = voices[second];
   const [bFirst, bSecond] = random() < 0.5 ? [0, 1] : [1, 0];
   return [
-    turn(first, pick(a.openers[topic], random)),
-    turn(second, b.replies[topic][bFirst] ?? pick(b.replies[topic], random)),
-    turn(first, pick(a.replies[topic], random)),
-    turn(second, b.replies[topic][bSecond] ?? pick(b.replies[topic], random)),
+    turn(first, pick(a.openers[topic], random), topic, random),
+    turn(second, b.replies[topic][bFirst] ?? pick(b.replies[topic], random), topic, random),
+    turn(first, pick(a.replies[topic], random), topic, random),
+    turn(second, b.replies[topic][bSecond] ?? pick(b.replies[topic], random), topic, random),
   ];
 }
 
@@ -206,6 +239,24 @@ interface Talk {
   index: number;
   /** Seconds into the current turn; negative while pausing between lines or conversations. */
   elapsed: number;
+  /** Seconds into catching each other's eye; the first line waits until it is over. */
+  opening: number;
+}
+
+/*
+ * Before the first word: the opener looks over, the other notices and looks back, and they share
+ * a small nod and a smile. Times in seconds from when the two end up together.
+ */
+const openerTurnsBy = 0.45;
+const otherNoticesAt = 0.6;
+const otherTurnsBy = 1.05;
+const acknowledgeFrom = 1.1;
+const openingSeconds = 2;
+/** Between topics they still face each other, just less squarely. */
+const quietGaze = 0.6;
+
+function ramp(value: number, from: number, to: number): number {
+  return Math.min(1, Math.max(0, (value - from) / (to - from)));
 }
 
 export interface Speech {
@@ -248,7 +299,8 @@ export class ChatterDirector {
           members: [opener, other],
           turns: planConversation(opener, other, this.random),
           index: 0,
-          elapsed: -1,
+          elapsed: 0,
+          opening: 0,
         });
       }
     }
@@ -301,7 +353,12 @@ export class ChatterDirector {
     }
     for (const talk of this.talks.values()) {
       const current = talk.turns[talk.index];
-      if (current !== undefined && talk.elapsed >= 0 && current.speaker === memberId) {
+      if (
+        current !== undefined &&
+        talk.opening >= openingSeconds &&
+        talk.elapsed >= 0 &&
+        current.speaker === memberId
+      ) {
         return { text: current.text, shownFor: talk.elapsed };
       }
     }
@@ -313,6 +370,9 @@ export class ChatterDirector {
       if (!talk.members.includes(memberId)) {
         continue;
       }
+      if (talk.opening < openingSeconds) {
+        return talk.opening >= acknowledgeFrom ? "acknowledge" : null;
+      }
       const current = talk.turns[talk.index];
       if (current === undefined || talk.elapsed < 0) {
         return null;
@@ -320,6 +380,45 @@ export class ChatterDirector {
       return current.speaker === memberId ? "talk" : current.listener;
     }
     return null;
+  }
+
+  /** Hands and posture for the line that is up: the speaker gestures, the listener holds a posture. */
+  gestureOf(memberId: MemberId): ChatGesture | null {
+    for (const talk of this.talks.values()) {
+      if (!talk.members.includes(memberId)) {
+        continue;
+      }
+      const current = talk.turns[talk.index];
+      // Catching each other's eye, or between lines: hands at rest.
+      if (current === undefined || talk.opening < openingSeconds || talk.elapsed < 0) {
+        return { kind: "relaxed", elapsed: 0 };
+      }
+      return {
+        kind: current.speaker === memberId ? current.gesture : current.posture,
+        elapsed: talk.elapsed,
+      };
+    }
+    return null;
+  }
+
+  /**
+   * How squarely this member faces their partner, 0..1. The opener turns first; the other turns
+   * once they notice; between topics both ease off a little.
+   */
+  gazeOf(memberId: MemberId): number {
+    for (const talk of this.talks.values()) {
+      const [opener, other] = talk.members;
+      if (memberId !== opener && memberId !== other) {
+        continue;
+      }
+      if (talk.opening < openingSeconds) {
+        return memberId === opener
+          ? ramp(talk.opening, 0, openerTurnsBy)
+          : ramp(talk.opening, otherNoticesAt, otherTurnsBy);
+      }
+      return talk.elapsed < 0 ? quietGaze : 1;
+    }
+    return 0;
   }
 
   /** The teammate this member is talking with, to turn the head toward them. */
@@ -337,6 +436,10 @@ export class ChatterDirector {
   }
 
   private advance(talk: Talk, deltaSeconds: number): void {
+    if (talk.opening < openingSeconds) {
+      talk.opening += deltaSeconds;
+      return;
+    }
     talk.elapsed += deltaSeconds;
     const current = talk.turns[talk.index];
     if (current === undefined) {

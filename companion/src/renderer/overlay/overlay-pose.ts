@@ -1,6 +1,7 @@
 import type { CompanionPose } from "../../shared/companion-pose.js";
 import type { Mood } from "../../shared/reaction.js";
 import { addRotation, armsRelaxed, clamp, type Pose, type PoseBones } from "../common/pose.js";
+import { type ActiveFidget, applyFidget, applyMoodVariant } from "./idle-fidgets.js";
 import { applyCommandPose, applyTouchGesture, type GestureInput } from "./pose-bones.js";
 
 export interface OverlayPoseInput {
@@ -16,6 +17,10 @@ export interface OverlayPoseInput {
   touch?: GestureInput | null;
   /** A pose asked for from the office chat, if any. It wins over the touch for the arms. */
   command?: { pose: CompanionPose; elapsed: number } | null;
+  /** Something she does on her own while nothing else is going on. */
+  fidget?: ActiveFidget | null;
+  /** Which of a mood's few ways of holding herself this one uses, picked when it started. */
+  variant?: number;
 }
 
 const maxHeadYaw = 0.7;
@@ -73,6 +78,10 @@ export function overlayPose(input: OverlayPoseInput): Pose {
       break;
     case "idle":
       break;
+  }
+  applyMoodVariant(bones, input.mood, input.variant ?? 0, input.moodElapsed);
+  if (input.fidget != null) {
+    applyFidget(bones, input.fidget);
   }
 
   if (input.touch != null) {

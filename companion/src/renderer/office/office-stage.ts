@@ -810,6 +810,7 @@ export class OfficeStage {
       walkStyle: walkStyles[memberId],
       gimmick,
       chatter: this.chatter.reactionOf(memberId),
+      chatGesture: this.chatter.gestureOf(memberId),
       lookYaw: this.lookYawFor(memberId, rig, gimmick?.kind === "wave"),
       pingpongBeat:
         action === "pingpong" && this.office.pingpongBall.visible
@@ -822,7 +823,12 @@ export class OfficeStage {
 
     const reaction = this.chatter.reactionOf(memberId);
     const moodTargets = expressionTargetsForMood(plan.mood);
-    const targets = reaction === "laugh" ? { ...moodTargets, happy: 1 } : moodTargets;
+    const targets =
+      reaction === "laugh"
+        ? { ...moodTargets, happy: 1 }
+        : reaction === "acknowledge"
+          ? { ...moodTargets, happy: 0.6 }
+          : moodTargets;
     rig.expressions = stepExpressionWeights(rig.expressions, targets, delta);
     const happy = rig.expressions.happy ?? 0;
     // The mouth flaps while a line is up; too quick for the eased weights, so it is added on top.
@@ -897,10 +903,12 @@ export class OfficeStage {
     if (other === null) {
       return 0;
     }
+    // In conversation the turn follows the gaze: the opener looks over first, the other after.
+    const weight = waving ? 1 : this.chatter.gazeOf(memberId);
     const target = this.rigs[other].actor.position;
     const { position, yaw } = rig.actor;
     const toward = Math.atan2(target.x - position.x, target.z - position.z);
-    return angleDelta(yaw, toward);
+    return angleDelta(yaw, toward) * weight;
   }
 
   /** Where each speech bubble goes on screen this frame. */
@@ -1084,6 +1092,7 @@ export class OfficeStage {
 
     const width = this.canvas.clientWidth;
     const height = this.canvas.clientHeight;
+
     this.renderer.setScissorTest(false);
     this.renderer.setViewport(0, 0, width, height);
     if (this.composer !== null) {

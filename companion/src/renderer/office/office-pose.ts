@@ -1,5 +1,5 @@
-import { addRotation, armsRelaxed, type Pose, type PoseBones } from "../common/pose.js";
-import type { ChatReaction } from "./office-chatter.js";
+import { addRotation, armsRelaxed, type BoneRotation, type Pose, type PoseBones } from "../common/pose.js";
+import type { ChatGesture, ChatReaction } from "./office-chatter.js";
 import type { OfficeAction } from "./office-director.js";
 import type { SeatFit } from "./seating.js";
 import type { ActiveGimmick, WalkStyle } from "./walk-life.js";
@@ -25,6 +25,8 @@ export interface OfficePoseInput {
   gimmick?: ActiveGimmick | null;
   /** Small talk: talking, nodding along, or laughing. */
   chatter?: ChatReaction | null;
+  /** Hands and posture during small talk at the bar. */
+  chatGesture?: ChatGesture | null;
   /** Turns the head toward someone, in radians to the avatar's left. */
   lookYaw?: number;
   /**
@@ -163,7 +165,170 @@ function chatterHead(reaction: ChatReaction, time: number): { x: number; y: numb
       return { x: 0.16 * Math.max(0, Math.sin(time * 6)) * (Math.sin(time * 1.1) > 0 ? 1 : 0.3), y: 0, z: 0 };
     case "laugh":
       return { x: -0.15 + 0.06 * Math.sin(time * 16), y: 0, z: 0.08 };
+    case "acknowledge":
+      // One small nod as their eyes meet.
+      return { x: 0.12 * Math.max(0, Math.sin(time * 4)), y: 0, z: 0.04 };
   }
+}
+
+type Side = "left" | "right";
+
+/**
+ * Sets one arm from rotations written for the right arm; the left arm mirrors y and z. Right arm:
+ * upper z 1.22 hangs down, 0 sideways, x negative raises it forward; lower y positive folds the
+ * forearm forward and up.
+ */
+function setArm(bones: PoseBones, side: Side, upper: BoneRotation, lower: BoneRotation): void {
+  const flip = (rotation: BoneRotation): BoneRotation =>
+    side === "left" ? { x: rotation.x, y: -rotation.y, z: -rotation.z } : rotation;
+  bones[`${side}UpperArm`] = flip(upper);
+  bones[`${side}LowerArm`] = flip(lower);
+}
+
+/** Fingers curled except the index, for pointing. */
+function pointingFingers(bones: PoseBones, side: Side, amount: number): void {
+  const sign = side === "right" ? 1 : -1;
+  for (const finger of ["Middle", "Ring", "Little"] as const) {
+    for (const joint of fingerJoints) {
+      bones[`${side}${finger}${joint}`] = { x: 0, y: 0, z: sign * 1.3 * amount };
+    }
+  }
+}
+
+/**
+ * Hands and posture during small talk, eased in over the first moments of a line. Each kind is
+ * one of the ways people actually hold themselves in conversation, so a long chat at the bar
+ * keeps changing shape instead of looping one motion.
+ */
+function chatGestureBones(gesture: ChatGesture, time: number): PoseBones {
+  const k = Math.min(1, gesture.elapsed / 0.35);
+  const ease = k * k * (3 - 2 * k);
+  const blend = (value: number, rest: number): number => rest + (value - rest) * ease;
+  const bones: PoseBones = {};
+  const beat = Math.sin(time * 4);
+  switch (gesture.kind) {
+    case "explain":
+      // Both forearms up, palms out, beating gently with the words, out of step with each other.
+      setArm(
+        bones,
+        "right",
+        { x: blend(-0.45, 0), y: 0, z: blend(1.0, 1.22) },
+        { x: 0, y: blend(1.35 + 0.25 * beat, 0.25), z: 0 },
+      );
+      setArm(
+        bones,
+        "left",
+        { x: blend(-0.4, 0), y: 0, z: blend(1.05, 1.22) },
+        { x: 0, y: blend(1.25 + 0.25 * Math.sin(time * 4 + 2), 0.25), z: 0 },
+      );
+      break;
+    case "point":
+      // Arm out toward something, a little jab at the start.
+      setArm(
+        bones,
+        "right",
+        {
+          x: blend(-1.05 - 0.08 * Math.exp(-gesture.elapsed * 3) * Math.sin(gesture.elapsed * 12), 0),
+          y: 0,
+          z: blend(0.85, 1.22),
+        },
+        { x: 0, y: blend(0.25, 0.25), z: 0 },
+      );
+      pointingFingers(bones, "right", ease);
+      break;
+    case "count":
+      // Left hand up, right index tapping its fingers one by one.
+      setArm(bones, "left", { x: blend(-0.5, 0), y: 0, z: blend(1.0, 1.22) }, { x: 0, y: blend(1.5, 0.25), z: 0 });
+      setArm(
+        bones,
+        "right",
+        { x: blend(-0.55, 0), y: blend(0.35, 0), z: blend(1.0, 1.22) },
+        { x: 0, y: blend(1.7 + 0.12 * Math.sin(time * 5), 0.25), z: 0 },
+      );
+      pointingFingers(bones, "right", ease);
+      break;
+    case "chin":
+      // Hand to the chin, head tipped, thinking it over.
+      setArm(bones, "right", { x: blend(-0.6, 0), y: 0, z: blend(1.25, 1.22) }, { x: 0, y: blend(2.15, 0.25), z: 0 });
+      bones.head = { x: -0.1 * ease, y: 0, z: 0.12 * ease };
+      break;
+    case "shrug": {
+      // Shoulders up once, forearms out with palms up, then a softer hold.
+      const lift = Math.exp(-gesture.elapsed * 2.5) * Math.sin(Math.min(Math.PI, gesture.elapsed * 4));
+      setArm(bones, "right", { x: blend(-0.2, 0), y: 0, z: blend(1.0, 1.22) }, { x: 0, y: blend(1.1, 0.25), z: 0 });
+      setArm(bones, "left", { x: blend(-0.2, 0), y: 0, z: blend(1.0, 1.22) }, { x: 0, y: blend(1.1, 0.25), z: 0 });
+      bones.rightShoulder = { x: 0, y: 0, z: -0.25 * lift };
+      bones.leftShoulder = { x: 0, y: 0, z: 0.25 * lift };
+      bones.head = { x: 0, y: 0, z: 0.1 * ease };
+      break;
+    }
+    case "hips":
+      // Hands on hips, elbows out: sure of what they are saying.
+      setArm(
+        bones,
+        "right",
+        { x: blend(0.25, 0), y: blend(-0.4, 0), z: blend(0.8, 1.22) },
+        { x: 0, y: blend(1.7, 0.25), z: 0 },
+      );
+      setArm(
+        bones,
+        "left",
+        { x: blend(0.25, 0), y: blend(-0.4, 0), z: blend(0.8, 1.22) },
+        { x: 0, y: blend(1.7, 0.25), z: 0 },
+      );
+      break;
+    case "clasp": {
+      // Hands together in front, a little bounce of excitement.
+      const bounce = 0.06 * Math.abs(Math.sin(time * 7));
+      setArm(
+        bones,
+        "right",
+        { x: blend(-0.75 - bounce, 0), y: blend(0.65, 0), z: blend(1.0, 1.22) },
+        { x: 0, y: blend(1.2, 0.25), z: 0 },
+      );
+      setArm(
+        bones,
+        "left",
+        { x: blend(-0.75 - bounce, 0), y: blend(0.65, 0), z: blend(1.0, 1.22) },
+        { x: 0, y: blend(1.2, 0.25), z: 0 },
+      );
+      break;
+    }
+    case "wave-off":
+      // A loose flap of the hand: "no way".
+      setArm(
+        bones,
+        "right",
+        { x: blend(-0.5, 0), y: 0, z: blend(1.0, 1.22) },
+        { x: 0, y: blend(1.6, 0.25), z: blend(0.35 * Math.sin(time * 10), 0) },
+      );
+      break;
+    case "arms-crossed":
+      setArm(
+        bones,
+        "right",
+        { x: blend(-0.25, 0), y: blend(1.0, 0), z: blend(1.15, 1.22) },
+        { x: 0, y: blend(1.75, 0.25), z: 0 },
+      );
+      setArm(
+        bones,
+        "left",
+        { x: blend(-0.35, 0), y: blend(1.0, 0), z: blend(1.15, 1.22) },
+        { x: 0, y: blend(1.7, 0.25), z: 0 },
+      );
+      break;
+    case "head-tilt":
+      bones.head = { x: 0, y: 0, z: 0.18 * ease };
+      break;
+    case "cover-laugh":
+      // Hand up over the mouth, shoulders shaking.
+      setArm(bones, "right", { x: blend(-0.55, 0), y: 0, z: blend(1.25, 1.22) }, { x: 0, y: blend(2.35, 0.25), z: 0 });
+      bones.chest = { x: 0.04 * Math.sin(time * 15) * ease, y: 0, z: 0 };
+      break;
+    case "relaxed":
+      break;
+  }
+  return bones;
 }
 
 function typeBody(input: OfficePoseInput): UpperBody {
@@ -479,10 +644,22 @@ function rackBody(input: OfficePoseInput): UpperBody {
 }
 
 function chatBody(input: OfficePoseInput): UpperBody {
-  // Talking with the hands, nodding along.
+  // Between lines: hands resting, weight shifting from side to side now and then.
+  const shift = 0.05 * Math.sin(input.time * 0.37) + 0.03 * Math.sin(input.time * 0.91);
+  if (input.chatGesture !== undefined && input.chatGesture !== null) {
+    return {
+      bones: {
+        ...armsRelaxed,
+        hips: { x: 0, y: 0, z: shift },
+        spine: { x: 0.05, y: 0, z: -shift * 0.6 },
+        ...chatGestureBones(input.chatGesture, input.time),
+      },
+    };
+  }
   return {
     bones: {
-      spine: { x: 0.05, y: 0, z: 0 },
+      hips: { x: 0, y: 0, z: shift },
+      spine: { x: 0.05, y: 0, z: -shift * 0.6 },
       head: { x: 0.08 * Math.sin(input.time * 2.3), y: 0.08 * Math.sin(input.time * 0.7), z: 0.05 },
       leftUpperArm: { x: -0.4, y: 0, z: -1.2 },
       rightUpperArm: { x: -0.4, y: 0, z: 1.2 },
