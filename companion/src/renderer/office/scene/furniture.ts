@@ -190,21 +190,6 @@ export function buildStool(piece: Furniture, seatHeight: number): BuiltPiece {
   };
 }
 
-/** A coffee mug sized for chibi hands. */
-export function mug(x = 0, y = 0, z = 0): Group {
-  const group = new Group();
-  const material = standard(palette.laminate, 0.4);
-  const cup = mesh(new CylinderGeometry(0.028, 0.024, 0.06, 12), material);
-  cup.position.y = 0.03;
-  const handle = mesh(new TorusGeometry(0.017, 0.006, 6, 12), material);
-  handle.position.set(0.032, 0.033, 0);
-  const coffee = mesh(new CylinderGeometry(0.024, 0.024, 0.004, 12), standard("#5b3a22", 0.4));
-  coffee.position.y = 0.056;
-  group.add(cup, handle, coffee);
-  group.position.set(x, y, z);
-  return group;
-}
-
 /** Pantry counter at chibi working height, with the coffee machine where the "coffee" station stands. */
 /** The pantry counter's working parts, which the stage switches on while someone uses them. */
 export interface PantryCounter {
@@ -412,8 +397,8 @@ function buildOven(x: number, front: number): { root: Group; oven: Oven } {
 }
 
 /**
- * The bar that runs out from the end of the pantry counter, making the L: a raised top with an
- * overhang on the stool side for knees, and a footrest rail along it.
+ * The bar that runs out from the end of the pantry counter, making the L: a raised top that
+ * overhangs both sides for the knees of whoever sits on the stools, and a footrest rail each side.
  */
 export function buildBarCounter(piece: Furniture): Group {
   const root = placed(piece);
@@ -422,15 +407,74 @@ export function buildBarCounter(piece: Furniture): Group {
   const ink = standard(palette.ink, 0.6);
   const overhang = 0.14;
   root.add(
-    box(width - 0.06, top - 0.035, depth, ink, -0.03, 0, 0),
-    box(width + overhang, 0.035, depth + 0.02, standard(palette.laminate, 0.4), overhang / 2, top - 0.035, 0),
-    box(0.01, 0.012, depth - 0.2, glow(), width / 2 - 0.035, top - 0.05, 0),
+    box(width - 0.12, top - 0.035, depth, ink, 0, 0, 0),
+    box(width + overhang * 2, 0.035, depth + 0.02, standard(palette.laminate, 0.4), 0, top - 0.035, 0),
+    box(0.01, 0.012, depth - 0.2, glow(), width / 2 - 0.065, top - 0.05, 0),
+    box(0.01, 0.012, depth - 0.2, glow(), -width / 2 + 0.065, top - 0.05, 0),
   );
-  const rail = mesh(new CylinderGeometry(0.012, 0.012, depth - 0.3, 10), standard(palette.steel, 0.3, 0.6));
-  rail.rotation.x = Math.PI / 2;
-  rail.position.set(width / 2 - 0.02, 0.16, 0);
-  root.add(rail, mug(width / 2 - 0.02, top, 0.36), mug(width / 2 - 0.04, top, 0.9));
+  for (const side of [-1, 1]) {
+    const rail = mesh(new CylinderGeometry(0.012, 0.012, depth - 0.3, 10), standard(palette.steel, 0.3, 0.6));
+    rail.rotation.x = Math.PI / 2;
+    rail.position.set(side * (width / 2 - 0.02), 0.16, 0);
+    root.add(rail);
+  }
   return root;
+}
+
+/** A pedal bin by the bar, where the empty food boxes go. */
+export function buildTrashBin(piece: Furniture): Group {
+  const root = placed(piece);
+  const body = mesh(new CylinderGeometry(0.12, 0.105, 0.34, 20), standard("#3a3f4b", 0.5, 0.3));
+  body.position.y = 0.17;
+  const lid = mesh(new CylinderGeometry(0.125, 0.125, 0.02, 20), standard(palette.steel, 0.3, 0.6));
+  lid.position.y = 0.35;
+  root.add(body, lid, box(0.06, 0.012, 0.05, standard(palette.steel, 0.3, 0.6), 0, 0.01, 0.13));
+  return root;
+}
+
+/** How far the entry door swings open, inward, away from the hinge post. */
+const entryDoorOpenAngle = 1.4;
+
+/** The entry door: swings open while someone is going through, then closes behind them. */
+export class EntryDoor {
+  private angle = 0;
+
+  constructor(private readonly hinge: Group) {}
+
+  update(open: boolean, delta: number): void {
+    this.angle += ((open ? entryDoorOpenAngle : 0) - this.angle) * Math.min(1, 5 * delta);
+    // Negative yaw swings the free edge toward +z, the room side, where the mat is.
+    this.hinge.rotation.y = -this.angle;
+  }
+}
+
+/**
+ * The way in at the open right-hand side of the room: a frame with a door, sized for chibis, and
+ * a mat in front. Whoever goes out for food leaves and comes back through it.
+ */
+export function buildEntryDoor(piece: Furniture): { root: Group; door: EntryDoor } {
+  const root = placed(piece);
+  const { width } = localSize(piece);
+  const height = 1.45;
+  const frame = standard(palette.inkDeep, 0.5);
+  root.add(
+    box(0.06, height + 0.06, 0.1, frame, -width / 2, 0, 0),
+    box(0.06, height + 0.06, 0.1, frame, width / 2, 0, 0),
+    box(width + 0.06, 0.06, 0.1, frame, 0, height, 0),
+    box(width - 0.1, 0.012, 0.012, glow(), 0, height + 0.02, 0.05),
+    box(width + 0.2, 0.01, 0.45, standard(palette.inkSoft, 0.95), 0, 0, 0.32),
+  );
+  // Hinged on its left post as seen from the room, opening inward.
+  const hinge = new Group();
+  hinge.position.set(-width / 2 + 0.03, 0, 0.02);
+  const panelWidth = width - 0.06;
+  hinge.add(
+    box(panelWidth, height - 0.01, 0.04, standard(palette.oak, 0.55), panelWidth / 2, 0, 0),
+    box(panelWidth - 0.24, 0.42, 0.045, standard(palette.glass, 0.1), panelWidth / 2, height * 0.55, 0),
+    box(0.1, 0.02, 0.03, standard(palette.steel, 0.3, 0.6), panelWidth - 0.1, height * 0.45, 0.03),
+  );
+  root.add(hinge);
+  return { root, door: new EntryDoor(hinge) };
 }
 
 /** How far the fridge door swings: short of 90 degrees, since the hinge side is right by the wall. */
@@ -602,7 +646,7 @@ export function buildCoffeeTable(piece: Furniture): Group {
   ] as const) {
     root.add(box(0.035, top - 0.035, 0.035, legs, x * (width / 2 - 0.05), 0, z * (depth / 2 - 0.05)));
   }
-  root.add(mug(0.1, top, 0.15), box(0.14, 0.025, 0.07, standard(palette.inkDeep, 0.4), -0.1, top, -0.15));
+  root.add(box(0.14, 0.025, 0.07, standard(palette.inkDeep, 0.4), -0.1, top, -0.15));
   return root;
 }
 
@@ -791,8 +835,8 @@ export function buildMeetingTable(piece: Furniture): { root: Group; laptops: Mee
     root.add(laptop);
     return new MeetingLaptop(laptop, lid, shell, screen);
   });
-  // Between the laptops: a printout and a shared mug.
-  root.add(box(0.14, 0.004, 0.2, standard("#fbfaf7", 0.9), 0.4, top, 0), mug(-0.4, top, 0));
+  // Between the laptops: a printout. Mugs are everyone's own now, so none is left lying here.
+  root.add(box(0.14, 0.004, 0.2, standard("#fbfaf7", 0.9), 0.4, top, 0));
   return { root, laptops };
 }
 

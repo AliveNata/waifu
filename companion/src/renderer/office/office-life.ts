@@ -27,7 +27,9 @@ export type ActivityId =
   | "pingpong"
   | "wash"
   | "heat"
-  | "wash-mug";
+  | "wash-mug"
+  | "grab-food"
+  | "buy-food";
 
 interface Activity {
   /** Null means the member's own idle spot. */
@@ -70,7 +72,7 @@ const activities: Record<ActivityId, Activity> = {
     cooldownSeconds: 90,
   },
   chat: {
-    stations: ["bar-left", "bar-right"],
+    stations: ["bar-left", "bar-right", "bar-west-left", "bar-west-right"],
     action: "chat",
     durationSeconds: [15, 30],
     weight: 0.8,
@@ -98,6 +100,11 @@ const activities: Record<ActivityId, Activity> = {
   heat: { stations: ["oven"], action: "oven", durationSeconds: [10, 14], weight: 0.5, cooldownSeconds: 150 },
   // An empty mug washed up and left on the drying rack. Only offered while the mug is empty.
   "wash-mug": { stations: ["sink"], action: "wash", durationSeconds: [6, 8], weight: 0.8, cooldownSeconds: 0 },
+  // A piece of whatever is on the bar. Only offered while there is some left.
+  "grab-food": { stations: ["bar-food"], action: "eat", durationSeconds: [7, 10], weight: 0.8, cooldownSeconds: 150 },
+  // Out through the door for more food, then back to put it on the bar. Only offered when the bar
+  // has been empty long enough and nobody is already out for it.
+  "buy-food": { stations: ["door"], action: "out", durationSeconds: [25, 40], weight: 3, cooldownSeconds: 0 },
   read: {
     stations: [...sofaSeats, "beanbag-lounge"],
     action: "read",
@@ -142,9 +149,9 @@ const preferences: Record<MemberId, Partial<Record<ActivityId, number>>> = {
  * lunch, winding down in the afternoon, a quieter evening. Multiplies the personal preferences.
  */
 const byTimeOfDay: Record<DayPart, Partial<Record<ActivityId, number>>> = {
-  pagi: { coffee: 2, plants: 1.4, snack: 0.6, heat: 0.4, console: 0.6, arcade: 0.6 },
-  siang: { heat: 2.5, snack: 2, chat: 1.5, coffee: 0.8 },
-  sore: { tv: 1.5, console: 1.5, pingpong: 1.5, arcade: 1.5, beanbag: 1.3, coffee: 1.2 },
+  pagi: { coffee: 2, plants: 1.4, snack: 0.6, heat: 0.4, console: 0.6, arcade: 0.6, "grab-food": 0.7 },
+  siang: { heat: 2.5, snack: 2, chat: 1.5, coffee: 0.8, "grab-food": 2 },
+  sore: { tv: 1.5, console: 1.5, pingpong: 1.5, arcade: 1.5, beanbag: 1.3, coffee: 1.2, "grab-food": 1.3 },
   malam: { tv: 1.3, read: 1.4, beanbag: 1.3, coffee: 0.6, pingpong: 0.7, plants: 0.5 },
 };
 
@@ -161,10 +168,20 @@ const idleHome: Record<MemberId, { station: StationId; action: OfficeAction }> =
 };
 
 /**
- * A step that moves something along the way: a mug or a laptop. The stage reads it to know
- * when things change hands.
+ * A step that moves something along the way: a mug, a laptop, or the shared food and its box.
+ * The stage reads it to know when things change hands.
  */
-export type Errand = "get-mug" | "rack-mug" | "wash-mug" | "fetch-laptop" | "meeting-laptop" | "stow-laptop";
+export type Errand =
+  | "get-mug"
+  | "rack-mug"
+  | "wash-mug"
+  | "fetch-laptop"
+  | "meeting-laptop"
+  | "stow-laptop"
+  | "go-out"
+  | "set-food"
+  | "take-box"
+  | "bin-box";
 
 export interface LifeChoice {
   activity: ActivityId;
@@ -186,8 +203,32 @@ export interface MugInfo {
   level: number;
 }
 
+/** The shared food as the choices need it. */
+export interface FoodInfo {
+  /** Pieces left in the box on the bar. */
+  pieces: number;
+  /** The bar has been empty long enough that someone may go out for more. */
+  canBuy: boolean;
+}
+
 /** Errand steps are short: reach, take or put down, go. */
-const errandMs = { "get-mug": 1600, "rack-mug": 1600, "fetch-laptop": 2400, "stow-laptop": 2400 } as const;
+const errandMs = {
+  "get-mug": 1600,
+  "rack-mug": 1600,
+  "fetch-laptop": 2400,
+  "stow-laptop": 2400,
+  "set-food": 2000,
+  "take-box": 1400,
+  "bin-box": 1600,
+} as const;
+type TimedErrand = keyof typeof errandMs;
+
+/** A step the stage adds in front of what a member does next, such as binning an empty box. */
+export interface ExtraStep {
+  station: StationId;
+  action: OfficeAction;
+  errand: TimedErrand;
+}
 /** An empty mug makes coffee or washing up this much more likely than a casual break. */
 const emptyMugBoost = 2.5;
 
@@ -216,6 +257,7 @@ export class OfficeLife {
     private readonly crowded: (station: StationId) => boolean = () => false,
     private readonly mugOf: (memberId: MemberId) => MugInfo = () => ({ place: "desk", level: 0 }),
     private readonly dayPart: () => DayPart | null = () => null,
+    private readonly food: () => FoodInfo = () => ({ pieces: 0, canBuy: false }),
   ) {}
 
   /** The member's current idle activity, picking a new one when the last has run its course. */
@@ -256,6 +298,34 @@ export class OfficeLife {
   /** The member's opponent while a ping-pong game is on, or null. */
   partnerOf(memberId: MemberId): MemberId | null {
     return this.partners.get(memberId) ?? null;
+  }
+
+  /**
+   * Puts steps in front of whatever the member does next, holding their stations from now. The
+   * steps run as part of the current activity, so the cooldowns and history stay as they were.
+   */
+  insertNext(memberId: MemberId, steps: readonly ExtraStep[], now: number): void {
+    const current = this.choices.get(memberId);
+    if (current === undefined) {
+      return;
+    }
+    const added = steps.map(
+      (step, index): LifeChoice => ({
+        ...current,
+        station: step.station,
+        action: step.action,
+        errand: step.errand,
+        durationMs: errandMs[step.errand],
+        arrivedAt: null,
+        chosenAt: now,
+        step: current.step + 1 + index,
+      }),
+    );
+    for (const step of added) {
+      this.reserved.set(step.station, memberId);
+    }
+    const rest = (this.queued.get(memberId) ?? []).map((step) => ({ ...step, step: step.step + added.length }));
+    this.queued.set(memberId, [...added, ...rest]);
   }
 
   /** The stage reports arrival so the activity runs its full length once the member is actually there. */
@@ -359,6 +429,12 @@ export class OfficeLife {
     if (id === "wash-mug" && !emptyOnDesk) {
       return 0;
     }
+    if (id === "grab-food" && this.food().pieces <= 0) {
+      return 0;
+    }
+    if (id === "buy-food" && (!this.food().canBuy || this.someoneBuying())) {
+      return 0;
+    }
     if (
       id === "pingpong" &&
       (this.freeStations(activity, memberId).length < 2 || this.idlePartner(memberId) === null)
@@ -375,6 +451,17 @@ export class OfficeLife {
       weight *= companyBoost;
     }
     return weight;
+  }
+
+  /** Someone is already out for food, or on the way back with it. */
+  private someoneBuying(): boolean {
+    const buying = (step: LifeChoice): boolean => step.errand === "go-out" || step.errand === "set-food";
+    for (const [id, choice] of this.choices) {
+      if (buying(choice) || (this.queued.get(id) ?? []).some(buying)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -464,7 +551,7 @@ export class OfficeLife {
    */
   private withErrands(memberId: MemberId, main: LifeChoice, now: number): LifeChoice[] {
     const home = idleHome[memberId];
-    const errand = (station: StationId, action: OfficeAction, kind: keyof typeof errandMs): LifeChoice => ({
+    const errand = (station: StationId, action: OfficeAction, kind: TimedErrand): LifeChoice => ({
       ...main,
       station,
       action,
@@ -501,6 +588,9 @@ export class OfficeLife {
           { ...main, errand: "meeting-laptop" },
           errand(home.station, "fetch", "stow-laptop"),
         ];
+        break;
+      case "buy-food":
+        steps = [{ ...main, errand: "go-out" }, errand("bar-food", "fetch", "set-food")];
         break;
       default:
         steps = [main];

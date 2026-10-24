@@ -14,6 +14,7 @@ import {
 import { type MemberId, memberIds } from "../../shared/team.js";
 import logoUrl from "./assets/alyxlabs-logo.png";
 import {
+  barFoodSpot,
   boardStepHeight,
   chairSeatHeight,
   type Furniture,
@@ -21,8 +22,10 @@ import {
   meetingStationIds,
   room,
   stations,
+  surface,
 } from "./office-plan.js";
 import type { ArcadeScreen, RackLights, TvScreen } from "./scene/animated.js";
+import { BarFoodDisplay } from "./scene/bar-food.js";
 import { buildContactShadows } from "./scene/contact-shadows.js";
 import { buildDesk, type DeskMember, deskTop, memberPropLooks, type Workstation } from "./scene/desks.js";
 import {
@@ -34,6 +37,7 @@ import {
   buildCameraTripod,
   buildChair,
   buildCoffeeTable,
+  buildEntryDoor,
   buildFridge,
   buildKanban,
   buildMeetingTable,
@@ -46,8 +50,10 @@ import {
   buildServerRack,
   buildSofa,
   buildStool,
+  buildTrashBin,
   buildTvConsole,
   buildTvWall,
+  type EntryDoor,
   type FridgeDoor,
   type MeetingLaptop,
   type Oven,
@@ -97,6 +103,10 @@ export interface OfficeProps {
   setSky(sky: { night: number; twilight: number }): void;
   /** The big clock on the pantry wall. */
   wallClock: WallClock;
+  /** The shared food on the end of the bar. */
+  barFood: BarFoodDisplay;
+  /** The way out, at the right edge of the room, which opens for whoever goes through. */
+  entryDoor: EntryDoor;
 }
 
 interface BoardSpec {
@@ -283,6 +293,10 @@ export function buildOffice(): OfficeProps {
   let fridgeDoor: FridgeDoor | null = null;
   let sink: SinkTap | null = null;
   let oven: Oven | null = null;
+  let entryDoor: EntryDoor | null = null;
+  const barFood = new BarFoodDisplay();
+  barFood.root.position.set(barFoodSpot.x, surface.barTable, barFoodSpot.z);
+  root.add(barFood.root);
 
   root.add(buildContactShadows(furniture));
   for (const piece of furniture) {
@@ -416,6 +430,15 @@ export function buildOffice(): OfficeProps {
         wallClock = new WallClock(piece);
         root.add(wallClock.root);
         break;
+      case "trash-bin":
+        root.add(buildTrashBin(piece));
+        break;
+      case "entry-door": {
+        const built = buildEntryDoor(piece);
+        entryDoor = built.door;
+        root.add(built.root);
+        break;
+      }
     }
   }
   if (
@@ -427,9 +450,10 @@ export function buildOffice(): OfficeProps {
     oven === null ||
     meetingLaptops.length !== meetingStationIds.length ||
     rackCups.length !== memberIds.length ||
-    wallClock === null
+    wallClock === null ||
+    entryDoor === null
   ) {
-    throw new Error("Floor plan is missing the TV, arcade, server rack, fridge or meeting table");
+    throw new Error("Floor plan is missing the TV, arcade, server rack, fridge, meeting table or door");
   }
 
   const whiteboardPiece = pieceById("whiteboard");
@@ -499,6 +523,8 @@ export function buildOffice(): OfficeProps {
       }
     },
     wallClock,
+    barFood,
+    entryDoor,
   };
 }
 

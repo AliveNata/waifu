@@ -563,6 +563,22 @@ function fetchBody(input: OfficePoseInput): UpperBody {
   };
 }
 
+/**
+ * Standing at the bar with a piece of the shared food: leaning in to take it, then bites, the
+ * hand going up to the mouth and back down between them.
+ */
+function eatBody(input: OfficePoseInput): UpperBody {
+  const taking = input.actionElapsed < 0.9;
+  const bite = 0.5 - 0.5 * Math.cos(Math.max(0, input.actionElapsed - 1) * 2.4);
+  const bones: PoseBones = {
+    ...armsRelaxed,
+    spine: { x: taking ? 0.2 : 0.02, y: 0, z: 0 },
+    head: { x: taking ? 0.25 : 0.05 - 0.08 * bite, y: 0, z: 0 },
+  };
+  setArm(bones, "right", { x: -0.5 - 0.1 * bite, y: 0, z: 1.15 - 0.2 * bite }, { x: 0, y: 1.2 + 1.0 * bite, z: 0 });
+  return { bones };
+}
+
 function stretchBody(input: OfficePoseInput): UpperBody {
   // Arms go up for a big stretch, then settle down again.
   const raised = input.actionElapsed < 2.5;
@@ -982,7 +998,11 @@ function upperBody(action: OfficeAction, input: OfficePoseInput): UpperBody {
       return ovenBody(input);
     case "fetch":
     case "pick":
+    // Reaching for the door handle on the way out; once through, nobody sees the pose.
+    case "out":
       return fetchBody(input);
+    case "eat":
+      return eatBody(input);
     case "type":
       return typeBody(input);
     case "desk-idle":

@@ -12,6 +12,7 @@ import {
   SphereGeometry,
   SRGBColorSpace,
   type Texture,
+  TorusGeometry,
   Vector3,
 } from "three";
 import type { MemberId } from "../../../shared/team.js";
@@ -107,32 +108,186 @@ function poolTexture(): DataTexture {
   return texture;
 }
 
+/** What a member's lamp looks like: its parts, where its light lands, and the light's color. */
+interface LampLook {
+  parts: Object3D[];
+  bulb: MeshStandardMaterial;
+  /** How far ahead of the base the pool of light falls, toward the sitter. */
+  poolAhead: number;
+  light: string;
+}
+
+function at(object: Object3D, x: number, y: number, z: number): Object3D {
+  object.position.set(x, y, z);
+  return object;
+}
+
 /**
- * The lamp at (x, z) in the desk's frame, its arm reaching toward the sitter's side of the desk.
- * The pool of light lands about a quarter meter in front of it.
+ * Each member's lamp, picked for who they are: 2B's black architect lamp, Chizuru's mushroom,
+ * Rias's brass lamp with a crimson shade, Asuna's LED bar, Kobayashi's dragon-green gooseneck,
+ * Yor's dark red bell, Erza's steel lantern, Ruby's pink globe.
  */
-function deskLamp(x: number, z: number, depth: number): DeskLamp {
+function lampLook(member: DeskMember): LampLook {
+  const y = deskTop;
+  switch (member) {
+    case "twob": {
+      // Two straight arms at an angle and a cone head: a drafting lamp, precise and dark.
+      const black = standard("#16161a", 0.35, 0.2);
+      const bulb = glow("#e8f0ff", 0);
+      const lower = mesh(new CylinderGeometry(0.006, 0.006, 0.2, 8), black);
+      lower.rotation.x = 0.35;
+      const upper = mesh(new CylinderGeometry(0.006, 0.006, 0.18, 8), black);
+      upper.rotation.x = 1.9;
+      const head = mesh(new CylinderGeometry(0.018, 0.045, 0.07, 16, 1, true), black);
+      head.rotation.x = 0.3;
+      return {
+        parts: [
+          box(0.08, 0.014, 0.08, black, 0, y, 0),
+          at(lower, 0, y + 0.1, 0.035),
+          at(upper, 0, y + 0.2 + 0.0, 0.14),
+          at(head, 0, y + 0.17, 0.23),
+          at(mesh(new SphereGeometry(0.014, 10, 8), bulb, false), 0, y + 0.155, 0.235),
+        ],
+        bulb,
+        poolAhead: 0.26,
+        light: "#dfe9ff",
+      };
+    }
+    case "chizuru": {
+      const bulb = glow("#ffc38a", 0);
+      const cap = mesh(new SphereGeometry(0.075, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), standard("#f7a86a", 0.6));
+      return {
+        parts: [
+          at(mesh(new CylinderGeometry(0.03, 0.04, 0.11, 14), standard("#f7efe2", 0.7)), 0, y + 0.055, 0),
+          at(cap, 0, y + 0.105, 0),
+          at(mesh(new SphereGeometry(0.03, 10, 8), bulb, false), 0, y + 0.11, 0),
+          // White spots on the cap, the way a toadstool has them.
+          at(mesh(new SphereGeometry(0.012, 8, 6), standard("#fff8ee", 0.7)), 0.03, y + 0.165, 0.03),
+          at(mesh(new SphereGeometry(0.01, 8, 6), standard("#fff8ee", 0.7)), -0.035, y + 0.16, -0.01),
+        ],
+        bulb,
+        poolAhead: 0.12,
+        light: "#ffc38a",
+      };
+    }
+    case "rias": {
+      const brass = standard("#c9a24a", 0.3, 0.7);
+      const bulb = glow("#ffcf96", 0);
+      return {
+        parts: [
+          at(mesh(new CylinderGeometry(0.045, 0.055, 0.015, 20), brass), 0, y + 0.008, 0),
+          at(mesh(new CylinderGeometry(0.007, 0.007, 0.22, 10), brass), 0, y + 0.12, 0),
+          at(mesh(new CylinderGeometry(0.055, 0.07, 0.08, 20, 1, true), standard("#8e1f2f", 0.8)), 0, y + 0.22, 0),
+          at(mesh(new SphereGeometry(0.02, 10, 8), bulb, false), 0, y + 0.2, 0),
+        ],
+        bulb,
+        poolAhead: 0.12,
+        light: "#ffb36b",
+      };
+    }
+    case "asuna": {
+      // A slim LED bar: clean and modern, with her orange on the stand.
+      const grey = standard("#d8dce3", 0.35, 0.4);
+      const bulb = glow("#fff1dc", 0);
+      return {
+        parts: [
+          box(0.1, 0.012, 0.06, grey, 0, y, 0),
+          box(0.012, 0.28, 0.012, standard("#f0a35e", 0.5), 0, y, 0),
+          box(0.03, 0.014, 0.26, grey, 0, y + 0.28, 0.11),
+          box(0.02, 0.004, 0.22, bulb, 0, y + 0.276, 0.12),
+        ],
+        bulb,
+        poolAhead: 0.18,
+        light: "#fff1dc",
+      };
+    }
+    case "kobayashi": {
+      // A bendy gooseneck in dragon green, the head bent down over the keyboard.
+      const green = standard("#4fae6f", 0.5);
+      const bulb = glow("#eaffef", 0);
+      const neck = mesh(new TorusGeometry(0.12, 0.007, 8, 20, Math.PI * 0.75), green);
+      neck.rotation.y = -Math.PI / 2;
+      const head = mesh(new CylinderGeometry(0.016, 0.04, 0.06, 14, 1, true), green);
+      head.rotation.x = -0.4;
+      return {
+        parts: [
+          at(mesh(new CylinderGeometry(0.045, 0.05, 0.02, 18), standard("#2b2b30", 0.5)), 0, y + 0.01, 0),
+          at(neck, 0, y + 0.02, 0.12),
+          at(head, 0, y + 0.115, 0.215),
+          at(mesh(new SphereGeometry(0.013, 10, 8), bulb, false), 0, y + 0.1, 0.22),
+        ],
+        bulb,
+        poolAhead: 0.24,
+        light: "#e6ffe9",
+      };
+    }
+    case "yor": {
+      const black = standard("#1a1418", 0.4);
+      const bulb = glow("#ffb08a", 0);
+      return {
+        parts: [
+          at(mesh(new CylinderGeometry(0.04, 0.05, 0.014, 18), black), 0, y + 0.007, 0),
+          at(mesh(new CylinderGeometry(0.006, 0.006, 0.24, 10), black), 0, y + 0.13, 0),
+          at(mesh(new CylinderGeometry(0.02, 0.07, 0.075, 20, 1, true), standard("#6e1420", 0.6)), 0, y + 0.23, 0),
+          at(mesh(new SphereGeometry(0.018, 10, 8), bulb, false), 0, y + 0.21, 0),
+        ],
+        bulb,
+        poolAhead: 0.12,
+        light: "#ffb08a",
+      };
+    }
+    case "erza": {
+      // A steel lantern, armour-like, with a red band.
+      const steel = standard("#a9afb8", 0.3, 0.7);
+      const bulb = glow("#ffd28a", 0);
+      const roof = mesh(new CylinderGeometry(0, 0.06, 0.05, 4), steel);
+      roof.rotation.y = Math.PI / 4;
+      return {
+        parts: [
+          box(0.09, 0.014, 0.09, steel, 0, y, 0),
+          ...[-1, 1].flatMap((sx) =>
+            [-1, 1].map((sz) => box(0.008, 0.12, 0.008, steel, sx * 0.035, y + 0.014, sz * 0.035)),
+          ),
+          box(0.05, 0.08, 0.05, bulb, 0, y + 0.03, 0),
+          box(0.085, 0.012, 0.085, standard("#c23a3a", 0.5), 0, y + 0.134, 0),
+          at(roof, 0, y + 0.17, 0),
+        ],
+        bulb,
+        poolAhead: 0.1,
+        light: "#ffd28a",
+      };
+    }
+    case "ruby": {
+      // A pink glass globe that glows itself.
+      const bulb = glow("#ffb3d1", 0);
+      bulb.transparent = true;
+      bulb.opacity = 0.9;
+      return {
+        parts: [
+          at(mesh(new CylinderGeometry(0.035, 0.045, 0.02, 18), standard("#f7f1ea", 0.4)), 0, y + 0.01, 0),
+          at(mesh(new SphereGeometry(0.07, 20, 14), bulb, false), 0, y + 0.09, 0),
+        ],
+        bulb,
+        poolAhead: 0.1,
+        light: "#ffb3d1",
+      };
+    }
+  }
+}
+
+/**
+ * The member's lamp at (x, z) in the desk's frame, turned toward the middle of the desk's front
+ * edge, with its pool of light on the desk in front of it.
+ */
+function deskLamp(member: DeskMember, x: number, z: number, depth: number): DeskLamp {
   const root = new Group();
-  const ink = standard(palette.inkDeep, 0.4, 0.3);
-  const base = mesh(new CylinderGeometry(0.04, 0.045, 0.012, 16), ink);
-  base.position.y = deskTop + 0.006;
-  const pole = mesh(new CylinderGeometry(0.006, 0.006, 0.3, 8), ink);
-  pole.position.y = deskTop + 0.15;
-  const arm = mesh(new CylinderGeometry(0.005, 0.005, 0.14, 8), ink);
-  arm.rotation.x = Math.PI / 2;
-  arm.position.set(0, deskTop + 0.3, 0.07);
-  const shade = mesh(new CylinderGeometry(0.022, 0.05, 0.06, 16, 1, true), standard(palette.accent, 0.5));
-  shade.position.set(0, deskTop + 0.28, 0.14);
-  const bulbMaterial = glow("#ffd9a0", 0);
-  const bulb = mesh(new SphereGeometry(0.016, 10, 8), bulbMaterial, false);
-  bulb.position.set(0, deskTop + 0.265, 0.14);
-  root.add(base, pole, arm, shade, bulb);
+  const look = lampLook(member);
+  root.add(...look.parts);
   root.position.set(x, 0, z);
-  // Aim the arm at the middle of the desk's front edge.
   root.rotation.y = Math.atan2(-x, depth / 2 - z);
   const poolMaterial = new MeshBasicMaterial({
     map: poolTexture(),
-    color: new Color("#ffc27a"),
+    color: new Color(look.light),
     transparent: true,
     opacity: 0,
     depthWrite: false,
@@ -140,9 +295,9 @@ function deskLamp(x: number, z: number, depth: number): DeskLamp {
   });
   const pool = mesh(new PlaneGeometry(0.6, 0.6), poolMaterial, false);
   pool.rotation.x = -Math.PI / 2;
-  pool.position.set(0, deskTop + 0.002, 0.24);
+  pool.position.set(0, deskTop + 0.002, look.poolAhead);
   root.add(pool);
-  const lamp = new DeskLamp(root, bulbMaterial, poolMaterial);
+  const lamp = new DeskLamp(root, look.bulb, poolMaterial);
   lamp.setLevel(0);
   return lamp;
 }
@@ -771,7 +926,7 @@ const lampX: Record<DeskMember, number> = {
 export function buildDesk(member: DeskMember, piece: Furniture, kanban: Texture): BuiltDesk {
   const built = deskParts(member, piece, kanban);
   const { depth } = deskSize(piece);
-  const lamp = deskLamp(lampX[member], -depth / 2 + 0.1, depth);
+  const lamp = deskLamp(member, lampX[member], -depth / 2 + 0.1, depth);
   // The desk's root holds the desk frame, so the lamp goes in at desk coordinates.
   built.root.add(lamp.root);
   return { root: built.root, workstation: { ...built.workstation, lamp } };

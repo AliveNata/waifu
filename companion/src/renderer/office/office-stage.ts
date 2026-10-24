@@ -56,10 +56,20 @@ import {
   twobPlan,
   usesHandIk,
 } from "./office-director.js";
+import { type BarFood, binBox, canBuy, deliver, type FoodKind, initialFood, takePiece } from "./office-food.js";
 import { type LaptopView, laptopPutSeconds, laptopTakeSeconds, laptopView } from "./office-laptop.js";
 import { type Errand, type LifeChoice, OfficeLife } from "./office-life.js";
 import { afterSip, initialMug, type MugState, mugPickSeconds, stepMug } from "./office-mug.js";
-import { distance, floorHeightAt, meetingStationIds, type StationId, stations, surface } from "./office-plan.js";
+import {
+  barFoodSpot,
+  distance,
+  floorHeightAt,
+  furniture,
+  meetingStationIds,
+  type StationId,
+  stations,
+  surface,
+} from "./office-plan.js";
 import { type BoardFocus, officePose } from "./office-pose.js";
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
 import { atJakartaTime, type DayPart, dayPart, jakartaHours, skyAt } from "./office-time.js";
@@ -169,7 +179,40 @@ interface MemberRig {
   reachRate: number;
   /** Who this member last waved at, to turn toward them during the wave. */
   greeted: MemberId | null;
+  food: FoodHands;
 }
+
+/** The shared food in a member's hands, and the empty box they still have to bin. */
+interface FoodHands {
+  /** The piece being eaten at the bar. */
+  piece: FoodKind | null;
+  /** The eating step the piece came from, so one step takes one piece. */
+  pieceStep: number | null;
+  /** Carrying the empty box to the bin. */
+  box: boolean;
+  /** Took the last piece; the box is theirs to bin. */
+  owesBin: boolean;
+  /** Back from outside with fresh food, on the way to the bar. */
+  bag: boolean;
+}
+
+/** Seconds at the bar before a piece is in the hand, matching the eating pose's reach. */
+const pieceTakeSeconds = 0.8;
+/** Seconds into an errand at the bar or the bin when the box or the bag is set down or picked up. */
+const foodHandoverSeconds = 0.7;
+/** Seconds through the door: gone from sight after this, back in sight this long before the end. */
+const doorwaySeconds = 0.8;
+/** The door stands open while someone is this close to it. */
+const doorOpenDistance = 1.1;
+/** Held props for a piece of each food. */
+const pieceProps: Record<FoodKind, HandPropKind> = {
+  pizza: "pizza-slice",
+  platter: "platter-bite",
+  donuts: "donut",
+  sushi: "sushi",
+};
+
+const trashBin = furniture.find((piece) => piece.kind === "trash-bin");
 
 /** World targets for the hands this frame; null leaves that arm to the pose. */
 interface HandTargets {
@@ -335,6 +378,8 @@ const actionLabels: Record<OfficeAction, string> = {
   oven: "heating food",
   fetch: "getting something",
   pick: "getting a clean mug",
+  eat: "having a bite",
+  out: "out getting food",
   "pingpong-wait": "waiting for a ping-pong partner",
 };
 
@@ -352,11 +397,14 @@ export class OfficeStage {
   private readonly mugs = Object.fromEntries(
     memberIds.map((memberId) => [memberId, initialMug(0.3 + Math.random() * 0.7)]),
   ) as Record<MemberId, MugState>;
+  /** The food on the bar, shared by everyone. */
+  private food: BarFood = initialFood(Date.now());
   private readonly life = new OfficeLife(
     Math.random,
     (station) => this.stationCrowded(station),
     (memberId) => this.mugs[memberId],
     () => this.dayPart(),
+    () => ({ pieces: this.food.boxOnBar ? this.food.left : 0, canBuy: canBuy(this.food, Date.now()) }),
   );
   /** The idle step each member is on, or nothing while real work has them. */
   private readonly lifeSteps: Partial<Record<MemberId, LifeChoice>> = {};
@@ -608,6 +656,7 @@ export class OfficeStage {
       chess: { square: 0, movedBy: null },
       reachRate,
       greeted: null,
+      food: { piece: null, pieceStep: null, box: false, owesBin: false, bag: false },
     };
   }
 
@@ -876,6 +925,7 @@ export class OfficeStage {
       actionElapsed: this.elapsed - rig.actionStartedAt,
     });
     rig.laptop = laptopView({ errand, arrived, stepElapsed, remaining });
+    this.updateFood(memberId, rig, step, arrived, stepElapsed, remaining, now);
 
     const atOwnDesk = action === "desk-idle" && plan.station === `desk-${memberId}`;
     const mug = this.mugs[memberId];
@@ -895,7 +945,8 @@ export class OfficeStage {
         ? surfaceTargets
         : deskBit !== null
           ? this.deskBitTargets(memberId, rig, deskBit)
-          : this.errandTargets(memberId, rig, errand, arrived, stepElapsed, remaining);
+          : (this.foodTargets(rig, action, errand, arrived, stepElapsed) ??
+            this.errandTargets(memberId, rig, errand, arrived, stepElapsed, remaining));
     // Offset each member's idle loops so the room does not move in lockstep.
     const phaseOffset = memberIds.indexOf(memberId) * 1.7;
 
@@ -903,11 +954,26 @@ export class OfficeStage {
     // Up onto a board step and down again over a moment, not in one jump.
     rig.lift += (floorHeightAt(actor.position) - rig.lift) * (1 - Math.exp(-stepUpRate * delta));
     avatar.root.position.set(actor.position.x, rig.lift, actor.position.z);
+    // Out through the door for food: gone from the room until the walk back in.
+    avatar.root.visible = !(
+      errand === "go-out" &&
+      arrived &&
+      stepElapsed > doorwaySeconds &&
+      remaining > doorwaySeconds
+    );
     avatar.root.rotation.y = actor.yaw;
     const seatHeight = stations[plan.station].seatHeight;
     const board = this.boardFocus(rig, handTargets, delta);
-    // Something in the right hand while walking: the mug, or the laptop on the way to a meeting.
-    const carrying = this.mugs[memberId].place === "hand" || rig.laptop.place === "hand";
+    // Something in the right hand while walking: the mug, the laptop on the way to a meeting, or food.
+    const foodHeld = rig.food.bag
+      ? "food-bag"
+      : rig.food.box
+        ? "food-box"
+        : rig.food.piece === null
+          ? null
+          : pieceProps[rig.food.piece];
+    const carrying =
+      this.mugs[memberId].place === "hand" || rig.laptop.place === "hand" || (foodHeld !== null && action === null);
     const gimmick = rig.walkHabits.update(this.elapsed, action === null, carrying);
     const pose = officePose({
       action,
@@ -968,7 +1034,8 @@ export class OfficeStage {
     const held =
       action !== null && usesHandIk(action)
         ? null
-        : (fromDesk ??
+        : (foodHeld ??
+          fromDesk ??
           plate ??
           (carried === "laptop" ? carried : null) ??
           asCup(propForAction(action)) ??
@@ -1001,6 +1068,11 @@ export class OfficeStage {
     const barRight = settledAt("bar-right", "chat");
     if (barLeft !== null && barRight !== null) {
       pairs.push([barLeft, barRight]);
+    }
+    const westLeft = settledAt("bar-west-left", "chat");
+    const westRight = settledAt("bar-west-right", "chat");
+    if (westLeft !== null && westRight !== null) {
+      pairs.push([westLeft, westRight]);
     }
     const brewing = settledAt("coffee", "brew");
     const snacking = settledAt("fridge", "snack");
@@ -1095,6 +1167,103 @@ export class OfficeStage {
       default:
         return "right";
     }
+  }
+
+  /**
+   * The shared food changing hands: a piece taken at the bar (the last one makes the taker bin
+   * the box), the empty box carried to the bin, and the fresh food brought in from outside. A
+   * member called away halfway never leaves things half done: an owed box is binned and fetched
+   * food is on the bar at once.
+   */
+  private updateFood(
+    memberId: MemberId,
+    rig: MemberRig,
+    step: LifeChoice | null,
+    arrived: boolean,
+    stepElapsed: number,
+    remaining: number,
+    now: number,
+  ): void {
+    const hands = rig.food;
+    const errand = step?.errand ?? null;
+    const eating = step !== null && step.action === "eat";
+    if (!eating) {
+      hands.piece = null;
+    }
+    if (eating && arrived && stepElapsed >= pieceTakeSeconds && hands.pieceStep !== step.chosenAt) {
+      hands.pieceStep = step.chosenAt;
+      const taken = takePiece(this.food);
+      this.food = taken.food;
+      if (taken.took && this.food.kind !== null) {
+        hands.piece = this.food.kind;
+      }
+      if (taken.emptied) {
+        hands.owesBin = true;
+        this.life.insertNext(
+          memberId,
+          [
+            { station: "bar-food", action: "fetch", errand: "take-box" },
+            { station: "trash", action: "fetch", errand: "bin-box" },
+          ],
+          now,
+        );
+      }
+    }
+    if (hands.owesBin && errand === "take-box" && arrived && stepElapsed >= foodHandoverSeconds) {
+      // Off the bar it counts as binned, which starts the wait for the next food run.
+      this.food = binBox(this.food, Date.now());
+      hands.owesBin = false;
+      hands.box = true;
+    } else if (hands.owesBin && !eating && errand !== "take-box") {
+      this.food = binBox(this.food, Date.now());
+      hands.owesBin = false;
+    }
+    const binned = errand === "bin-box" && arrived && stepElapsed >= foodHandoverSeconds;
+    if (hands.box && ((errand !== "take-box" && errand !== "bin-box") || binned)) {
+      hands.box = false;
+    }
+    if (errand === "go-out" && arrived && remaining <= doorwaySeconds) {
+      hands.bag = true;
+    }
+    const setDown = errand === "set-food" ? arrived && stepElapsed >= foodHandoverSeconds : errand !== "go-out";
+    if (hands.bag && setDown) {
+      this.food = deliver(this.food);
+      hands.bag = false;
+    }
+  }
+
+  /** The hand onto the food at the end of the bar, or onto the bin, while food changes hands. */
+  private foodTargets(
+    rig: MemberRig,
+    action: OfficeAction | null,
+    errand: Errand | null,
+    arrived: boolean,
+    stepElapsed: number,
+  ): HandTargets | null {
+    if (!arrived) {
+      return null;
+    }
+    const reaching =
+      (action === "eat" && errand === null && stepElapsed < pieceTakeSeconds + 0.1) ||
+      ((errand === "take-box" || errand === "set-food") && stepElapsed < foodHandoverSeconds + 0.2);
+    const binning = errand === "bin-box" && stepElapsed < foodHandoverSeconds + 0.2;
+    let target: Vector3 | null = null;
+    if (reaching) {
+      target = new Vector3(barFoodSpot.x, surface.barTable + 0.03, barFoodSpot.z);
+    } else if (binning && trashBin !== undefined) {
+      target = new Vector3(trashBin.x, 0.42, trashBin.z);
+    }
+    if (target === null) {
+      return null;
+    }
+    return {
+      left: null,
+      right: target,
+      tip: "fingertip",
+      approach: this.fingersDown(rig),
+      board: null,
+      rate: deskReachRate,
+    };
   }
 
   /**
@@ -1271,6 +1440,15 @@ export class OfficeStage {
     this.office.rackLights.update(this.elapsed, usingAt("rack", "rack"));
     this.updatePingpongBall(usingAt("pingpong-west", "pingpong") && usingAt("pingpong-east", "pingpong"));
     this.office.fridgeDoor.update(usingAt("fridge", "snack"), delta);
+    const door = stations.door.spot;
+    this.office.entryDoor.update(
+      memberIds.some((memberId) => {
+        const rig = this.rigs[memberId];
+        return rig.avatar.root.visible && distance(rig.actor.position, door) < doorOpenDistance;
+      }),
+      delta,
+    );
+    this.office.barFood.update(this.food);
     this.office.sink.update(usingAt("sink", "wash"), this.elapsed);
     const cook = memberIds.find((memberId) => {
       const rig = this.rigs[memberId];

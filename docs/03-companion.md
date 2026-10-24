@@ -112,7 +112,8 @@ Ruangannya terang dengan aksen ungu dari logo AlyxLabs: LED neon yang "lari" di 
 | Depan | Meja komando 2B dengan papan kanban dan printer di samping, pojok konten Ruby dengan backdrop logo, ring light, kamera, dan mic, plus meja Rias dan Chizuru di sebelah kanan 2B |
 | Dinding kiri | Papan tulis (2B dan Rias) dan papan ide Chizuru, masing masing dengan panggung rendah di depannya, beanbag, TV lounge |
 | Lounge | Sofa menghadap TV, meja kopi, beanbag |
-| Pantry | Jam digital besar di dinding (zona Asia/Jakarta). Counter bentuk L: wastafel dengan rak pengering gelas di sampingnya, mesin kopi, dan oven di counter belakang, lalu meja bar yang nyambung ke ujungnya dengan dua bar stool, plus kulkas |
+| Pantry | Jam digital besar di dinding (zona Asia/Jakarta). Counter bentuk L: wastafel dengan rak pengering gelas di sampingnya, mesin kopi, dan oven di counter belakang, lalu meja bar yang nyambung ke ujungnya dengan dua bar stool di tiap sisi, plus kulkas dan tempat sampah. Makanan bareng ditaruh di ujung meja bar |
+| Sisi kanan | Pintu masuk, buat yang keluar beli makanan |
 | Pojok game | Mesin arcade |
 
 Setup meja sesuai role:
@@ -156,7 +157,9 @@ Selain itu semua cast sesekali nyeruput kopi dari gelasnya sendiri, selama gelas
 - Pintu kulkas kebuka pas ada yang ngemil, terus ketutup lagi pas dia pergi.
 - Keran wastafel ngalir selama ada yang cuci tangan.
 - Oven dipakai berurutan: pintunya dibuka sambil jongkok buat masukin piring, ditutup, lalu jendelanya nyala oranye selama masak. Abis itu dibuka lagi buat ngambil piringnya, dan piringnya dibawa.
-- Dua bar stool agak serong saling hadap, jadi yang duduk di meja bar bisa ngobrol tanpa muter badan.
+- Di tiap sisi meja bar ada dua bar stool yang agak serong saling hadap, jadi yang duduk di situ bisa ngobrol tanpa muter badan. Gelas di meja bar dan meja meeting udah nggak ada, semua gelas punya masing masing cast.
+- Di ujung meja bar ada makanan buat bareng: pizza (8 potong), mix platter (6), donat (6), atau sushi (8). Cast yang lagi istirahat kadang ambil satu potong terus makan sambil berdiri di situ, lebih sering pas jam makan siang. Yang ngambil potongan terakhir bawa kotak kosongnya ke tempat sampah.
+- Setelah kotaknya dibuang, 3 sampai 10 menit kemudian (acak) ada satu cast yang keluar lewat pintu masuk, hilang sebentar, terus balik bawa kantong belanja dan naruh makanan baru di meja bar. Jenisnya nggak pernah sama dua kali berturut turut. Pintunya kebuka pas ada yang lewat. Pas kantor dibuka, kadang udah ada makanan yang tinggal setengah, kadang belum ada dan sebentar lagi ada yang beli. Kalau cast dipanggil kerja di tengah jalan, kotak yang harus dibuang langsung kebuang dan makanan yang lagi dibawa langsung ada di meja bar.
 - Tiap cast punya gelas sendiri dengan warna sendiri (Rias pakai cangkir teh). Isinya berkurang tiap kali diseruput, dan cast nggak bikin kopi baru selama gelasnya masih ada isinya.
 - Kalau gelasnya udah kosong, cast milih: refill, yaitu bawa gelasnya ke mesin kopi, bikin baru, terus balik naruh di meja, atau bawa gelasnya ke wastafel, nyuci, terus naruh di rak pengering. Gelas yang lagi di rak nggak ada di meja. Kopi berikutnya diawali ambil gelas dari rak dulu, baru ke mesin kopi.
 - Barang di tangan ngikutin kegiatan: HP pas rebahan atau selfie, buku pas baca, stik pas main game, raket pas pingpong, penyiram pas nyiram tanaman.
@@ -176,7 +179,7 @@ Pose duduk diukur dari panjang kaki tiap model. Di kursi rendah lututnya naik da
 
 **Jam kantor** selalu pakai zona Asia/Jakarta, apa pun setelan jam PC. Jam digital di dinding pantry, siang dan malam, obrolan, dan kegiatan semuanya ngikutin jam yang sama.
 
-**Siang dan malam**: mulai sekitar 17.30 cahaya matahari pelan pelan hilang sampai malam penuh jam 19.00, dan pagi kebalikannya antara 05.00 dan 06.30. Di tengah tengah transisi itu langit di jendela jadi oranye senja, terus berubah jadi pemandangan kota malam. Malam hari lampu kantor tetap nyala, jadi ruangan tetap terang, ditambah LED neon dan lampu meja di tiap meja kerja yang nyala pas mulai gelap. Di mode browser, tambahin `?clock=21:30` di URL kantor buat lihat jam lain tanpa nunggu malam.
+**Siang dan malam**: mulai sekitar 17.30 cahaya matahari pelan pelan hilang sampai malam penuh jam 19.00, dan pagi kebalikannya antara 05.00 dan 06.30. Di tengah tengah transisi itu langit di jendela jadi oranye senja, terus berubah jadi pemandangan kota malam. Malam hari lampu kantor tetap nyala, jadi ruangan tetap terang, ditambah LED neon dan lampu meja di tiap meja kerja yang nyala pas mulai gelap. Lampu mejanya beda beda sesuai orangnya: lampu arsitek hitam buat 2B, lampu jamur peach berbintik buat Chizuru, lampu kuningan dengan kap merah tua buat Rias, lampu LED bar dengan tiang oranye buat Asuna, lampu leher angsa hijau buat Kobayashi, lampu lonceng merah gelap buat Yor, lentera baja dengan pita merah buat Erza, dan bola kaca pink buat Ruby. Di mode browser, tambahin `?clock=21:30` di URL kantor buat lihat jam lain tanpa nunggu malam.
 
 **Ikut jam juga**: sapaan dan obrolan disesuaikan sama waktu, jadi nggak ada "pagi" pas malam dan kalimat yang nyebut waktu tertentu (misalnya "makan siang") cuma keluar di jamnya. Kegiatan juga beda per waktu: pagi lebih sering ngopi, siang lebih sering makan di oven, kulkas, atau meja bar, sore lebih banyak santai dan main, malam lebih banyak nonton atau baca.
 

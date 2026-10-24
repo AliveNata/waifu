@@ -30,6 +30,54 @@ export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook):
       group.add(cup, handle, cupFill(0.019, -0.013, 0.032));
       break;
     }
+    case "pizza-slice": {
+      // A slice held by the crust, the point toward the mouth.
+      const slice = mesh(
+        new CylinderGeometry(0.07, 0.07, 0.01, 6, 1, false, -Math.PI / 8, Math.PI / 4),
+        standard("#f2c35a", 0.7),
+      );
+      slice.rotation.x = Math.PI / 2;
+      slice.position.set(0, 0.035, 0);
+      group.add(slice);
+      break;
+    }
+    case "platter-bite": {
+      // A cube of cheese and a slice of sausage on a cocktail stick.
+      group.add(
+        box(0.004, 0.07, 0.004, standard(palette.oak, 0.6), 0, -0.02, 0),
+        box(0.026, 0.026, 0.026, standard("#f3d26b", 0.7), 0, 0.02, 0),
+        box(0.03, 0.012, 0.03, standard("#a8413a", 0.6), 0, 0.005, 0),
+      );
+      break;
+    }
+    case "donut": {
+      const ring = mesh(new TorusGeometry(0.028, 0.013, 8, 16), standard("#d9a05b", 0.8));
+      ring.position.y = 0.02;
+      const top = mesh(new TorusGeometry(0.028, 0.01, 8, 16, Math.PI * 1.4), standard("#f4a6c4", 0.5), false);
+      top.position.set(0, 0.02, 0.006);
+      group.add(ring, top);
+      break;
+    }
+    case "sushi": {
+      group.add(
+        box(0.024, 0.016, 0.04, standard("#f7f4ec", 0.9), 0, 0, 0),
+        box(0.028, 0.006, 0.046, standard("#f08a5d", 0.5), 0, 0.016, 0),
+      );
+      break;
+    }
+    case "food-box": {
+      // The empty box, folded shut and carried flat.
+      group.add(box(0.2, 0.03, 0.2, standard("#c8a57a", 0.9), 0, -0.015, 0));
+      break;
+    }
+    case "food-bag": {
+      // A paper takeaway bag held by its folded top.
+      group.add(
+        box(0.12, 0.14, 0.08, standard("#c8a57a", 0.9), 0, -0.16, 0),
+        box(0.12, 0.02, 0.02, standard("#b08f66", 0.9), 0, -0.02, 0),
+      );
+      break;
+    }
     case "laptop": {
       // Folded shut and carried flat, a thin line of the screen bezel showing at the hinge.
       const shell = standard(look.shell, 0.5);
@@ -223,6 +271,13 @@ const gripOffset: Record<HandPropKind, { x: number; y: number; z: number; tilt: 
   marker: { x: 0, y: 0, z: 0.01, tilt: 0, turn: 0 },
   // Flat on the palm and forearm, held in front.
   laptop: { x: 0.04, y: -0.015, z: 0.06, tilt: 0, turn: 0 },
+  "pizza-slice": { x: 0, y: 0, z: 0.02, tilt: -0.3, turn: 0 },
+  "platter-bite": { x: 0, y: 0.01, z: 0.01, tilt: 0, turn: 0 },
+  donut: { x: 0, y: 0, z: 0.015, tilt: 0, turn: 0 },
+  sushi: { x: 0, y: 0.005, z: 0.015, tilt: 0, turn: 0 },
+  "food-box": { x: 0.04, y: -0.01, z: 0.08, tilt: 0, turn: 0 },
+  // Hanging from the hand at the side.
+  "food-bag": { x: 0, y: 0, z: 0, tilt: 0, turn: 0 },
 };
 
 const handPosition = new Vector3();
