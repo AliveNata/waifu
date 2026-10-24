@@ -5,6 +5,7 @@ import {
   DeskHabits,
   deskBitFace,
   deskBitProp,
+  deskBitSpec,
   deskBits,
   itemInHand,
   reachingForItem,
@@ -19,13 +20,13 @@ function sequence(...values: number[]): () => number {
 }
 
 function bit(kind: ActiveDeskBit["kind"], elapsed: number, duration: number): ActiveDeskBit {
-  return { kind, elapsed, duration, startedAt: 0 };
+  return { kind, elapsed, duration, startedAt: 0, hand: deskBitSpec(kind).hand };
 }
 
 describe("DeskHabits", () => {
   it("settles in after sitting down, then plays a bit and switches to another next time", () => {
     // Arrange: settle-in 2 s, gaps 6 s, always the first choice.
-    const habits = new DeskHabits(["tea", "chess"], sequence(0));
+    const habits = new DeskHabits(["sip", "chess"], sequence(0));
 
     // Act
     const settling = habits.update(0, true);
@@ -35,7 +36,7 @@ describe("DeskHabits", () => {
 
     // Assert
     expect(settling).toBeNull();
-    expect(first?.kind).toBe("tea");
+    expect(first?.kind).toBe("sip");
     expect(ended).toBeNull();
     expect(second?.kind).toBe("chess");
   });
@@ -70,6 +71,22 @@ describe("DeskHabits", () => {
     expect(second?.kind).toBe("rose");
   });
 
+  it("skips a sip from an empty mug and uses the hand nearer the mug", () => {
+    // Arrange: the mug is on the left of this desk.
+    const habits = new DeskHabits(["sip", "duck"], sequence(0), { sip: "left" });
+    habits.update(0, true);
+
+    // Act
+    const emptyMug = habits.update(6, true, (bit) => bit !== "sip");
+    const later = new DeskHabits(["sip"], sequence(0), { sip: "left" });
+    later.update(0, true);
+    const sip = later.update(2, true);
+
+    // Assert
+    expect(emptyMug?.kind).toBe("duck");
+    expect(sip).toMatchObject({ kind: "sip", hand: "left" });
+  });
+
   it("gives every member something to do at their desk", () => {
     for (const memberId of memberIds) {
       expect(deskBits[memberId].length).toBeGreaterThan(0);
@@ -78,18 +95,18 @@ describe("DeskHabits", () => {
 });
 
 describe("desk bit timing", () => {
-  it("keeps the teacup on the desk during the reach, in the hand while sipping, back at the end", () => {
+  it("keeps the mug on the desk during the reach, in the hand while sipping, back at the end", () => {
     // Act
-    const reaching = bit("tea", reachSeconds / 2, 6);
-    const sipping = bit("tea", 3, 6);
-    const putDown = bit("tea", 6 - reachSeconds / 4, 6);
+    const reaching = bit("sip", reachSeconds / 2, 6);
+    const sipping = bit("sip", 3, 6);
+    const putDown = bit("sip", 6 - reachSeconds / 4, 6);
 
     // Assert
     expect(reachingForItem(reaching)).toBe(true);
     expect(itemInHand(reaching)).toBe(false);
     expect(reachingForItem(sipping)).toBe(false);
     expect(itemInHand(sipping)).toBe(true);
-    expect(deskBitProp(sipping)).toBe("teacup");
+    expect(deskBitProp(sipping)).toBe("mug");
     expect(itemInHand(putDown)).toBe(false);
     expect(deskBitProp(putDown)).toBeNull();
   });

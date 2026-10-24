@@ -2,7 +2,6 @@ import {
   CylinderGeometry,
   DataTexture,
   Group,
-  type Material,
   MeshStandardMaterial,
   NearestFilter,
   type Object3D,
@@ -10,17 +9,17 @@ import {
   SphereGeometry,
   SRGBColorSpace,
   type Texture,
-  TorusGeometry,
   Vector3,
 } from "three";
 import type { MemberId } from "../../../shared/team.js";
+import type { ArmSide } from "../avatar.js";
 import type { DeskItem } from "../desk-habits.js";
 import { type Furniture, surface } from "../office-plan.js";
 import { Keyboard } from "../surfaces/keyboard.js";
 import { DeskMouse } from "../surfaces/mouse.js";
 import { type ScreenSize, ScreenSurface } from "../surfaces/screen.js";
 import { screenScripts } from "../surfaces/screen-scripts.js";
-import { handPropModel } from "./hand-props.js";
+import { handPropModel, type PropLook } from "./hand-props.js";
 import { box, glow, mesh, palette, standard, unlit } from "./palette.js";
 import { leafyCrown } from "./plant.js";
 import {
@@ -56,9 +55,73 @@ export interface Workstation {
   chessMove: [Vector3, Vector3] | null;
   /** Top of the sticky pad someone writes on, for the marker to scribble over. */
   writingPad: Object3D | null;
+  /** The hand nearer the mug, which picks it up. */
+  mugSide: ArmSide;
+  /**
+   * The drawer the meeting laptop is kept in, its origin at the handle. It slides toward the
+   * sitter (+z) from where it rests. Null on laptop desks, whose laptop is the one on the desk.
+   */
+  drawer: Group | null;
+  /** On laptop desks: the lid, hinged at the back of the keyboard, and the shell's color. */
+  lid: Group | null;
 }
 
-const noDeskThings = { items: {}, chessMove: null, writingPad: null } as const;
+const noDeskThings = {
+  items: {},
+  chessMove: null,
+  writingPad: null,
+  mugSide: "right",
+  drawer: null,
+  lid: null,
+} as const;
+
+/** Each member's own mug, so it is clear whose is on the drying rack, and the laptop they take to meetings. */
+export const memberPropLooks: Record<MemberId, PropLook> = {
+  twob: { mug: "#3b3f4e", shell: "#b9bec7" },
+  chizuru: { mug: "#f2a65a", shell: "#f3d9b8" },
+  rias: { mug: "#f7f1ea", shell: "#3b2a33" },
+  asuna: { mug: "#7fb2d9", shell: "#b9bec7" },
+  kobayashi: { mug: "#8fcf9f", shell: "#b9bec7" },
+  yor: { mug: "#2a2a2e", shell: "#b9bec7" },
+  erza: { mug: "#e35d5d", shell: "#b9bec7" },
+  ruby: { mug: "#f4a6c4", shell: "#d9d4cc" },
+};
+
+/** The same mug the member carries, a size up on the desk so it reads from the room camera. */
+function mugAt(member: MemberId, x: number, z: number): Group {
+  const model = handPropModel("mug", memberPropLooks[member]);
+  model.scale.setScalar(1.15);
+  return deskItem(model, x, deskTop + 0.017, z);
+}
+
+/** Opening how far, in meters, toward the sitter. */
+export const drawerTravel = 0.18;
+
+/**
+ * A drawer unit hung under the desktop on the side away from the PC tower, front flush with the
+ * desk edge. Returns the unit and the sliding drawer, whose origin is its handle.
+ */
+function drawerUnit(width: number, depth: number, side: ArmSide): { unit: Group; drawer: Group } {
+  // The sitter faces -z, so their left is -x.
+  const x = (side === "left" ? -1 : 1) * (width / 2 - 0.26);
+  const top = deskTop - 0.04;
+  const height = 0.2;
+  const unitDepth = 0.4;
+  const front = depth / 2 - 0.01;
+  const unit = new Group();
+  unit.add(box(0.32, height, unitDepth, standard(palette.ink, 0.6), x, top - height, front - unitDepth / 2 - 0.02));
+  const drawer = new Group();
+  drawer.add(
+    box(0.3, 0.17, 0.018, standard(palette.inkSoft, 0.5), 0, -0.085, -0.009),
+    box(0.12, 0.012, 0.012, standard(palette.steel, 0.3, 0.6), 0, -0.006, 0.006),
+    // The tray behind the front, seen when it is pulled out.
+    box(0.28, 0.12, 0.3, standard(palette.ink, 0.7), 0, -0.155, -0.17),
+  );
+  drawer.position.set(x, top - 0.04, front);
+  drawer.userData.restZ = front;
+  unit.add(drawer);
+  return { unit, drawer };
+}
 /** Front strip of the desk, just past the keyboard's reach line: where things to pick up are kept. */
 function nearEdge(depth: number): number {
   return depth / 2 - 0.12;
@@ -208,14 +271,15 @@ function asunaDesk(piece: Furniture): BuiltDesk {
   );
   const keyboard = keyboardFor("asuna", keyboardZ(depth));
   const mouse = mouseBeside(keyboard, palette.accent, palette.inkDeep);
-  const mug = coffeeMug(0.42, depth / 2 - 0.18);
+  const mug = mugAt("asuna", 0.36, nearEdge(depth));
+  const { unit, drawer } = drawerUnit(width, depth, "left");
   // A rubber duck for talking a broken pipeline through.
   const duck = deskItem(handPropModel("duck"), -0.33, deskTop + 0.018, nearEdge(depth));
   duck.rotation.y = 0.5;
-  inner.add(keyboard.root, mouse.root, mug, duck);
+  inner.add(keyboard.root, mouse.root, mug, duck, unit);
   return {
     root: placedDesk(piece, inner),
-    workstation: { screen, keyboard, mouse, mug, ...noDeskThings, items: { duck } },
+    workstation: { screen, keyboard, mouse, mug, ...noDeskThings, items: { duck }, drawer },
   };
 }
 
@@ -233,13 +297,24 @@ function kobayashiDesk(piece: Furniture): BuiltDesk {
   const { dock, console } = handheldDock(0.42, nearEdge(depth) - 0.02);
   const keyboard = keyboardFor("kobayashi", keyboardZ(depth));
   const mouse = mouseBeside(keyboard, palette.accent, palette.inkDeep);
-  const plush = deskItem(handPropModel("plush"), -0.33, deskTop + 0.04, nearEdge(depth));
+  const plush = deskItem(handPropModel("plush"), -0.4, deskTop + 0.04, nearEdge(depth) - 0.03);
   plush.rotation.y = 0.4;
-  const mug = coffeeMug(0.6, depth / 2 - 0.26);
-  inner.add(dock, keyboard.root, mouse.root, plush, mug);
+  // The dock takes the right side, so the mug lives on the left.
+  const mug = mugAt("kobayashi", -0.27, nearEdge(depth) + 0.04);
+  const { unit, drawer } = drawerUnit(width, depth, "right");
+  inner.add(dock, keyboard.root, mouse.root, plush, mug, unit);
   return {
     root: placedDesk(piece, inner),
-    workstation: { screen, keyboard, mouse, mug, ...noDeskThings, items: { console, plush } },
+    workstation: {
+      screen,
+      keyboard,
+      mouse,
+      mug,
+      ...noDeskThings,
+      items: { console, plush },
+      mugSide: "left",
+      drawer,
+    },
   };
 }
 
@@ -271,11 +346,12 @@ function erzaDesk(piece: Furniture): BuiltDesk {
   // Lying flat beside the plate, tines away from her.
   forkModel.rotation.x = -Math.PI / 2;
   const fork = deskItem(forkModel, cakeX + 0.07, deskTop + 0.004, cakeZ);
-  const mug = coffeeMug(0.45, depth / 2 - 0.18);
-  inner.add(keyboard.root, mouse.root, plate, cake, berry, fork, mug);
+  const mug = mugAt("erza", 0.36, nearEdge(depth));
+  const { unit, drawer } = drawerUnit(width, depth, "left");
+  inner.add(keyboard.root, mouse.root, plate, cake, berry, fork, mug, unit);
   return {
     root: placedDesk(piece, inner),
-    workstation: { screen, keyboard, mouse, mug, ...noDeskThings, items: { fork } },
+    workstation: { screen, keyboard, mouse, mug, ...noDeskThings, items: { fork }, drawer },
   };
 }
 
@@ -299,11 +375,12 @@ function yorDesk(piece: Furniture): BuiltDesk {
   vase.position.set(vaseX, deskTop + 0.045, vaseZ);
   // Held by the stem just above the vase; the stem goes down into the water.
   const rose = deskItem(handPropModel("rose"), vaseX, deskTop + 0.1, vaseZ);
-  const mug = coffeeMug(0.42, depth / 2 - 0.18);
-  inner.add(keyboard.root, mouse.root, vase, rose, mug);
+  const mug = mugAt("yor", 0.36, nearEdge(depth));
+  const { unit, drawer } = drawerUnit(width, depth, "right");
+  inner.add(keyboard.root, mouse.root, vase, rose, mug, unit);
   return {
     root: placedDesk(piece, inner),
-    workstation: { screen, keyboard, mouse, mug, ...noDeskThings, items: { rose } },
+    workstation: { screen, keyboard, mouse, mug, ...noDeskThings, items: { rose }, drawer },
   };
 }
 
@@ -320,7 +397,8 @@ function twobDesk(piece: Furniture, kanban: Texture): BuiltDesk {
   );
   const keyboard = keyboardFor("twob", keyboardZ(depth));
   const mouse = mouseBeside(keyboard, palette.accent, palette.inkDeep);
-  const mug = coffeeMug(-0.55, depth / 2 - 0.18);
+  const mug = mugAt("twob", 0.36, nearEdge(depth));
+  const { unit, drawer } = drawerUnit(width, depth, "left");
   // Her paper planner, for the things that do not go on the board.
   const cover = standard("#2d3a5c", 0.7);
   const plannerModel = new Group();
@@ -331,10 +409,10 @@ function twobDesk(piece: Furniture, kanban: Texture): BuiltDesk {
   );
   const planner = deskItem(plannerModel, -0.33, deskTop + 0.016, nearEdge(depth));
   planner.rotation.y = 0.15;
-  inner.add(keyboard.root, mouse.root, mug, planner);
+  inner.add(keyboard.root, mouse.root, mug, planner, unit);
   return {
     root: placedDesk(piece, inner),
-    workstation: { screen, keyboard, mouse, mug, ...noDeskThings, items: { planner } },
+    workstation: { screen, keyboard, mouse, mug, ...noDeskThings, items: { planner }, drawer },
   };
 }
 
@@ -352,6 +430,7 @@ function laptop(screen: ScreenSurface, depth: number, shell: string, keys: strin
   const lid = new Group();
   lid.position.set(0, deskTop + 0.01, keyboardZ(depth) - 0.11);
   lid.rotation.x = 0.25;
+  lid.userData.openAngle = 0.25;
   lid.add(box(0.38, 0.24, 0.012, standard(shell, 0.5), 0, 0, -0.006));
   const panel = mesh(new PlaneGeometry(0.36, 0.225), unlit(screen.texture), false);
   panel.position.set(0, 0.12, 0.001);
@@ -372,9 +451,9 @@ function rubyDesk(piece: Furniture): BuiltDesk {
   mic.position.set(0, deskTop + 0.22, 0.22);
   boom.add(mic, box(0.01, 0.01, 0.008, glow(), 0, deskTop + 0.245, 0.24));
   boom.position.set(-0.45, 0, -depth / 2 + 0.1);
-  const mug = coffeeMug(0.42, depth / 2 - 0.18);
+  const mug = mugAt("ruby", 0.36, nearEdge(depth));
   inner.add(keyboard.root, mouse.root, lid, boom, mug);
-  return { root: placedDesk(piece, inner), workstation: { screen, keyboard, mouse, mug, ...noDeskThings } };
+  return { root: placedDesk(piece, inner), workstation: { screen, keyboard, mouse, mug, ...noDeskThings, lid } };
 }
 
 /** An 8 by 8 board as a tiny texture, sampled without smoothing so the squares stay sharp. */
@@ -484,9 +563,12 @@ function riasDesk(piece: Furniture): BuiltDesk {
       keyboard,
       mouse,
       mug: teacup,
-      items: { teacup, "chess-piece": queen },
+      items: { "chess-piece": queen },
       chessMove,
       writingPad: null,
+      mugSide: "right",
+      drawer: null,
+      lid,
     },
   };
 }
@@ -546,24 +628,23 @@ function chizuruDesk(piece: Furniture): BuiltDesk {
   plant.add(pot, crown);
   plant.position.set(0.5, 0, back + 0.04);
 
-  const mug = coffeeMug(-0.42, nearEdge(depth) - 0.03);
+  const mug = mugAt("chizuru", -0.33, nearEdge(depth));
   inner.add(keyboard.root, mouse.root, lid, pad, writingPad, spare, marker, cup, plant, mug);
   return {
     root: placedDesk(piece, inner),
-    workstation: { screen, keyboard, mouse, mug, items: { marker }, chessMove: null, writingPad },
+    workstation: {
+      screen,
+      keyboard,
+      mouse,
+      mug,
+      items: { marker },
+      chessMove: null,
+      writingPad,
+      mugSide: "left",
+      drawer: null,
+      lid,
+    },
   };
-}
-
-function coffeeMug(x: number, z: number): Group {
-  const group = new Group();
-  const material: Material = standard(palette.laminate, 0.4);
-  const cup = mesh(new CylinderGeometry(0.026, 0.022, 0.06, 12), material);
-  cup.position.y = deskTop + 0.03;
-  const handle = mesh(new TorusGeometry(0.014, 0.004, 6, 12), material);
-  handle.position.set(0.03, deskTop + 0.032, 0);
-  group.add(cup, handle);
-  group.position.set(x, 0, z);
-  return group;
 }
 
 export function buildDesk(member: DeskMember, piece: Furniture, kanban: Texture): BuiltDesk {

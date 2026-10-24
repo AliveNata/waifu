@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { angleDelta, initialActor, isWalking, stepActor } from "../src/renderer/office/office-actor.js";
 import { memberPlan, ovenStep, propForAction, twobPlan, usesHandIk } from "../src/renderer/office/office-director.js";
 import { homeStations } from "../src/renderer/office/office-layout.js";
-import { OfficeLife } from "../src/renderer/office/office-life.js";
+import { type LifeChoice, OfficeLife } from "../src/renderer/office/office-life.js";
 import { bodyRadius, navGrid, planPath } from "../src/renderer/office/office-nav.js";
 import { distance, furniture, type Point, room, type StationId, stations } from "../src/renderer/office/office-plan.js";
 import { fitSeat, type LegMetrics } from "../src/renderer/office/seating.js";
@@ -278,11 +278,13 @@ describe("office life", () => {
     let now = 0;
     const history: string[] = [];
 
-    // Act
+    // Act: later steps of one activity (fetching the mug, walking the coffee back) are not new picks.
     for (let turn = 0; turn < 40; turn++) {
       const choice = life.planFor("asuna", now);
       life.arrived("asuna", now);
-      history.push(choice.activity);
+      if (choice.step === 0) {
+        history.push(choice.activity);
+      }
       now += choice.durationMs + 1;
     }
 
@@ -330,10 +332,10 @@ describe("office life", () => {
     for (let turn = 0; turn < 300; turn++) {
       const choice = life.planFor("asuna", now);
       life.arrived("asuna", now);
-      if (previous === "coffee") {
+      if (previous === "brew") {
         afterCoffee.push(choice.activity);
       }
-      previous = choice.activity;
+      previous = choice.action;
       now += choice.durationMs + 1;
     }
 
@@ -427,6 +429,8 @@ describe("office director", () => {
     durationMs: 1,
     arrivedAt: 0,
     chosenAt: 0,
+    errand: null,
+    step: 0,
   };
 
   it.each([
@@ -523,5 +527,130 @@ describe("the pantry and the meeting table", () => {
     expect(left.spot.z).toBeLessThan(right.spot.z);
     expect(Math.cos(left.facing)).toBeGreaterThan(0);
     expect(Math.cos(right.facing)).toBeLessThan(0);
+  });
+});
+
+describe("errands", () => {
+  type Mug = { place: "desk" | "hand" | "rack"; level: number };
+
+  /** Runs one member's routine until an activity starts, then returns that activity's steps. */
+  function runOf(life: OfficeLife, memberId: MemberId, wanted: string): LifeChoice[] {
+    let now = 0;
+    for (let turn = 0; turn < 3000; turn++) {
+      const choice = life.planFor(memberId, now);
+      life.arrived(memberId, now);
+      now += choice.durationMs + 1;
+      if (choice.activity === wanted && choice.step === 0) {
+        const steps = [choice];
+        for (;;) {
+          const next = life.planFor(memberId, now);
+          life.arrived(memberId, now);
+          now += next.durationMs + 1;
+          if (next.step === 0) {
+            return steps;
+          }
+          steps.push(next);
+        }
+      }
+    }
+    throw new Error(`${memberId} never chose ${wanted}`);
+  }
+
+  it("takes the mug off the desk, brews, and brings the coffee back to the desk", () => {
+    // Arrange
+    const life = new OfficeLife(
+      Math.random,
+      () => false,
+      (): Mug => ({ place: "desk", level: 0 }),
+    );
+
+    // Act
+    const steps = runOf(life, "asuna", "coffee");
+
+    // Assert
+    expect(steps.map((step) => [step.station, step.action, step.errand])).toEqual([
+      ["desk-asuna", "fetch", "get-mug"],
+      ["coffee", "brew", null],
+      ["desk-asuna", "desk-idle", null],
+    ]);
+  });
+
+  it("takes the clean mug off the drying rack when it was washed last time", () => {
+    // Arrange
+    const life = new OfficeLife(
+      Math.random,
+      () => false,
+      (): Mug => ({ place: "rack", level: 0 }),
+    );
+
+    // Act
+    const steps = runOf(life, "erza", "coffee");
+
+    // Assert
+    expect(steps[0]).toMatchObject({ station: "sink", action: "pick", errand: "rack-mug" });
+    expect(steps[1]).toMatchObject({ station: "coffee", action: "brew" });
+  });
+
+  it("washes an empty mug at the sink, holding the sink from the start", () => {
+    // Arrange
+    const life = new OfficeLife(
+      Math.random,
+      () => false,
+      (): Mug => ({ place: "desk", level: 0 }),
+    );
+    let now = 0;
+    let first: LifeChoice | null = null;
+
+    // Act
+    for (let turn = 0; turn < 3000 && first === null; turn++) {
+      const choice = life.planFor("yor", now);
+      life.arrived("yor", now);
+      if (choice.activity === "wash-mug" && choice.step === 0) {
+        first = choice;
+      } else {
+        now += choice.durationMs + 1;
+      }
+    }
+
+    // Assert: the mug is fetched first, and nobody else is offered the sink meanwhile.
+    expect(first).toMatchObject({ station: "desk-yor", errand: "get-mug" });
+    expect(life.occupant("sink")).toBe("yor");
+  });
+
+  it("does not make coffee or wash up while the mug still has coffee in it", () => {
+    // Arrange
+    const life = new OfficeLife(
+      Math.random,
+      () => false,
+      (): Mug => ({ place: "desk", level: 0.5 }),
+    );
+    let now = 0;
+    const seen = new Set<string>();
+
+    // Act
+    for (let turn = 0; turn < 300; turn++) {
+      const choice = life.planFor("asuna", now);
+      life.arrived("asuna", now);
+      seen.add(choice.activity);
+      now += choice.durationMs + 1;
+    }
+
+    // Assert
+    expect(seen.has("coffee")).toBe(false);
+    expect(seen.has("wash-mug")).toBe(false);
+  });
+
+  it("brings the laptop from the desk to the meeting and puts it back after", () => {
+    // Arrange
+    const life = new OfficeLife(Math.random);
+
+    // Act
+    const steps = runOf(life, "rias", "meeting");
+
+    // Assert
+    expect(steps.map((step) => step.errand)).toEqual(["fetch-laptop", "meeting-laptop", "stow-laptop"]);
+    expect(steps[0]?.station).toBe("desk-rias");
+    expect(steps[1]?.station.startsWith("meeting-")).toBe(true);
+    expect(steps[2]?.station).toBe("desk-rias");
   });
 });

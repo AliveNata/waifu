@@ -42,11 +42,13 @@ import {
   deskBits,
   itemInHand,
   reachingForItem,
+  reachSeconds,
 } from "./desk-habits.js";
 import { aimHand, solveCcd } from "./ik.js";
 import { type ActorState, angleDelta, initialActor, isWalking, stepActor } from "./office-actor.js";
 import { ChatterDirector } from "./office-chatter.js";
 import {
+  type HandPropKind,
   type MemberPlan,
   memberPlan,
   type OfficeAction,
@@ -55,13 +57,15 @@ import {
   twobPlan,
   usesHandIk,
 } from "./office-director.js";
-import { OfficeLife } from "./office-life.js";
-import { initialMug, type MugState, stepMug } from "./office-mug.js";
+import { type LaptopView, laptopPutSeconds, laptopTakeSeconds, laptopView } from "./office-laptop.js";
+import { type Errand, type LifeChoice, OfficeLife } from "./office-life.js";
+import { afterSip, initialMug, type MugState, mugPickSeconds, stepMug } from "./office-mug.js";
 import { distance, meetingStationIds, type StationId, stations, surface } from "./office-plan.js";
 import { type BoardFocus, officePose } from "./office-pose.js";
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
 import { PlaceholderAvatar } from "./placeholder.js";
-import { HandProps } from "./scene/hand-props.js";
+import { drawerTravel, memberPropLooks } from "./scene/desks.js";
+import { HandProps, setCupFill } from "./scene/hand-props.js";
 import { sceneQuality } from "./scene/palette.js";
 import { fitSeat } from "./seating.js";
 import type { PenState } from "./surfaces/board-pen.js";
@@ -129,7 +133,10 @@ interface MemberRig {
   props: HandProps;
   /** The avatar's wrist bones, which hand props follow. */
   hands: Record<ArmSide, Object3D | null>;
-  mug: MugState;
+  /** Where the member's laptop is in a meeting run, and how its lid and screen look. */
+  laptop: LaptopView;
+  /** The sip bit already taken out of the mug, so one bit drinks once. */
+  sippedIn: number | null;
   /** Fingertips over the member's own keyboard; made on first use, since only desk members type. */
   typingHands: TypingHands | null;
   mouseHabit: MouseHabit;
@@ -177,6 +184,8 @@ interface HandTargets {
 const noHandTargets: HandTargets = { left: null, right: null, tip: "wrist", approach: null, board: null };
 /** Reaching for something on the desk is an unhurried move, not a keystroke. */
 const deskReachRate = 7;
+/** A desk laptop's lid folded down over the keys, in radians from upright. */
+const deskLidClosedAngle = Math.PI / 2 - 0.03;
 /** Fingers come down onto keys and the mouse at this angle below horizontal, in radians. */
 const typingFingerPitch = 0.5;
 /** The index finger bone ends at its last knuckle; the real fingertip reaches a little further. */
@@ -315,6 +324,8 @@ const actionLabels: Record<OfficeAction, string> = {
   pingpong: "playing ping-pong",
   wash: "washing up",
   oven: "heating food",
+  fetch: "getting something",
+  pick: "getting a clean mug",
   "pingpong-wait": "waiting for a ping-pong partner",
 };
 
@@ -328,7 +339,17 @@ export class OfficeStage {
   private readonly controls: OrbitControls;
   private readonly timer = new Timer();
   private readonly office = buildOffice();
-  private readonly life = new OfficeLife(Math.random, (station) => this.stationCrowded(station));
+  /** Every mug starts on its desk, some fuller than others. */
+  private readonly mugs = Object.fromEntries(
+    memberIds.map((memberId) => [memberId, initialMug(0.3 + Math.random() * 0.7)]),
+  ) as Record<MemberId, MugState>;
+  private readonly life = new OfficeLife(
+    Math.random,
+    (station) => this.stationCrowded(station),
+    (memberId) => this.mugs[memberId],
+  );
+  /** The idle step each member is on, or nothing while real work has them. */
+  private readonly lifeSteps: Partial<Record<MemberId, LifeChoice>> = {};
   private readonly rigs: Record<MemberId, MemberRig>;
 
   private team: TeamRuntime = emptyTeamRuntime();
@@ -544,7 +565,7 @@ export class OfficeStage {
 
   private createRig(memberId: MemberId, avatar: OfficeAvatar): MemberRig {
     const plan = this.planFor(memberId, Date.now(), null);
-    const props = new HandProps();
+    const props = new HandProps(memberPropLooks[memberId]);
     this.scene.add(avatar.root, props.root);
     return {
       avatar,
@@ -559,7 +580,8 @@ export class OfficeStage {
       wasWorking: false,
       props,
       hands: this.wrists(avatar),
-      mug: initialMug,
+      laptop: laptopView({ errand: null, arrived: false, stepElapsed: 0, remaining: 0 }),
+      sippedIn: null,
       typingHands: null,
       mouseHabit: new MouseHabit(this.elapsed),
       reach: { left: null, right: null },
@@ -569,7 +591,9 @@ export class OfficeStage {
       sidestep: 0,
       sidestepGoal: 0,
       walkHabits: new WalkHabits(this.elapsed),
-      deskHabits: new DeskHabits(deskBits[memberId]),
+      deskHabits: new DeskHabits(deskBits[memberId], Math.random, {
+        sip: this.office.workstations[memberId].mugSide,
+      }),
       chess: { square: 0, movedBy: null },
       reachRate,
       greeted: null,
@@ -615,12 +639,15 @@ export class OfficeStage {
         if (rig !== null) {
           rig.wasWorking = true;
         }
+        delete this.lifeSteps[memberId];
         return twobPlan(mood, this.life.planFor(memberId, now));
       }
       if (rig !== null) {
         rig.wasWorking = false;
       }
-      return twobPlan("idle", this.life.planFor(memberId, now));
+      const step = this.life.planFor(memberId, now);
+      this.lifeSteps[memberId] = step;
+      return twobPlan("idle", step);
     }
     const behavior = memberBehavior(this.team[memberId], now);
     if (behavior !== "idle") {
@@ -630,12 +657,15 @@ export class OfficeStage {
       if (rig !== null) {
         rig.wasWorking = true;
       }
+      delete this.lifeSteps[memberId];
       return memberPlan(memberId, behavior, null);
     }
     if (rig !== null) {
       rig.wasWorking = false;
     }
-    return memberPlan(memberId, "idle", this.life.planFor(memberId, now));
+    const step = this.life.planFor(memberId, now);
+    this.lifeSteps[memberId] = step;
+    return memberPlan(memberId, "idle", step);
   }
 
   /** Advances the member's work surface and returns where the hand should be, if anywhere. */
@@ -802,8 +832,6 @@ export class OfficeStage {
     const rig = this.rigs[memberId];
     const plan = this.planFor(memberId, now, rig);
     rig.plan = plan;
-    const previousTarget = rig.actor.target;
-    const wasAt = isWalking(rig.actor) ? null : previousTarget;
     const otherRigs = memberIds.filter((other) => other !== memberId).map((other) => this.rigs[other].actor);
     const others = otherRigs.map((actor) => actor.position);
     const standing = otherRigs.filter((actor) => !isWalking(actor)).map((actor) => actor.position);
@@ -813,7 +841,6 @@ export class OfficeStage {
     if (arrived) {
       this.life.arrived(memberId, now);
     }
-    this.updateMug(memberId, rig, arrived, rig.actor.target === previousTarget ? null : wasAt);
     let action = walking ? null : plan.action;
     if (action === "pingpong" && !this.opponentReady(memberId)) {
       // The rally starts when the other player is at the table, not while they are still walking.
@@ -824,14 +851,40 @@ export class OfficeStage {
       rig.actionStartedAt = this.elapsed;
     }
 
+    const step = this.lifeSteps[memberId] ?? null;
+    const errand = step?.errand ?? null;
+    // Errands time themselves on the life clock, from arriving at the step.
+    const stepElapsed = arrived && step?.arrivedAt != null ? (now - step.arrivedAt) / 1000 : 0;
+    const remaining = arrived && step?.arrivedAt != null ? (step.arrivedAt + step.durationMs - now) / 1000 : Infinity;
+    this.mugs[memberId] = stepMug(this.mugs[memberId], {
+      desk: `desk-${memberId}`,
+      station: plan.station,
+      arrived,
+      errand,
+      action,
+      actionElapsed: this.elapsed - rig.actionStartedAt,
+    });
+    rig.laptop = laptopView({ errand, arrived, stepElapsed, remaining });
+
     const atOwnDesk = action === "desk-idle" && plan.station === `desk-${memberId}`;
-    const deskBit = rig.deskHabits.update(this.elapsed, atOwnDesk);
+    const mug = this.mugs[memberId];
+    const deskBit = rig.deskHabits.update(
+      this.elapsed,
+      atOwnDesk,
+      (bit) => bit !== "sip" || (mug.place === "desk" && mug.level > 0),
+    );
+    if (deskBit?.kind === "sip" && deskBit.elapsed >= reachSeconds + 1.5 && rig.sippedIn !== deskBit.startedAt) {
+      this.mugs[memberId] = afterSip(mug);
+      rig.sippedIn = deskBit.startedAt;
+    }
     this.updateDeskItems(memberId, rig, deskBit);
     const surfaceTargets = this.updateSurface(memberId, rig, delta);
     const handTargets =
-      surfaceTargets === noHandTargets && deskBit !== null
-        ? this.deskBitTargets(memberId, rig, deskBit)
-        : surfaceTargets;
+      surfaceTargets !== noHandTargets
+        ? surfaceTargets
+        : deskBit !== null
+          ? this.deskBitTargets(memberId, rig, deskBit)
+          : this.errandTargets(memberId, rig, errand, arrived, stepElapsed, remaining);
     // Offset each member's idle loops so the room does not move in lockstep.
     const phaseOffset = memberIds.indexOf(memberId) * 1.7;
 
@@ -840,7 +893,9 @@ export class OfficeStage {
     avatar.root.rotation.y = actor.yaw;
     const seatHeight = stations[plan.station].seatHeight;
     const board = this.boardFocus(rig, handTargets, delta);
-    const gimmick = rig.walkHabits.update(this.elapsed, action === null, rig.mug.inHand);
+    // Something in the right hand while walking: the mug, or the laptop on the way to a meeting.
+    const carrying = this.mugs[memberId].place === "hand" || rig.laptop.place === "hand";
+    const gimmick = rig.walkHabits.update(this.elapsed, action === null, carrying);
     const pose = officePose({
       action,
       walkPhase: actor.walkPhase,
@@ -848,7 +903,7 @@ export class OfficeStage {
       actionElapsed: this.elapsed - rig.actionStartedAt,
       seat: action === null || seatHeight === null ? null : fitSeat(avatar.legs, seatHeight),
       keystrokes: rig.keystrokes,
-      carrying: rig.mug.inHand,
+      carrying,
       board,
       walkStyle: walkStyles[memberId],
       gimmick,
@@ -860,6 +915,7 @@ export class OfficeStage {
           ? pingpongBeat(this.elapsed, rig.actor.target === "pingpong-west" ? "west" : "east")
           : null,
       deskBit,
+      fetchSide: this.errandSide(memberId, errand),
     });
     rig.poseApplier.apply(avatar.poseTarget, pose, delta);
 
@@ -891,12 +947,29 @@ export class OfficeStage {
     // Board work needs the hand free; otherwise the action's own prop wins over a carried mug.
     const onPhone = gimmick?.kind === "phone" ? "phone" : null;
     const plate = action === "oven" && ovenStep(this.elapsed - rig.actionStartedAt).plateInHand ? "plate" : null;
-    const fromDesk = deskBit === null ? null : deskBitProp(deskBit);
+    // Rias drinks from a teacup; everyone else from their mug.
+    const cup = memberId === "rias" ? "teacup" : "mug";
+    const asCup = (kind: HandPropKind | null): HandPropKind | null => (kind === "mug" ? cup : kind);
+    const fromDesk = asCup(deskBit === null ? null : deskBitProp(deskBit));
+    const carried = rig.laptop.place === "hand" ? "laptop" : this.mugs[memberId].place === "hand" ? cup : null;
     const held =
       action !== null && usesHandIk(action)
         ? null
-        : (fromDesk ?? plate ?? propForAction(action) ?? (rig.mug.inHand ? "mug" : onPhone));
-    rig.props.show(held, fromDesk !== null && deskBit !== null ? deskBitSpec(deskBit.kind).hand : "right");
+        : (fromDesk ??
+          plate ??
+          (carried === "laptop" ? carried : null) ??
+          asCup(propForAction(action)) ??
+          carried ??
+          onPhone);
+    // Whatever was just taken stays in the hand that took it until the walk starts.
+    const side =
+      fromDesk !== null && deskBit !== null
+        ? deskBit.hand
+        : action === null
+          ? "right"
+          : this.errandSide(memberId, errand);
+    rig.props.show(held, side);
+    rig.props.setFill(this.mugs[memberId].level);
     rig.props.follow(rig.hands, actor.yaw);
   }
 
@@ -993,17 +1066,86 @@ export class OfficeStage {
     return anchors;
   }
 
-  private updateMug(memberId: MemberId, rig: MemberRig, arrived: boolean, departedFrom: StationId | null): void {
-    const workstation = memberId in this.office.workstations ? this.office.workstations[memberId as DeskMember] : null;
-    rig.mug = stepMug(rig.mug, {
-      desk: workstation === null ? null : (`desk-${memberId}` as StationId),
-      target: rig.actor.target,
-      arrived,
-      departedFrom,
-    });
-    if (workstation !== null) {
-      workstation.mug.visible = rig.mug.onDesk;
+  /** The side of the body the current errand's thing is on, which the reaching hand comes from. */
+  private errandSide(memberId: MemberId, errand: Errand | null): ArmSide {
+    const workstation = this.office.workstations[memberId];
+    switch (errand) {
+      case "get-mug":
+        return workstation.mugSide;
+      // Standing at the sink facing the wall, the rack is on the left.
+      case "rack-mug":
+        return "left";
+      case "fetch-laptop":
+      case "stow-laptop":
+        // The desk faces the sitter with its own -x on their left.
+        return workstation.drawer !== null && workstation.drawer.position.x < 0 ? "left" : "right";
+      default:
+        return "right";
     }
+  }
+
+  /**
+   * Where the hand goes during an errand: onto the mug, into the drawer, onto the desk laptop's lid,
+   * or onto the laptop at the meeting seat while setting it down and packing it up.
+   */
+  private errandTargets(
+    memberId: MemberId,
+    rig: MemberRig,
+    errand: Errand | null,
+    arrived: boolean,
+    stepElapsed: number,
+    remaining: number,
+  ): HandTargets {
+    if (errand === null || !arrived) {
+      return noHandTargets;
+    }
+    const workstation = this.office.workstations[memberId];
+    const t = stepElapsed;
+    let target: Vector3 | null = null;
+    switch (errand) {
+      case "get-mug":
+        target = t < mugPickSeconds + 0.2 ? workstation.mug.getWorldPosition(new Vector3()) : null;
+        break;
+      case "rack-mug":
+        target =
+          t < mugPickSeconds + 0.2
+            ? this.office.rackCups[memberId].getWorldPosition(new Vector3()).setY(surface.counter + 0.04)
+            : null;
+        break;
+      case "fetch-laptop":
+      case "stow-laptop": {
+        const until = errand === "fetch-laptop" ? laptopTakeSeconds : laptopPutSeconds;
+        if (t < until + 0.25) {
+          target =
+            workstation.drawer !== null
+              ? workstation.drawer.getWorldPosition(new Vector3())
+              : (workstation.lid?.localToWorld(new Vector3(0, 0.22, 0)) ?? null);
+        }
+        break;
+      }
+      case "meeting-laptop": {
+        const seat = meetingStationIds.indexOf(rig.plan.station as (typeof meetingStationIds)[number]);
+        const laptop = this.office.meetingLaptops[seat];
+        if (laptop !== undefined && (t < 1 || remaining < 1.8)) {
+          target = laptop.root.getWorldPosition(new Vector3()).setY(surface.desk + 0.03);
+        }
+        break;
+      }
+      case "wash-mug":
+        break;
+    }
+    if (target === null) {
+      return noHandTargets;
+    }
+    const side = this.errandSide(memberId, errand);
+    return {
+      left: side === "left" ? target : null,
+      right: side === "right" ? target : null,
+      tip: "fingertip",
+      approach: this.fingersDown(rig),
+      board: null,
+      rate: deskReachRate,
+    };
   }
 
   /**
@@ -1017,9 +1159,23 @@ export class OfficeStage {
     const workstation = this.office.workstations[memberId as DeskMember];
     const held = bit !== null && itemInHand(bit) ? deskBitSpec(bit.kind).item : null;
     for (const [item, object] of Object.entries(workstation.items)) {
-      // The teacup is also the desk mug, which may be away at the pantry.
-      const home = object !== workstation.mug || rig.mug.onDesk;
-      object.visible = home && item !== held;
+      object.visible = item !== held;
+    }
+    const mug = this.mugs[memberId];
+    workstation.mug.visible = mug.place === "desk" && held !== "mug";
+    setCupFill(workstation.mug, mug.level);
+    this.office.rackCups[memberId].visible = mug.place === "rack";
+    const { laptop } = rig;
+    if (workstation.drawer !== null) {
+      workstation.drawer.position.z = (workstation.drawer.userData.restZ as number) + drawerTravel * laptop.drawer;
+    }
+    if (workstation.lid !== null) {
+      // The desk laptop itself goes to the meeting: keys and lid leave the desk together.
+      const home = laptop.place === "home";
+      workstation.lid.visible = home;
+      workstation.keyboard.root.visible = home;
+      const open = workstation.lid.userData.openAngle as number;
+      workstation.lid.rotation.x = deskLidClosedAngle + (open - deskLidClosedAngle) * laptop.lid;
     }
     const piece = workstation.items["chess-piece"];
     const squares = workstation.chessMove;
@@ -1048,7 +1204,8 @@ export class OfficeStage {
     const spec = deskBitSpec(bit.kind);
     let target: Vector3 | null = null;
     if (reachingForItem(bit) && spec.item !== null) {
-      target = workstation.items[spec.item]?.getWorldPosition(new Vector3()) ?? null;
+      const item = spec.item === "mug" ? workstation.mug : workstation.items[spec.item];
+      target = item?.getWorldPosition(new Vector3()) ?? null;
     } else if (bit.kind === "plush-hug" || bit.kind === "console") {
       // Both hands meet in front of the chest, around the plush or on either side of the console.
       const { root } = rig.avatar;
@@ -1078,8 +1235,8 @@ export class OfficeStage {
       return noHandTargets;
     }
     return {
-      left: spec.hand === "left" ? target : null,
-      right: spec.hand === "right" ? target : null,
+      left: bit.hand === "left" ? target : null,
+      right: bit.hand === "right" ? target : null,
       tip: "fingertip",
       approach: this.fingersDown(rig),
       board: null,
@@ -1110,7 +1267,18 @@ export class OfficeStage {
     this.office.oven.update(step?.oven ?? "off", step?.foodInside ?? false, delta, this.elapsed);
     this.office.meetingLaptops.forEach((laptop, index) => {
       const seat = meetingStationIds[index];
-      laptop.update(delta, seat !== undefined && usingAt(seat, "meeting") ? "on" : "off");
+      const owner = memberIds.find(
+        (memberId) =>
+          this.lifeSteps[memberId]?.errand === "meeting-laptop" &&
+          this.rigs[memberId].plan.station === seat &&
+          this.rigs[memberId].laptop.place === "seat",
+      );
+      if (owner === undefined) {
+        laptop.update(delta, null);
+        return;
+      }
+      const { lid, screenOn } = this.rigs[owner].laptop;
+      laptop.update(delta, { lid, screenOn, shell: memberPropLooks[owner].shell });
     });
   }
 

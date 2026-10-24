@@ -101,7 +101,7 @@ Ruangannya terang dengan aksen ungu dari logo AlyxLabs: LED neon yang "lari" di 
 | Depan | Meja komando 2B dengan papan kanban dan printer di samping, pojok konten Ruby dengan backdrop logo, ring light, kamera, dan mic, plus meja Rias dan Chizuru di sebelah kanan 2B |
 | Dinding kiri | Papan tulis (2B dan Rias), papan ide dan beanbag Chizuru, TV lounge |
 | Lounge | Sofa menghadap TV, meja kopi, beanbag |
-| Pantry | Counter bentuk L: wastafel, mesin kopi, dan oven di counter belakang, lalu meja bar yang nyambung ke ujungnya dengan dua bar stool, plus kulkas |
+| Pantry | Counter bentuk L: wastafel dengan rak pengering gelas di sampingnya, mesin kopi, dan oven di counter belakang, lalu meja bar yang nyambung ke ujungnya dengan dua bar stool, plus kulkas |
 | Pojok game | Mesin arcade |
 
 Setup meja sesuai role:
@@ -134,17 +134,20 @@ Setup meja sesuai role:
 | Rias | Nyeruput teh, atau mindahin bidak catur terus mikir sambil megang dagu |
 | Chizuru | Nulis di sticky note pakai spidol, atau tiba tiba dapet ide sambil ngacungin jari |
 
+Selain itu semua cast sesekali nyeruput kopi dari gelasnya sendiri, selama gelasnya ada di meja dan masih ada isinya.
+
 **Pas nggak ada tugas**, tiap cast milih kegiatan sendiri dan jalan ke sana tanpa nembus furnitur atau cast lain: kerja santai di meja, bikin kopi, ngemil di kulkas, cuci tangan di wastafel, manasin makanan di oven, nonton TV, main game di sofa, main arcade, nyiram tanaman, rebahan di beanbag, baca, ngobrol di meja bar, meeting di meja tengah, atau main pingpong. Kira-kira setengah waktunya di meja, setengahnya istirahat. Biar nggak monoton:
 - Kegiatan yang sama nggak dipilih dua kali berturut-turut, dan tiap kegiatan punya jeda sebelum bisa diulang.
 - Tiap cast punya kesukaan sendiri. Kobayashi sering main arcade, Erza sering ngemil, Rias sering baca, Yor sering ngecek rak server, Ruby sering selfie di depan ring light.
 - Satu tempat cuma dipakai satu orang. Kalau ada yang udah di bar atau meja meeting, yang lain lebih mungkin nyamperin.
 - Pingpong selalu berdua. Yang mulai ngajak cast yang paling lama nganggur, dan nunggu di meja sambil pegang raket sampai lawannya dateng. Bolanya baru jalan pas dua-duanya udah di posisi, dan kalau satu pergi, yang lain ikut berhenti. Raket diayun pas bolanya nyampe ke pemain itu, bukan sebelum.
-- Laptop di meja meeting ada enam, satu per kursi dan menghadap kursinya. Layarnya nyala dan bergerak cuma pas ada yang duduk di kursi itu.
+- Meja meeting kosong dari laptop. Yang mau meeting ambil laptopnya dulu di meja masing masing: yang punya laptop di meja (Ruby, Rias, Chizuru) nutup laptopnya terus bawa laptop itu, yang lain buka laci di bawah meja dan ngambil laptop dari situ. Di meja meeting laptopnya ditaruh, dibuka, terus dinyalain. Sebelum pergi laptopnya dimatiin, ditutup, dibawa balik, dan disimpan lagi ke laci atau ditaruh lagi di meja. Kalau di tengah jalan dipanggil kerja, laptopnya langsung balik ke tempatnya.
 - Pintu kulkas kebuka pas ada yang ngemil, terus ketutup lagi pas dia pergi.
 - Keran wastafel ngalir selama ada yang cuci tangan.
 - Oven dipakai berurutan: pintunya dibuka sambil jongkok buat masukin piring, ditutup, lalu jendelanya nyala oranye selama masak. Abis itu dibuka lagi buat ngambil piringnya, dan piringnya dibawa.
 - Dua bar stool agak serong saling hadap, jadi yang duduk di meja bar bisa ngobrol tanpa muter badan.
-- Yang punya meja bawa gelasnya ke pantry, bikin kopi, terus balik naruh gelasnya di meja. Sekarang semua cast punya meja, jadi Rias dan Chizuru juga begitu.
+- Tiap cast punya gelas sendiri dengan warna sendiri (Rias pakai cangkir teh). Isinya berkurang tiap kali diseruput, dan cast nggak bikin kopi baru selama gelasnya masih ada isinya.
+- Kalau gelasnya udah kosong, cast milih: refill, yaitu bawa gelasnya ke mesin kopi, bikin baru, terus balik naruh di meja, atau bawa gelasnya ke wastafel, nyuci, terus naruh di rak pengering. Gelas yang lagi di rak nggak ada di meja. Kopi berikutnya diawali ambil gelas dari rak dulu, baru ke mesin kopi.
 - Barang di tangan ngikutin kegiatan: HP pas rebahan atau selfie, buku pas baca, stik pas main game, raket pas pingpong, penyiram pas nyiram tanaman.
 - Abis kelar tugas, cast istirahat dulu, nggak langsung balik ke meja.
 - Jalannya nggak kaku: pinggul dan dada muter berlawanan, siku nekuk pas tangan ke depan, kaki napak dari tumit ke ujung, dan kepala tetap stabil. Tiap cast juga jalannya beda: Chizuru dan Ruby melompat lompat, Rias melenggang pelan, Erza kayak baris berbaris, Kobayashi agak bungkuk. Di jalan kadang nengok kiri kanan, ngecek HP, atau peregangan sebentar (HP dan peregangan nggak dilakuin kalau lagi bawa gelas).

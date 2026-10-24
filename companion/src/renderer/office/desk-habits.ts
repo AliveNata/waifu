@@ -14,13 +14,13 @@ export type DeskBit =
   | "rose"
   | "mic"
   | "desk-selfie"
-  | "tea"
+  | "sip"
   | "chess"
   | "sticky"
   | "idea-pop";
 
 /** Things on a desk that a bit picks up or moves. The stage hides them while they are in a hand. */
-export type DeskItem = "planner" | "duck" | "console" | "plush" | "fork" | "rose" | "teacup" | "chess-piece" | "marker";
+export type DeskItem = "planner" | "duck" | "console" | "plush" | "fork" | "rose" | "mug" | "chess-piece" | "marker";
 
 export type DeskHand = "left" | "right";
 
@@ -45,7 +45,8 @@ const bitSpecs: Record<DeskBit, BitSpec> = {
   rose: { duration: 5, item: "rose", prop: "rose", hand: "left" },
   mic: { duration: 6, item: null, prop: null, hand: "left" },
   "desk-selfie": { duration: 5, item: null, prop: "phone", hand: "right" },
-  tea: { duration: 6, item: "teacup", prop: "teacup", hand: "right" },
+  // Rias's mug is a teacup; the stage shows the cup each member actually has.
+  sip: { duration: 6, item: "mug", prop: "mug", hand: "right" },
   chess: { duration: 4, item: "chess-piece", prop: null, hand: "left" },
   sticky: { duration: 6, item: "marker", prop: "marker", hand: "right" },
   "idea-pop": { duration: 3, item: null, prop: null, hand: "right" },
@@ -53,14 +54,14 @@ const bitSpecs: Record<DeskBit, BitSpec> = {
 
 /** Each member's bits, from what is on their desk and who they are. */
 export const deskBits: Record<MemberId, readonly DeskBit[]> = {
-  twob: ["kanban-check", "planner"],
-  chizuru: ["sticky", "idea-pop"],
-  rias: ["tea", "chess"],
-  asuna: ["monitor-check", "duck"],
-  kobayashi: ["console", "plush-hug"],
-  yor: ["rose"],
-  erza: ["cake"],
-  ruby: ["mic", "desk-selfie"],
+  twob: ["kanban-check", "planner", "sip"],
+  chizuru: ["sticky", "idea-pop", "sip"],
+  rias: ["sip", "chess"],
+  asuna: ["monitor-check", "duck", "sip"],
+  kobayashi: ["console", "plush-hug", "sip"],
+  yor: ["rose", "sip"],
+  erza: ["cake", "sip"],
+  ruby: ["mic", "desk-selfie", "sip"],
 };
 
 /** Seconds to reach out and take an item, and the same again at the end to put it back. */
@@ -74,6 +75,8 @@ export interface ActiveDeskBit {
   duration: number;
   /** When it began, so the stage can tell one run of a bit from the next. */
   startedAt: number;
+  /** The hand that does it, nearer whatever it is done with. */
+  hand: DeskHand;
 }
 
 export function deskBitSpec(kind: DeskBit): Readonly<BitSpec> {
@@ -138,7 +141,7 @@ export function deskBitFace(bit: ActiveDeskBit, time: number): ExpressionWeights
     case "plush-hug":
       return { happy: 0.85 * k };
     case "rose":
-    case "tea":
+    case "sip":
       return { relaxed: 0.6 * k };
     case "cake":
       return { happy: 0.5 * k, aa: 0.35 * k * Math.max(0, Math.sin(time * 5)) };
@@ -166,13 +169,18 @@ export class DeskHabits {
   private last: DeskBit | null = null;
   private nextAt: number | null = null;
 
+  /** `hands` overrides a bit's usual hand, for things that sit on the other side of this desk. */
   constructor(
     private readonly bits: readonly DeskBit[],
     private readonly random: () => number = Math.random,
+    private readonly hands: Partial<Record<DeskBit, DeskHand>> = {},
   ) {}
 
-  /** `atDesk`: idling at their own desk. Anything else ends the current bit at once. */
-  update(now: number, atDesk: boolean): ActiveDeskBit | null {
+  /**
+   * `atDesk`: idling at their own desk. Anything else ends the current bit at once. `possible`
+   * leaves out bits that cannot be done right now, such as a sip from an empty mug.
+   */
+  update(now: number, atDesk: boolean, possible: (bit: DeskBit) => boolean = () => true): ActiveDeskBit | null {
     if (!atDesk) {
       this.current = null;
       this.nextAt = null;
@@ -193,14 +201,16 @@ export class DeskHabits {
     if (now < this.nextAt) {
       return null;
     }
-    const choices = this.bits.length > 1 ? this.bits.filter((bit) => bit !== this.last) : this.bits;
+    const open = this.bits.filter(possible);
+    const choices = open.length > 1 ? open.filter((bit) => bit !== this.last) : open;
     const kind = choices[Math.floor(this.random() * choices.length) % Math.max(1, choices.length)];
     if (kind === undefined) {
       this.nextAt = now + this.gap();
       return null;
     }
     this.last = kind;
-    this.current = { kind, elapsed: 0, duration: bitSpecs[kind].duration, startedAt: now };
+    const hand = this.hands[kind] ?? bitSpecs[kind].hand;
+    this.current = { kind, elapsed: 0, duration: bitSpecs[kind].duration, startedAt: now, hand };
     return this.current;
   }
 

@@ -3,6 +3,7 @@ import {
   Group,
   Mesh,
   type MeshBasicMaterial,
+  type Object3D,
   PlaneGeometry,
   SphereGeometry,
   SRGBColorSpace,
@@ -10,12 +11,12 @@ import {
   TextureLoader,
   Vector3,
 } from "three";
-import type { MemberId } from "../../shared/team.js";
+import { type MemberId, memberIds } from "../../shared/team.js";
 import logoUrl from "./assets/alyxlabs-logo.png";
 import { chairSeatHeight, type Furniture, furniture, meetingStationIds, room, stations } from "./office-plan.js";
-import type { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./scene/animated.js";
+import type { ArcadeScreen, RackLights, TvScreen } from "./scene/animated.js";
 import { buildContactShadows } from "./scene/contact-shadows.js";
-import { buildDesk, type DeskMember, deskTop, type Workstation } from "./scene/desks.js";
+import { buildDesk, type DeskMember, deskTop, memberPropLooks, type Workstation } from "./scene/desks.js";
 import {
   buildArcade,
   buildBackdrop,
@@ -39,6 +40,7 @@ import {
   buildTvConsole,
   buildTvWall,
   type FridgeDoor,
+  type MeetingLaptop,
   type Oven,
   type SinkTap,
 } from "./scene/furniture.js";
@@ -75,10 +77,12 @@ export interface OfficeProps {
   /** Hidden unless two players are at the table. */
   pingpongBall: Mesh;
   /** One per meeting chair, in seat order meeting-1..6. */
-  meetingLaptops: LaptopScreen[];
+  meetingLaptops: MeetingLaptop[];
   fridgeDoor: FridgeDoor;
   sink: SinkTap;
   oven: Oven;
+  /** Each member's cup on the drying rack by the sink, shown while their mug is drying there. */
+  rackCups: Record<MemberId, Object3D>;
   /** Cross-fades the window view between day (0) and night (1). */
   setNight(night: number): void;
 }
@@ -251,7 +255,8 @@ export function buildOffice(): OfficeProps {
   let tv: TvScreen | null = null;
   let arcade: ArcadeScreen | null = null;
   let rackLights: RackLights | null = null;
-  let meetingLaptops: LaptopScreen[] = [];
+  let meetingLaptops: MeetingLaptop[] = [];
+  let rackCups: Object3D[] = [];
   let fridgeDoor: FridgeDoor | null = null;
   let sink: SinkTap | null = null;
   let oven: Oven | null = null;
@@ -313,14 +318,19 @@ export function buildOffice(): OfficeProps {
         root.add(buildBarCounter(piece));
         break;
       case "pantry-counter": {
-        const built = buildPantryCounter(piece, {
-          coffee: stations.coffee.spot.x,
-          sink: stations.sink.spot.x,
-          oven: stations.oven.spot.x,
-        });
+        const built = buildPantryCounter(
+          piece,
+          {
+            coffee: stations.coffee.spot.x,
+            sink: stations.sink.spot.x,
+            oven: stations.oven.spot.x,
+          },
+          memberIds.map((member) => ({ look: memberPropLooks[member], teacup: member === "rias" })),
+        );
         root.add(built.root);
         sink = built.sink;
         oven = built.oven;
+        rackCups = built.rackCups;
         break;
       }
       case "fridge": {
@@ -385,7 +395,8 @@ export function buildOffice(): OfficeProps {
     fridgeDoor === null ||
     sink === null ||
     oven === null ||
-    meetingLaptops.length !== meetingStationIds.length
+    meetingLaptops.length !== meetingStationIds.length ||
+    rackCups.length !== memberIds.length
   ) {
     throw new Error("Floor plan is missing the TV, arcade, server rack, fridge or meeting table");
   }
@@ -444,6 +455,10 @@ export function buildOffice(): OfficeProps {
     fridgeDoor,
     sink,
     oven,
+    rackCups: Object.fromEntries(memberIds.map((member, index) => [member, rackCups[index]])) as Record<
+      MemberId,
+      Object3D
+    >,
     setNight: (night) => {
       for (const material of nightGlass) {
         material.opacity = night;

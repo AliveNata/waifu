@@ -25,7 +25,8 @@ export type ActivityId =
   | "meeting"
   | "pingpong"
   | "wash"
-  | "heat";
+  | "heat"
+  | "wash-mug";
 
 interface Activity {
   /** Null means the member's own idle spot. */
@@ -94,6 +95,8 @@ const activities: Record<ActivityId, Activity> = {
   wash: { stations: ["sink"], action: "wash", durationSeconds: [6, 10], weight: 0.4, cooldownSeconds: 120 },
   // Long enough for the whole oven job: in, cook, out, and a moment with the plate.
   heat: { stations: ["oven"], action: "oven", durationSeconds: [10, 14], weight: 0.5, cooldownSeconds: 150 },
+  // An empty mug washed up and left on the drying rack. Only offered while the mug is empty.
+  "wash-mug": { stations: ["sink"], action: "wash", durationSeconds: [6, 8], weight: 0.8, cooldownSeconds: 0 },
   read: {
     stations: [...sofaSeats, "beanbag-lounge"],
     action: "read",
@@ -145,6 +148,12 @@ const idleHome: Record<MemberId, { station: StationId; action: OfficeAction }> =
   ruby: { station: homeStations.ruby, action: "desk-idle" },
 };
 
+/**
+ * A step that moves something along the way: a mug or a laptop. The stage reads it to know
+ * when things change hands.
+ */
+export type Errand = "get-mug" | "rack-mug" | "wash-mug" | "fetch-laptop" | "meeting-laptop" | "stow-laptop";
+
 export interface LifeChoice {
   activity: ActivityId;
   station: StationId;
@@ -153,7 +162,22 @@ export interface LifeChoice {
   /** Set once the member reaches the station; the duration counts from here, not from leaving. */
   arrivedAt: number | null;
   chosenAt: number;
+  errand: Errand | null;
+  /** 0 for the step that was chosen; later steps of the same activity count up from there. */
+  step: number;
 }
+
+/** Where a member's mug is and how much coffee is left in it, which decides the coffee and wash runs. */
+export interface MugInfo {
+  place: "desk" | "hand" | "rack";
+  /** 0 empty to 1 full. */
+  level: number;
+}
+
+/** Errand steps are short: reach, take or put down, go. */
+const errandMs = { "get-mug": 1600, "rack-mug": 1600, "fetch-laptop": 2400, "stow-laptop": 2400 } as const;
+/** An empty mug makes coffee or washing up this much more likely than a casual break. */
+const emptyMugBoost = 2.5;
 
 /** A walk that never arrives (blocked or interrupted) is given up after this long. */
 const arrivalTimeoutMs = 60_000;
@@ -162,6 +186,8 @@ const companyBoost = 4;
 
 export class OfficeLife {
   private readonly choices = new Map<MemberId, LifeChoice>();
+  /** The rest of a multi-step activity, such as walking the coffee back to the desk. */
+  private readonly queued = new Map<MemberId, LifeChoice[]>();
   private readonly lastDone = new Map<MemberId, Map<ActivityId, number>>();
   private readonly reserved = new Map<StationId, MemberId>();
   private readonly cameFromWork = new Set<MemberId>();
@@ -176,6 +202,7 @@ export class OfficeLife {
   constructor(
     private readonly random: () => number = Math.random,
     private readonly crowded: (station: StationId) => boolean = () => false,
+    private readonly mugOf: (memberId: MemberId) => MugInfo = () => ({ place: "desk", level: 0 }),
   ) {}
 
   /** The member's current idle activity, picking a new one when the last has run its course. */
@@ -187,10 +214,25 @@ export class OfficeLife {
     if (current !== undefined) {
       this.finish(memberId, current, now);
     }
-    const next = this.choose(memberId, now, current?.activity ?? null);
+    const queue = this.queued.get(memberId);
+    const following = queue?.shift();
+    if (following !== undefined) {
+      const next = { ...following, chosenAt: now };
+      this.choices.set(memberId, next);
+      return next;
+    }
+    const [next, ...rest] = this.choose(memberId, now, current?.activity ?? null);
+    if (next === undefined) {
+      throw new Error(`no idle choice for ${memberId}`);
+    }
     this.choices.set(memberId, next);
-    if (next.activity !== "desk") {
-      this.reserved.set(next.station, memberId);
+    this.queued.set(memberId, rest);
+    // Every shared spot along the way is held from the start, so nobody takes the sink or a seat
+    // while the member is still on an earlier step.
+    for (const step of [next, ...rest]) {
+      if (step.activity !== "desk" && step.station !== idleHome[memberId].station) {
+        this.reserved.set(step.station, memberId);
+      }
     }
     if (next.activity === "pingpong") {
       this.invitePartner(memberId, next, now);
@@ -218,7 +260,17 @@ export class OfficeLife {
       this.finish(memberId, current, now);
       this.choices.delete(memberId);
     }
+    this.dropQueue(memberId);
     this.cameFromWork.add(memberId);
+  }
+
+  private dropQueue(memberId: MemberId): void {
+    for (const step of this.queued.get(memberId) ?? []) {
+      if (this.reserved.get(step.station) === memberId) {
+        this.reserved.delete(step.station);
+      }
+    }
+    this.queued.delete(memberId);
   }
 
   occupant(station: StationId): MemberId | null {
@@ -279,6 +331,21 @@ export class OfficeLife {
     if (this.freeStations(activity, memberId).length === 0) {
       return 0;
     }
+    const mug = this.mugOf(memberId);
+    const emptyOnDesk = mug.place === "desk" && mug.level <= 0;
+    if (id === "coffee") {
+      // Nobody makes a new one with coffee still in the mug.
+      if (mug.place === "desk" && mug.level > 0) {
+        return 0;
+      }
+      // The clean mug is on the drying rack by the sink, so the sink has to be free to get it.
+      if (mug.place === "rack" && (this.reserved.has("sink") || this.crowded("sink"))) {
+        return 0;
+      }
+    }
+    if (id === "wash-mug" && !emptyOnDesk) {
+      return 0;
+    }
     if (
       id === "pingpong" &&
       (this.freeStations(activity, memberId).length < 2 || this.idlePartner(memberId) === null)
@@ -286,6 +353,9 @@ export class OfficeLife {
       return 0;
     }
     let weight = activity.weight * (preferences[memberId][id] ?? 1);
+    if ((id === "coffee" || id === "wash-mug") && emptyOnDesk) {
+      weight *= emptyMugBoost;
+    }
     if (activity.social === true && activity.stations?.some((station) => this.reserved.has(station))) {
       weight *= companyBoost;
     }
@@ -300,7 +370,11 @@ export class OfficeLife {
   private idlePartner(memberId: MemberId): MemberId | null {
     let best: { id: MemberId; since: number } | null = null;
     for (const [id, choice] of this.choices) {
-      if (id === memberId || choice.activity === "pingpong") {
+      // Someone carrying a mug or a laptop finishes that first.
+      if (id === memberId || choice.activity === "pingpong" || choice.errand !== null) {
+        continue;
+      }
+      if ((this.queued.get(id)?.length ?? 0) > 0) {
         continue;
       }
       const doneAt = this.lastDone.get(id)?.get("pingpong");
@@ -325,21 +399,20 @@ export class OfficeLife {
     if (previous !== undefined) {
       this.finish(partner, previous, now);
     }
+    this.dropQueue(partner);
     this.choices.set(partner, { ...game, station: otherSide, arrivedAt: null, chosenAt: now });
     this.reserved.set(otherSide, partner);
     this.partners.set(memberId, partner);
     this.partners.set(partner, memberId);
   }
 
-  private choose(memberId: MemberId, now: number, previous: ActivityId | null): LifeChoice {
+  /** The chosen activity as its steps, the first one to do now. */
+  private choose(memberId: MemberId, now: number, previous: ActivityId | null): LifeChoice[] {
     const weights = activityIds.map((id) => [id, this.weightOf(memberId, id, previous, now)] as const);
     const total = weights.reduce((sum, [, weight]) => sum + weight, 0);
     let picked: ActivityId = "desk";
-    // A fresh coffee goes back to the desk it was made for, so the mug ends up next to the keyboard.
-    const carriesCoffeeHome = previous === "coffee" && idleHome[memberId].action === "desk-idle";
-    // Roll even when the coffee decides, so one forced choice does not shift every later draw.
     let roll = this.random() * total;
-    if (total > 0 && !carriesCoffeeHome) {
+    if (total > 0) {
       for (const [id, weight] of weights) {
         roll -= weight;
         if (weight > 0 && roll < 0) {
@@ -355,13 +428,68 @@ export class OfficeLife {
     const station = candidates[Math.floor(this.random() * candidates.length) % candidates.length] as StationId;
     const [shortest, longest] = activity.durationSeconds;
     const action = picked === "desk" ? idleHome[memberId].action : activity.action;
-    return {
+    const durationMs = (shortest + this.random() * (longest - shortest)) * 1000;
+    const main: LifeChoice = {
       activity: picked,
       station,
       action,
-      durationMs: (shortest + this.random() * (longest - shortest)) * 1000,
+      durationMs,
       arrivedAt: null,
       chosenAt: now,
+      errand: null,
+      step: 0,
     };
+    return this.withErrands(memberId, main, now);
+  }
+
+  /**
+   * Adds the fetching and carrying an activity needs: the mug from the desk or the drying rack
+   * before a coffee and the walk back to the desk after it, the mug before washing it up, and the
+   * laptop from the desk before a meeting and back after.
+   */
+  private withErrands(memberId: MemberId, main: LifeChoice, now: number): LifeChoice[] {
+    const home = idleHome[memberId];
+    const errand = (station: StationId, action: OfficeAction, kind: keyof typeof errandMs): LifeChoice => ({
+      ...main,
+      station,
+      action,
+      durationMs: errandMs[kind],
+      errand: kind,
+    });
+    const mug = this.mugOf(memberId);
+    const getMug =
+      mug.place === "rack"
+        ? [errand("sink", "pick", "rack-mug")]
+        : mug.place === "desk"
+          ? [errand(home.station, "fetch", "get-mug")]
+          : [];
+    let steps: LifeChoice[];
+    switch (main.activity) {
+      case "coffee": {
+        const [shortest, longest] = activities.desk.durationSeconds;
+        const backToDesk: LifeChoice = {
+          ...main,
+          activity: "desk",
+          station: home.station,
+          action: home.action,
+          durationMs: (shortest + this.random() * (longest - shortest)) * 1000,
+        };
+        steps = [...getMug, main, backToDesk];
+        break;
+      }
+      case "wash-mug":
+        steps = [...getMug, { ...main, errand: "wash-mug" }];
+        break;
+      case "meeting":
+        steps = [
+          errand(home.station, "fetch", "fetch-laptop"),
+          { ...main, errand: "meeting-laptop" },
+          errand(home.station, "fetch", "stow-laptop"),
+        ];
+        break;
+      default:
+        steps = [main];
+    }
+    return steps.map((step, index) => ({ ...step, step: index, chosenAt: now }));
   }
 }

@@ -8,6 +8,7 @@ import {
   CylinderGeometry,
   Group,
   MeshStandardMaterial,
+  type Object3D,
   PlaneGeometry,
   SphereGeometry,
   type Texture,
@@ -16,6 +17,7 @@ import {
 } from "three";
 import { chibi, type Furniture, surface } from "../office-plan.js";
 import { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./animated.js";
+import { handPropModel, type PropLook } from "./hand-props.js";
 import { box, glow, mesh, palette, printed, standard, unlit } from "./palette.js";
 import { leafyCrown } from "./plant.js";
 import { kanbanTexture, type SignLettering } from "./textures.js";
@@ -209,6 +211,14 @@ export interface PantryCounter {
   root: Group;
   sink: SinkTap;
   oven: Oven;
+  /** One drying slot per owner, in the order given; each holds that owner's cup upside down. */
+  rackCups: Object3D[];
+}
+
+/** A cup that dries on the rack: whose colors, and whether it is a teacup rather than a mug. */
+export interface RackCup {
+  look: PropLook;
+  teacup: boolean;
 }
 
 /**
@@ -218,6 +228,7 @@ export interface PantryCounter {
 export function buildPantryCounter(
   piece: Furniture,
   at: { coffee: number; sink: number; oven: number },
+  cups: readonly RackCup[],
 ): PantryCounter {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
@@ -245,9 +256,6 @@ export function buildPantryCounter(
     box(0.22, 0.28, 0.22, standard(palette.inkDeep, 0.35, 0.3), machineX, top, -0.08),
     box(0.16, 0.025, 0.09, standard(palette.steel, 0.3, 0.6), machineX, top + 0.04, 0.05),
     box(0.05, 0.01, 0.01, glow(), machineX + 0.06, top + 0.24, 0.031),
-    mug(machineX, top + 0.065, 0.04),
-    mug(machineX + 0.45, top, 0.05),
-    mug(machineX + 0.55, top, -0.04),
   );
   for (let jar = 0; jar < 4; jar++) {
     const glass = mesh(new CylinderGeometry(0.035, 0.035, 0.1, 12), standard(palette.glass, 0.15));
@@ -259,8 +267,37 @@ export function buildPantryCounter(
   root.add(kettle);
   const sink = buildSink(at.sink - piece.x, top);
   const oven = buildOven(ovenX, front);
-  root.add(sink.root, oven.root);
-  return { root, sink: sink.tap, oven: oven.oven };
+  // Right beside the basin, so a washed mug goes straight onto it.
+  const rack = buildDryingRack(at.sink - piece.x - 0.27, top, cups);
+  root.add(sink.root, oven.root, rack.root);
+  return { root, sink: sink.tap, oven: oven.oven, rackCups: rack.cups };
+}
+
+/**
+ * A steel drying rack with a peg for each cup: two across, four deep. Cups sit on it upside down,
+ * and each slot's cup shows only while its owner's mug is there.
+ */
+function buildDryingRack(x: number, top: number, cups: readonly RackCup[]): { root: Group; cups: Object3D[] } {
+  const root = new Group();
+  // Toward the front of the counter, where someone standing at the sink can reach it.
+  root.position.set(x, 0, 0.13);
+  const steel = standard(palette.steel, 0.3, 0.6);
+  root.add(box(0.15, 0.008, 0.3, steel, 0, top, 0), box(0.15, 0.04, 0.006, steel, 0, top, -0.15));
+  const slots = cups.map((cup, index) => {
+    const column = index % 2;
+    const row = Math.floor(index / 2);
+    const slotX = (column - 0.5) * 0.07;
+    const slotZ = (row - 1.5) * 0.07;
+    const peg = mesh(new CylinderGeometry(0.002, 0.002, 0.04, 6), steel, false);
+    peg.position.set(slotX, top + 0.028, slotZ);
+    const model = handPropModel(cup.teacup ? "teacup" : "mug", cup.look);
+    // Upside down to drain, the rim resting on the tray.
+    model.rotation.x = Math.PI;
+    model.position.set(slotX, top + 0.008 + (cup.teacup ? 0.016 : 0.035), slotZ);
+    root.add(peg, model);
+    return model;
+  });
+  return { root, cups: slots };
 }
 
 /** Water from the tap while someone is at the sink: a thin stream that wavers a little. */
@@ -677,7 +714,43 @@ export function buildBackdrop(piece: Furniture, logo: Texture, lettering: SignLe
  * of the meeting seats (back left, back right, front left, front right), so the stage can light
  * the screen of whoever sits down.
  */
-export function buildMeetingTable(piece: Furniture): { root: Group; laptops: LaptopScreen[] } {
+/** Radians the lid turns from upright to folded shut over the keys. */
+const lidClosedAngle = Math.PI / 2 - 0.03;
+const lidOpenAngle = -0.12;
+
+/** What a meeting laptop shows: nothing (nobody brought one), or one brought to this seat. */
+export interface MeetingLaptopView {
+  /** 0 closed to 1 open. */
+  lid: number;
+  screenOn: boolean;
+  /** The shell color of the laptop the member brought. */
+  shell: string;
+}
+
+/**
+ * The laptop someone brought to a meeting seat: set down shut, opened, switched on, and closed
+ * again before they take it away. Hidden while the seat has none.
+ */
+export class MeetingLaptop {
+  constructor(
+    readonly root: Group,
+    private readonly lid: Group,
+    private readonly shell: MeshStandardMaterial,
+    private readonly screen: LaptopScreen,
+  ) {}
+
+  update(delta: number, view: MeetingLaptopView | null): void {
+    this.root.visible = view !== null;
+    this.screen.update(delta, view?.screenOn === true ? "on" : "off");
+    if (view === null) {
+      return;
+    }
+    this.shell.color.set(view.shell);
+    this.lid.rotation.x = lidClosedAngle + (lidOpenAngle - lidClosedAngle) * view.lid;
+  }
+}
+
+export function buildMeetingTable(piece: Furniture): { root: Group; laptops: MeetingLaptop[] } {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const top = surface.desk;
@@ -703,14 +776,20 @@ export function buildMeetingTable(piece: Furniture): { root: Group; laptops: Lap
     const screen = new LaptopScreen(index + 1);
     const laptop = new Group();
     const shell = standard("#d9d4cc", 0.5);
-    laptop.add(box(0.26, 0.012, 0.18, shell, 0, top, 0), box(0.26, 0.17, 0.01, shell, 0, top + 0.012, -0.09));
+    laptop.add(box(0.26, 0.012, 0.18, shell, 0, top, 0));
+    // The lid turns on a hinge along the back edge of the keys.
+    const lid = new Group();
+    lid.position.set(0, top + 0.012, -0.085);
+    lid.add(box(0.26, 0.17, 0.01, shell, 0, 0, -0.005));
     const panel = mesh(new PlaneGeometry(0.24, 0.15), unlit(screen.texture), false);
-    panel.position.set(0, top + 0.012 + 0.085, -0.084);
-    laptop.add(panel);
+    panel.position.set(0, 0.085, 0.001);
+    lid.add(panel);
+    laptop.add(lid);
     laptop.position.set(x, 0, z);
     laptop.rotation.y = yaw;
+    laptop.visible = false;
     root.add(laptop);
-    return screen;
+    return new MeetingLaptop(laptop, lid, shell, screen);
   });
   // Between the laptops: a printout and a shared mug.
   root.add(box(0.14, 0.004, 0.2, standard("#fbfaf7", 0.9), 0.4, top, 0), mug(-0.4, top, 0));

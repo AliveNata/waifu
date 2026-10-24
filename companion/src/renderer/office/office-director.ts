@@ -29,7 +29,9 @@ export type OfficeAction =
   | "pingpong"
   | "pingpong-wait"
   | "wash"
-  | "oven";
+  | "oven"
+  | "fetch"
+  | "pick";
 
 export interface MemberPlan {
   station: StationId;
@@ -94,7 +96,8 @@ export type HandPropKind =
   | "fork"
   | "rose"
   | "teacup"
-  | "marker";
+  | "marker"
+  | "laptop";
 
 /** The prop an action puts in the right hand, or null for empty-handed actions. */
 export function propForAction(action: OfficeAction | null): HandPropKind | null {
