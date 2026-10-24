@@ -1,6 +1,7 @@
 /**
- * Background music for the office: YouTube videos played through YouTube's own embedded player,
- * which has to stay visible. The pieces here are plain data and functions; the panel is in
+ * Background music for the office from YouTube links. Only the sound is wanted, so YouTube's
+ * embedded player plays out of sight; YouTube's embed terms ask for a visible player, a tradeoff
+ * the owner chose knowingly. The pieces here are plain data and functions; the panel is in
  * music-panel.ts.
  */
 
@@ -128,4 +129,39 @@ export function parseMusicState(saved: string | null): MusicState {
       ? Math.min(record.current, Math.max(0, songs.length - 1))
       : 0;
   return { songs, current, on: record.on === true && songs.length > 0 };
+}
+
+/** YouTube's public oEmbed address for a video, which answers with its title. */
+export function oembedUrl(id: string): string {
+  return `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`;
+}
+
+/** The title in an oEmbed answer, or null when the answer has none. */
+export function titleFrom(answer: unknown): string | null {
+  if (typeof answer !== "object" || answer === null) {
+    return null;
+  }
+  const title = (answer as { title?: unknown }).title;
+  return typeof title === "string" && title.trim() !== "" ? title.trim() : null;
+}
+
+/** Saved titles, keeping only video ids that map to text. */
+export function parseTitles(saved: string | null): Record<string, string> {
+  if (saved === null) {
+    return {};
+  }
+  try {
+    const value: unknown = JSON.parse(saved);
+    if (typeof value !== "object" || value === null) {
+      return {};
+    }
+    return Object.fromEntries(
+      Object.entries(value).filter(
+        (entry): entry is [string, string] => videoId.test(entry[0]) && typeof entry[1] === "string",
+      ),
+    );
+  } catch {
+    // A broken cache only means titles are looked up again.
+    return {};
+  }
 }
