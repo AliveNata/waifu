@@ -35,6 +35,7 @@ export const palette = {
   leaf: "#5b8c4a",
   leafDark: "#3f6e35",
   pot: "#ece6dc",
+  soil: "#4a3a2c",
   fabric: "#5a4f78",
   cushion: "#e9e1d4",
   rug: "#d9d1c4",
