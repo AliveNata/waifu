@@ -6,8 +6,11 @@ import {
   embedUrl,
   initialMusic,
   nextSong,
+  oembedUrl,
   parseMusicState,
+  parseTitles,
   removeSong,
+  titleFrom,
   youtubeIdFrom,
 } from "../src/renderer/office/music.js";
 
@@ -116,5 +119,32 @@ describe("isYoutubeLink", () => {
     expect(isYoutubeLink("http://www.youtube.com/")).toBe(false);
     expect(isYoutubeLink("https://evil.example/")).toBe(false);
     expect(isYoutubeLink("file:///etc/passwd")).toBe(false);
+  });
+});
+
+describe("song titles", () => {
+  it("asks YouTube's oEmbed for the video's title", () => {
+    // Act
+    const url = new URL(oembedUrl("6NKt7Y7yOyw"));
+
+    // Assert
+    expect(url.origin).toBe("https://www.youtube.com");
+    expect(url.pathname).toBe("/oembed");
+    expect(url.searchParams.get("url")).toBe("https://www.youtube.com/watch?v=6NKt7Y7yOyw");
+  });
+
+  it("reads the title and ignores answers without one", () => {
+    expect(titleFrom({ title: "  Lagu santai  ", author_name: "x" })).toBe("Lagu santai");
+    expect(titleFrom({ title: "" })).toBeNull();
+    expect(titleFrom(null)).toBeNull();
+  });
+
+  it("keeps only saved titles for real video ids", () => {
+    // Act
+    const titles = parseTitles(JSON.stringify({ "6NKt7Y7yOyw": "Satu", nope: "Dua", bhLfxROL_k4: 3 }));
+
+    // Assert
+    expect(titles).toEqual({ "6NKt7Y7yOyw": "Satu" });
+    expect(parseTitles("{broken")).toEqual({});
   });
 });

@@ -180,11 +180,12 @@ Pose duduk diukur dari panjang kaki tiap model. Di kursi rendah lututnya naik da
 
 **Ikut jam juga**: sapaan dan obrolan disesuaikan sama waktu, jadi nggak ada "pagi" pas malam dan kalimat yang nyebut waktu tertentu (misalnya "makan siang") cuma keluar di jamnya. Kegiatan juga beda per waktu: pagi lebih sering ngopi, siang lebih sering makan di oven, kulkas, atau meja bar, sore lebih banyak santai dan main, malam lebih banyak nonton atau baca.
 
-**Musik**: tombol **Musik** di kanan bawah kantor ngebuka mini player YouTube. Isinya dua lagu bawaan, dan lo bisa nambah link YouTube sendiri (link watch, youtu.be, shorts, atau live), muter lagu tertentu, pindah ke lagu berikutnya, atau ngapus lagu dari daftar. Lagu yang lagi diputer diulang terus sampai lo pencet **Lagu berikutnya**. Daftar lagu, lagu terakhir, dan status nyala atau matinya disimpan, jadi kalau kantor ditutup pas musik nyala, musiknya nyala lagi pas kantor dibuka. Musik nggak pernah mulai sendiri sebelum lo pencet **Putar** pertama kali.
+**Musik**: tombol **Musik** di kanan bawah kantor ngebuka panel musik. Isinya dua lagu bawaan, dan lo bisa nambah link YouTube sendiri (link watch, youtu.be, shorts, atau live), muter lagu tertentu, pindah ke lagu berikutnya, atau ngapus lagu dari daftar. Judul lagunya diambil dari YouTube, dan kalau nggak bisa diambil (misalnya lagi offline) yang tampil ID videonya. Lagu yang lagi diputer diulang terus sampai lo pencet **Lagu berikutnya**.
 
-- Videonya diputer lewat embed resmi YouTube (youtube-nocookie) dan harus kelihatan, jadi kotak videonya selalu 200 x 200 px selama musik nyala. Nutup panel (tombol **Tutup** atau Escape) sekalian matiin musiknya.
-- Kalau pemilik video matiin fitur embed, YouTube nolak muter video itu. Player-nya bilang videonya nggak bisa diputer di luar YouTube, terus lompat ke lagu berikutnya. Kalau kabar penolakannya nggak nyampe ke kantor, YouTube nampilin pesannya sendiri di kotak video, dan lo tinggal pencet **Lagu berikutnya**.
-- Klik logo atau judul di player ngebuka YouTube di browser lo, bukan di dalam app.
+- Yang keluar cuma suaranya. Player YouTube-nya tetap jalan tapi disembunyiin. Aturan embed YouTube sebenarnya minta player-nya keliatan, jadi suatu saat YouTube bisa aja nolak cara ini. Kalau itu kejadian, musiknya berhenti bunyi.
+- Nutup panel (tombol **Tutup** atau Escape) nggak matiin musik. Selama musik jalan, tombolnya bertulisan **Musik nyala**. Musik cuma berhenti kalau lo pencet **Matiin** atau kantornya ditutup.
+- Daftar lagu, lagu terakhir, dan status nyala atau matinya disimpan. Kalau kantor ditutup pas musik nyala, musiknya nyala lagi pas kantor dibuka. Musik nggak pernah mulai sendiri sebelum lo pencet **Putar** pertama kali.
+- Kalau pemilik video matiin fitur embed, YouTube nolak muter lagu itu. Panelnya bilang lagunya nggak bisa diputer di luar YouTube, terus lompat ke lagu berikutnya.
 
 **Kamera**: drag buat muter, scroll buat zoom, klik dua kali buat balik ke tampilan awal. Pakai keyboard: Tab ke ruangan, panah buat muter, `+` dan `-` buat zoom, `0` buat reset. Kalau lama nggak disentuh, kameranya goyang pelan sendiri.
 
