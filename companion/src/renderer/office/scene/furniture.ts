@@ -7,6 +7,7 @@ import {
   BoxGeometry,
   CylinderGeometry,
   Group,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   type Object3D,
   PlaneGeometry,
@@ -20,7 +21,7 @@ import { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./animated.js"
 import { handPropModel, type PropLook } from "./hand-props.js";
 import { box, glow, mesh, palette, printed, standard, unlit } from "./palette.js";
 import { leafyCrown } from "./plant.js";
-import { kanbanTexture, type SignLettering } from "./textures.js";
+import { doorLetteringTexture, kanbanTexture, type SignLettering } from "./textures.js";
 
 export interface BuiltPiece {
   root: Group;
@@ -432,49 +433,100 @@ export function buildTrashBin(piece: Furniture): Group {
   return root;
 }
 
-/** How far the entry door swings open, inward, away from the hinge post. */
-const entryDoorOpenAngle = 1.4;
+/** Doors slide this fast toward open or shut, as a share of the way per second. */
+const entryDoorSpeed = 4;
 
-/** The entry door: swings open while someone is going through, then closes behind them. */
+/**
+ * The automatic entry doors: two glass panels that slide apart while someone is close and back
+ * together after, the name on them splitting and joining with them.
+ */
 export class EntryDoor {
-  private angle = 0;
+  private open = 0;
 
-  constructor(private readonly hinge: Group) {}
+  constructor(
+    private readonly panels: readonly [Group, Group],
+    private readonly travel: number,
+  ) {}
 
   update(open: boolean, delta: number): void {
-    this.angle += ((open ? entryDoorOpenAngle : 0) - this.angle) * Math.min(1, 5 * delta);
-    // Negative yaw swings the free edge toward +z, the room side, where the mat is.
-    this.hinge.rotation.y = -this.angle;
+    this.open += ((open ? 1 : 0) - this.open) * Math.min(1, entryDoorSpeed * delta);
+    // Eased at both ends, the way automatic doors start and stop.
+    const eased = this.open * this.open * (3 - 2 * this.open);
+    const [left, right] = this.panels;
+    left.position.x = -this.travel * eased;
+    right.position.x = this.travel * eased;
   }
 }
 
 /**
- * The way in at the open right-hand side of the room: a frame with a door, sized for chibis, and
- * a mat in front. Whoever goes out for food leaves and comes back through it.
+ * The way in at the right-hand side of the room: a header with the door sensor and the accent
+ * strip, a track, and two clear glass doors lettered "Alyx" and "Labs" that read as one name
+ * when shut. Each door slides out over its own side bay, so the whole opening clears.
  */
 export function buildEntryDoor(piece: Furniture): { root: Group; door: EntryDoor } {
   const root = placed(piece);
   const { width } = localSize(piece);
+  // Half the footprint is the opening, a quarter on each side is where a door slides to.
+  const opening = width / 2;
   const height = 1.45;
   const frame = standard(palette.inkDeep, 0.5);
+  const steel = standard(palette.steel, 0.3, 0.6);
   root.add(
-    box(0.06, height + 0.06, 0.1, frame, -width / 2, 0, 0),
-    box(0.06, height + 0.06, 0.1, frame, width / 2, 0, 0),
-    box(width + 0.06, 0.06, 0.1, frame, 0, height, 0),
-    box(width - 0.1, 0.012, 0.012, glow(), 0, height + 0.02, 0.05),
-    box(width + 0.2, 0.01, 0.45, standard(palette.inkSoft, 0.95), 0, 0, 0.32),
+    box(0.06, height + 0.1, 0.1, frame, -width / 2, 0, 0),
+    box(0.06, height + 0.1, 0.1, frame, width / 2, 0, 0),
+    // The header box over the doors holds the motion sensor, a small dark eye in the middle.
+    box(width + 0.06, 0.1, 0.12, frame, 0, height, 0),
+    box(0.06, 0.03, 0.01, standard("#1a1a22", 0.3), 0, height + 0.02, 0.065),
+    box(width - 0.1, 0.012, 0.012, glow(), 0, height + 0.08, 0.065),
+    // The floor track the doors run in, and a mat on the room side.
+    box(width, 0.012, 0.05, steel, 0, 0, 0),
+    box(opening + 0.3, 0.01, 0.45, standard(palette.inkSoft, 0.95), 0, 0, 0.32),
   );
-  // Hinged on its left post as seen from the room, opening inward.
-  const hinge = new Group();
-  hinge.position.set(-width / 2 + 0.03, 0, 0.02);
-  const panelWidth = width - 0.06;
-  hinge.add(
-    box(panelWidth, height - 0.01, 0.04, standard(palette.oak, 0.55), panelWidth / 2, 0, 0),
-    box(panelWidth - 0.24, 0.42, 0.045, standard(palette.glass, 0.1), panelWidth / 2, height * 0.55, 0),
-    box(0.1, 0.02, 0.03, standard(palette.steel, 0.3, 0.6), panelWidth - 0.1, height * 0.45, 0.03),
-  );
-  root.add(hinge);
-  return { root, door: new EntryDoor(hinge) };
+  const glass = new MeshStandardMaterial({
+    color: palette.glass,
+    roughness: 0.05,
+    metalness: 0.1,
+    transparent: true,
+    opacity: 0.18,
+    depthWrite: false,
+  });
+  const lettering = (word: "Alyx" | "Labs"): Object3D => {
+    const material = new MeshBasicMaterial({
+      map: doorLetteringTexture(word, palette.accent),
+      transparent: true,
+      depthWrite: false,
+      toneMapped: false,
+    });
+    // As wide as the door, so the word on each half reaches the seam.
+    const plane = mesh(new PlaneGeometry(opening / 2, (opening / 2) * (180 / 512)), material, false);
+    // At a chibi's eye level, just on the room side of the glass.
+    plane.position.set(0, 0.95, 0.008);
+    return plane;
+  };
+  const panelWidth = opening / 2;
+  const door = (side: -1 | 1, word: "Alyx" | "Labs"): Group => {
+    const panel = new Group();
+    const inner = new Group();
+    inner.position.x = (side * panelWidth) / 2;
+    const glassPane = mesh(new BoxGeometry(panelWidth - 0.01, height - 0.04, 0.012), glass, false);
+    glassPane.position.y = (height - 0.04) / 2 + 0.02;
+    inner.add(
+      glassPane,
+      // Slim rails on the outer edge, top and bottom, so the clear glass still reads as a door.
+      box(0.02, height - 0.04, 0.02, steel, (side * (panelWidth - 0.02)) / 2, 0.02, 0),
+      box(panelWidth - 0.01, 0.03, 0.02, steel, 0, 0.02, 0),
+      box(panelWidth - 0.01, 0.03, 0.02, steel, 0, height - 0.05, 0),
+      lettering(word),
+    );
+    // Both halves run in one plane, so the name stays joined from any angle; the panes stop
+    // short of the seam, so they never overlap.
+    panel.add(inner);
+    return panel;
+  };
+  const left = door(-1, "Alyx");
+  const right = door(1, "Labs");
+  root.add(left, right);
+  return { root, door: new EntryDoor([left, right], panelWidth) };
 }
 
 /** How far the fridge door swings: short of 90 degrees, since the hinge side is right by the wall. */

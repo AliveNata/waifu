@@ -131,6 +131,26 @@ export function signTextTexture(alyxColor: string = palette.inkDeep, labsColor =
   return { texture: texture(element), inkStart: 10 / 1024, inkEnd: Math.min(1, inkEnd / 1024) };
 }
 
+/**
+ * One half of the name on the entry doors, in the sign's lettering: "Alyx" set against the right
+ * edge of the left door and "Labs" against the left edge of the right one, so the closed doors
+ * read as one word that splits as they slide apart. Transparent around the letters, for glass.
+ */
+export function doorLetteringTexture(word: "Alyx" | "Labs", color: string): CanvasTexture {
+  const { canvas: element, ctx } = canvas(512, 180);
+  ctx.clearRect(0, 0, 512, 180);
+  ctx.textBaseline = "middle";
+  ctx.font = `700 140px ${uiFont}`;
+  ctx.fillStyle = color;
+  // The two halves meet at the doors' seam: the ink, not the glyph box, goes right up to the
+  // edge, leaving only the gap a letter would have, so the shut doors read "AlyxLabs".
+  const ink = ctx.measureText(word);
+  const letterGap = 5;
+  const x = word === "Alyx" ? 512 - letterGap - ink.actualBoundingBoxRight : letterGap + ink.actualBoundingBoxLeft;
+  ctx.fillText(word, x, 94);
+  return texture(element);
+}
+
 /** Asuna's side monitor: pipeline stages as a DAG, each with a status dot. Shapes only, no made-up numbers. */
 export function pipelineTexture(): CanvasTexture {
   const { canvas: element, ctx } = canvas(640, 400);

@@ -11,6 +11,7 @@ import {
   parseTitles,
   removeSong,
   titleFrom,
+  volumeCommand,
   youtubeIdFrom,
 } from "../src/renderer/office/music.js";
 
@@ -58,7 +59,7 @@ describe("embedUrl", () => {
 
 describe("the song list", () => {
   it("starts with the two default songs, switched off", () => {
-    expect(initialMusic).toEqual({ songs: [...defaultSongs], current: 0, on: false });
+    expect(initialMusic).toEqual({ songs: [...defaultSongs], current: 0, on: false, volume: 60 });
   });
 
   it("adds a new link once and explains a bad or repeated one", () => {
@@ -85,7 +86,7 @@ describe("the song list", () => {
 
   it("keeps playing the same song when an earlier one is removed, and stops with none left", () => {
     // Arrange
-    const state = { songs: ["aaaaaaaaaaa", "bbbbbbbbbbb", "ccccccccccc"], current: 2, on: true };
+    const state = { songs: ["aaaaaaaaaaa", "bbbbbbbbbbb", "ccccccccccc"], current: 2, on: true, volume: 30 };
 
     // Act
     const removedEarlier = removeSong(state, 0);
@@ -93,7 +94,7 @@ describe("the song list", () => {
 
     // Assert
     expect(removedEarlier.songs[removedEarlier.current]).toBe("ccccccccccc");
-    expect(emptied).toEqual({ songs: [], current: 0, on: false });
+    expect(emptied).toEqual({ songs: [], current: 0, on: false, volume: 30 });
   });
 });
 
@@ -108,7 +109,29 @@ describe("parseMusicState", () => {
     const state = parseMusicState(JSON.stringify({ songs: ["6NKt7Y7yOyw", "<script>", 42], current: 7, on: true }));
 
     // Assert
-    expect(state).toEqual({ songs: ["6NKt7Y7yOyw"], current: 0, on: true });
+    expect(state).toEqual({ songs: ["6NKt7Y7yOyw"], current: 0, on: true, volume: 60 });
+  });
+
+  it("keeps a saved volume, within 0 to 100", () => {
+    // Act
+    const quiet = parseMusicState(JSON.stringify({ songs: [], volume: 25 }));
+    const tooLoud = parseMusicState(JSON.stringify({ songs: [], volume: 400 }));
+    const broken = parseMusicState(JSON.stringify({ songs: [], volume: "loud" }));
+
+    // Assert
+    expect(quiet.volume).toBe(25);
+    expect(tooLoud.volume).toBe(100);
+    expect(broken.volume).toBe(60);
+  });
+});
+
+describe("volumeCommand", () => {
+  it("tells the embedded player to set a whole-number volume", () => {
+    // Act
+    const command = JSON.parse(volumeCommand(42.6));
+
+    // Assert
+    expect(command).toEqual({ event: "command", func: "setVolume", args: [43] });
   });
 });
 

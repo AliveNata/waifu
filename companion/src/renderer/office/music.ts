@@ -15,9 +15,24 @@ export interface MusicState {
   current: number;
   /** Music switched on. Off until the person switches it on the first time. */
   on: boolean;
+  /** Player volume, 0 to 100. */
+  volume: number;
 }
 
-export const initialMusic: MusicState = { songs: [...defaultSongs], current: 0, on: false };
+/** Quiet enough to talk over while working, until the person moves the slider. */
+export const defaultVolume = 60;
+
+export const initialMusic: MusicState = { songs: [...defaultSongs], current: 0, on: false, volume: defaultVolume };
+
+/** A volume the player accepts: a whole number from 0 to 100. */
+export function clampVolume(value: number): number {
+  return Number.isFinite(value) ? Math.round(Math.min(100, Math.max(0, value))) : defaultVolume;
+}
+
+/** The message that sets the embedded player's volume, for its postMessage API. */
+export function volumeCommand(volume: number): string {
+  return JSON.stringify({ event: "command", func: "setVolume", args: [clampVolume(volume)] });
+}
 
 const videoId = /^[A-Za-z0-9_-]{11}$/;
 const youtubeHosts = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com"]);
@@ -102,7 +117,12 @@ export function removeSong(state: MusicState, index: number): MusicState {
   if (index < current || current >= songs.length) {
     current = Math.max(0, current - 1);
   }
-  return { songs, current: songs.length === 0 ? 0 : current, on: songs.length === 0 ? false : state.on };
+  return {
+    songs,
+    current: songs.length === 0 ? 0 : current,
+    on: songs.length === 0 ? false : state.on,
+    volume: state.volume,
+  };
 }
 
 /** Reads saved music settings, falling back to the defaults for anything missing or malformed. */
@@ -128,7 +148,8 @@ export function parseMusicState(saved: string | null): MusicState {
     typeof record.current === "number" && Number.isInteger(record.current) && record.current >= 0
       ? Math.min(record.current, Math.max(0, songs.length - 1))
       : 0;
-  return { songs, current, on: record.on === true && songs.length > 0 };
+  const volume = typeof record.volume === "number" ? clampVolume(record.volume) : defaultVolume;
+  return { songs, current, on: record.on === true && songs.length > 0, volume };
 }
 
 /** YouTube's public oEmbed address for a video, which answers with its title. */
