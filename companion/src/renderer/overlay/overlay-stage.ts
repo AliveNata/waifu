@@ -24,12 +24,15 @@ import {
 import type { Stage } from "../common/page.js";
 import { PoseApplier, vrmPoseTarget } from "../common/pose.js";
 import { updateVrmStable } from "../common/vrm-update.js";
+import { type Blush, createBlush } from "./blush.js";
+import { gestureForZone } from "./hand-gestures.js";
+import { HandPointer } from "./hand-pointer.js";
 import { FidgetScheduler, fidgetFace } from "./idle-fidgets.js";
 import { cursorAim, overlayPose } from "./overlay-pose.js";
 import { commandFace, envelope, poseFocusShift, poseHoldSeconds, poseNeedsWideFrame } from "./pose-bones.js";
 import { createTongue, type Tongue } from "./tongue.js";
 import { reactionFace, type TouchKind, TouchMood, type TouchReaction } from "./touch-reactions.js";
-import { classifyTouch, type TouchZone } from "./touch-zones.js";
+import { classifyTouch, type TouchSide, type TouchZone } from "./touch-zones.js";
 
 /** Vertical span of the close-up in meters: top of the hair down to mid chest. */
 const framedHeight = 0.62;
@@ -93,6 +96,8 @@ export class OverlayStage implements Stage {
 
   private vrm: VRM | null = null;
   private tongue: Tongue | null = null;
+  private blush: Blush | null = null;
+  private readonly hand = new HandPointer(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   private focus = new Vector3(0, 1.3, 0);
   private framing = framedHeight;
   /** Kept after a pose ends, so the camera eases back along the same line it pulled out on. */
@@ -115,10 +120,16 @@ export class OverlayStage implements Stage {
     this.renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true });
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // Two passes a frame, her and then the hand, so clearing is done by hand.
+    this.renderer.autoClear = false;
 
     const keyLight = new DirectionalLight(0xffffff, Math.PI);
     keyLight.position.set(0.6, 1.2, 1.5);
     this.scene.add(keyLight, this.lookTarget);
+    // The page keeps the system pointer until the hand is in, so a failed load leaves a usable pointer.
+    this.hand.load().catch((error: unknown) => {
+      console.error("[overlay] could not load the pointer hand", error);
+    });
 
     window.addEventListener("resize", () => this.resize());
     this.resize();
@@ -135,6 +146,8 @@ export class OverlayStage implements Stage {
     }
     this.tongue?.dispose();
     this.tongue = null;
+    this.blush?.dispose();
+    this.blush = null;
     this.vrm = vrm;
     this.poseApplier.reset();
     this.expressionWeights = {};
@@ -155,6 +168,32 @@ export class OverlayStage implements Stage {
     vrm.update(0);
     this.frameHead(vrm);
     this.tongue = createTongue(vrm);
+    this.blush = createBlush(vrm);
+  }
+
+  /** The 3D hand is loaded and drawn over her, so the page can hide the system pointer there. */
+  get handReady(): boolean {
+    return this.hand.ready;
+  }
+
+  /**
+   * Moves the pointer hand to a point in the window. Returns the part of her under it, or null
+   * off her, where the hand goes away.
+   */
+  hover(clientX: number, clientY: number): TouchZone | null {
+    const hit = this.hitAt(clientX, clientY);
+    this.hand.hover(hit?.point ?? null, this.elapsed);
+    return hit?.zone ?? null;
+  }
+
+  /** The pointer left the window. */
+  hideHand(): void {
+    this.hand.hover(null, this.elapsed);
+  }
+
+  /** A touch is still playing on the hand, so the system pointer should stay hidden. */
+  handBusy(): boolean {
+    return this.hand.playing(this.elapsed);
   }
 
   setReaction(reaction: Reaction): void {
@@ -171,7 +210,13 @@ export class OverlayStage implements Stage {
   }
 
   /** What part of 2B is under a point in the window, or null when the point misses her. */
-  zoneAt(clientX: number, clientY: number): { zone: TouchZone; side: "left" | "right" | "center" } | null {
+  zoneAt(clientX: number, clientY: number): { zone: TouchZone; side: TouchSide } | null {
+    const hit = this.hitAt(clientX, clientY);
+    return hit === null ? null : { zone: hit.zone, side: hit.side };
+  }
+
+  /** The part of her under a point in the window and where on her it is, or null on a miss. */
+  private hitAt(clientX: number, clientY: number): { zone: TouchZone; side: TouchSide; point: Vector3 } | null {
     const vrm = this.vrm;
     if (vrm === null) {
       return null;
@@ -212,22 +257,27 @@ export class OverlayStage implements Stage {
     const rightEye = position("rightEye");
     const eyeHeight = leftEye !== null && rightEye !== null ? (leftEye.y + rightEye.y) / 2 - head.y : 0.07;
     const local = hit.point.clone().sub(head);
-    return classifyTouch({
+    const upperChest = position("upperChest") ?? position("chest");
+    const fromChest = upperChest === null ? null : hit.point.clone().sub(upperChest);
+    const touched = classifyTouch({
       materialName: materialName(hit.object as Mesh, hit.face?.materialIndex),
       bone: nearest !== null && nearest.distance < 0.25 ? nearest.bone : null,
       head: { x: local.x, y: local.y, z: local.z },
       eyeHeight,
+      chest: fromChest === null ? null : { x: fromChest.x, y: fromChest.y, z: fromChest.z },
     });
+    return { ...touched, point: hit.point.clone() };
   }
 
   /** Reacts to a touch at a point. Returns the reaction for the page's speech line, or null on a miss. */
   touchAt(clientX: number, clientY: number, kind: TouchKind): TouchReaction | null {
-    const hit = this.zoneAt(clientX, clientY);
+    const hit = this.hitAt(clientX, clientY);
     if (hit === null) {
       return null;
     }
     const reaction = this.touchMood.react(hit.zone, kind, hit.side, this.elapsed);
     this.touch = { reaction, startedAt: this.elapsed };
+    this.hand.touch(hit.point, gestureForZone(hit.zone, kind, Math.random()), kind === "hold", this.elapsed);
     return reaction;
   }
 
@@ -347,9 +397,15 @@ export class OverlayStage implements Stage {
         expressions.setValue("blink", Math.max(held, this.blink.weightAt(this.elapsed) * (1 - happy)));
       }
       this.tongue?.set(command?.pose === "tongue" ? envelope(command.elapsed, poseHoldSeconds, 0.4, 0.5) : 0);
+      this.blush?.update(touchFace?.blush ?? 0, delta);
       updateVrmStable(vrm, delta);
     }
 
+    this.hand.update(this.camera, this.elapsed);
+    this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
+    // The hand goes on top: its own depth, so it is solid, but never hidden inside her.
+    this.renderer.clearDepth();
+    this.renderer.render(this.hand.scene, this.camera);
   }
 }

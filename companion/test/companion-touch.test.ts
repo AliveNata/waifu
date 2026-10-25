@@ -6,7 +6,14 @@ import { classifyTouch, type TouchProbe } from "../src/renderer/overlay/touch-zo
 import { parsePoseCommand } from "../src/shared/companion-pose.js";
 
 function probe(overrides: Partial<TouchProbe>): TouchProbe {
-  return { materialName: "Face_00_SKIN", bone: "head", head: { x: 0, y: 0, z: 0.08 }, eyeHeight: 0.07, ...overrides };
+  return {
+    materialName: "Face_00_SKIN",
+    bone: "head",
+    head: { x: 0, y: 0, z: 0.08 },
+    eyeHeight: 0.07,
+    chest: null,
+    ...overrides,
+  };
 }
 
 describe("classifyTouch", () => {
@@ -30,6 +37,21 @@ describe("classifyTouch", () => {
   ] as const)("reads %j as %s", (input, zone) => {
     // Act + Assert
     expect(classifyTouch(input).zone).toBe(zone);
+  });
+
+  it("tells her chest apart from the rest of her body", () => {
+    // Arrange
+    const cloth = { materialName: "Tops_01_CLOTH", head: { x: 0, y: -0.25, z: 0.08 } };
+    const bust = probe({ ...cloth, bone: "upperChest", chest: { x: 0.05, y: -0.06, z: 0.09 } });
+    const collarbone = probe({ ...cloth, bone: "upperChest", chest: { x: 0, y: 0.06, z: 0.06 } });
+    const side = probe({ ...cloth, bone: "chest", chest: { x: 0.16, y: -0.08, z: 0.04 } });
+    const belly = probe({ ...cloth, bone: "spine", chest: { x: 0, y: -0.25, z: 0.08 } });
+
+    // Act + Assert
+    expect(classifyTouch(bust)).toEqual({ zone: "chest", side: "left" });
+    expect(classifyTouch(collarbone).zone).toBe("body");
+    expect(classifyTouch(side).zone).toBe("body");
+    expect(classifyTouch(belly).zone).toBe("body");
   });
 
   it("keeps the same zones on a head one and a half times bigger", () => {
@@ -103,6 +125,54 @@ describe("TouchMood", () => {
     expect(duringSulk.gesture).toBe("turn-away");
     expect(later.gesture).toBe("lean-in");
     expect(mood.annoyanceAt(40)).toBe(0);
+  });
+
+  it("is embarrassed and cross when touched on the chest, and blushes", () => {
+    // Arrange
+    const mood = new TouchMood(() => 0);
+
+    // Act
+    const first = mood.react("chest", "tap", "center", 0);
+
+    // Assert
+    expect(first.gesture).toBe("cover-chest");
+    expect(first.line).toBe("Heh! Jangan di situ!");
+    expect(reactionFace(first, 0.2)).toEqual({ surprised: 0.75, blush: 1 });
+    expect(reactionFace(first, 1)).toMatchObject({ angry: 0.45, blush: 1 });
+  });
+
+  it("gets crosser when it happens again, then sulks longer than after other pokes", () => {
+    // Arrange
+    const mood = new TouchMood(() => 0);
+    mood.react("chest", "tap", "center", 0);
+
+    // Act
+    const again = mood.react("chest", "tap", "center", 4);
+    const third = mood.react("chest", "tap", "center", 4.5);
+    const stillSulking = mood.react("head", "tap", "center", 15);
+    const over = mood.react("head", "tap", "center", 40);
+
+    // Assert
+    expect(again.line).toMatch(/Udah dibilang jangan|Tangannya/);
+    expect(reactionFace(again, 1)?.angry).toBeGreaterThan(0.45);
+    expect(third.line).toBe("Mesum. Aku ngambek dulu.");
+    expect(stillSulking.gesture).toBe("turn-away");
+    expect(over.gesture).toBe("lean-in");
+  });
+
+  it("covers up again and keeps sulking when touched there while sulking", () => {
+    // Arrange
+    const mood = new TouchMood(() => 0);
+    mood.react("chest", "tap", "center", 0);
+    mood.react("chest", "tap", "center", 0.5);
+
+    // Act
+    const during = mood.react("chest", "tap", "center", 10);
+    const afterOldEnd = mood.react("head", "tap", "center", 15);
+
+    // Assert
+    expect(during.gesture).toBe("cover-chest");
+    expect(afterOldEnd.gesture).toBe("turn-away");
   });
 
   it("is soothed by petting instead of annoyed", () => {

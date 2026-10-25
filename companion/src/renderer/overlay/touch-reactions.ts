@@ -20,9 +20,13 @@ export type TouchGesture =
   | "wave-small"
   | "step-back"
   | "turn-away"
-  | "scrunch";
+  | "scrunch"
+  | "cover-chest";
 
-/** One stretch of a reaction's face, until `untilSeconds` after it started. */
+/**
+ * One stretch of a reaction's face, until `untilSeconds` after it started. Besides the model's
+ * own expressions, `blush` (0 to 1) reddens her cheeks.
+ */
 export interface ReactionPhase {
   untilSeconds: number;
   expressions: ExpressionWeights;
@@ -47,6 +51,7 @@ const annoyanceGain: Record<TouchZone, number> = {
   nose: 0.18,
   shoulder: 0.12,
   hand: 0.1,
+  chest: 0.5,
   body: 0.35,
 };
 const soothing = -0.06;
@@ -55,6 +60,10 @@ const annoyanceDecay = 0.12;
 const annoyedAt = 0.55;
 const sulkAt = 0.9;
 const sulkSeconds = 5;
+/** Touched on the chest again after warning: she sulks much longer. */
+const chestSulkSeconds = 12;
+/** She remembers being touched on the chest this long, so the next time counts as "again". */
+const chestMemorySeconds = 20;
 /** Touches on the same zone this close together count as "again". */
 const repeatWindowSeconds = 1.6;
 
@@ -73,6 +82,7 @@ export class TouchMood {
   private sulkUntil = Number.NEGATIVE_INFINITY;
   private lastZone: TouchZone | null = null;
   private repeats = 0;
+  private lastChestAt = Number.NEGATIVE_INFINITY;
 
   constructor(private readonly random: () => number = Math.random) {}
 
@@ -88,6 +98,11 @@ export class TouchMood {
 
     if (at < this.sulkUntil) {
       this.annoyance = calm;
+      if (zone === "chest") {
+        // Still sulking and touched there again: covers up again and sulks longer.
+        this.sulkUntil = Math.max(this.sulkUntil, at + chestSulkSeconds);
+        return { zone, side, ...this.chestReaction(2) };
+      }
       return {
         zone,
         side,
@@ -100,6 +115,17 @@ export class TouchMood {
 
     const petting = (zone === "head" || zone === "hair") && kind !== "tap";
     this.annoyance = Math.min(1, Math.max(0, calm + (petting ? soothing : annoyanceGain[zone])));
+    if (zone === "chest") {
+      // Whatever came before, a chest touch over the limit means a long sulk, not the usual one.
+      const again = at - this.lastChestAt < chestMemorySeconds;
+      this.lastChestAt = at;
+      const level = this.annoyance >= sulkAt ? 2 : again || this.annoyance >= annoyedAt ? 1 : 0;
+      if (level === 2) {
+        this.sulkUntil = at + chestSulkSeconds;
+        this.annoyance = 0.7;
+      }
+      return { zone, side, ...this.chestReaction(level) };
+    }
     if (this.annoyance >= sulkAt) {
       this.sulkUntil = at + sulkSeconds;
       this.annoyance = 0.6;
@@ -114,6 +140,29 @@ export class TouchMood {
     }
     const annoyed = this.annoyance >= annoyedAt;
     return { zone, side, ...this.zoneReaction(zone, kind, annoyed) };
+  }
+
+  /**
+   * Touched on the chest: embarrassed and cross at once. She swats the hand away, covers up and
+   * steps back, red in the face. `level` 0 is the first time, 1 again, 2 a long sulk.
+   */
+  private chestReaction(level: 0 | 1 | 2): Omit<TouchReaction, "zone" | "side"> {
+    const seconds = level === 2 ? 4 : 3.2;
+    const angry = [0.45, 0.65, 0.8][level] ?? 0.8;
+    return {
+      gesture: "cover-chest",
+      durationSeconds: seconds,
+      phases: [
+        { untilSeconds: 0.45, expressions: { surprised: 0.75, blush: 1 } },
+        { untilSeconds: seconds, expressions: { angry, sad: 0.15, blush: 1 } },
+      ],
+      line:
+        level === 0
+          ? "Heh! Jangan di situ!"
+          : level === 1
+            ? this.pick(["Ih! Udah dibilang jangan!", "Heh! Tangannya!"])
+            : "Mesum. Aku ngambek dulu.",
+    };
   }
 
   private zoneReaction(zone: TouchZone, kind: TouchKind, annoyed: boolean): Omit<TouchReaction, "zone" | "side"> {
@@ -227,6 +276,9 @@ export class TouchMood {
               phases: once({ happy: 0.4 }, 1.8),
               line: "Dah.",
             };
+      // Handled before getting here, in `chestReaction`.
+      case "chest":
+        return this.chestReaction(0);
       case "body":
         if (again >= 1 || annoyed) {
           return {

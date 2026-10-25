@@ -1,7 +1,7 @@
 import type { VRMHumanBoneName } from "@pixiv/three-vrm";
 
 /** Where on 2B a click landed, in the words the reactions are written in. */
-export type TouchZone = "head" | "hair" | "forehead" | "cheek" | "nose" | "shoulder" | "hand" | "body";
+export type TouchZone = "head" | "hair" | "forehead" | "cheek" | "nose" | "shoulder" | "hand" | "chest" | "body";
 /** Her own left or right, not the screen's: she faces the viewer, so her left is screen right. */
 export type TouchSide = "left" | "right" | "center";
 
@@ -14,11 +14,33 @@ export interface TouchProbe {
   head: { x: number; y: number; z: number };
   /** Eye height above the head bone, in meters. */
   eyeHeight: number;
+  /** Hit point relative to the upper chest bone, same axes as `head`; null when the model has none. */
+  chest: { x: number; y: number; z: number } | null;
 }
 
 const handBones: ReadonlySet<string> = new Set(["leftHand", "rightHand", "leftLowerArm", "rightLowerArm"]);
 const shoulderBones: ReadonlySet<string> = new Set(["leftShoulder", "rightShoulder", "leftUpperArm", "rightUpperArm"]);
 const headBones: ReadonlySet<string> = new Set(["head", "neck", "leftEye", "rightEye", "jaw"]);
+const chestBones: ReadonlySet<string> = new Set(["upperChest", "chest"]);
+
+/*
+ * The bust, around the upper chest bone: in front of it, not up at the collarbones, and not out
+ * at the sides where the arms start. Wider and lower than that is just her body.
+ */
+const bustAboveBone = 0.03;
+const bustBelowBone = -0.16;
+const bustHalfWidth = 0.12;
+const bustForward = 0.02;
+
+function onBust(chest: { x: number; y: number; z: number } | null): boolean {
+  return (
+    chest !== null &&
+    chest.y < bustAboveBone &&
+    chest.y > bustBelowBone &&
+    Math.abs(chest.x) < bustHalfWidth &&
+    chest.z > bustForward
+  );
+}
 
 /*
  * Measured on the VRoid base model (eyes about 6 cm above the head bone): the crown sits about
@@ -67,6 +89,9 @@ export function classifyTouch(probe: TouchProbe): { zone: TouchZone; side: Touch
   const isHair = /hair/i.test(probe.materialName);
   const nearHead = bone !== null && headBones.has(bone);
   if (!isHair && !nearHead) {
+    if (bone !== null && chestBones.has(bone) && onBust(probe.chest)) {
+      return { zone: "chest", side: sideOf(probe.chest?.x ?? 0) };
+    }
     return { zone: "body", side: sideOf(head.x) };
   }
   // A bigger or smaller head keeps its proportions, so every distance scales with the eyes.
