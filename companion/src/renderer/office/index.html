@@ -91,6 +91,11 @@
           <button class="button" id="music-power" type="button" aria-pressed="false">Putar</button>
           <button class="button music-secondary" id="music-next" type="button">Lagu berikutnya</button>
         </div>
+        <div class="music-volume">
+          <label class="music-label" for="music-volume">Volume</label>
+          <input class="music-volume-slider" id="music-volume" type="range" min="0" max="100" step="5" />
+          <output class="music-volume-value" id="music-volume-value" for="music-volume"></output>
+        </div>
         <ol class="music-list" id="music-list" aria-label="Daftar lagu"></ol>
         <form class="music-add" id="music-add">
           <label class="music-label" for="music-link">Tambah link YouTube</label>

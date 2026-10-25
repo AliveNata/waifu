@@ -366,25 +366,27 @@ export const furniture: readonly Furniture[] = [
       blocksWalking: true,
     }),
   ),
-  // Where the empty food box goes, just past the end of the bar.
+  // Where the empty food box goes: against the wall between the spot in front of the fridge and
+  // the board step, out of the way of anyone walking through the pantry.
   {
     id: "trash-bin",
     kind: "trash-bin",
-    x: -5.5,
-    z: -2.5,
+    x: -6.8,
+    z: -3.36,
     width: 0.3,
     depth: 0.3,
-    yaw: facing.camera,
+    yaw: facing.right,
     blocksWalking: true,
   },
   // The way in and out, at the open right-hand side of the room: whoever buys food leaves here.
+  // Twice as wide as the opening, since each glass door slides out to one side.
   {
     id: "entry-door",
     kind: "entry-door",
     x: 6.92,
-    z: -0.6,
+    z: -0.45,
     width: 0.12,
-    depth: 0.9,
+    depth: 1.8,
     yaw: facing.leftWall,
     blocksWalking: true,
   },
@@ -710,8 +712,8 @@ export const stations: Record<StationId, Station> = {
     seatHeight: stoolSeatHeight,
   },
   "bar-food": standing("bar-food", { x: barCounter.x, z: barCounter.z + barCounter.depth / 2 + 0.33 }, facing.backWall),
-  trash: standing("trash", { x: -5.5, z: -2.1 }, facing.backWall),
-  door: standing("door", { x: 6.5, z: -0.6 }, facing.right),
+  trash: standing("trash", { x: -6.36, z: -3.36 }, facing.leftWall),
+  door: standing("door", { x: 6.5, z: -0.45 }, facing.right),
   "sofa-1": {
     id: "sofa-1",
     spot: { x: -4.62, z: 2.4 },

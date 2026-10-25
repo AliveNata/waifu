@@ -1,6 +1,7 @@
 import { requireElement } from "../common/status-chip.js";
 import {
   addSong,
+  clampVolume,
   embedUrl,
   type MusicState,
   nextSong,
@@ -9,6 +10,7 @@ import {
   parseTitles,
   removeSong,
   titleFrom,
+  volumeCommand,
 } from "./music.js";
 
 const storageKey = "alyxlabs-office-music";
@@ -29,6 +31,8 @@ export class MusicPanel {
   private readonly now = requireElement("music-now", HTMLElement);
   private readonly power = requireElement("music-power", HTMLButtonElement);
   private readonly next = requireElement("music-next", HTMLButtonElement);
+  private readonly volume = requireElement("music-volume", HTMLInputElement);
+  private readonly volumeValue = requireElement("music-volume-value", HTMLOutputElement);
   private readonly list = requireElement("music-list", HTMLOListElement);
   private readonly form = requireElement("music-add", HTMLFormElement);
   private readonly input = requireElement("music-link", HTMLInputElement);
@@ -55,6 +59,10 @@ export class MusicPanel {
     this.closeButton.addEventListener("click", () => this.setOpen(false));
     this.power.addEventListener("click", () => this.update({ ...this.state, on: !this.state.on }));
     this.next.addEventListener("click", () => this.update(nextSong(this.state)));
+    this.volume.addEventListener("input", () => {
+      this.update({ ...this.state, volume: clampVolume(Number(this.volume.value)) });
+      this.sendVolume();
+    });
     this.form.addEventListener("submit", (event) => {
       event.preventDefault();
       const result = addSong(this.state, this.input.value);
@@ -102,6 +110,8 @@ export class MusicPanel {
     this.power.setAttribute("aria-pressed", String(on));
     this.power.disabled = song === null;
     this.next.disabled = songs.length < 2;
+    this.volume.value = String(this.state.volume);
+    this.volumeValue.textContent = `${this.state.volume}%`;
     this.renderPlayer(on ? song : null);
     if (song === null) {
       this.now.textContent = "Belum ada lagu. Tambahin link YouTube di bawah.";
@@ -148,6 +158,7 @@ export class MusicPanel {
         JSON.stringify({ event: "listening", id: "music", channel: "widget" }),
         embedOrigin,
       );
+      this.sendVolume();
     });
     this.frame = frame;
     this.engine.append(frame);
@@ -183,6 +194,11 @@ export class MusicPanel {
         return item;
       }),
     );
+  }
+
+  /** Sets the player's volume; with no player yet, the next one gets it when it loads. */
+  private sendVolume(): void {
+    this.frame?.contentWindow?.postMessage(volumeCommand(this.state.volume), embedOrigin);
   }
 
   /** Asks YouTube for a song's title once; until it answers, or when it cannot, the id stands in. */

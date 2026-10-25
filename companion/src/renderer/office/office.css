@@ -612,6 +612,34 @@
   cursor: not-allowed;
 }
 
+/* Label, slider and the number in one row; the slider takes what is left. */
+.music-volume {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+
+.music-volume-slider {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  margin: 0;
+  accent-color: var(--panel-ink);
+  cursor: pointer;
+}
+
+.music-volume-slider:focus-visible {
+  outline: 2px solid var(--panel-ink);
+  outline-offset: 2px;
+}
+
+.music-volume-value {
+  min-width: 4ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .music-list {
   display: flex;
   flex-direction: column;
