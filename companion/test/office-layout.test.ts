@@ -178,6 +178,8 @@ describe("a busy office", () => {
     const origins = new Map<string, StationId>(memberIds.map((id) => [id, actors.get(id)?.target as StationId]));
     const furnitureHits: string[] = [];
     const overlaps: string[] = [];
+    /** The last frame each member was squeezing past someone. */
+    const squeezedAt = new Map<MemberId, number>();
     const dt = 1 / 30;
     for (let frame = 1; frame <= 30 * 600; frame++) {
       const now = frame * dt * 1000;
@@ -194,6 +196,9 @@ describe("a busy office", () => {
           rest.filter((actor) => !isWalking(actor)).map((actor) => actor.position),
         );
         actors.set(id, next);
+        if (next.squeezeSeconds > 0) {
+          squeezedAt.set(id, frame);
+        }
         if (next.target !== before.target) {
           origins.set(id, before.target);
         }
@@ -223,9 +228,13 @@ describe("a busy office", () => {
           const nearGoal =
             distance(actorA.position, stations[actorA.target].spot) < 0.5 ||
             distance(actorB.position, stations[actorB.target].spot) < 0.5;
+          // Squeezing past is the walk's way out of a dead end, so bodies brush there on purpose,
+          // including the few frames it takes to come apart again afterwards.
+          const squeezing = [a, b].some((id) => frame - (squeezedAt.get(id) ?? -Infinity) < 15);
           if (
             (isWalking(actorA) || isWalking(actorB)) &&
             !nearGoal &&
+            !squeezing &&
             distance(actorA.position, actorB.position) < 0.3
           ) {
             overlaps.push(`${a}/${b}`);
@@ -656,13 +665,129 @@ describe("errands", () => {
   });
 });
 
+describe("the shared food", () => {
+  const hand = () => ({ place: "hand" as const, level: 0 });
+
+  /** Runs one member's routine until a food activity starts, returning its steps. */
+  function foodRun(life: OfficeLife, memberId: MemberId, wanted: string): { first: LifeChoice; now: number } {
+    let now = 0;
+    for (let turn = 0; turn < 3000; turn++) {
+      const choice = life.planFor(memberId, now);
+      life.arrived(memberId, now);
+      if (choice.activity === wanted && choice.step === 0) {
+        return { first: choice, now };
+      }
+      now += choice.durationMs + 1;
+    }
+    throw new Error(`${memberId} never chose ${wanted}`);
+  }
+
+  it("goes out through the door and comes back to put the food on the bar", () => {
+    // Arrange
+    const life = new OfficeLife(
+      Math.random,
+      () => false,
+      hand,
+      () => null,
+      () => ({ pieces: 0, canBuy: true }),
+    );
+    const { first, now } = foodRun(life, "erza", "buy-food");
+
+    // Act
+    const back = life.planFor("erza", now + first.durationMs + 1);
+
+    // Assert
+    expect(first).toMatchObject({ station: "door", action: "out", errand: "go-out" });
+    expect(back).toMatchObject({ station: "bar-food", errand: "set-food" });
+  });
+
+  it("sends only one person out for food at a time", () => {
+    // Arrange
+    const life = new OfficeLife(
+      Math.random,
+      () => false,
+      hand,
+      () => null,
+      () => ({ pieces: 0, canBuy: true }),
+    );
+    const { now } = foodRun(life, "erza", "buy-food");
+    let others = 0;
+
+    // Act
+    for (let turn = 0; turn < 400; turn++) {
+      const choice = life.planFor("asuna", now + turn * 60_000);
+      life.arrived("asuna", now + turn * 60_000);
+      others += choice.activity === "buy-food" ? 1 : 0;
+    }
+
+    // Assert: Erza never finishes her run in this test, so nobody else goes.
+    expect(others).toBe(0);
+  });
+
+  it("never goes for food that is not there, nor out before the wait is over", () => {
+    // Arrange
+    const life = new OfficeLife(
+      Math.random,
+      () => false,
+      hand,
+      () => null,
+      () => ({ pieces: 0, canBuy: false }),
+    );
+    let now = 0;
+    const seen = new Set<string>();
+
+    // Act
+    for (let turn = 0; turn < 500; turn++) {
+      const choice = life.planFor("chizuru", now);
+      life.arrived("chizuru", now);
+      seen.add(choice.activity);
+      now += choice.durationMs + 1;
+    }
+
+    // Assert
+    expect(seen.has("grab-food")).toBe(false);
+    expect(seen.has("buy-food")).toBe(false);
+  });
+
+  it("puts the trip to the bin in front of what comes next, holding the bin", () => {
+    // Arrange
+    const life = new OfficeLife(
+      Math.random,
+      () => false,
+      hand,
+      () => null,
+      () => ({ pieces: 1, canBuy: false }),
+    );
+    const { first, now } = foodRun(life, "ruby", "grab-food");
+
+    // Act
+    life.insertNext(
+      "ruby",
+      [
+        { station: "bar-food", action: "fetch", errand: "take-box" },
+        { station: "trash", action: "fetch", errand: "bin-box" },
+      ],
+      now,
+    );
+    const take = life.planFor("ruby", now + first.durationMs + 1);
+    life.arrived("ruby", now + first.durationMs + 1);
+    const bin = life.planFor("ruby", now + first.durationMs + take.durationMs + 2);
+
+    // Assert
+    expect(take).toMatchObject({ station: "bar-food", errand: "take-box" });
+    expect(bin).toMatchObject({ station: "trash", errand: "bin-box" });
+    expect(life.occupant("trash")).toBe("ruby");
+  });
+});
+
 describe("time of day in the office", () => {
-  function share(part: DayPart, activity: string): number {
+  function share(part: DayPart, activity: string, pieces = 0): number {
     const life = new OfficeLife(
       Math.random,
       () => false,
       () => ({ place: "hand", level: 0 }),
       () => part,
+      () => ({ pieces, canBuy: false }),
     );
     let now = 0;
     let hits = 0;
@@ -681,5 +806,9 @@ describe("time of day in the office", () => {
 
   it("heats lunch around midday more than in the morning", () => {
     expect(share("siang", "heat")).toBeGreaterThan(share("pagi", "heat"));
+  });
+
+  it("reaches for the food on the bar more around lunch than in the morning", () => {
+    expect(share("siang", "grab-food", 1)).toBeGreaterThan(share("pagi", "grab-food", 1));
   });
 });

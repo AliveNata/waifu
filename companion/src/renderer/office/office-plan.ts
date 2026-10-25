@@ -53,6 +53,8 @@ export type FurnitureKind =
   | "idea-board"
   | "board-step"
   | "wall-clock"
+  | "trash-bin"
+  | "entry-door"
   | "tv-wall"
   | "tv-console"
   | "sofa"
@@ -106,6 +108,11 @@ export type StationId =
   | "oven"
   | "bar-left"
   | "bar-right"
+  | "bar-west-left"
+  | "bar-west-right"
+  | "bar-food"
+  | "trash"
+  | "door"
   | "sofa-1"
   | "sofa-2"
   | "sofa-3"
@@ -198,7 +205,7 @@ const meetingSeats = [
 
 /**
  * The pantry is an L: the counter along the back wall, and at its east end a raised bar running
- * out into the room with two stools on its outer side.
+ * out into the room with two stools on each side.
  */
 const barCounter = { x: -3.86, z: -3.86, width: 0.48, depth: 2.22 } as const;
 const barStoolX = -3.33;
@@ -207,6 +214,14 @@ const barStools = [
   { id: "stool-left", z: -3.5, yaw: facing.leftWall + 0.4 },
   { id: "stool-right", z: -2.95, yaw: facing.leftWall - 0.4 },
 ] as const;
+/** The pantry side of the bar, mirrored, kept clear of whoever stands at the oven. */
+const westStoolX = barCounter.x - (barStoolX - barCounter.x);
+const westStools = [
+  { id: "stool-west-left", z: -3.2, yaw: facing.right - 0.4 },
+  { id: "stool-west-right", z: -2.8, yaw: facing.right + 0.4 },
+] as const;
+/** Shared food sits on the bar's south end; people take it standing at the tip. */
+export const barFoodSpot = { x: barCounter.x, z: barCounter.z + barCounter.depth / 2 - 0.16 } as const;
 /** Where the sink and oven sit along the pantry counter; the coffee machine is between them. */
 const sinkX = -5.85;
 const ovenX = -4.55;
@@ -336,11 +351,14 @@ export const furniture: readonly Furniture[] = [
     yaw: facing.camera,
     blocksWalking: true,
   },
-  ...barStools.map(
+  ...[
+    ...barStools.map((stool) => ({ ...stool, x: barStoolX })),
+    ...westStools.map((stool) => ({ ...stool, x: westStoolX })),
+  ].map(
     (stool): Furniture => ({
       id: stool.id,
       kind: "stool",
-      x: barStoolX,
+      x: stool.x,
       z: stool.z,
       width: 0.36,
       depth: 0.36,
@@ -348,6 +366,28 @@ export const furniture: readonly Furniture[] = [
       blocksWalking: true,
     }),
   ),
+  // Where the empty food box goes, just past the end of the bar.
+  {
+    id: "trash-bin",
+    kind: "trash-bin",
+    x: -5.5,
+    z: -2.5,
+    width: 0.3,
+    depth: 0.3,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  // The way in and out, at the open right-hand side of the room: whoever buys food leaves here.
+  {
+    id: "entry-door",
+    kind: "entry-door",
+    x: 6.92,
+    z: -0.6,
+    width: 0.12,
+    depth: 0.9,
+    yaw: facing.leftWall,
+    blocksWalking: true,
+  },
 
   {
     id: "whiteboard",
@@ -398,7 +438,7 @@ export const furniture: readonly Furniture[] = [
     kind: "wall-clock",
     x: -5.15,
     z: -4.96,
-    width: 0.72,
+    width: 1.15,
     depth: 0.04,
     yaw: facing.camera,
     blocksWalking: false,
@@ -655,6 +695,23 @@ export const stations: Record<StationId, Station> = {
     approach: { x: barStoolX + 0.5, z: barStools[1].z },
     seatHeight: stoolSeatHeight,
   },
+  "bar-west-left": {
+    id: "bar-west-left",
+    spot: { x: westStoolX, z: westStools[0].z },
+    facing: westStools[0].yaw,
+    approach: { x: westStoolX - 0.5, z: westStools[0].z },
+    seatHeight: stoolSeatHeight,
+  },
+  "bar-west-right": {
+    id: "bar-west-right",
+    spot: { x: westStoolX, z: westStools[1].z },
+    facing: westStools[1].yaw,
+    approach: { x: westStoolX - 0.5, z: westStools[1].z },
+    seatHeight: stoolSeatHeight,
+  },
+  "bar-food": standing("bar-food", { x: barCounter.x, z: barCounter.z + barCounter.depth / 2 + 0.33 }, facing.backWall),
+  trash: standing("trash", { x: -5.5, z: -2.1 }, facing.backWall),
+  door: standing("door", { x: 6.5, z: -0.6 }, facing.right),
   "sofa-1": {
     id: "sofa-1",
     spot: { x: -4.62, z: 2.4 },

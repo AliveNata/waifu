@@ -31,8 +31,9 @@ export class WallClock {
     this.root = new Group();
     this.root.position.set(piece.x, 0, piece.z);
     this.root.rotation.y = piece.yaw;
-    const centerY = 1.5;
-    const height = 0.27;
+    // As tall as the face drawing is wide-to-high, so the digits keep their shape at any width.
+    const height = piece.width * (faceHeight / faceWidth) + 0.04;
+    const centerY = 1.58;
     this.root.add(
       box(piece.width, height, 0.03, standard(palette.inkDeep, 0.4), 0, centerY - height / 2, 0),
       box(piece.width - 0.04, 0.008, 0.032, glow(palette.accent, 1.4), 0, centerY - height / 2 + 0.01, 0),
