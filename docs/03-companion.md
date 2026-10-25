@@ -49,8 +49,8 @@ Di atas badan 2B, kursornya berubah jadi tangan 3D yang ujung telunjuknya nempel
 
 | Zona | Gerakan tangan |
 |---|---|
-| Kepala, rambut | Usap kiri kanan dengan telapak di atas kepala, atau ngacak ngacak rambut. Selama lo ngelus sambil geser atau nahan klik, usapannya jalan terus |
-| Dahi, poni | Nyentil dari atas: jari tengah ditahan jempol, terus dilepas, kadang dua kali |
+| Kepala, rambut | Usap kiri kanan dengan telapak di atas kepala, atau ngacak ngacak rambut. Rambut yang kena telapak kedorong, rambutnya ikut kegeser ke arah usapan, dan kepalanya ikut miring dikit. Selama lo ngelus sambil geser atau nahan klik, usapannya jalan terus |
+| Dahi, poni | Nyentil dari atas: tangannya narik dikit sambil jari tengah ditahan bantalan jempol, terus jarinya lepas cepat, kena dahi, dan balik santai. Kepala 2B kedorong ke belakang pas jarinya kena. Kadang dua kali |
 | Hidung | Boop pakai telunjuk, kadang dua kali |
 | Pipi | Colek, colek dua kali, atau colek sambil diputer dikit |
 | Bahu | Tepuk pakai dua jari, atau colek |

@@ -43,8 +43,12 @@ const jointCurl: Record<Finger, readonly [number, number, number]> = {
   pinky: [1.3, 1.5, 1.0],
 };
 
-/** The model is a real adult's hand; a bit smaller sits better next to her face. */
-const handScale = 0.6;
+/** The model is a real adult's hand; this much smaller sits in proportion next to her face. */
+const handScale = 0.42;
+/** Half a palm across at that scale, for pushing her hair. */
+const palmRadius = 0.04;
+/** How far a stroke travels to each side, from the pat's own frames, to report it as -1 to 1. */
+const strokeReach = 0.035;
 /** The hand hovers this far in front of where it touches, toward the viewer. */
 const standOff = 0.02;
 
@@ -202,6 +206,8 @@ export class HandPointer {
   private gesture: HandGesture = "open";
   private gestureStartedAt = 0;
   private stretch = 1;
+  /** Where the stroking palm touches her this frame, or null when the hand is not stroking. */
+  private stroking: { point: Vector3; sideways: number } | null = null;
 
   constructor(private readonly reducedMotion: boolean) {
     const key = new DirectionalLight(0xffffff, 2.2);
@@ -235,6 +241,16 @@ export class HandPointer {
     this.stretch = held && (gesture === "pat" || gesture === "ruffle") ? holdStretch : 1;
   }
 
+  /** The palm on her hair while patting or ruffling, for the hair to answer; null otherwise. */
+  hairContact(): { point: Vector3; radius: number } | null {
+    return this.stroking === null ? null : { point: this.stroking.point, radius: palmRadius };
+  }
+
+  /** Where the pat is in its sweep, -1 (screen left) to 1 (screen right), or 0 when not patting. */
+  strokeSide(): number {
+    return this.stroking?.sideways ?? 0;
+  }
+
   /** The model is in, so the page can hide the system pointer over her. */
   get ready(): boolean {
     return this.rig !== null;
@@ -255,6 +271,7 @@ export class HandPointer {
     }
     const target = this.target;
     rig.root.visible = target !== null;
+    this.stroking = null;
     if (target === null) {
       return;
     }
@@ -278,7 +295,15 @@ export class HandPointer {
     // With reduced motion the fingers still change, but the hand does not travel.
     const motion = this.reducedMotion ? 0 : 1;
     const offset = new Vector3(frame.offset.x * motion, frame.offset.y * motion, frame.offset.z * motion + standOff);
-    const goal = target.clone().add(offset.applyQuaternion(view));
+    const goal = target.clone().add(offset.clone().applyQuaternion(view));
+    if (this.gesture === "pat" || this.gesture === "ruffle") {
+      // Where the palm meets her: the touched spot moved with the stroke, without the stand-off.
+      const along = new Vector3(frame.offset.x * motion, frame.offset.y * motion, 0).applyQuaternion(view);
+      this.stroking = {
+        point: target.clone().add(along),
+        sideways: Math.max(-1, Math.min(1, (frame.offset.x * motion) / strokeReach)),
+      };
+    }
     // Put the touching point of the hand, not its root, on the spot.
     rig.root.position.set(0, 0, 0);
     rig.root.updateMatrixWorld(true);
