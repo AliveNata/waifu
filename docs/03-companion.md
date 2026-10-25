@@ -45,16 +45,22 @@ Biar 2B nggak itu-itu aja, posisi kepala tiap mood ada beberapa versi dan dipili
 
 Klik 2B buat nyentuh dia. Tahan lalu geser di badannya atau di area kosong sekitarnya buat mindahin window-nya. Kalau geser di kepala atau rambut, itu dihitung ngusap, bukan mindahin. Klik kanan tetap ngebuka menu.
 
-Di atas badan 2B, kursornya berubah jadi tangan yang kelima jarinya kebuka. Begitu diklik, tangannya nunjukin sentuhannya, terus balik kebuka lagi:
+Di atas badan 2B, kursornya berubah jadi tangan 3D yang ujung telunjuknya nempel di titik yang lo tunjuk. Tangannya digambar di depan 2B, jadi nggak pernah tenggelam ke muka atau rambutnya. Begitu diklik, tangannya nunjukin sentuhannya, terus balik santai lagi. Tiap bagian badan punya beberapa gerakan yang dipilih acak, jadi klik yang sama nggak selalu kelihatan sama:
 
 | Zona | Gerakan tangan |
 |---|---|
-| Kepala, rambut | Usap usap, telapak geser kiri kanan. Selama lo ngelus sambil geser, usapannya jalan terus |
-| Jidat, hidung, pipi | Nyentil: jari tengah ditahan jempol, terus dilepas |
-| Bahu, badan | Colek pakai telunjuk |
+| Kepala, rambut | Usap kiri kanan dengan telapak di atas kepala, atau ngacak ngacak rambut. Selama lo ngelus sambil geser atau nahan klik, usapannya jalan terus |
+| Dahi, poni | Nyentil dari atas: jari tengah ditahan jempol, terus dilepas, kadang dua kali |
+| Hidung | Boop pakai telunjuk, kadang dua kali |
+| Pipi | Colek, colek dua kali, atau colek sambil diputer dikit |
+| Bahu | Tepuk pakai dua jari, atau colek |
 | Tangan | Tos |
+| Badan | Colek, kadang dua kali |
+| Dada | Tepuk ringan, terus tangannya ditepis 2B sampai kelempar ke samping dan balik pelan pelan |
 
-Di luar badannya, kursor balik ke panah biasa. Kalau setting sistem lo minta animasi dikurangi, bentuk tangannya tetap berubah tapi tanpa gerakan.
+Di luar badannya, kursor balik ke panah biasa. Kalau model tangannya gagal dimuat, kursor biasa tetap dipakai. Kalau setting sistem lo minta animasi dikurangi, jari jarinya tetap berubah tapi tangannya nggak geser.
+
+Model tangannya "Free Pack - VR Hands (Rigged)" karya [PolyOne Studio](https://sketchfab.com/polyone), dari [Sketchfab](https://sketchfab.com/3d-models/free-pack-vr-hands-rigged-b3b8309e59c748e3956531c8f57dd233), lisensi [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/). Yang dipakai cuma tangan kanannya, dikemas jadi satu file GLB dengan tekstur yang dikecilin ke 1024 piksel.
 
 | Disentuh | Reaksi pertama | Kalau diulang atau ditahan |
 |---|---|---|
@@ -65,9 +71,10 @@ Di luar badannya, kursor balik ke panah biasa. Kalau setting sistem lo minta ani
 | Pipi | kaget kecil, terus senyum | dicolek 3x: manyun, buang muka |
 | Bahu | noleh, terus ngangguk | ditepuk 2x cepat: kepala miring, "Ada apa?" |
 | Tangan | dadah kecil | ditahan: tangannya ngikutin kursor |
+| Dada | "Heh! Jangan di situ!", malu sekaligus marah: pipinya merah, nepis tangan lo, nyilangin tangan nutupin dada, mundur, buang muka sambil nunduk | diulang: makin marah ("Ih! Udah dibilang jangan!"). Kalau masih juga: "Mesum. Aku ngambek dulu." dan ngambek 12 detik. Disentuh di situ pas lagi ngambek: nutup lagi dan ngambeknya diperpanjang |
 | Badan bagian lain | "Eh?", mundur dikit | diulang: balik badan sebentar |
 
-Colekan beruntun bikin dia makin sebel. Kalau kebanyakan, dia ngambek sekitar 5 detik dan nolak disentuh, terus balik normal sendiri. Ngusap kepala atau rambut malah nurunin sebelnya. Zona sentuhannya diukur di model VRoid dan diskalakan ke ukuran kepala model lo, jadi model non-VRoid bisa agak meleset.
+Colekan beruntun bikin dia makin sebel. Kalau kebanyakan, dia ngambek sekitar 5 detik dan nolak disentuh, terus balik normal sendiri. Sentuhan di dada diinget 20 detik, jadi yang berikutnya dalam waktu itu dihitung "diulang". Ngusap kepala atau rambut malah nurunin sebelnya. Zona sentuhannya diukur di model VRoid dan diskalakan ke ukuran kepala model lo, jadi model non-VRoid bisa agak meleset.
 
 ## Overlay tim
 

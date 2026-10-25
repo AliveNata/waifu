@@ -1,0 +1,7 @@
+vr-hands.glb is based on "Free Pack - VR Hands (Rigged)"
+(https://sketchfab.com/3d-models/free-pack-vr-hands-rigged-b3b8309e59c748e3956531c8f57dd233)
+by PolyOne Studio (https://sketchfab.com/polyone),
+licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/).
+
+Changes: the glTF, its binary and its texture were packed into one GLB, and the 4096 px
+texture was scaled down to 1024 px and saved as JPEG. The mesh and rig are unchanged.

@@ -4,7 +4,6 @@ import { isCompanionFace, isCompanionPose } from "../../shared/companion-pose.js
 import { getBridge } from "../common/bridge.js";
 import { CompanionPage } from "../common/page.js";
 import { requireElement } from "../common/status-chip.js";
-import { CursorHand } from "./cursor-hand.js";
 import { OverlayStage } from "./overlay-stage.js";
 import { PointerGestures } from "./pointer-gestures.js";
 import type { TouchReaction } from "./touch-reactions.js";
@@ -52,8 +51,8 @@ bridge.onCompanionCommand((command) => {
   }
 });
 
-const hand = new CursorHand(root);
-// Hovering: the hand shows over her body. One hit test per frame at most, however fast the mouse.
+// Hovering: the 3D hand shows over her body and the system pointer hides there. One hit test
+// per frame at most, however fast the mouse.
 let hoverAt: { x: number; y: number } | null = null;
 root.addEventListener("pointermove", (event) => {
   if (event.pointerType !== "mouse") {
@@ -64,23 +63,21 @@ root.addEventListener("pointermove", (event) => {
   if (pending) {
     requestAnimationFrame(() => {
       if (hoverAt !== null) {
-        hand.hover(hoverAt.x, hoverAt.y, stage.zoneAt(hoverAt.x, hoverAt.y)?.zone ?? null);
+        const over = stage.hover(hoverAt.x, hoverAt.y) !== null || stage.handBusy();
+        root.classList.toggle("hand-pointer", over && stage.handReady);
       }
       hoverAt = null;
     });
   }
 });
-root.addEventListener("pointerleave", () => hand.hide());
+root.addEventListener("pointerleave", () => {
+  stage.hideHand();
+  root.classList.remove("hand-pointer");
+});
 
 new PointerGestures(root, {
   zoneAt: (x, y) => stage.zoneAt(x, y)?.zone ?? null,
-  touch: (x, y, kind) => {
-    const zone = stage.zoneAt(x, y)?.zone ?? null;
-    if (zone !== null) {
-      hand.act(zone, kind);
-    }
-    say(stage.touchAt(x, y, kind));
-  },
+  touch: (x, y, kind) => say(stage.touchAt(x, y, kind)),
   beginDrag: () => bridge.beginWindowDrag(),
   drag: (dx, dy) => bridge.dragWindow(dx, dy),
 }).start();

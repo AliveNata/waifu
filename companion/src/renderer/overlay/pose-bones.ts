@@ -1,6 +1,7 @@
 import type { CompanionFace, CompanionPose } from "../../shared/companion-pose.js";
 import type { ExpressionWeights } from "../common/expressions.js";
 import { addRotation, type BoneRotation, type PoseBones } from "../common/pose.js";
+import { chestSwatSeconds } from "./hand-gestures.js";
 import type { TouchGesture } from "./touch-reactions.js";
 import type { TouchSide } from "./touch-zones.js";
 
@@ -63,6 +64,54 @@ function scaled(rotation: BoneRotation, amount: number): Partial<BoneRotation> {
 /** The hand on the side she was touched, or her right hand for the middle. */
 function handFor(side: TouchSide): Hand {
   return side === "left" ? "left" : "right";
+}
+
+function smoothstep(value: number): number {
+  const u = Math.min(1, Math.max(0, value));
+  return u * u * (3 - 2 * u);
+}
+
+/** `from` moved toward `to` by `amount`, per axis. */
+function blend(from: BoneRotation, to: BoneRotation, amount: number): BoneRotation {
+  return {
+    x: from.x + (to.x - from.x) * amount,
+    y: from.y + (to.y - from.y) * amount,
+    z: from.z + (to.z - from.z) * amount,
+  };
+}
+
+const armDown: BoneRotation = { x: 0, y: 0, z: 1.22 };
+const noBend: BoneRotation = { x: 0, y: 0, z: 0 };
+
+/**
+ * Touched on the chest: her right arm sweeps out across her front and knocks the pointer hand
+ * aside, landing at `chestSwatSeconds` like the hand's own knock, then both arms fold over her
+ * chest while she leans back and turns her face away and down.
+ */
+function coverChest(bones: PoseBones, elapsed: number, durationSeconds: number, turn: number): void {
+  const k = envelope(elapsed, durationSeconds, 0.25, 0.6);
+  // The swat: from reaching across, in front of her, out to her side.
+  const sweep = smoothstep((elapsed - (chestSwatSeconds - 0.25)) / 0.35);
+  const cover = smoothstep((elapsed - chestSwatSeconds - 0.15) / 0.4) * k;
+  const swatUpper: BoneRotation = { x: 0, y: 1.35 - 1.15 * sweep, z: 0.4 };
+  const swatLower: BoneRotation = { x: 0, y: 0.45, z: 0 };
+  // Forearms across the chest, the same fold as the crossed-arms pose but higher and tighter.
+  const coverUpper: BoneRotation = { x: -0.3, y: 1.05, z: 1.12 };
+  const coverLower: BoneRotation = { x: 0, y: 1.95, z: 0 };
+  const swat = k * (1 - cover);
+  arm(
+    bones,
+    "right",
+    blend(blend(armDown, swatUpper, swat), coverUpper, cover),
+    blend(blend(noBend, swatLower, swat), coverLower, cover),
+  );
+  // The other arm covers up straight away.
+  const left = smoothstep(elapsed / 0.35) * k;
+  arm(bones, "left", blend(armDown, { x: -0.4, y: 1.0, z: 1.1 }, left), blend(noBend, { x: 0, y: 1.85, z: 0 }, left));
+  bones.spine = addRotation(bones.spine, scaled({ x: -0.12, y: 0, z: 0 }, k));
+  bones.chest = addRotation(bones.chest, scaled({ x: 0.06, y: 0, z: 0 }, k));
+  bones.neck = addRotation(bones.neck, scaled({ x: 0.05, y: -0.15 * turn, z: 0 }, k));
+  bones.head = addRotation(bones.head, scaled({ x: 0.14, y: -0.32 * turn, z: 0.06 * turn }, k));
 }
 
 export interface GestureInput {
@@ -164,6 +213,9 @@ export function applyTouchGesture(bones: PoseBones, input: GestureInput): void {
     case "step-back":
       bones.spine = addRotation(bones.spine, scaled({ x: -0.1, y: 0, z: 0 }, k));
       bones.head = addRotation(bones.head, scaled({ x: -0.1, y: 0, z: 0 }, k));
+      break;
+    case "cover-chest":
+      coverChest(bones, elapsed, durationSeconds, toward || 1);
       break;
     case "scrunch": {
       const snap = Math.exp(-elapsed * 4) * k;
