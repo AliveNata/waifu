@@ -22,9 +22,10 @@ import {
   stepExpressionWeights,
 } from "../common/expressions.js";
 import type { Stage } from "../common/page.js";
-import { PoseApplier, vrmPoseTarget } from "../common/pose.js";
+import { addRotation, PoseApplier, vrmPoseTarget } from "../common/pose.js";
 import { updateVrmStable } from "../common/vrm-update.js";
 import { type Blush, createBlush } from "./blush.js";
+import { HairTouch } from "./hair-touch.js";
 import { gestureForZone } from "./hand-gestures.js";
 import { HandPointer } from "./hand-pointer.js";
 import { FidgetScheduler, fidgetFace } from "./idle-fidgets.js";
@@ -97,6 +98,7 @@ export class OverlayStage implements Stage {
   private vrm: VRM | null = null;
   private tongue: Tongue | null = null;
   private blush: Blush | null = null;
+  private hairTouch: HairTouch | null = null;
   private readonly hand = new HandPointer(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   private focus = new Vector3(0, 1.3, 0);
   private framing = framedHeight;
@@ -148,6 +150,8 @@ export class OverlayStage implements Stage {
     this.tongue = null;
     this.blush?.dispose();
     this.blush = null;
+    this.hairTouch?.dispose();
+    this.hairTouch = null;
     this.vrm = vrm;
     this.poseApplier.reset();
     this.expressionWeights = {};
@@ -169,6 +173,7 @@ export class OverlayStage implements Stage {
     this.frameHead(vrm);
     this.tongue = createTongue(vrm);
     this.blush = createBlush(vrm);
+    this.hairTouch = new HairTouch(vrm, this.scene);
   }
 
   /** The 3D hand is loaded and drawn over her, so the page can hide the system pointer there. */
@@ -368,6 +373,11 @@ export class OverlayStage implements Stage {
         fidget,
         variant: this.moodVariant,
       });
+      // Her head gives a little to the hand, tipping the way the stroke goes.
+      const stroke = this.hand.strokeSide();
+      if (stroke !== 0) {
+        pose.bones.head = addRotation(pose.bones.head, { y: 0.04 * stroke, z: 0.07 * stroke });
+      }
       this.poseApplier.apply(vrmPoseTarget(vrm), pose, delta);
 
       // Eyes look at where the cursor is, on a plane at the camera; while pondering, up and away.
@@ -398,6 +408,8 @@ export class OverlayStage implements Stage {
       }
       this.tongue?.set(command?.pose === "tongue" ? envelope(command.elapsed, poseHoldSeconds, 0.4, 0.5) : 0);
       this.blush?.update(touchFace?.blush ?? 0, delta);
+      // The palm from the hand's last frame; a frame behind is not visible on hair.
+      this.hairTouch?.update(this.hand.hairContact(), delta);
       updateVrmStable(vrm, delta);
     }
 

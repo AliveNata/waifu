@@ -79,8 +79,8 @@ export const gestureSpecs: Record<HandGesture, GestureSpec> = {
   open: { facing: "point", anchor: "index-tip", seconds: Number.POSITIVE_INFINITY },
   pat: { facing: "palm-down", anchor: "palm", seconds: 1.4 },
   ruffle: { facing: "palm-down", anchor: "palm", seconds: 1.4 },
-  flick: { facing: "from-above", anchor: "middle-tip", seconds: 0.7 },
-  "double-flick": { facing: "from-above", anchor: "middle-tip", seconds: 1.1 },
+  flick: { facing: "from-above", anchor: "middle-tip", seconds: 0.8 },
+  "double-flick": { facing: "from-above", anchor: "middle-tip", seconds: 1.25 },
   boop: { facing: "point", anchor: "index-tip", seconds: 0.55 },
   "boop-twice": { facing: "point", anchor: "index-tip", seconds: 0.8 },
   poke: { facing: "point", anchor: "index-tip", seconds: 0.6 },
@@ -93,6 +93,73 @@ export const gestureSpecs: Record<HandGesture, GestureSpec> = {
 
 /** When her hand meets the pointer on a chest touch, in seconds; the swat in her pose lands here too. */
 export const chestSwatSeconds = 0.5;
+
+/**
+ * When the flicking finger hits her forehead, in seconds; her head snaps back at the same moment.
+ * A double flick hits again at `secondFlickSnapSeconds`.
+ */
+export const flickSnapSeconds = 0.26;
+export const secondFlickSnapSeconds = 0.74;
+/** Loading a flick: the hand draws back and the finger presses against the thumb. */
+const flickLoadSeconds = 0.22;
+/** The finger flies out in about one frame at 20 fps: a real flick is that quick. */
+const flickSnapLength = 0.05;
+
+/** 0 to 1, eased at both ends. */
+function ease(value: number): number {
+  const u = Math.min(1, Math.max(0, value));
+  return u * u * (3 - 2 * u);
+}
+
+/**
+ * A flick: the middle fingertip held against the pad of the thumb while the hand draws back a
+ * little and the fingers tremble with the pressure, then the finger flies out past straight,
+ * the hand jerks forward with it, and everything springs back and relaxes.
+ */
+function flickFrame(t: number, snaps: readonly number[]): HandFrame {
+  // The snap this moment belongs to: the last one already started, or the first one coming.
+  const at = [...snaps].reverse().find((snap) => t >= snap - flickLoadSeconds) ?? snaps[0] ?? flickSnapSeconds;
+  const since = t - at;
+  const loading = ease((since + flickLoadSeconds) / 0.12);
+  // Holding back: middle curled onto the thumb, the other fingers loose and a little fanned.
+  const held = { thumb: 0.75, index: 0.2, middle: 0.95, ring: 0.28, pinky: 0.35 };
+  if (since < 0) {
+    const tremble = since > -0.1 ? 0.0012 * Math.sin(t * 90) : 0;
+    return {
+      curl: {
+        thumb: relaxed.thumb + (held.thumb - relaxed.thumb) * loading,
+        index: relaxed.index + (held.index - relaxed.index) * loading,
+        middle: relaxed.middle + (held.middle - relaxed.middle) * loading,
+        ring: relaxed.ring + (held.ring - relaxed.ring) * loading,
+        pinky: relaxed.pinky + (held.pinky - relaxed.pinky) * loading,
+      },
+      offset: { x: tremble, y: 0.004 * loading, z: 0.012 * loading },
+      roll: 0,
+    };
+  }
+  if (since < flickSnapLength) {
+    // Let go: the finger shoots past straight and the hand jerks in after it.
+    const out = since / flickSnapLength;
+    return {
+      curl: { ...held, thumb: 0.75 - 0.3 * out, middle: 0.95 - 1.1 * out },
+      offset: { x: 0, y: 0.004 * (1 - out), z: 0.012 - 0.02 * out },
+      roll: 0,
+    };
+  }
+  // Spring back: the finger settles from bent back to straight, the hand drifts out and relaxes.
+  const settle = ease((since - flickSnapLength) / 0.3);
+  return {
+    curl: {
+      thumb: 0.45 + (relaxed.thumb - 0.45) * settle,
+      index: held.index + (relaxed.index - held.index) * settle,
+      middle: -0.15 + (relaxed.middle + 0.15) * settle,
+      ring: held.ring + (relaxed.ring - held.ring) * settle,
+      pinky: held.pinky + (relaxed.pinky - held.pinky) * settle,
+    },
+    offset: { x: 0, y: 0.003 * settle, z: -0.008 + 0.018 * settle },
+    roll: 0,
+  };
+}
 
 /** A press held still keeps the stroke going this many times as long. */
 export const holdStretch = 2;
@@ -150,17 +217,8 @@ export function handFrame(gesture: HandGesture, t: number): HandFrame {
       };
     }
     case "flick":
-    case "double-flick": {
-      // The middle finger held back by the thumb, then let go; twice for the double.
-      const releases = gesture === "flick" ? [0.32] : [0.32, 0.78];
-      const loaded = releases.some((at) => t < at && t > at - 0.32);
-      const snap = releases.reduce((sum, at) => sum + pulse(t, at, 0.14), 0);
-      return {
-        curl: { thumb: loaded ? 0.85 : 0.45, index: 0.55, middle: loaded ? 0.95 : 0, ring: 0.6, pinky: 0.65 },
-        offset: { x: 0, y: 0.004 * snap, z: -0.008 * snap },
-        roll: 0,
-      };
-    }
+    case "double-flick":
+      return flickFrame(t, gesture === "flick" ? [flickSnapSeconds] : [flickSnapSeconds, secondFlickSnapSeconds]);
     case "boop":
     case "boop-twice": {
       const starts = gesture === "boop" ? [0.1] : [0.08, 0.4];

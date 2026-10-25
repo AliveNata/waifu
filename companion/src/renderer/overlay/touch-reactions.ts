@@ -1,4 +1,5 @@
 import type { ExpressionWeights } from "../common/expressions.js";
+import { flickSnapSeconds } from "./hand-gestures.js";
 import type { TouchSide, TouchZone } from "./touch-zones.js";
 
 /** A quick click, a press held still, or a press dragged across her (petting). */
@@ -210,12 +211,14 @@ export class TouchMood {
             line: this.pick(["Ih, sakit tau.", "Aduh, udah dong."]),
           };
         }
+        // She sees the finger coming, then the face follows the hit.
         return {
           gesture: "flinch",
-          durationSeconds: 1.8,
+          durationSeconds: 1.8 + flickSnapSeconds,
           phases: [
-            { untilSeconds: 0.35, expressions: { surprised: 0.7 } },
-            { untilSeconds: 1.8, expressions: { sad: 0.25 } },
+            { untilSeconds: flickSnapSeconds, expressions: { surprised: 0.15 } },
+            { untilSeconds: flickSnapSeconds + 0.35, expressions: { surprised: 0.7 } },
+            { untilSeconds: 1.8 + flickSnapSeconds, expressions: { sad: 0.25 } },
           ],
           line: "Aduh!",
         };

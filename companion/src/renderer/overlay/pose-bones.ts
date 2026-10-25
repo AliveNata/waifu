@@ -1,7 +1,7 @@
 import type { CompanionFace, CompanionPose } from "../../shared/companion-pose.js";
 import type { ExpressionWeights } from "../common/expressions.js";
 import { addRotation, type BoneRotation, type PoseBones } from "../common/pose.js";
-import { chestSwatSeconds } from "./hand-gestures.js";
+import { chestSwatSeconds, flickSnapSeconds } from "./hand-gestures.js";
 import type { TouchGesture } from "./touch-reactions.js";
 import type { TouchSide } from "./touch-zones.js";
 
@@ -153,7 +153,9 @@ export function applyTouchGesture(bones: PoseBones, input: GestureInput): void {
       break;
     }
     case "flinch": {
-      const snap = Math.exp(-elapsed * 5) * k;
+      // Her head snaps back when the finger hits, not when the click lands.
+      const since = elapsed - flickSnapSeconds;
+      const snap = since < 0 ? 0 : Math.exp(-since * 6) * k;
       bones.head = addRotation(bones.head, { x: -0.22 * snap });
       bones.neck = addRotation(bones.neck, { x: -0.08 * snap });
       break;

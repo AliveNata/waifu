@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import { stepBlush } from "../src/renderer/overlay/blush.js";
 import {
   chestSwatSeconds,
+  flickSnapSeconds,
   gestureForZone,
   gestureSpecs,
   type HandGesture,
   handFrame,
+  secondFlickSnapSeconds,
 } from "../src/renderer/overlay/hand-gestures.js";
 import type { TouchZone } from "../src/renderer/overlay/touch-zones.js";
 
@@ -43,14 +45,37 @@ describe("handFrame", () => {
     expect(Math.min(curl.middle, curl.ring, curl.pinky)).toBeGreaterThan(0.8);
   });
 
-  it("holds the middle finger back for a flick, then lets it go", () => {
+  it("holds the middle finger against the thumb, drawn back, until the snap", () => {
     // Act
-    const loaded = handFrame("flick", 0.15);
-    const released = handFrame("flick", 0.4);
+    const loaded = handFrame("flick", flickSnapSeconds - 0.02);
 
     // Assert
     expect(loaded.curl.middle).toBeGreaterThan(0.9);
-    expect(released.curl.middle).toBe(0);
+    expect(loaded.curl.thumb).toBeGreaterThan(0.7);
+    expect(Math.max(loaded.curl.index, loaded.curl.ring)).toBeLessThan(0.4);
+    expect(loaded.offset.z).toBeGreaterThan(0.01);
+  });
+
+  it("shoots the finger out past straight with the hand jerking in, then relaxes", () => {
+    // Act
+    const snapped = handFrame("flick", flickSnapSeconds + 0.05);
+    const relaxedAfter = handFrame("flick", gestureSpecs.flick.seconds);
+
+    // Assert
+    expect(snapped.curl.middle).toBeLessThan(0);
+    expect(snapped.offset.z).toBeLessThan(0);
+    expect(relaxedAfter.curl.middle).toBeGreaterThan(0);
+    expect(relaxedAfter.curl.middle).toBeLessThan(0.3);
+  });
+
+  it("loads and snaps a second time for the double flick", () => {
+    // Act
+    const reloaded = handFrame("double-flick", secondFlickSnapSeconds - 0.02);
+    const second = handFrame("double-flick", secondFlickSnapSeconds + 0.05);
+
+    // Assert
+    expect(reloaded.curl.middle).toBeGreaterThan(0.9);
+    expect(second.curl.middle).toBeLessThan(0);
   });
 
   it("pushes in toward her during a poke and comes back after", () => {
