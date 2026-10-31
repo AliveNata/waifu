@@ -808,6 +808,8 @@ function boxBody(input: OfficePoseInput): UpperBody {
   // feet with a little bounce.
   const reach = punchReach(input.actionElapsed);
   const bones: PoseBones = {
+    // Fists, every finger bent tight into the palm.
+    ...curledFingers(1.5),
     spine: { x: 0.14, y: 0.12 * (reach.right - reach.left), z: 0 },
     head: { x: 0.12, y: 0, z: 0 },
     leftUpperLeg: { x: -0.18, y: 0, z: 0 },
@@ -817,13 +819,8 @@ function boxBody(input: OfficePoseInput): UpperBody {
   };
   for (const side of ["left", "right"] as const) {
     const out = reach[side];
-    const sign = side === "left" ? -1 : 1;
-    setArm(
-      bones,
-      side,
-      { x: -0.9 - 0.45 * out, y: 0, z: sign * (0.9 + 0.3 * out) },
-      { x: 0, y: sign * (2.2 - 2.0 * out), z: 0 },
-    );
+    // Given as the right arm: setArm mirrors it for the left.
+    setArm(bones, side, { x: -0.9 - 0.45 * out, y: 0, z: 0.9 + 0.3 * out }, { x: 0, y: 2.2 - 2.0 * out, z: 0 });
   }
   return { bones, standingHipsY: 0.008 * Math.abs(Math.sin(input.time * 7)) };
 }
