@@ -42,6 +42,26 @@ export interface OfficePoseInput {
 }
 
 const plainWalk: WalkStyle = { stride: 1, armSwing: 1, bounce: 1, sway: 1, lean: 0.04 };
+/** An easy jog on the treadmill: longer strides, arms pumping, more bounce, leaning into it. */
+const jogStyle: WalkStyle = { stride: 1.35, armSwing: 1.6, bounce: 2.2, sway: 0.8, lean: 0.12 };
+/** Strides per second times 2π: a steady, unhurried jogging cadence. */
+const jogRate = 2.6 * Math.PI;
+
+/** One round of punches at the bag, in seconds: a right, a pause, a left, a pause. */
+export const punchRound = 1.3;
+
+/**
+ * How far each fist is out, 0 at the guard and 1 at full reach, `time` seconds into the round.
+ * The bag reads the same clock, so it swings back as each punch lands.
+ */
+export function punchReach(time: number): { left: number; right: number } {
+  const t = (((time % punchRound) + punchRound) % punchRound) / punchRound;
+  const jab = (start: number): number => {
+    const local = (t - start) / 0.22;
+    return local <= 0 || local >= 1 ? 0 : Math.sin(local * Math.PI);
+  };
+  return { right: jab(0), left: jab(0.5) };
+}
 
 /** The pen in the avatar's own frame (x to its left, y up from the floor, z ahead), plus the step back. */
 export interface BoardFocus {
@@ -783,6 +803,45 @@ function arcadeBody(input: OfficePoseInput): UpperBody {
   };
 }
 
+function boxBody(input: OfficePoseInput): UpperBody {
+  // Fists up by the chin, one snapping out at a time at chest height, weight on the balls of the
+  // feet with a little bounce.
+  const reach = punchReach(input.actionElapsed);
+  const bones: PoseBones = {
+    spine: { x: 0.14, y: 0.12 * (reach.right - reach.left), z: 0 },
+    head: { x: 0.12, y: 0, z: 0 },
+    leftUpperLeg: { x: -0.18, y: 0, z: 0 },
+    rightUpperLeg: { x: 0.12, y: 0, z: 0 },
+    leftLowerLeg: { x: 0.22, y: 0, z: 0 },
+    rightLowerLeg: { x: 0.14, y: 0, z: 0 },
+  };
+  for (const side of ["left", "right"] as const) {
+    const out = reach[side];
+    const sign = side === "left" ? -1 : 1;
+    setArm(
+      bones,
+      side,
+      { x: -0.9 - 0.45 * out, y: 0, z: sign * (0.9 + 0.3 * out) },
+      { x: 0, y: sign * (2.2 - 2.0 * out), z: 0 },
+    );
+  }
+  return { bones, standingHipsY: 0.008 * Math.abs(Math.sin(input.time * 7)) };
+}
+
+function gazeBody(input: OfficePoseInput): UpperBody {
+  // Bent a little toward the glass, hands clasped behind the back, eyes following a fish.
+  return {
+    bones: {
+      spine: { x: 0.16, y: 0, z: 0 },
+      head: { x: 0.1, y: 0.35 * Math.sin(input.time * 0.6), z: 0.05 * Math.sin(input.time * 0.6) },
+      leftUpperArm: { x: 0.35, y: 0, z: -1.15 },
+      rightUpperArm: { x: 0.35, y: 0, z: 1.15 },
+      leftLowerArm: { x: 0, y: -0.9, z: 0 },
+      rightLowerArm: { x: 0, y: 0.9, z: 0 },
+    },
+  };
+}
+
 function waterBody(input: OfficePoseInput): UpperBody {
   // Watering can held out over the pot, tilting as it pours.
   const pour = 0.25 + 0.1 * Math.sin(input.time * 1.3);
@@ -1048,6 +1107,14 @@ function upperBody(action: OfficeAction, input: OfficePoseInput): UpperBody {
       return pingpongBody(input);
     case "pingpong-wait":
       return pingpongWaitBody(input);
+    case "run": {
+      const stride = walkPose(input.time * jogRate, jogStyle);
+      return { bones: stride.bones, standingHipsY: stride.hipsOffsetY };
+    }
+    case "box":
+      return boxBody(input);
+    case "gaze":
+      return gazeBody(input);
   }
 }
 

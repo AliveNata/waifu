@@ -15,9 +15,11 @@ export interface Point {
 
 /**
  * Walls are 2.2 m: tall for a chibi, but not so tall the room swallows them like a warehouse.
- * The room is laid out the way work moves through the team: planning by the boards on the left,
- * the builders along the back wall, 2B front and center, review and security by the way out on
- * the right, and Ruby's studio in the east wing where finished work gets written up.
+ * The room is laid out in zones that each read at a glance from the camera: the pantry and the
+ * planning pod by the boards on the left, the builders' L-desks along the back wall mirrored
+ * around the logo, 2B front and center between Erza and Miruku, the meeting table on the same
+ * center line, a game and fitness corner at the back right, the way in by the door, Ruby's studio
+ * at the front right, and the lounge at the front left behind a long aquarium.
  */
 export const room = { minX: -7, maxX: 10.5, minZ: -5, maxZ: 4, wallHeight: 2.2 } as const;
 
@@ -51,6 +53,7 @@ export type FurnitureKind =
   | "desk-komachi"
   | "desk-miruku"
   | "desk-huagua"
+  | "desk-return"
   | "chair"
   | "server-rack"
   | "arcade"
@@ -77,7 +80,11 @@ export type FurnitureKind =
   | "backdrop"
   | "meeting-table"
   | "pingpong-table"
-  | "printer-cabinet";
+  | "printer-cabinet"
+  | "treadmill"
+  | "punching-bag"
+  | "aquarium"
+  | "bench";
 
 export interface Furniture {
   id: string;
@@ -130,6 +137,11 @@ export type StationId =
   | "sofa-3"
   | "beanbag-lounge"
   | "arcade"
+  | "arcade-2"
+  | "treadmill-1"
+  | "treadmill-2"
+  | "punching-bag"
+  | "aquarium"
   | "rack"
   | "selfie"
   | "plant-lounge"
@@ -170,24 +182,59 @@ const stoolSeatHeight = 0.42;
 const beanbagSeatHeight = 0.17;
 
 /**
- * x of each back-row desk, left to right: the people who build. Kobayashi sits nearest the
+ * x of each back-row desk, left to right: the people who build. Two on each side of the logo with
+ * the shared printer under it, so the wall reads as one symmetric run. Kobayashi sits nearest the
  * planning pod, Huagua next to him so design and code sit side by side, and Yor next to her
  * server rack.
  */
-export const deskRowX = { kobayashi: -2.7, huagua: -0.7, asuna: 1.3, yor: 3.3 } as const;
+export const deskRowX = { kobayashi: -2.3, huagua: -0.6, asuna: 1.4, yor: 3.3 } as const;
+const deskRowZ = -4.55;
+const deskRowDepth = 0.8;
+const deskRowWidth = 1.6;
 
-/** Back-row desks are 1.6 m wide and 0.8 m deep, flush against the back wall. */
+/**
+ * The short leg of an L-desk: a narrower surface joined to one end of the main desk, reaching out
+ * on the sitter's side. It sits beside the chair, never behind it, so the chair still slides in.
+ */
+const returnWidth = 0.45;
+const returnReach = 0.65;
+
+function deskReturn(
+  member: string,
+  deskX: number,
+  deskWidth: number,
+  frontEdgeZ: number,
+  side: -1 | 1,
+  toward: -1 | 1,
+): Furniture {
+  return {
+    id: `return-${member}`,
+    kind: "desk-return",
+    x: deskX + side * (deskWidth / 2 - returnWidth / 2),
+    z: frontEdgeZ + (toward * returnReach) / 2,
+    width: returnWidth,
+    depth: returnReach,
+    yaw: facing.camera,
+    blocksWalking: true,
+  };
+}
+
+/**
+ * Back-row L-desks flush against the back wall, every return on the right so the row repeats one
+ * shape. Sitters come in from the left of their chair.
+ */
 const deskRow: Furniture[] = (Object.entries(deskRowX) as [keyof typeof deskRowX, number][]).flatMap(([member, x]) => [
   {
     id: `desk-${member}`,
     kind: `desk-${member}`,
     x,
-    z: -4.55,
-    width: 1.6,
-    depth: 0.8,
+    z: deskRowZ,
+    width: deskRowWidth,
+    depth: deskRowDepth,
     yaw: facing.camera,
     blocksWalking: true,
   },
+  deskReturn(member, x, deskRowWidth, deskRowZ + deskRowDepth / 2, 1, 1),
   {
     id: `chair-${member}`,
     kind: "chair",
@@ -200,9 +247,47 @@ const deskRow: Furniture[] = (Object.entries(deskRowX) as [keyof typeof deskRowX
   },
 ]);
 
-const twobDeskZ = 1.95;
-/** 2B's seat: front and center, the one everybody passes on the way to anyone else. */
-const twobSeat = { x: 2.4, z: 1.4 } as const;
+/**
+ * The front row on the room's center line: 2B in the middle, Erza and Miruku either side, all
+ * facing the camera. Everything passes 2B, and nothing leaves without review and a security
+ * check. Erza's return points out to the left and the others' to the right, so the row frames 2B.
+ */
+const frontRowZ = 1.95;
+const frontSeatZ = 1.4;
+const frontDeskDepth = 0.7;
+const frontDeskWidth = 1.6;
+export const frontRow = {
+  erza: { x: -2.0, returnSide: -1 },
+  twob: { x: 0.4, returnSide: 1 },
+  miruku: { x: 2.8, returnSide: 1 },
+} as const;
+type FrontMember = keyof typeof frontRow;
+
+const frontDesks: Furniture[] = (Object.entries(frontRow) as [FrontMember, (typeof frontRow)[FrontMember]][]).flatMap(
+  ([member, { x, returnSide }]): Furniture[] => [
+    {
+      id: `desk-${member}`,
+      kind: `desk-${member}`,
+      x,
+      z: frontRowZ,
+      width: frontDeskWidth,
+      depth: frontDeskDepth,
+      yaw: facing.backWall,
+      blocksWalking: true,
+    },
+    deskReturn(member, x, frontDeskWidth, frontRowZ - frontDeskDepth / 2, returnSide, -1),
+    {
+      id: `chair-${member}`,
+      kind: "chair",
+      x,
+      z: frontSeatZ,
+      width: 0.5,
+      depth: 0.5,
+      yaw: facing.camera,
+      blocksWalking: true,
+    },
+  ],
+);
 
 /**
  * Two desks pushed together face to face. The north desk's sitter faces the room with the desk
@@ -216,14 +301,11 @@ interface Pod {
 
 /**
  * Planning, by the boards: Rias and Arisu on the north side, Chizuru and Komachi across from them.
- * Ideas, decisions, the plan and its technical steps are all made within one desk's reach of
- * the whiteboard.
+ * Straight desks pushed together, not L-desks, so the four talk across one table.
  */
 const planningPod: Pod = { centerZ: -0.5, deskWidth: 1.3, deskDepth: 0.65 };
-/** Review and security, side by side on the way to the door: Erza faces the room, Miruku across from her. */
-const qualityPod: Pod = { centerZ: 0.4, deskWidth: 1.6, deskDepth: 0.7 };
 
-type PodMember = "rias" | "chizuru" | "arisu" | "komachi" | "erza" | "miruku";
+type PodMember = "rias" | "chizuru" | "arisu" | "komachi";
 type PodSide = "north" | "south";
 
 export const podSeats: Record<PodMember, { x: number; side: PodSide; pod: Pod }> = {
@@ -231,8 +313,6 @@ export const podSeats: Record<PodMember, { x: number; side: PodSide; pod: Pod }>
   arisu: { x: -3.7, side: "north", pod: planningPod },
   chizuru: { x: -5.1, side: "south", pod: planningPod },
   komachi: { x: -3.7, side: "south", pod: planningPod },
-  erza: { x: 8.3, side: "north", pod: qualityPod },
-  miruku: { x: 8.3, side: "south", pod: qualityPod },
 };
 
 /** From the desk's middle to the seat, as at 2B's desk. */
@@ -273,21 +353,41 @@ const pods: Furniture[] = (Object.entries(podSeats) as [PodMember, (typeof podSe
 );
 
 /**
- * Ruby's studio against the east-wing back wall. She sits facing the room with the backdrop behind
- * her, and her camera and ring light both aim at her seat.
+ * Ruby's studio at the front right, facing the camera like a set: the backdrop behind her chair,
+ * the ring light at her front left and the camera on its tripod in front. Both aim at her seat.
  */
-const rubySeat = { x: 8.6, z: -4.14 } as const;
+const rubySeat = { x: 8.5, z: 1.75 } as const;
 const rubyDeskZ = rubySeat.z + 0.55;
-const ringLightSpot = { x: 7.65, z: -3.79 } as const;
-const tripodSpot = { x: 9.5, z: -2.79 } as const;
-/** In front of the backdrop's west end, clear of her chair, facing the camera on its tripod. */
-const selfieSpot = { x: 7.95, z: -4.45 } as const;
+const rubyDeskWidth = 1.3;
+const rubyDeskDepth = 0.65;
+const ringLightSpot = { x: 7.4, z: 2.25 } as const;
+const tripodSpot = { x: 9.4, z: 3.1 } as const;
+/** Off the backdrop's west end, facing the camera on its tripod. */
+const selfieSpot = { x: 7.4, z: 1.45 } as const;
+
+/**
+ * The game and fitness corner at the back right, on a rubber mat: two arcade cabinets under the
+ * status board, two treadmills facing the window, the ping-pong table in front and a punching bag
+ * by the lobby.
+ */
+const arcadeX = [5.8, 6.8] as const;
+const arcadeZ = -4.55;
+const treadmillX = [8.35, 9.35] as const;
+const treadmillZ = -4.35;
+const treadmillLength = 1.2;
+/** The belt deck's top: a runner stands this high while on it. */
+export const treadmillDeckHeight = 0.07;
+const pingpongCenter = { x: 7.1, z: -2.75 } as const;
+const punchingBagSpot = { x: 9.9, z: -2.75 } as const;
+/** A long low aquarium between the front row and the lounge. */
+const aquariumSpot = { x: -1.9, z: 3.6 } as const;
 
 const meetingIds = ["meeting-1", "meeting-2", "meeting-3", "meeting-4", "meeting-5", "meeting-6"] as const;
 export type MeetingStationId = (typeof meetingIds)[number];
 
 /** The meeting table's middle, and its six chairs: three on the back side facing the camera, three in front. */
-const meetingTableX = -0.6;
+/** On the room's center line, under the logo and in line with 2B's desk. */
+const meetingTableX = 0.4;
 const meetingSeatXs = [meetingTableX - 0.8, meetingTableX, meetingTableX + 0.8] as const;
 const meetingSeats = [
   ...meetingSeatXs.map((x) => ({ x, z: -2.05, yaw: facing.camera })),
@@ -320,16 +420,18 @@ const ovenX = -4.55;
 export const furniture: readonly Furniture[] = [
   ...deskRow,
   ...pods,
+  ...frontDesks,
   {
     id: "desk-ruby",
     kind: "desk-ruby",
     x: rubySeat.x,
     z: rubyDeskZ,
-    width: 1.3,
-    depth: 0.65,
+    width: rubyDeskWidth,
+    depth: rubyDeskDepth,
     yaw: facing.backWall,
     blocksWalking: true,
   },
+  deskReturn("ruby", rubySeat.x, rubyDeskWidth, rubyDeskZ - rubyDeskDepth / 2, 1, -1),
   {
     id: "chair-ruby",
     kind: "chair",
@@ -344,7 +446,7 @@ export const furniture: readonly Furniture[] = [
     id: "backdrop",
     kind: "backdrop",
     x: rubySeat.x,
-    z: -4.82,
+    z: 1.22,
     width: 1.5,
     depth: 0.12,
     yaw: facing.camera,
@@ -370,41 +472,107 @@ export const furniture: readonly Furniture[] = [
     yaw: yawToward(tripodSpot, rubySeat),
     blocksWalking: true,
   },
-  {
-    id: "desk-twob",
-    kind: "desk-twob",
-    x: twobSeat.x,
-    z: twobDeskZ,
-    width: 1.6,
-    depth: 0.7,
-    yaw: facing.backWall,
-    blocksWalking: true,
-  },
-  { id: "chair-twob", kind: "chair", ...twobSeat, width: 0.5, depth: 0.5, yaw: facing.camera, blocksWalking: true },
-  // Who is working on what, on the back wall above the rack and the arcade, where everyone in the
-  // room can see it. Wall-mounted, so it blocks nothing on the floor.
+  // Who is working on what, on the back wall above the arcades, where everyone in the room can see
+  // it. Wall-mounted, so it blocks nothing on the floor.
   {
     id: "status-board",
     kind: "status-board",
-    x: 5.75,
+    x: 6.3,
     z: -4.96,
-    width: 2.5,
+    width: 2.3,
     depth: 0.04,
     yaw: facing.camera,
     blocksWalking: false,
   },
-
+  // The end of the build row, next to Yor.
   {
     id: "server-rack",
     kind: "server-rack",
-    x: 5.15,
+    x: 4.55,
     z: -4.6,
     width: 0.7,
     depth: 0.7,
     yaw: facing.camera,
     blocksWalking: true,
   },
-  { id: "arcade", kind: "arcade", x: 6.35, z: -4.55, width: 0.8, depth: 0.8, yaw: facing.camera, blocksWalking: true },
+  // A rubber mat marks the game and fitness corner off from the office floor.
+  { id: "rug-game", kind: "rug", x: 7.8, z: -3.45, width: 5.2, depth: 3.0, yaw: facing.camera, blocksWalking: false },
+  ...arcadeX.map(
+    (x, index): Furniture => ({
+      id: index === 0 ? "arcade" : `arcade-${index + 1}`,
+      kind: "arcade",
+      x,
+      z: arcadeZ,
+      width: 0.8,
+      depth: 0.8,
+      yaw: facing.camera,
+      blocksWalking: true,
+    }),
+  ),
+  ...treadmillX.map(
+    (x, index): Furniture => ({
+      id: `treadmill-${index + 1}`,
+      kind: "treadmill",
+      x,
+      z: treadmillZ,
+      width: 0.55,
+      depth: treadmillLength,
+      // Runners face the window over the back wall.
+      yaw: facing.backWall,
+      blocksWalking: true,
+    }),
+  ),
+  {
+    id: "pingpong-table",
+    kind: "pingpong-table",
+    ...pingpongCenter,
+    width: 1.5,
+    depth: 0.85,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  {
+    id: "punching-bag",
+    kind: "punching-bag",
+    ...punchingBagSpot,
+    width: 0.5,
+    depth: 0.5,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  // A bench along the mat's front edge, facing the ping-pong table, for whoever is watching a game.
+  {
+    id: "bench-game",
+    kind: "bench",
+    x: pingpongCenter.x,
+    z: -1.6,
+    width: 1.3,
+    depth: 0.42,
+    yaw: facing.backWall,
+    blocksWalking: true,
+  },
+  {
+    id: "aquarium",
+    kind: "aquarium",
+    ...aquariumSpot,
+    width: 2.0,
+    depth: 0.5,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  // A pair of plants framing 2B's desk from the front.
+  ...[-0.85, 1.65].map(
+    (x, index): Furniture => ({
+      id: `plant-front-${index + 1}`,
+      kind: "plant",
+      x,
+      z: 2.75,
+      width: 0.4,
+      depth: 0.4,
+      yaw: facing.camera,
+      blocksWalking: true,
+    }),
+  ),
 
   { id: "fridge", kind: "fridge", x: -6.6, z: -4.62, width: 0.7, depth: 0.7, yaw: facing.camera, blocksWalking: true },
   {
@@ -561,10 +729,10 @@ export const furniture: readonly Furniture[] = [
   {
     id: "plant-lounge",
     kind: "plant",
-    // Behind the sofa's open side: the left-wall corner is boxed in by the beanbags and the
-    // coffee table, so a plant there could never be reached for watering.
-    x: -3.0,
-    z: 3.6,
+    // Behind the sofa's open side, at the aquarium's end: the left-wall corner is boxed in by the
+    // beanbag and the coffee table, so a plant there could never be reached for watering.
+    x: -3.6,
+    z: 3.65,
     width: 0.5,
     depth: 0.5,
     yaw: facing.camera,
@@ -573,8 +741,9 @@ export const furniture: readonly Furniture[] = [
   {
     id: "plant-corner",
     kind: "plant",
-    x: 10.0,
-    z: 3.4,
+    // In the lobby, beside the way in.
+    x: 9.95,
+    z: 0.8,
     width: 0.6,
     depth: 0.6,
     yaw: facing.camera,
@@ -583,14 +752,15 @@ export const furniture: readonly Furniture[] = [
   {
     id: "plant-desks",
     kind: "plant",
-    x: 4.55,
+    // Between the rack and the arcades, where the build row meets the game corner.
+    x: 5.12,
     z: -4.65,
     width: 0.4,
     depth: 0.4,
     yaw: facing.camera,
     blocksWalking: true,
   },
-  // Center of the room: a team table for standups and laptop work, and a ping-pong table for two.
+  // Center of the room: a team table for standups and laptop work.
   {
     id: "meeting-table",
     kind: "meeting-table",
@@ -613,34 +783,14 @@ export const furniture: readonly Furniture[] = [
       blocksWalking: true,
     }),
   ),
-  {
-    id: "pingpong-table",
-    kind: "pingpong-table",
-    x: 3.3,
-    z: -1.2,
-    width: 1.5,
-    depth: 0.85,
-    yaw: facing.camera,
-    blocksWalking: true,
-  },
-  // The shared printer, in the back row between Huagua and Asuna.
+  // The shared printer, under the logo between Huagua and Asuna.
   {
     id: "printer-back",
     kind: "printer-cabinet",
-    x: 0.3,
+    x: 0.4,
     z: -4.6,
     width: 0.36,
     depth: 0.6,
-    yaw: facing.camera,
-    blocksWalking: true,
-  },
-  {
-    id: "plant-entry",
-    kind: "plant",
-    x: 10.05,
-    z: 0.95,
-    width: 0.5,
-    depth: 0.5,
     yaw: facing.camera,
     blocksWalking: true,
   },
@@ -652,12 +802,25 @@ export const furniture: readonly Furniture[] = [
  */
 const chairSideStep = 0.55;
 
+/** Back-row seats are entered from the left: the desk's return is on the right. */
 function deskRowStation(id: StationId, x: number): Station {
   return {
     id,
     spot: { x, z: deskRowSeatZ },
     facing: facing.backWall,
-    approach: { x: x + chairSideStep, z: deskRowSeatZ },
+    approach: { x: x - chairSideStep, z: deskRowSeatZ },
+    seatHeight: chairSeatHeight,
+  };
+}
+
+/** Front-row seats are entered from the side away from the desk's return. */
+function frontRowStation(id: StationId, member: FrontMember): Station {
+  const { x, returnSide } = frontRow[member];
+  return {
+    id,
+    spot: { x, z: frontSeatZ },
+    facing: facing.camera,
+    approach: { x: x - returnSide * chairSideStep, z: frontSeatZ },
     seatHeight: chairSeatHeight,
   };
 }
@@ -685,9 +848,16 @@ function standing(id: StationId, spot: Point, yaw: number, approach: Point = spo
 /** How high the board steps are. */
 export const boardStepHeight = 0.18;
 
-/** Height of the floor under `point`: the top of a board step there, else the floor itself. */
+/** Height of the floor under `point`: the top of a board step or treadmill belt there, else the floor itself. */
 export function floorHeightAt(point: Point): number {
   for (const piece of furniture) {
+    if (
+      piece.kind === "treadmill" &&
+      Math.abs(point.x - piece.x) <= piece.width / 2 &&
+      Math.abs(point.z - piece.z) <= piece.depth / 2
+    ) {
+      return treadmillDeckHeight;
+    }
     if (
       piece.kind === "board-step" &&
       Math.abs(point.x - piece.x) <= piece.width / 2 &&
@@ -716,22 +886,18 @@ export const stations: Record<StationId, Station> = {
     id: "desk-ruby",
     spot: rubySeat,
     facing: facing.camera,
-    approach: { x: rubySeat.x + chairSideStep, z: rubySeat.z },
+    // From the left, the desk's return being on her right, and a little back from the desk: her desk
+    // is as shallow as the pod desks, so right beside the seat is too close to its edge.
+    approach: { x: rubySeat.x - chairSideStep, z: rubySeat.z - podApproachClearance },
     seatHeight: chairSeatHeight,
   },
-  "desk-twob": {
-    id: "desk-twob",
-    spot: twobSeat,
-    facing: facing.camera,
-    approach: { x: twobSeat.x + chairSideStep, z: twobSeat.z },
-    seatHeight: chairSeatHeight,
-  },
+  "desk-twob": frontRowStation("desk-twob", "twob"),
   "desk-rias": podStation("desk-rias", "rias"),
   "desk-chizuru": podStation("desk-chizuru", "chizuru"),
   "desk-arisu": podStation("desk-arisu", "arisu"),
   "desk-komachi": podStation("desk-komachi", "komachi"),
-  "desk-erza": podStation("desk-erza", "erza"),
-  "desk-miruku": podStation("desk-miruku", "miruku"),
+  "desk-erza": frontRowStation("desk-erza", "erza"),
+  "desk-miruku": frontRowStation("desk-miruku", "miruku"),
   // Facing the left wall, the board's left half (+z side) is 2B's plan and the right half Rias's sketches.
   "board-twob": standing("board-twob", { x: boardStandX, z: -1.4 }, facing.leftWall),
   "board-rias": standing("board-rias", { x: boardStandX, z: -2.65 }, facing.leftWall),
@@ -800,18 +966,31 @@ export const stations: Record<StationId, Station> = {
     approach: { x: -5.6, z: 1.6 },
     seatHeight: beanbagSeatHeight,
   },
-  arcade: standing("arcade", { x: 6.35, z: -3.8 }, facing.backWall),
-  rack: standing("rack", { x: 5.15, z: -3.85 }, facing.backWall),
+  arcade: standing("arcade", { x: arcadeX[0], z: -3.8 }, facing.backWall),
+  "arcade-2": standing("arcade-2", { x: arcadeX[1], z: -3.8 }, facing.backWall),
+  // On the belt, stepped onto from behind like a real treadmill.
+  "treadmill-1": standing("treadmill-1", { x: treadmillX[0], z: treadmillZ + 0.05 }, facing.backWall, {
+    x: treadmillX[0],
+    z: treadmillZ + treadmillLength / 2 + 0.25,
+  }),
+  "treadmill-2": standing("treadmill-2", { x: treadmillX[1], z: treadmillZ + 0.05 }, facing.backWall, {
+    x: treadmillX[1],
+    z: treadmillZ + treadmillLength / 2 + 0.25,
+  }),
+  // A short step back from the bag: a chibi's jab reaches about a third of a meter.
+  "punching-bag": standing("punching-bag", { x: punchingBagSpot.x, z: punchingBagSpot.z + 0.55 }, facing.backWall),
+  aquarium: standing("aquarium", { x: aquariumSpot.x, z: aquariumSpot.z - 0.55 }, facing.camera),
+  rack: standing("rack", { x: 4.55, z: -3.85 }, facing.backWall),
   // In front of her backdrop, so the ring light and camera frame her like a real shoot.
   selfie: standing("selfie", selfieSpot, yawToward(selfieSpot, tripodSpot)),
-  "plant-lounge": standing("plant-lounge", { x: -3.0, z: 3.0 }, facing.camera),
-  "plant-corner": standing("plant-corner", { x: 9.45, z: 3.05 }, yawToward({ x: 9.45, z: 3.05 }, { x: 10.0, z: 3.4 })),
-  "plant-desks": standing("plant-desks", { x: 4.55, z: -3.9 }, facing.backWall),
+  "plant-lounge": standing("plant-lounge", { x: -3.6, z: 3.05 }, facing.camera),
+  "plant-corner": standing("plant-corner", { x: 9.4, z: 0.8 }, facing.right),
+  "plant-desks": standing("plant-desks", { x: 5.12, z: -3.9 }, facing.backWall),
   // From the open side by the meeting table, not the narrow lane to 2B's desk on the other side.
   ...meetingStations(),
   // Players stand off each end of the table, facing each other across it.
-  "pingpong-west": standing("pingpong-west", { x: 2.2, z: -1.2 }, facing.right),
-  "pingpong-east": standing("pingpong-east", { x: 4.4, z: -1.2 }, facing.leftWall),
+  "pingpong-west": standing("pingpong-west", { x: pingpongCenter.x - 1.1, z: pingpongCenter.z }, facing.right),
+  "pingpong-east": standing("pingpong-east", { x: pingpongCenter.x + 1.1, z: pingpongCenter.z }, facing.leftWall),
 };
 
 function meetingStations(): Record<MeetingStationId, Station> {
@@ -829,6 +1008,11 @@ function meetingStations(): Record<MeetingStationId, Station> {
     }),
   ) as Record<MeetingStationId, Station>;
 }
+
+/** The arcade cabinets' stations, in floor-plan order, for the screen that belongs to each. */
+export const arcadeStationIds = ["arcade", "arcade-2"] as const satisfies readonly StationId[];
+/** The treadmills' stations, in floor-plan order, for the belt that belongs to each. */
+export const treadmillStationIds = ["treadmill-1", "treadmill-2"] as const satisfies readonly StationId[];
 
 /** The meeting seats in order, for the props that belong to each one. */
 export const meetingStationIds: readonly MeetingStationId[] = meetingIds;
