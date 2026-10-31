@@ -39,7 +39,6 @@ import {
   buildCoffeeTable,
   buildEntryDoor,
   buildFridge,
-  buildKanban,
   buildMeetingTable,
   buildPantryCounter,
   buildPingpongTable,
@@ -61,6 +60,7 @@ import {
 } from "./scene/furniture.js";
 import { NeonStrips } from "./scene/neon.js";
 import { box, glow, mesh, palette, printed, sceneQuality, standard, unlit } from "./scene/palette.js";
+import { StatusBoard } from "./scene/status-board.js";
 import { surfaceMaps } from "./scene/surface-detail.js";
 import { floorTexture, kanbanTexture, signTextTexture, windowTexture } from "./scene/textures.js";
 import { WallClock } from "./scene/wall-clock.js";
@@ -103,6 +103,8 @@ export interface OfficeProps {
   setSky(sky: { night: number; twilight: number }): void;
   /** The big clock on the pantry wall. */
   wallClock: WallClock;
+  /** Who is working on what, on the back wall. */
+  statusBoard: StatusBoard;
   /** The shared food on the end of the bar. */
   barFood: BarFoodDisplay;
   /** The way out, at the right edge of the room, which opens for whoever goes through. */
@@ -205,8 +207,8 @@ function buildRoomShell(root: Group, logo: Texture): SkyGlass {
     box(0.03, 0.1, depth, standard(palette.skirting, 0.7), room.minX + 0.015, 0, centerZ),
   );
 
-  // Two windows over the desks with the sign between them, so the brand sits at the room's focal point,
-  // and a third over the east-wing pod.
+  // Two windows over the desks with the sign between them, so the brand sits at the room's focal point.
+  // The east wing has none: Ruby's backdrop and the status board take that wall.
   // The sills clear the monitors and the tops stay under a chibi-scaled 2.2 m wall.
   const sill = 1.0;
   const windowHeight = 0.85;
@@ -215,7 +217,6 @@ function buildRoomShell(root: Group, logo: Texture): SkyGlass {
     [
       [-3.6, -1.05],
       [1.75, 4.3],
-      [7.25, 9.75],
     ] as const
   ).entries()) {
     const windowWidth = right - left;
@@ -292,6 +293,7 @@ export function buildOffice(): OfficeProps {
   let meetingLaptops: MeetingLaptop[] = [];
   let rackCups: Object3D[] = [];
   let wallClock: WallClock | null = null;
+  let statusBoard: StatusBoard | null = null;
   let fridgeDoor: FridgeDoor | null = null;
   let sink: SinkTap | null = null;
   let oven: Oven | null = null;
@@ -335,11 +337,7 @@ export function buildOffice(): OfficeProps {
       case "stool": {
         const built =
           piece.kind === "beanbag"
-            ? buildBeanbag(
-                piece,
-                piece.id === "beanbag-chizuru" ? "#d9b48f" : palette.inkSoft,
-                stations["beanbag-lounge"].seatHeight ?? 0.17,
-              )
+            ? buildBeanbag(piece, palette.inkSoft, stations["beanbag-lounge"].seatHeight ?? 0.17)
             : buildStool(piece, stations["bar-left"].seatHeight ?? 0.42);
         root.add(built.root);
         hairColliders.push(...built.hairColliders);
@@ -412,8 +410,9 @@ export function buildOffice(): OfficeProps {
       case "plant":
         root.add(buildPlant(piece));
         break;
-      case "kanban":
-        root.add(buildKanban(piece));
+      case "status-board":
+        statusBoard = new StatusBoard(piece);
+        root.add(statusBoard.root);
         break;
       case "ring-light":
         root.add(buildRingLight(piece));
@@ -457,9 +456,10 @@ export function buildOffice(): OfficeProps {
     meetingLaptops.length !== meetingStationIds.length ||
     rackCups.length !== memberIds.length ||
     wallClock === null ||
+    statusBoard === null ||
     entryDoor === null
   ) {
-    throw new Error("Floor plan is missing the TV, arcade, server rack, fridge, meeting table or door");
+    throw new Error("Floor plan is missing the TV, arcade, server rack, fridge, meeting table, status board or door");
   }
 
   const whiteboardPiece = pieceById("whiteboard");
@@ -529,6 +529,7 @@ export function buildOffice(): OfficeProps {
       }
     },
     wallClock,
+    statusBoard,
     barFood,
     entryDoor,
   };
@@ -536,9 +537,9 @@ export function buildOffice(): OfficeProps {
 
 function buildCloseups(whiteboard: BoardSpec, idea: BoardSpec): Record<MemberId, CloseupShot> {
   // Back row: over the right shoulder and a little high, so the head never blocks the monitors.
-  // The south side of the east-wing pod sits the same way, so it takes the same shot.
+  // The south side of each pod sits the same way, so it takes the same shot.
   const backRowShot = (
-    station: "desk-asuna" | "desk-kobayashi" | "desk-erza" | "desk-yor" | "desk-miruku" | "desk-huagua",
+    station: "desk-asuna" | "desk-kobayashi" | "desk-huagua" | "desk-yor" | "desk-komachi" | "desk-miruku",
   ): CloseupShot => {
     const seat = stations[station].spot;
     return {
@@ -549,8 +550,8 @@ function buildCloseups(whiteboard: BoardSpec, idea: BoardSpec): Record<MemberId,
   // Front desks face the camera with a backdrop or board behind the chair. The shot comes from
   // over the right shoulder and well to the side, so a chibi's big head does not hide the screen
   // and the camera stays clear of the panel behind the chair.
-  // The north side of the pod faces the room like the front row.
-  const frontShot = (station: "desk-twob" | "desk-ruby" | "desk-arisu" | "desk-komachi"): CloseupShot => {
+  // The north side of each pod faces the room the same way.
+  const frontShot = (station: "desk-twob" | "desk-ruby" | "desk-arisu" | "desk-erza"): CloseupShot => {
     const seat = stations[station].spot;
     return {
       eye: new Vector3(seat.x + 0.95, 1.0, seat.z - 0.05),
@@ -565,14 +566,14 @@ function buildCloseups(whiteboard: BoardSpec, idea: BoardSpec): Record<MemberId,
   return {
     asuna: backRowShot("desk-asuna"),
     kobayashi: backRowShot("desk-kobayashi"),
-    erza: backRowShot("desk-erza"),
+    erza: frontShot("desk-erza"),
     yor: backRowShot("desk-yor"),
     twob: frontShot("desk-twob"),
     ruby: frontShot("desk-ruby"),
     rias: boardShot(whiteboard, stations["board-rias"].spot.z, 0.72),
     chizuru: boardShot(idea, stations["idea-board"].spot.z, 0.5),
     arisu: frontShot("desk-arisu"),
-    komachi: frontShot("desk-komachi"),
+    komachi: backRowShot("desk-komachi"),
     miruku: backRowShot("desk-miruku"),
     huagua: backRowShot("desk-huagua"),
   };

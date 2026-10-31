@@ -691,15 +691,13 @@ function yorDesk(piece: Furniture): DeskBuild {
   };
 }
 
-/** PA + PM: the plan she types and the team's sprint, with the printer cabinet at her side. */
-function twobDesk(piece: Furniture, kanban: Texture): DeskBuild {
+/** PA: one screen with the plan she is running, and her paper planner. The sprint board is Arisu's now. */
+function twobDesk(piece: Furniture): DeskBuild {
   const { width, depth } = deskSize(piece);
   const inner = deskBase(width, depth);
   const screen = new ScreenSurface(screenScripts.twob);
-  const back = -depth / 2 + 0.15;
   inner.add(
-    monitor(screen.texture, landscape.width, landscape.height, -0.24, back, 0.12),
-    monitor(kanban, landscape.width, landscape.height, 0.24, back, -0.12),
+    monitor(screen.texture, landscape.width, landscape.height, -0.06, -depth / 2 + 0.15),
     pcTower(width / 2 - 0.14, 0),
   );
   const keyboard = keyboardFor("twob", keyboardZ(depth));
@@ -955,14 +953,23 @@ function chizuruDesk(piece: Furniture): DeskBuild {
 }
 
 /**
- * A desk in the east-wing pod: one screen with the member's work on it, keyboard, mouse, their
- * mug and a drawer with the meeting laptop. Their own desk things come with the desk setups.
+ * A desk for the newer members: one screen with the member's work on it, keyboard, mouse, their
+ * mug and a drawer with the meeting laptop. Arisu also has the team's sprint board on a second
+ * screen to her right. Their own desk things come with the desk setups.
  */
-function podDesk(member: "arisu" | "komachi" | "miruku" | "huagua", piece: Furniture): DeskBuild {
+function podDesk(member: "arisu" | "komachi" | "miruku" | "huagua", piece: Furniture, kanban: Texture): DeskBuild {
   const { width, depth } = deskSize(piece);
   const inner = deskBase(width, depth);
   const screen = new ScreenSurface(screenScripts[member]);
-  inner.add(monitor(screen.texture, landscape.width, landscape.height, 0, -depth / 2 + 0.14));
+  const back = -depth / 2 + 0.14;
+  if (member === "arisu") {
+    inner.add(
+      monitor(screen.texture, landscape.width, landscape.height, -0.24, back, 0.12),
+      monitor(kanban, landscape.width, landscape.height, 0.24, back, -0.12),
+    );
+  } else {
+    inner.add(monitor(screen.texture, landscape.width, landscape.height, 0, back));
+  }
   const keyboard = keyboardFor(member, keyboardZ(depth));
   const mouse = mouseBeside(keyboard, palette.accent, palette.inkDeep);
   const mug = mugAt(member, -0.36, nearEdge(depth));
@@ -991,7 +998,7 @@ function deskParts(member: DeskMember, piece: Furniture, kanban: Texture): DeskB
     case "yor":
       return yorDesk(piece);
     case "twob":
-      return twobDesk(piece, kanban);
+      return twobDesk(piece);
     case "ruby":
       return rubyDesk(piece);
     case "rias":
@@ -1002,7 +1009,7 @@ function deskParts(member: DeskMember, piece: Furniture, kanban: Texture): DeskB
     case "komachi":
     case "miruku":
     case "huagua":
-      return podDesk(member, piece);
+      return podDesk(member, piece, kanban);
   }
 }
 
@@ -1017,7 +1024,9 @@ const lampX: Record<DeskMember, number> = {
   // Books and blueprints, or markers and a plant, take the corners.
   rias: 0.2,
   chizuru: 0.2,
-  arisu: 0.5,
+  // On the planning pod's outer corner, clear of her second screen. Her desk faces the back
+  // wall, so the outer (east) corner is on its -x side.
+  arisu: -0.55,
   komachi: 0.5,
   miruku: 0.5,
   huagua: 0.5,

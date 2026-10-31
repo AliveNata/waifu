@@ -35,13 +35,13 @@ const voices: Record<MemberId, Voice> = {
     },
     openers: {
       kerjaan: [
-        { text: "Sprint ini tinggal dua task lagi." },
+        { text: "Agenda hari ini tinggal dua lagi." },
         { text: "Review jam tiga, jangan lupa.", when: ["pagi", "siang"] },
       ],
       makan: [{ text: "Udah makan siang belum?", when: ["siang"] }, { text: "Jangan lupa makan, ya." }],
       santai: [{ text: "Weekend kemarin ngapain?" }],
       kantor: [
-        { text: "Kanban udah aku rapihin tadi pagi.", when: ["siang", "sore", "malam"] },
+        { text: "Jadwal hari ini udah aku rapihin tadi pagi.", when: ["siang", "sore", "malam"] },
         { text: "Board tim udah aku update." },
       ],
     },

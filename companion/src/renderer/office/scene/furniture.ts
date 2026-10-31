@@ -19,9 +19,9 @@ import {
 import { chibi, type Furniture, surface } from "../office-plan.js";
 import { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./animated.js";
 import { handPropModel, type PropLook } from "./hand-props.js";
-import { box, glow, mesh, palette, printed, standard, unlit } from "./palette.js";
+import { box, glow, mesh, palette, standard, unlit } from "./palette.js";
 import { leafyCrown } from "./plant.js";
-import { doorLetteringTexture, kanbanTexture, type SignLettering } from "./textures.js";
+import { doorLetteringTexture, type SignLettering } from "./textures.js";
 
 export interface BuiltPiece {
   root: Group;
@@ -718,26 +718,6 @@ export function buildPlant(piece: Furniture): Group {
   const crown = leafyCrown(radius, palette.leaf, palette.leafDark);
   crown.position.y = potHeight - 0.02;
   root.add(soil, crown);
-  return root;
-}
-
-/** Standing kanban, its cards between waist and eye height where a chibi reads them. */
-export function buildKanban(piece: Furniture): Group {
-  const root = placed(piece);
-  const { width } = localSize(piece);
-  const ink = standard(palette.ink, 0.5);
-  const bottom = 0.32;
-  const height = 0.62;
-  root.add(
-    box(0.035, bottom + height + 0.04, 0.035, ink, -width / 2 + 0.04, 0, 0),
-    box(0.035, bottom + height + 0.04, 0.035, ink, width / 2 - 0.04, 0, 0),
-    box(0.22, 0.025, 0.22, ink, -width / 2 + 0.04, 0, 0),
-    box(0.22, 0.025, 0.22, ink, width / 2 - 0.04, 0, 0),
-    box(width, height + 0.06, 0.025, standard(palette.frame, 0.5), 0, bottom - 0.03, 0),
-  );
-  const board = mesh(new PlaneGeometry(width - 0.06, height), printed(kanbanTexture()), false);
-  board.position.set(0, bottom + height / 2, 0.016);
-  root.add(board);
   return root;
 }
 

@@ -104,7 +104,11 @@ export class ChatPanel {
     this.bridge.onChatEnabled((enabled) => this.applyEnabled(enabled));
     this.bridge.onChatStatus((status) => this.applyStatus(status));
     this.bridge.onChatEvent((event) => this.applyEvent(event, true));
-    const loaded = Promise.all([this.bridge.getChatEnabled(), this.bridge.getChatStatus(), this.bridge.getChatHistory()])
+    const loaded = Promise.all([
+      this.bridge.getChatEnabled(),
+      this.bridge.getChatStatus(),
+      this.bridge.getChatHistory(),
+    ])
       .then(([enabled, status, history]) => {
         this.applyEnabled(enabled);
         this.applyStatus(status);

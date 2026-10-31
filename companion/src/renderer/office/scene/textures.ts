@@ -270,7 +270,7 @@ export function monitoringTexture(): CanvasTexture {
   return texture(element);
 }
 
-/** 2B's kanban: who has which task, with team names so the board ties back to the cast. */
+/** Arisu's sprint board: who has which task, with team names so the board ties back to the cast. */
 export function kanbanTexture(): CanvasTexture {
   const { canvas: element, ctx } = canvas(1024, 640);
   ctx.fillStyle = "#fbfaf7";
@@ -293,13 +293,21 @@ export function kanbanTexture(): CanvasTexture {
       [
         ["Model dbt", "Asuna"],
         ["API + chart", "Kobayashi"],
+        ["Flow onboarding", "Huagua"],
       ],
     ],
-    ["Review", [["Cek diff", "Erza"]]],
+    [
+      "Review",
+      [
+        ["Cek diff", "Erza"],
+        ["Cek secret", "Miruku"],
+      ],
+    ],
     [
       "Done",
       [
         ["Opsi arsitektur", "Rias"],
+        ["Kontrak API", "Komachi"],
         ["Dry-run deploy", "Yor"],
       ],
     ],

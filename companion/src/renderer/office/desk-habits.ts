@@ -54,7 +54,7 @@ const bitSpecs: Record<DeskBit, BitSpec> = {
 
 /** Each member's bits, from what is on their desk and who they are. */
 export const deskBits: Record<MemberId, readonly DeskBit[]> = {
-  twob: ["kanban-check", "planner", "sip"],
+  twob: ["planner", "sip"],
   chizuru: ["sticky", "idea-pop", "sip"],
   rias: ["sip", "chess"],
   asuna: ["monitor-check", "duck", "sip"],
@@ -62,8 +62,9 @@ export const deskBits: Record<MemberId, readonly DeskBit[]> = {
   yor: ["rose", "sip"],
   erza: ["cake", "sip"],
   ruby: ["mic", "desk-selfie", "sip"],
-  // Bits of their own come with their desk setups; until then they check the screen and sip.
-  arisu: ["monitor-check", "sip"],
+  // Arisu leans in to the sprint board on her second screen. The others' own bits come with
+  // their desk setups, and until then they check the screen and sip.
+  arisu: ["kanban-check", "sip"],
   komachi: ["monitor-check", "sip"],
   miruku: ["monitor-check", "sip"],
   huagua: ["idea-pop", "sip"],
