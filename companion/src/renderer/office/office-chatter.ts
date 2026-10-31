@@ -209,6 +209,90 @@ const voices: Record<MemberId, Voice> = {
       kantor: [{ text: "Cocok buat background konten." }, { text: "Mantap!" }],
     },
   },
+  arisu: {
+    greetings: ["Halo! Ada update?", "Hai, semua lancar?", "Halo."],
+    timedGreetings: {
+      pagi: ["Pagi! Cek rencana hari ini dulu, yuk."],
+      siang: ["Siang! Udah istirahat?"],
+      sore: ["Sore! Gimana progresnya?"],
+      malam: ["Malem. Jangan lembur kelamaan ya."],
+    },
+    openers: {
+      kerjaan: [{ text: "Task-nya udah aku urutin, tinggal jalan." }, { text: "Ada yang nge-block nggak?" }],
+      makan: [{ text: "Makan dulu, rencana bisa nunggu.", laugh: true }],
+      santai: [{ text: "Aku baru beres nyusun jadwal minggu depan." }],
+      kantor: [{ text: "Papan task-ku makin rapi nih." }],
+    },
+    replies: {
+      kerjaan: [{ text: "Oke, aku catet di rencana." }, { text: "Nanti aku update statusnya." }],
+      makan: [{ text: "Setuju, istirahat dulu.", laugh: true }, { text: "Aku ikut!" }],
+      santai: [{ text: "Asik juga tuh." }, { text: "Boleh, abis ini ya." }],
+      kantor: [{ text: "Rapi itu penting." }, { text: "Mantap." }],
+    },
+  },
+  komachi: {
+    greetings: ["Hai.", "Halo, lagi ngoding?", "Yo."],
+    timedGreetings: {
+      pagi: ["Pagi. Kopi dulu baru review."],
+      siang: ["Siang. Build-nya aman?"],
+      sore: ["Sore. Tinggal dikit lagi nih."],
+      malam: ["Malem. Commit dulu sebelum pulang."],
+    },
+    openers: {
+      kerjaan: [{ text: "Kontrak API-nya udah aku tulis." }, { text: "Bagian ini mending dipecah dua." }],
+      makan: [{ text: "Aku makan sambil baca dokumentasi.", laugh: true }],
+      santai: [{ text: "Aku lagi baca soal arsitektur event." }],
+      kantor: [{ text: "Monitor kedua bikin review lebih enak." }],
+    },
+    replies: {
+      kerjaan: [{ text: "Masuk akal, lanjut." }, { text: "Cek dulu edge case-nya." }],
+      makan: [{ text: "Itu kebiasaan buruk.", laugh: true }, { text: "Boleh juga." }],
+      santai: [{ text: "Menarik." }, { text: "Kirim link-nya dong." }],
+      kantor: [{ text: "Setuju." }, { text: "Nanti aku coba." }],
+    },
+  },
+  miruku: {
+    greetings: ["Hai.", "Halo, aman?", "Hm, halo."],
+    timedGreetings: {
+      pagi: ["Pagi. Cek log dulu, ya."],
+      siang: ["Siang. Sejauh ini aman."],
+      sore: ["Sore. Jangan lupa kunci layar."],
+      malam: ["Malem. Aku masih jaga."],
+    },
+    openers: {
+      kerjaan: [{ text: "Jangan taruh secret di kode, ya." }, { text: "Dependency-nya udah aku cek." }],
+      makan: [{ text: "Makanan juga harus lolos pemeriksaan.", laugh: true }],
+      santai: [{ text: "Aku lagi main game teka-teki." }],
+      kantor: [{ text: "Pintu kaca itu harusnya pakai kartu." }],
+    },
+    replies: {
+      kerjaan: [{ text: "Aku cek bagian itu." }, { text: "Sip, catat di laporan." }],
+      makan: [{ text: "Hehe, lolos kok.", laugh: true }, { text: "Boleh juga." }],
+      santai: [{ text: "Seru tuh." }, { text: "Nanti aku coba." }],
+      kantor: [{ text: "Aman." }, { text: "Setuju." }],
+    },
+  },
+  huagua: {
+    greetings: ["Haii.", "Halo!", "Hai, lagi apa?"],
+    timedGreetings: {
+      pagi: ["Pagi! Cahayanya cantik."],
+      siang: ["Siang! Aku butuh camilan."],
+      sore: ["Sore! Warna langitnya bagus."],
+      malam: ["Malem. Masih ngulik warna nih."],
+    },
+    openers: {
+      kerjaan: [{ text: "Aku coba dua arah warna buat dashboard." }, { text: "Tombol ini kekecilan buat dipencet." }],
+      makan: [{ text: "Platingnya rapi, aku suka.", laugh: true }],
+      santai: [{ text: "Aku lagi sketsa tanaman di lounge." }],
+      kantor: [{ text: "Neon ungunya pas sama mood kantor." }],
+    },
+    replies: {
+      kerjaan: [{ text: "Nanti aku bikinin mock-nya." }, { text: "Coba kita sederhanain." }],
+      makan: [{ text: "Fotoin dulu!", laugh: true }, { text: "Mau dong." }],
+      santai: [{ text: "Lucu banget." }, { text: "Aku mau lihat!" }],
+      kantor: [{ text: "Setuju, bagus." }, { text: "Hmm, bisa lebih rapi." }],
+    },
+  },
 };
 
 export const chatTopics: readonly ChatTopic[] = ["kerjaan", "makan", "santai", "kantor"];

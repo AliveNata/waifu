@@ -142,6 +142,14 @@ const preferences: Record<MemberId, Partial<Record<ActivityId, number>>> = {
   yor: { rack: 2, plants: 1.3, snack: 1.2, pingpong: 1.3, arcade: 0.6 },
   erza: { snack: 1.8, read: 1.2, meeting: 1.3, console: 0.7 },
   ruby: { chat: 1.5, tv: 1.2, read: 0.6 },
+  // Arisu keeps people in sync, so she is drawn to meetings and the bar.
+  arisu: { meeting: 1.8, chat: 1.3, coffee: 1.2, arcade: 0.6 },
+  // Komachi reads up between reviews and likes a game of ping-pong.
+  komachi: { read: 1.6, pingpong: 1.3, coffee: 1.3, beanbag: 0.7 },
+  // Miruku is on watch: short breaks, coffee, and a round of arcade.
+  miruku: { coffee: 1.5, arcade: 1.4, plants: 0.7, beanbag: 0.7 },
+  // Huagua looks for ideas away from the screen: plants, the lounge and the TV.
+  huagua: { plants: 1.6, beanbag: 1.4, tv: 1.2, meeting: 0.8 },
 };
 
 /**
@@ -165,6 +173,10 @@ const idleHome: Record<MemberId, { station: StationId; action: OfficeAction }> =
   yor: { station: homeStations.yor, action: "desk-idle" },
   erza: { station: homeStations.erza, action: "desk-idle" },
   ruby: { station: homeStations.ruby, action: "desk-idle" },
+  arisu: { station: homeStations.arisu, action: "desk-idle" },
+  komachi: { station: homeStations.komachi, action: "desk-idle" },
+  miruku: { station: homeStations.miruku, action: "desk-idle" },
+  huagua: { station: homeStations.huagua, action: "desk-idle" },
 };
 
 /**

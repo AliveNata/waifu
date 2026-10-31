@@ -131,4 +131,62 @@ export const memberLooks: Record<MemberId, MemberLook> = {
     socks: "#f7f2f4",
     shoes: "#d9577f",
   },
+  /*
+   * The four below are placeholders picked per role, not taken from the characters: their models'
+   * own pictures could not be looked at yet. Once a member's .vrm is in models/, the real model
+   * shows and these only tint the fallback.
+   */
+  arisu: {
+    // PM: a neat office look in calm blue.
+    hair: "#4b6a96",
+    hairStyle: "long",
+    eyes: "#3f7fb0",
+    skin,
+    top: "#f2f4f8",
+    sleeves: "#f2f4f8",
+    skirt: "#2e3b5a",
+    legs: skin,
+    socks: "#2a2a30",
+    shoes: "#2a2a30",
+  },
+  komachi: {
+    // Tech lead: dark hair, glasses, a hoodie and trousers.
+    hair: "#2b2d3a",
+    hairStyle: "bob",
+    eyes: "#5b6fd6",
+    skin,
+    top: "#3a4466",
+    sleeves: "#3a4466",
+    skirt: null,
+    legs: "#262a36",
+    socks: "#262a36",
+    shoes: "#1f1f24",
+    glasses: true,
+  },
+  miruku: {
+    // Security: pale hair and a dark jacket.
+    hair: "#ece6f4",
+    hairStyle: "ponytail",
+    eyes: "#8a5fd0",
+    skin,
+    top: "#22222c",
+    sleeves: "#22222c",
+    skirt: "#22222c",
+    legs: skin,
+    socks: "#1a1a20",
+    shoes: "#1a1a20",
+  },
+  huagua: {
+    // Designer: soft green with a cream cardigan.
+    hair: "#5f9f7a",
+    hairStyle: "bob",
+    eyes: "#4f8f6a",
+    skin,
+    top: "#f1e9d8",
+    sleeves: "#f1e9d8",
+    skirt: "#6f8f6a",
+    legs: skin,
+    socks: "#f4efe6",
+    shoes: "#8a6a4a",
+  },
 };

@@ -40,10 +40,14 @@ describe("team install", () => {
     // Assert
     expect(changes.every((change) => change.action === "create")).toBe(true);
     expect((await readdir(join(configDir, "agents"))).sort()).toEqual([
+      "arisu.md",
       "asuna.md",
       "chizuru.md",
       "erza.md",
+      "huagua.md",
       "kobayashi.md",
+      "komachi.md",
+      "miruku.md",
       "rias.md",
       "ruby.md",
       "yor.md",

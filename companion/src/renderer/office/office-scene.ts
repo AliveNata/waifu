@@ -205,7 +205,8 @@ function buildRoomShell(root: Group, logo: Texture): SkyGlass {
     box(0.03, 0.1, depth, standard(palette.skirting, 0.7), room.minX + 0.015, 0, centerZ),
   );
 
-  // Two windows over the desks with the sign between them, so the brand sits at the room's focal point.
+  // Two windows over the desks with the sign between them, so the brand sits at the room's focal point,
+  // and a third over the east-wing pod.
   // The sills clear the monitors and the tops stay under a chibi-scaled 2.2 m wall.
   const sill = 1.0;
   const windowHeight = 0.85;
@@ -214,6 +215,7 @@ function buildRoomShell(root: Group, logo: Texture): SkyGlass {
     [
       [-3.6, -1.05],
       [1.75, 4.3],
+      [7.25, 9.75],
     ] as const
   ).entries()) {
     const windowWidth = right - left;
@@ -308,7 +310,11 @@ export function buildOffice(): OfficeProps {
       case "desk-twob":
       case "desk-ruby":
       case "desk-rias":
-      case "desk-chizuru": {
+      case "desk-chizuru":
+      case "desk-arisu":
+      case "desk-komachi":
+      case "desk-miruku":
+      case "desk-huagua": {
         const member = piece.kind.slice("desk-".length) as DeskMember;
         const built = buildDesk(member, piece, kanban);
         root.add(built.root);
@@ -530,7 +536,10 @@ export function buildOffice(): OfficeProps {
 
 function buildCloseups(whiteboard: BoardSpec, idea: BoardSpec): Record<MemberId, CloseupShot> {
   // Back row: over the right shoulder and a little high, so the head never blocks the monitors.
-  const backRowShot = (station: "desk-asuna" | "desk-kobayashi" | "desk-erza" | "desk-yor"): CloseupShot => {
+  // The south side of the east-wing pod sits the same way, so it takes the same shot.
+  const backRowShot = (
+    station: "desk-asuna" | "desk-kobayashi" | "desk-erza" | "desk-yor" | "desk-miruku" | "desk-huagua",
+  ): CloseupShot => {
     const seat = stations[station].spot;
     return {
       eye: new Vector3(seat.x + 0.5, 1.12, seat.z + 0.8),
@@ -540,7 +549,8 @@ function buildCloseups(whiteboard: BoardSpec, idea: BoardSpec): Record<MemberId,
   // Front desks face the camera with a backdrop or board behind the chair. The shot comes from
   // over the right shoulder and well to the side, so a chibi's big head does not hide the screen
   // and the camera stays clear of the panel behind the chair.
-  const frontShot = (station: "desk-twob" | "desk-ruby"): CloseupShot => {
+  // The north side of the pod faces the room like the front row.
+  const frontShot = (station: "desk-twob" | "desk-ruby" | "desk-arisu" | "desk-komachi"): CloseupShot => {
     const seat = stations[station].spot;
     return {
       eye: new Vector3(seat.x + 0.95, 1.0, seat.z - 0.05),
@@ -561,6 +571,10 @@ function buildCloseups(whiteboard: BoardSpec, idea: BoardSpec): Record<MemberId,
     ruby: frontShot("desk-ruby"),
     rias: boardShot(whiteboard, stations["board-rias"].spot.z, 0.72),
     chizuru: boardShot(idea, stations["idea-board"].spot.z, 0.5),
+    arisu: frontShot("desk-arisu"),
+    komachi: frontShot("desk-komachi"),
+    miruku: backRowShot("desk-miruku"),
+    huagua: backRowShot("desk-huagua"),
   };
 }
 

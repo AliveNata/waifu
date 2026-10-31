@@ -346,17 +346,24 @@ if (!(canvas instanceof HTMLCanvasElement)) {
   throw new Error("#scene canvas is missing");
 }
 // Started before the 3D scene, so the chat and the music still work on a machine where WebGL fails.
-new ChatPanel(bridge).start();
+const chatShown = new ChatPanel(bridge).start();
 new MusicPanel().start();
 // Materials read the quality as they are built, so it has to be known before the office exists.
-bridge
-  .getOfficeQuality()
-  .catch((error: unknown) => {
-    console.error("[office] could not read the graphics quality, using low", error);
-    return "low" as const;
-  })
-  .then((quality) => {
-    setSceneQuality(quality);
+const quality = bridge.getOfficeQuality().catch((error: unknown) => {
+  console.error("[office] could not read the graphics quality, using low", error);
+  return "low" as const;
+});
+/** Resolves after the browser has painted, so what is on the page now is on screen before a long task. */
+function afterPaint(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+}
+
+// Building the room holds the page for a few seconds on slow graphics, so the chat shows its
+// saved state and gets painted first, instead of the window staying blank until the room is up.
+Promise.all([quality, chatShown])
+  .then(async ([chosen]) => {
+    await afterPaint();
+    setSceneQuality(chosen);
     new OfficePage(bridge, canvas).start();
   })
   .catch((error: unknown) => {

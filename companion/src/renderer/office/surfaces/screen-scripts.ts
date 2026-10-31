@@ -298,4 +298,93 @@ export const screenScripts: Record<MemberId, ScreenScript> = {
       },
     ],
   },
+  arisu: {
+    theme: { background: "#f7f9fc", foreground: "#1f2a3d", accent: "#2f7fb5", muted: "#7b8798", header: "#e3ebf5" },
+    keywords: ["Goal", "Scope", "Acceptance", "Given", "When", "Then", "Owner", "Status"],
+    documents: [
+      {
+        title: "plans/orders-freshness-alert.md",
+        text: [
+          "Goal",
+          "  Alert ke Discord kalau mart orders telat.",
+          "Acceptance criteria",
+          "  1. Given mart telat > batas freshness",
+          "     When DAG cek jalan",
+          "     Then alert FAILED masuk ke Discord",
+          "Tasks",
+          "  1. komachi: kontrak payload alert",
+          "  2. asuna: task cek freshness di DAG",
+          "  3. erza + miruku: review",
+          "Status",
+          "  [ ] 1  [ ] 2  [ ] 3",
+        ].join("\n"),
+      },
+    ],
+  },
+  komachi: {
+    theme: { background: "#161a26", foreground: "#e4e8f2", accent: "#7f93ff", muted: "#6f7894", header: "#232a3c" },
+    keywords: ["contract", "type", "string", "number", "required", "POST", "deploy", "order"],
+    documents: [
+      {
+        title: "plans/orders-freshness-alert.contract.md",
+        text: [
+          "contract: freshness alert payload",
+          "  status: string  required  FAILED | WARNING",
+          "  model: string   required",
+          "  lag_minutes: number  required",
+          "  run_url: string",
+          "",
+          "steps",
+          "  asuna: task di dags/orders.py",
+          "  yor: secret webhook lewat env",
+          "",
+          "deploy order",
+          "  1. secret  2. DAG  3. cek dry-run",
+        ].join("\n"),
+      },
+    ],
+  },
+  miruku: {
+    theme: { background: "#14121c", foreground: "#e8e2f4", accent: "#b48cff", muted: "#7a7090", header: "#211d2e" },
+    keywords: ["PASS", "FAIL", "high", "medium", "low", "secret", "RBAC", "redacted"],
+    documents: [
+      {
+        title: "review/security-checklist.md",
+        text: [
+          "verdict: (belum selesai)",
+          "",
+          "secrets",
+          "  webhook dari env, bukan di kode",
+          "  nilai di log: [redacted]",
+          "rbac",
+          "  serviceaccount cuma baca configmap",
+          "input",
+          "  payload dicek tipenya",
+          "dependencies",
+          "  cek dengan pip-audit",
+        ].join("\n"),
+      },
+    ],
+  },
+  huagua: {
+    theme: { background: "#fbfaf6", foreground: "#26302a", accent: "#4f9a72", muted: "#86908a", header: "#ebf2ec" },
+    keywords: ["Flow", "Layout", "Direction", "contrast", "focus", "empty", "loading", "error"],
+    documents: [
+      {
+        title: "DESIGN.md",
+        text: [
+          "Flow",
+          "  list job -> detail -> retry",
+          "  empty, loading, error tiap layar",
+          "Layout",
+          "  HP: satu kolom. Desktop: list + detail",
+          "Direction",
+          "  netral hangat, satu aksen hijau",
+          "Accessibility",
+          "  kontras teks minimal 4.5:1",
+          "  fokus keyboard selalu kelihatan",
+        ].join("\n"),
+      },
+    ],
+  },
 };

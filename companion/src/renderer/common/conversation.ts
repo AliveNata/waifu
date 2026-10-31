@@ -29,6 +29,10 @@ const startLines: Record<Exclude<MemberId, "twob">, readonly string[]> = {
   yor: ["Aku cek cluster dulu ya, read-only.", "Tenang, nggak ada yang aku ubah tanpa izin."],
   erza: ["Oke, aku cek dulu ya.", "Serahkan review-nya padaku.", "Aku periksa satu per satu."],
   ruby: ["Siap! Kerjaan lo aku bikin bersinar ya.", "Oke! Aku cari sudut cerita yang paling menarik."],
+  arisu: ["Oke, aku susun rencananya dulu ya.", "Siap, aku pecah jadi task yang jelas."],
+  komachi: ["Aku pecah jadi langkah teknis dulu.", "Oke, aku cek kontrak antar bagiannya."],
+  miruku: ["Aku cek celah keamanannya ya, read-only.", "Oke, aku periksa dari sisi keamanan."],
+  huagua: ["Oke, aku rancang alurnya dulu.", "Siap, aku bikin arah desainnya."],
 };
 
 const stopLines: Record<Exclude<MemberId, "twob">, string> = {
@@ -39,6 +43,10 @@ const stopLines: Record<Exclude<MemberId, "twob">, string> = {
   yor: "Selesai. Usulan perubahannya ada di laporan.",
   erza: "Review selesai. Hasilnya ada di laporan.",
   ruby: "Draft-nya udah aku taruh di folder portfolio, tinggal lo cek.",
+  arisu: "Rencananya udah aku tulis di folder plans.",
+  komachi: "Langkah teknis dan kontraknya ada di laporan.",
+  miruku: "Pemeriksaan keamanan selesai. Hasilnya ada di laporan.",
+  huagua: "Desainnya udah aku tulis di DESIGN.md.",
 };
 
 const stopGestures: Record<Exclude<MemberId, "twob">, Gesture> = {
@@ -49,6 +57,10 @@ const stopGestures: Record<Exclude<MemberId, "twob">, Gesture> = {
   yor: "nod",
   erza: "nod",
   ruby: "cheer",
+  arisu: "cheer",
+  komachi: "nod",
+  miruku: "nod",
+  huagua: "cheer",
 };
 
 /** Head and hands that go with each tone, so a worried sentence does not get a cheer. */

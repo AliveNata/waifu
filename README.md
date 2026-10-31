@@ -37,7 +37,7 @@ npm start
 - Dua installer itu bikin backup dulu dan punya `--dry-run` buat lihat perubahannya tanpa nulis.
 - Sesi 2B opsional dan butuh API key [Groq](https://console.groq.com). Key-nya diminta pas pertama kali lo ketik `@2B` di chat kantor, terus disimpan terenkripsi di komputer lo. Bisa juga lewat variabel `GROQ_API_KEY`.
 
-Restart Claude Code setelah install. Model karakter: bikin folder `models/` di root repo (nggak ada di clone baru karena di-gitignore), lalu simpan file dengan nama anggota: `2b.vrm`, `chizuru.vrm`, `rias.vrm`, `asuna.vrm`, `kobayashi.vrm`, `yor.vrm`, `erza.vrm`, `ruby.vrm`. Companion makai file itu otomatis. Nama lain, misalnya `2B-final.vrm`, nggak kebaca dan harus dipilih lewat **Menu > Pilih model .vrm**.
+Restart Claude Code setelah install. Model karakter: bikin folder `models/` di root repo (nggak ada di clone baru karena di-gitignore), lalu simpan file dengan nama anggota: `2b.vrm`, `chizuru.vrm`, `rias.vrm`, `asuna.vrm`, `kobayashi.vrm`, `yor.vrm`, `erza.vrm`, `ruby.vrm`, `arisu.vrm`, `komachi.vrm`, `miruku.vrm`, `huagua.vrm`. Companion makai file itu otomatis. Nama lain, misalnya `2B-final.vrm`, nggak kebaca dan harus dipilih lewat **Menu > Pilih model .vrm**.
 
 Detail dan troubleshooting: [docs/03-companion.md](docs/03-companion.md) dan [docs/04-tim.md](docs/04-tim.md).
 

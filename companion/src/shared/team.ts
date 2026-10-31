@@ -3,7 +3,20 @@
  * the `name` in team/agents/*.md, because hooks report subagents by that name.
  * Agents are named after the cast, so `@erza` in Claude Code reads like a person.
  */
-export const memberIds = ["twob", "chizuru", "rias", "asuna", "kobayashi", "yor", "erza", "ruby"] as const;
+export const memberIds = [
+  "twob",
+  "chizuru",
+  "rias",
+  "asuna",
+  "kobayashi",
+  "yor",
+  "erza",
+  "ruby",
+  "arisu",
+  "komachi",
+  "miruku",
+  "huagua",
+] as const;
 
 export type MemberId = (typeof memberIds)[number];
 
@@ -18,7 +31,7 @@ export interface MemberProfile {
 }
 
 export const roster: Record<MemberId, MemberProfile> = {
-  twob: { id: "twob", displayName: "2B", role: "PA + PM", agentType: null, legacyAgentType: null },
+  twob: { id: "twob", displayName: "2B", role: "PA", agentType: null, legacyAgentType: null },
   chizuru: {
     id: "chizuru",
     displayName: "Chizuru",
@@ -42,7 +55,7 @@ export const roster: Record<MemberId, MemberProfile> = {
     legacyAgentType: "fullstack-engineer",
   },
   yor: { id: "yor", displayName: "Yor", role: "Platform/SRE", agentType: "yor", legacyAgentType: "platform-sre" },
-  erza: { id: "erza", displayName: "Erza", role: "Reviewer", agentType: "erza", legacyAgentType: "reviewer" },
+  erza: { id: "erza", displayName: "Erza", role: "Review + QA", agentType: "erza", legacyAgentType: "reviewer" },
   ruby: {
     id: "ruby",
     displayName: "Ruby",
@@ -50,6 +63,10 @@ export const roster: Record<MemberId, MemberProfile> = {
     agentType: "ruby",
     legacyAgentType: "content-creator",
   },
+  arisu: { id: "arisu", displayName: "Arisu", role: "PM", agentType: "arisu", legacyAgentType: null },
+  komachi: { id: "komachi", displayName: "Komachi", role: "Tech Lead", agentType: "komachi", legacyAgentType: null },
+  miruku: { id: "miruku", displayName: "Miruku", role: "Security", agentType: "miruku", legacyAgentType: null },
+  huagua: { id: "huagua", displayName: "Huagua", role: "UI/UX Designer", agentType: "huagua", legacyAgentType: null },
 };
 
 export function isMemberId(value: unknown): value is MemberId {

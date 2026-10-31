@@ -120,7 +120,8 @@ Ruangannya terang dengan aksen ungu dari logo AlyxLabs: LED neon yang "lari" di 
 | Dinding kiri | Papan tulis (2B dan Rias) dan papan ide Chizuru, masing masing dengan panggung rendah di depannya, beanbag, TV lounge |
 | Lounge | Sofa menghadap TV, meja kopi, beanbag |
 | Pantry | Jam digital besar di dinding (zona Asia/Jakarta). Counter bentuk L: wastafel dengan rak pengering gelas di sampingnya, mesin kopi, dan oven di counter belakang, lalu meja bar yang nyambung ke ujungnya dengan dua bar stool di tiap sisi, plus kulkas dan tempat sampah yang mepet dinding di samping kulkas. Makanan bareng ditaruh di ujung meja bar |
-| Sisi kanan | Pintu kaca otomatis, buat yang keluar beli makanan. Pas ketutup tulisannya kebaca AlyxLabs, pas kebuka kepisah jadi Alyx dan Labs |
+| Sayap timur | Pod empat meja yang saling hadap: Arisu dan Komachi di sisi utara menghadap ruangan, Miruku dan Huagua di sisi selatan dengan layar menghadap ruangan. Satu jendela lagi di dinding belakang |
+| Sisi kanan | Pintu kaca otomatis di ujung sayap timur, buat yang keluar beli makanan. Pas ketutup tulisannya kebaca AlyxLabs, pas kebuka kepisah jadi Alyx dan Labs |
 | Pojok game | Mesin arcade |
 
 Setup meja sesuai role:
@@ -135,6 +136,12 @@ Setup meja sesuai role:
 | Ruby | Laptop, mic, ring light | Ngetik draft post |
 | Rias | Papan tulis, plus meja sendiri: laptop, papan catur, cangkir teh di atas tatakan, tumpukan buku, gulungan blueprint | Gambar diagram, tangannya ngikutin ujung spidol, kepala dan badannya ngikutin tulisan |
 | Chizuru | Papan ide, plus meja sendiri: laptop yang tutupnya ditempelin sticky note, tumpukan sticky note, gelas spidol, tanaman kecil | Nempel sticky note satu-satu |
+| Arisu | Monitor rencana kerja, laci dengan laptop meeting | Ngetik rencana di `plans/` |
+| Komachi | Monitor kontrak antar bagian, laci dengan laptop meeting | Ngetik kontrak dan langkah teknis |
+| Miruku | Monitor checklist keamanan, laci dengan laptop meeting | Ngetik catatan pemeriksaan keamanan |
+| Huagua | Monitor `DESIGN.md`, laci dengan laptop meeting | Ngetik arah desain |
+
+Setup meja Arisu, Komachi, Miruku, dan Huagua masih dasar. Barang khas masing-masing di meja, kebiasaan kecil di meja, dan kegiatan favorit pas istirahat nyusul di update berikutnya.
 
 **Ngetik**: tiap karakter yang muncul di layar dipencet jari beneran. Telapak tangan ngambang di atas keyboard dengan jari ditekuk ke tuts, jadi tangan nggak tenggelam ke keyboard. Tangan kiri pegang separuh kiri keyboard (1 sampai 5, Q sampai T, A sampai G, Z sampai B), tangan kanan sisanya, spasi, dan Enter, kayak touch typing. Tiap meja juga punya mouse di kanan keyboard. Sesekali tangan kanan pindah ke mouse beberapa detik dengan telapak di atas mouse, mouse-nya geser geser dan tombolnya nyala pas diklik, dan teks di layar berhenti dulu sampai tangannya balik ke keyboard.
 
@@ -186,7 +193,7 @@ Pose duduk diukur dari panjang kaki tiap model. Di kursi rendah lututnya naik da
 
 **Jam kantor** selalu pakai zona Asia/Jakarta, apa pun setelan jam PC. Jam digital di dinding pantry, siang dan malam, obrolan, dan kegiatan semuanya ngikutin jam yang sama.
 
-**Siang dan malam**: mulai sekitar 17.30 cahaya matahari pelan pelan hilang sampai malam penuh jam 19.00, dan pagi kebalikannya antara 05.00 dan 06.30. Di tengah tengah transisi itu langit di jendela jadi oranye senja, terus berubah jadi pemandangan kota malam. Malam hari lampu kantor tetap nyala, jadi ruangan tetap terang, ditambah LED neon dan lampu meja di tiap meja kerja yang nyala pas mulai gelap. Lampu mejanya beda beda sesuai orangnya: lampu arsitek hitam buat 2B, lampu jamur peach berbintik buat Chizuru, lampu kuningan dengan kap merah tua buat Rias, lampu LED bar dengan tiang oranye buat Asuna, lampu leher angsa hijau buat Kobayashi, lampu lonceng merah gelap buat Yor, lentera baja dengan pita merah buat Erza, dan bola kaca pink buat Ruby. Di mode browser, tambahin `?clock=21:30` di URL kantor buat lihat jam lain tanpa nunggu malam.
+**Siang dan malam**: mulai sekitar 17.30 cahaya matahari pelan pelan hilang sampai malam penuh jam 19.00, dan pagi kebalikannya antara 05.00 dan 06.30. Di tengah tengah transisi itu langit di jendela jadi oranye senja, terus berubah jadi pemandangan kota malam. Malam hari lampu kantor tetap nyala, jadi ruangan tetap terang, ditambah LED neon dan lampu meja di tiap meja kerja yang nyala pas mulai gelap. Lampu mejanya beda beda sesuai orangnya: lampu arsitek hitam buat 2B, lampu jamur peach berbintik buat Chizuru, lampu kuningan dengan kap merah tua buat Rias, lampu LED bar dengan tiang oranye buat Asuna, lampu leher angsa hijau buat Kobayashi, lampu lonceng merah gelap buat Yor, lentera baja dengan pita merah buat Erza, bola kaca pink buat Ruby, lampu putih rapi buat Arisu, light bar di tiang hitam buat Komachi, kubah kaca ungu buat Miruku, dan lampu kayu dengan kap hijau buat Huagua. Di mode browser, tambahin `?clock=21:30` di URL kantor buat lihat jam lain tanpa nunggu malam.
 
 **Ikut jam juga**: sapaan dan obrolan disesuaikan sama waktu, jadi nggak ada "pagi" pas malam dan kalimat yang nyebut waktu tertentu (misalnya "makan siang") cuma keluar di jamnya. Kegiatan juga beda per waktu: pagi lebih sering ngopi, siang lebih sering makan di oven, kulkas, atau meja bar, sore lebih banyak santai dan main, malam lebih banyak nonton atau baca.
 
@@ -336,7 +343,7 @@ $env:WAIFU_MODEL_PATH_ASUNA = "C:\path\ke\asuna.vrm"
 npm run web
 ```
 
-`WAIFU_MODEL_PATH` buat 2B, `WAIFU_MODEL_PATH_<NAMA>` buat anggota lain (`CHIZURU`, `RIAS`, `ASUNA`, `KOBAYASHI`, `YOR`, `ERZA`, `RUBY`). Semuanya opsional. Model juga bisa dipilih lewat tombol **Model** di halaman kantor.
+`WAIFU_MODEL_PATH` buat 2B, `WAIFU_MODEL_PATH_<NAMA>` buat anggota lain (`CHIZURU`, `RIAS`, `ASUNA`, `KOBAYASHI`, `YOR`, `ERZA`, `RUBY`, `ARISU`, `KOMACHI`, `MIRUKU`, `HUAGUA`). Semuanya opsional. Model juga bisa dipilih lewat tombol **Model** di halaman kantor.
 
 Lalu buka `http://127.0.0.1:47823/overlay/`, `http://127.0.0.1:47823/team-overlay/`, dan `http://127.0.0.1:47823/office/`. Hooks tetap nyambung lewat port yang sama.
 
