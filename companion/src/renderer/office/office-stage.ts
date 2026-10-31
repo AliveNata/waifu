@@ -78,6 +78,7 @@ import { drawerTravel, memberPropLooks } from "./scene/desks.js";
 import { HandProps, setCupFill } from "./scene/hand-props.js";
 import { sceneQuality } from "./scene/palette.js";
 import { fitSeat } from "./seating.js";
+import { statusRows, TwobStatus } from "./status-board.js";
 import type { PenState } from "./surfaces/board-pen.js";
 import { applyMemberSignal, emptyTeamRuntime, endAllRuns, memberBehavior, type TeamRuntime } from "./team-state.js";
 import { handForKey, MouseHabit, TypingHands } from "./typing-hands.js";
@@ -411,6 +412,7 @@ export class OfficeStage {
   private readonly rigs: Record<MemberId, MemberRig>;
 
   private team: TeamRuntime = emptyTeamRuntime();
+  private readonly twobStatus = new TwobStatus();
   private twobReaction: Reaction = idleReaction(Date.now());
   private elapsed = 0;
   private closeupEnabled = true;
@@ -543,6 +545,7 @@ export class OfficeStage {
 
   setTwobReaction(reaction: Reaction): void {
     this.twobReaction = reaction;
+    this.twobStatus.observe(reaction);
   }
 
   applyMemberSignal(signal: MemberSignal): void {
@@ -1604,6 +1607,7 @@ export class OfficeStage {
     }
     this.office.neon.update(this.elapsed, this.night);
     this.office.wallClock.update(this.clock());
+    this.office.statusBoard.update(statusRows(this.team, this.twobStatus, now), now);
     this.focus = this.chooseFocus(now);
     this.drift(delta, now);
     this.controls.update(delta);

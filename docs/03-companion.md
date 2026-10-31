@@ -110,17 +110,21 @@ Event yang terjadi di dalam subagent (misalnya Asuna ngejalanin `Edit`) cuma nge
 
 ## AlyxLabs Office (kantor)
 
-Ruangannya terang dengan aksen ungu dari logo AlyxLabs: LED neon yang "lari" di atas dinding dan di sepanjang lis bawah, lampu di bawah meja, dan papan nama di dinding belakang. Semua furnitur diukur pakai tinggi chibi (sekitar 1,05 m), jadi meja setinggi pinggang, monitor sejajar mata pas duduk, dan papan tulis masih kejangkau tangan. Zonanya:
+Ruangannya terang dengan aksen ungu dari logo AlyxLabs: LED neon yang "lari" di atas dinding dan di sepanjang lis bawah, lampu di bawah meja, dan papan nama di dinding belakang. Semua furnitur diukur pakai tinggi chibi (sekitar 1,05 m), jadi meja setinggi pinggang, monitor sejajar mata pas duduk, dan papan tulis masih kejangkau tangan.
+
+Tata letaknya ngikutin alur kerja tim dari kiri ke kanan: rencana dibikin di dekat papan tulis, dikerjain di deretan meja belakang, dicek di dekat pintu, terus ditulis jadi konten di studio Ruby. Zonanya:
 
 | Zona | Isi |
 |---|---|
-| Deretan meja belakang | Meja Asuna, Kobayashi, Erza, dan Yor, lemari printer, plus rak server di sebelah Yor |
+| Pod planning | Empat meja saling hadap di depan papan tulis: Rias dan Arisu di sisi utara menghadap ruangan, Chizuru dan Komachi di seberangnya |
+| Deretan meja belakang | Yang ngerjain: Kobayashi, Huagua, Asuna, dan Yor, lemari printer, plus rak server di sebelah Yor |
 | Tengah | Meja meeting enam kursi, meja pingpong |
-| Depan | Meja komando 2B dengan papan kanban dan printer di samping, pojok konten Ruby dengan backdrop logo, ring light, kamera, dan mic, plus meja Rias dan Chizuru di sebelah kanan 2B |
-| Dinding kiri | Papan tulis (2B dan Rias) dan papan ide Chizuru, masing masing dengan panggung rendah di depannya, beanbag, TV lounge |
+| Depan | Meja 2B di tengah, satu-satunya meja yang dilewatin siapa pun |
+| Dinding kiri | Papan tulis (2B dan Rias) dan papan ide Chizuru, masing masing dengan panggung rendah di depannya, TV lounge |
 | Lounge | Sofa menghadap TV, meja kopi, beanbag |
 | Pantry | Jam digital besar di dinding (zona Asia/Jakarta). Counter bentuk L: wastafel dengan rak pengering gelas di sampingnya, mesin kopi, dan oven di counter belakang, lalu meja bar yang nyambung ke ujungnya dengan dua bar stool di tiap sisi, plus kulkas dan tempat sampah yang mepet dinding di samping kulkas. Makanan bareng ditaruh di ujung meja bar |
-| Sayap timur | Pod empat meja yang saling hadap: Arisu dan Komachi di sisi utara menghadap ruangan, Miruku dan Huagua di sisi selatan dengan layar menghadap ruangan. Satu jendela lagi di dinding belakang |
+| Sayap timur | Studio Ruby di dinding belakang: backdrop logo, ring light, kamera di tripod, dan mejanya. Di depan pintu, meja Erza (review dan QA) dan Miruku (security) saling hadap, jadi kerjaan dicek sebelum keluar |
+| Layar status tim | Layar besar di dinding belakang di atas rak server dan arcade. Isinya tiap anggota: lagi kerja, nunggu kamu, selesai, atau idle, plus nama tool terakhir dan sudah berapa lama. Datanya dari hook Claude Code yang sama yang ngegerakin cast. Yang ditampilin cuma status dan nama tool, nggak pernah isi pesan atau isi file. Status selesai tetap kelihatan 15 menit setelah run berhenti |
 | Sisi kanan | Pintu kaca otomatis di ujung sayap timur, buat yang keluar beli makanan. Pas ketutup tulisannya kebaca AlyxLabs, pas kebuka kepisah jadi Alyx dan Labs |
 | Pojok game | Mesin arcade |
 
@@ -132,11 +136,11 @@ Setup meja sesuai role:
 | Kobayashi | Monitor ultrawide, monitor vertikal daftar PR, konsol handheld di dock, boneka naga, PC tower | Ngetik kode aplikasi |
 | Erza | Monitor diff horizontal, checklist review di monitor vertikal, kue stroberi, PC tower | Ngetik catatan review |
 | Yor | Terminal dan monitoring, stand headset, mawar, PC tower | Ngetik command read-only |
-| 2B | Dua monitor dan kanban tim, planner kertas, PC tower | Ngetik plan, atau nulis di papan tulis pas mikir |
+| 2B | Satu monitor, planner kertas, PC tower | Ngetik plan, atau nulis di papan tulis pas mikir |
 | Ruby | Laptop, mic, ring light | Ngetik draft post |
 | Rias | Papan tulis, plus meja sendiri: laptop, papan catur, cangkir teh di atas tatakan, tumpukan buku, gulungan blueprint | Gambar diagram, tangannya ngikutin ujung spidol, kepala dan badannya ngikutin tulisan |
 | Chizuru | Papan ide, plus meja sendiri: laptop yang tutupnya ditempelin sticky note, tumpukan sticky note, gelas spidol, tanaman kecil | Nempel sticky note satu-satu |
-| Arisu | Monitor rencana kerja, laci dengan laptop meeting | Ngetik rencana di `plans/` |
+| Arisu | Monitor rencana kerja, monitor kedua dengan papan sprint tim, laci dengan laptop meeting | Ngetik rencana di `plans/` |
 | Komachi | Monitor kontrak antar bagian, laci dengan laptop meeting | Ngetik kontrak dan langkah teknis |
 | Miruku | Monitor checklist keamanan, laci dengan laptop meeting | Ngetik catatan pemeriksaan keamanan |
 | Huagua | Monitor `DESIGN.md`, laci dengan laptop meeting | Ngetik arah desain |
@@ -151,7 +155,8 @@ Setup meja Arisu, Komachi, Miruku, dan Huagua masih dasar. Barang khas masing-ma
 
 | Anggota | Yang dilakuin |
 |---|---|
-| 2B | Condong ke kanban sambil megang dagu, atau buka planner dan baca |
+| 2B | Buka planner dan baca |
+| Arisu | Condong ke papan sprint di monitor kanannya sambil megang dagu |
 | Asuna | Ngecek job run di monitor vertikal, atau ngajak ngomong bebek karetnya |
 | Kobayashi | Ambil konsol dari dock terus main pakai dua tangan, atau meluk boneka naga sambil senyum |
 | Erza | Makan kue pakai garpu, suap demi suap |

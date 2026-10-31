@@ -8,6 +8,8 @@ export interface MemberRuntime {
   activeAgents: ReadonlySet<string>;
   lastTool: string | null;
   lastSignalAt: number;
+  /** When the member went from no runs to at least one, for how long they have been working. */
+  startedAt: number | null;
   finishedAt: number | null;
 }
 
@@ -20,22 +22,27 @@ export const doneDurationMs = 4000;
 export const staleRunMs = 10 * 60 * 1000;
 
 export function emptyRuntime(): MemberRuntime {
-  return { activeAgents: new Set(), lastTool: null, lastSignalAt: 0, finishedAt: null };
+  return { activeAgents: new Set(), lastTool: null, lastSignalAt: 0, startedAt: null, finishedAt: null };
 }
 
 export function applyMemberSignal(runtime: MemberRuntime, signal: MemberSignal): MemberRuntime {
   const activeAgents = new Set(runtime.activeAgents);
   let finishedAt = runtime.finishedAt;
   let lastTool = runtime.lastTool;
+  // A run that went stale without a stop counts as over, so the next event starts the clock again.
+  const wasWorking = runtime.activeAgents.size > 0 && signal.receivedAt - runtime.lastSignalAt < staleRunMs;
+  let startedAt = wasWorking ? runtime.startedAt : null;
 
   switch (signal.activity) {
     case "start":
+      startedAt ??= signal.receivedAt;
       activeAgents.add(signal.agentId);
       finishedAt = null;
       lastTool = null;
       break;
     case "tool":
       // A tool event also proves the run is alive, even if we missed its start.
+      startedAt ??= signal.receivedAt;
       activeAgents.add(signal.agentId);
       finishedAt = null;
       lastTool = signal.tool;
@@ -47,7 +54,7 @@ export function applyMemberSignal(runtime: MemberRuntime, signal: MemberSignal):
       }
       break;
   }
-  return { activeAgents, lastTool, lastSignalAt: signal.receivedAt, finishedAt };
+  return { activeAgents, lastTool, lastSignalAt: signal.receivedAt, startedAt, finishedAt };
 }
 
 export function memberBehavior(runtime: MemberRuntime, now: number): MemberBehavior {
@@ -71,7 +78,13 @@ export function endAllRuns(team: TeamRuntime, now: number): TeamRuntime {
   for (const memberId of Object.keys(team) as (keyof TeamRuntime)[]) {
     const runtime = team[memberId];
     if (runtime.activeAgents.size > 0) {
-      ended[memberId] = { activeAgents: new Set(), lastTool: null, lastSignalAt: now, finishedAt: null };
+      ended[memberId] = {
+        activeAgents: new Set(),
+        lastTool: null,
+        lastSignalAt: now,
+        startedAt: null,
+        finishedAt: null,
+      };
     }
   }
   return ended;

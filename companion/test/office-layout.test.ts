@@ -77,7 +77,8 @@ describe("planPath", () => {
     ["desk-asuna", "sofa-2"],
     ["arcade", "fridge"],
     ["desk-ruby", "rack"],
-    ["beanbag-chizuru", "desk-yor"],
+    ["desk-chizuru", "desk-yor"],
+    ["desk-miruku", "door"],
     ["front", "bar-left"],
   ] as const)("walks from %s to %s around the furniture", (from, to) => {
     // Act
