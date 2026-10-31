@@ -112,21 +112,21 @@ Event yang terjadi di dalam subagent (misalnya Asuna ngejalanin `Edit`) cuma nge
 
 Ruangannya terang dengan aksen ungu dari logo AlyxLabs: LED neon yang "lari" di atas dinding dan di sepanjang lis bawah, lampu di bawah meja, dan papan nama di dinding belakang. Semua furnitur diukur pakai tinggi chibi (sekitar 1,05 m), jadi meja setinggi pinggang, monitor sejajar mata pas duduk, dan papan tulis masih kejangkau tangan.
 
-Tata letaknya ngikutin alur kerja tim dari kiri ke kanan: rencana dibikin di dekat papan tulis, dikerjain di deretan meja belakang, dicek di dekat pintu, terus ditulis jadi konten di studio Ruby. Zonanya:
+Tiap zona punya bentuk yang kebaca jelas dari kamera, dan meja meeting, meja 2B, serta logo ada di satu garis tengah. Zonanya:
 
 | Zona | Isi |
 |---|---|
-| Pod planning | Empat meja saling hadap di depan papan tulis: Rias dan Arisu di sisi utara menghadap ruangan, Chizuru dan Komachi di seberangnya |
-| Deretan meja belakang | Yang ngerjain: Kobayashi, Huagua, Asuna, dan Yor, lemari printer, plus rak server di sebelah Yor |
-| Tengah | Meja meeting enam kursi, meja pingpong |
-| Depan | Meja 2B di tengah, satu-satunya meja yang dilewatin siapa pun |
+| Pod planning | Empat meja lurus yang nempel saling hadap di depan papan tulis: Rias dan Arisu di sisi utara menghadap ruangan, Chizuru dan Komachi di seberangnya |
+| Deretan meja belakang | Meja L buat yang ngerjain: Kobayashi dan Huagua di kiri logo, Asuna dan Yor di kanan, lemari printer tepat di bawah logo, plus rak server di ujung sebelah Yor. Sayap meja L semuanya di kanan, jadi deretannya keliatan seragam |
+| Tengah | Meja meeting enam kursi, di garis tengah ruangan |
+| Depan | Meja L 2B di tengah, diapit meja L Erza (review dan QA) di kiri dan Miruku (security) di kanan, semua menghadap kamera. Sayap meja Erza ke kiri, punya 2B dan Miruku ke kanan, plus dua tanaman di depan meja 2B |
 | Dinding kiri | Papan tulis (2B dan Rias) dan papan ide Chizuru, masing masing dengan panggung rendah di depannya, TV lounge |
-| Lounge | Sofa menghadap TV, meja kopi, beanbag |
+| Lounge | Sofa menghadap TV, meja kopi, beanbag, dan akuarium panjang yang jadi pembatas antara lounge dan meja depan |
 | Pantry | Jam digital besar di dinding (zona Asia/Jakarta). Counter bentuk L: wastafel dengan rak pengering gelas di sampingnya, mesin kopi, dan oven di counter belakang, lalu meja bar yang nyambung ke ujungnya dengan dua bar stool di tiap sisi, plus kulkas dan tempat sampah yang mepet dinding di samping kulkas. Makanan bareng ditaruh di ujung meja bar |
-| Sayap timur | Studio Ruby di dinding belakang: backdrop logo, ring light, kamera di tripod, dan mejanya. Di depan pintu, meja Erza (review dan QA) dan Miruku (security) saling hadap, jadi kerjaan dicek sebelum keluar |
-| Layar status tim | Layar besar di dinding belakang di atas rak server dan arcade. Isinya tiap anggota: lagi kerja, nunggu kamu, selesai, atau idle, plus nama tool terakhir dan sudah berapa lama. Datanya dari hook Claude Code yang sama yang ngegerakin cast. Yang ditampilin cuma status dan nama tool, nggak pernah isi pesan atau isi file. Status selesai tetap kelihatan 15 menit setelah run berhenti |
-| Sisi kanan | Pintu kaca otomatis di ujung sayap timur, buat yang keluar beli makanan. Pas ketutup tulisannya kebaca AlyxLabs, pas kebuka kepisah jadi Alyx dan Labs |
-| Pojok game | Mesin arcade |
+| Game dan fitness | Pojok kanan belakang di atas matras karet: dua mesin arcade, dua treadmill menghadap jendela, meja pingpong dengan bangku penonton di depannya, dan samsak |
+| Layar status tim | Layar besar di dinding belakang di atas mesin arcade. Isinya tiap anggota: lagi kerja, nunggu kamu, selesai, atau idle, plus nama tool terakhir dan sudah berapa lama. Datanya dari hook Claude Code yang sama yang ngegerakin cast. Yang ditampilin cuma status dan nama tool, nggak pernah isi pesan atau isi file. Status selesai tetap kelihatan 15 menit setelah run berhenti |
+| Studio Ruby | Pojok kanan depan, menghadap kamera kayak set: backdrop logo di belakang kursinya, meja L, ring light, dan kamera di tripod |
+| Sisi kanan | Pintu kaca otomatis dengan tanaman di sebelahnya, buat yang keluar beli makanan. Pas ketutup tulisannya kebaca AlyxLabs, pas kebuka kepisah jadi Alyx dan Labs |
 
 Setup meja sesuai role:
 
@@ -167,9 +167,10 @@ Setup meja Arisu, Komachi, Miruku, dan Huagua masih dasar. Barang khas masing-ma
 
 Selain itu semua cast sesekali nyeruput kopi dari gelasnya sendiri, selama gelasnya ada di meja dan masih ada isinya.
 
-**Pas nggak ada tugas**, tiap cast milih kegiatan sendiri dan jalan ke sana tanpa nembus furnitur atau cast lain: kerja santai di meja, bikin kopi, ngemil di kulkas, cuci tangan di wastafel, manasin makanan di oven, nonton TV, main game di sofa, main arcade, nyiram tanaman, rebahan di beanbag, baca, ngobrol di meja bar, meeting di meja tengah, atau main pingpong. Kira-kira setengah waktunya di meja, setengahnya istirahat. Biar nggak monoton:
+**Pas nggak ada tugas**, tiap cast milih kegiatan sendiri dan jalan ke sana tanpa nembus furnitur atau cast lain: kerja santai di meja, bikin kopi, ngemil di kulkas, cuci tangan di wastafel, manasin makanan di oven, nonton TV, main game di sofa, main arcade, lari di treadmill, ninju samsak, ngelihatin ikan di akuarium, nyiram tanaman, rebahan di beanbag, baca, ngobrol di meja bar, meeting di meja tengah, atau main pingpong. Kira-kira setengah waktunya di meja, setengahnya istirahat. Biar nggak monoton:
 - Kegiatan yang sama nggak dipilih dua kali berturut-turut, dan tiap kegiatan punya jeda sebelum bisa diulang.
-- Tiap cast punya kesukaan sendiri. Kobayashi sering main arcade, Erza sering ngemil, Rias sering baca, Yor sering ngecek rak server, Ruby sering selfie di depan ring light.
+- Tiap cast punya kesukaan sendiri. Kobayashi sering main arcade, Erza sering ngemil dan ninju samsak, Rias sering baca, Yor sering ngecek rak server dan latihan di samsak, Asuna dan 2B suka treadmill, Huagua sering ngelihatin akuarium, Ruby sering selfie di depan ring light. Treadmill lebih sering dipakai pagi, samsak dan treadmill juga rame sore.
+- Pas lari, belt treadmill ikut jalan dan layarnya nyala. Pas ninju, samsaknya keayun mundur tiap pukulan kena.
 - Satu tempat cuma dipakai satu orang. Kalau ada yang udah di bar atau meja meeting, yang lain lebih mungkin nyamperin.
 - Pingpong selalu berdua. Yang mulai ngajak cast yang paling lama nganggur, dan nunggu di meja sambil pegang raket sampai lawannya dateng. Bolanya baru jalan pas dua-duanya udah di posisi, dan kalau satu pergi, yang lain ikut berhenti. Raket diayun pas bolanya nyampe ke pemain itu, bukan sebelum.
 - Meja meeting kosong dari laptop. Yang mau meeting ambil laptopnya dulu di meja masing masing: yang punya laptop di meja (Ruby, Rias, Chizuru) nutup laptopnya terus bawa laptop itu, yang lain buka laci di bawah meja dan ngambil laptop dari situ. Di meja meeting laptopnya ditaruh, dibuka, terus dinyalain. Sebelum pergi laptopnya dimatiin, ditutup, dibawa balik, dan disimpan lagi ke laci atau ditaruh lagi di meja. Kalau di tengah jalan dipanggil kerja, laptopnya langsung balik ke tempatnya.

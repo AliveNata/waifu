@@ -33,7 +33,10 @@ export type OfficeAction =
   | "fetch"
   | "pick"
   | "eat"
-  | "out";
+  | "out"
+  | "run"
+  | "box"
+  | "gaze";
 
 export interface MemberPlan {
   station: StationId;
