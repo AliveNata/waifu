@@ -62,6 +62,11 @@ export const deskBits: Record<MemberId, readonly DeskBit[]> = {
   yor: ["rose", "sip"],
   erza: ["cake", "sip"],
   ruby: ["mic", "desk-selfie", "sip"],
+  // Bits of their own come with their desk setups; until then they check the screen and sip.
+  arisu: ["monitor-check", "sip"],
+  komachi: ["monitor-check", "sip"],
+  miruku: ["monitor-check", "sip"],
+  huagua: ["idea-pop", "sip"],
 };
 
 /** Seconds to reach out and take an item, and the same again at the end to put it back. */

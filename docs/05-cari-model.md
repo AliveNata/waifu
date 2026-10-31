@@ -18,6 +18,10 @@ Dicari lewat mesin pencari, karena halaman BOOTH dan VRoid Hub nggak bisa dibuka
 | Yor | [Yor Forger](https://hub.vroid.com/en/characters/4239190736811894538/models/8098810625864014076) | Gratis | Boleh jadi avatar, dimodifikasi, dibagikan ulang. Wajib kredit |
 | Ruby | [Ruby Hoshino Oshi no Ko Idol](https://hub.vroid.com/en/characters/7409098126196422180/models/6681199807464527208) | Gratis | Boleh jadi avatar, dimodifikasi, dibagikan ulang. Wajib kredit, konten seksual dilarang |
 | Erza | [Erza Scarlet Japanese Cloth Armor](https://hub.vroid.com/en/characters/3527892052199245319/models/8906292335027557197) | Gratis | Izin download perlu dicek di halamannya |
+| Arisu (PM) | [波覇ありす](https://hub.vroid.com/en/characters/8836663414327647205/models/4798016391042827897) oleh keiichiisozaki | Gratis | Dicek lewat API VRoid Hub: bisa di-download, boleh jadi avatar, dimodifikasi, dibagikan ulang. Tanpa kredit |
+| Komachi (Tech Lead) | [小倉小町](https://hub.vroid.com/en/characters/1828519956768663511/models/6844487232620998932) oleh keiichiisozaki | Gratis | Dicek lewat API VRoid Hub: bisa di-download, boleh jadi avatar, dimodifikasi, dibagikan ulang. Tanpa kredit |
+| Miruku (Security) | [八咫みるく](https://hub.vroid.com/en/characters/7477070059866436889/models/3790713535037537835) oleh keiichiisozaki | Gratis | Dicek lewat API VRoid Hub: bisa di-download, boleh jadi avatar, dimodifikasi, dibagikan ulang. Tanpa kredit |
+| Huagua (UI/UX) | [花瓜](https://hub.vroid.com/en/characters/4889343230124514305/models/2222187312426601055) oleh asus.eric | Gratis | Dicek lewat API VRoid Hub: bisa di-download, boleh jadi avatar, dimodifikasi, dibagikan ulang. **Wajib kredit** ke asus.eric, konten seksual dilarang |
 
 ## Download dari VRoid Hub, langkah demi langkah
 
@@ -36,7 +40,7 @@ Dicari lewat mesin pencari, karena halaman BOOTH dan VRoid Hub nggak bisa dibuka
    ```
    Kalau hasil script beda sama halaman VRoid Hub, ikutin halamannya.
 7. **Catat kredit** buat model yang wajib kredit di `models/CREDITS.md`: nama karakter, nama creator, dan link model. Kredit ini perlu ditampilin kalau lo nunjukin avatarnya ke orang lain, misalnya di screenshot atau video.
-8. **Pasang ke companion:** cukup restart companion. File di `models/` yang namanya sesuai anggota (`2b.vrm`, `chizuru.vrm`, `rias.vrm`, `asuna.vrm`, `kobayashi.vrm`, `yor.vrm`, `erza.vrm`, `ruby.vrm`) langsung kepakai. Kalau mau pakai file dengan nama atau lokasi lain, pilih lewat **Menu > Pilih model .vrm > nama anggota**, dan pilihan dari menu ini yang dipakai.
+8. **Pasang ke companion:** cukup restart companion. File di `models/` yang namanya sesuai anggota (`2b.vrm`, `chizuru.vrm`, `rias.vrm`, `asuna.vrm`, `kobayashi.vrm`, `yor.vrm`, `erza.vrm`, `ruby.vrm`, `arisu.vrm`, `komachi.vrm`, `miruku.vrm`, `huagua.vrm`) langsung kepakai. Kalau mau pakai file dengan nama atau lokasi lain, pilih lewat **Menu > Pilih model .vrm > nama anggota**, dan pilihan dari menu ini yang dipakai.
 
 Urutan yang disaranin: 2B dulu, karena dia yang muncul di overlay utama. Abis itu Ruby dan anggota yang paling sering lo panggil.
 

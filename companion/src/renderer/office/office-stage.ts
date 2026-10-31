@@ -89,7 +89,7 @@ const keyScratch = new Vector3();
 const closeupHoldMs = 3500;
 
 /** Orbit target: the middle of the floor, a little toward the back where the desks are. */
-const viewTarget = new Vector3(-0.3, 0.3, -0.6);
+const viewTarget = new Vector3(2.7, 0.3, -1.1);
 /** Default view from the open +x/+z corner, high enough to see over the front desks into the room. */
 const defaultView = { azimuth: Math.PI / 4, polar: 1.0 };
 /** Keeps the camera on the open sides of the cutaway: never behind a wall, never under the floor. */
@@ -452,8 +452,8 @@ export class OfficeStage {
     sun.position.set(6, 11, 8);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.left = -10;
-    sun.shadow.camera.right = 10;
+    sun.shadow.camera.left = -12;
+    sun.shadow.camera.right = 12;
     sun.shadow.camera.top = 9;
     sun.shadow.camera.bottom = -9;
     sun.shadow.bias = -0.0004;
@@ -617,8 +617,8 @@ export class OfficeStage {
   /** Distance that fits the whole floor in view for the current window shape. */
   private fitDistance(): number {
     const aspect = this.camera.aspect;
-    // Tuned so a 16:10 window shows wall to wall; narrower windows back off to keep the width.
-    return Math.min(viewLimits.maxDistance, 15 * Math.max(1, 1.6 / aspect));
+    // Tuned so a 16:10 window shows wall to wall, east wing included; narrower windows back off to keep the width.
+    return Math.min(viewLimits.maxDistance, 20.5 * Math.max(1, 1.6 / aspect));
   }
 
   private createRig(memberId: MemberId, avatar: OfficeAvatar): MemberRig {

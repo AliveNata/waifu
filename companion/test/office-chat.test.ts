@@ -435,7 +435,20 @@ describe("cast mentions", () => {
     const names = matchingTargets("").map((target) => target.displayName);
 
     // Assert
-    expect(names).toEqual(["2B", "Chizuru", "Rias", "Asuna", "Kobayashi", "Yor", "Erza", "Ruby"]);
+    expect(names).toEqual([
+      "2B",
+      "Chizuru",
+      "Rias",
+      "Asuna",
+      "Kobayashi",
+      "Yor",
+      "Erza",
+      "Ruby",
+      "Arisu",
+      "Komachi",
+      "Miruku",
+      "Huagua",
+    ]);
   });
 
   it.each([
@@ -444,6 +457,10 @@ describe("cast mentions", () => {
     ["data", ["Asuna"]],
     ["sre", ["Yor"]],
     ["r", ["Rias", "Ruby", "Erza"]],
+    ["pm", ["Arisu"]],
+    ["lead", ["Komachi"]],
+    ["sec", ["Miruku"]],
+    ["design", ["Huagua"]],
   ])("filters by name or role for @%s", (query, expected) => {
     expect(
       matchingTargets(query)

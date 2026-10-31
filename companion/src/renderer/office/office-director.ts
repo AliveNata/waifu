@@ -64,6 +64,10 @@ const workActions: Record<Exclude<MemberId, "twob">, { working: OfficeAction; do
   yor: { working: "type", done: "stretch" },
   erza: { working: "type", done: "stretch" },
   ruby: { working: "type", done: "cheer" },
+  arisu: { working: "type", done: "cheer" },
+  komachi: { working: "type", done: "stretch" },
+  miruku: { working: "type", done: "stretch" },
+  huagua: { working: "type", done: "cheer" },
 };
 
 /** Work happens at the member's home station; between tasks they follow their own routine. */

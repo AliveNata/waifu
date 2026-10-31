@@ -71,7 +71,9 @@ async function launchOffice(
   if (office === undefined) {
     throw new Error("office window never opened");
   }
-  await expect(office.getByRole("heading", { name: "Chat ke 2B" })).toBeVisible();
+  // Startup includes building the 3D room, which takes several seconds on software WebGL; the
+  // page cannot answer until it is done, so this first check waits longer than the default.
+  await expect(office.getByRole("heading", { name: "Chat ke 2B" })).toBeVisible({ timeout: 20_000 });
   return { app, office, projectDir };
 }
 
@@ -200,7 +202,7 @@ test.describe("cast mentions", () => {
     await input.click();
     await input.pressSequentially("@er");
     const list = office.getByRole("listbox", { name: "Anggota tim" });
-    await expect(list.getByRole("option")).toHaveText(["ErzaReviewer"]);
+    await expect(list.getByRole("option")).toHaveText(["ErzaReview + QA"]);
     await input.press("Enter");
     await expect(input).toHaveValue("@Erza ");
     await input.pressSequentially("cek tes");

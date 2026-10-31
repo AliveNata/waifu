@@ -21,4 +21,8 @@ export const homeStations: Record<Exclude<MemberId, "twob">, StationId> = {
   yor: "desk-yor",
   erza: "desk-erza",
   ruby: "desk-ruby",
+  arisu: "desk-arisu",
+  komachi: "desk-komachi",
+  miruku: "desk-miruku",
+  huagua: "desk-huagua",
 };

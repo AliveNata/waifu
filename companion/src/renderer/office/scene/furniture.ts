@@ -260,7 +260,7 @@ export function buildPantryCounter(
 }
 
 /**
- * A steel drying rack with a peg for each cup: two across, four deep. Cups sit on it upside down,
+ * A steel drying rack with a peg for each cup: three across, four deep. Cups sit on it upside down,
  * and each slot's cup shows only while its owner's mug is there.
  */
 function buildDryingRack(x: number, top: number, cups: readonly RackCup[]): { root: Group; cups: Object3D[] } {
@@ -268,11 +268,11 @@ function buildDryingRack(x: number, top: number, cups: readonly RackCup[]): { ro
   // Toward the front of the counter, where someone standing at the sink can reach it.
   root.position.set(x, 0, 0.13);
   const steel = standard(palette.steel, 0.3, 0.6);
-  root.add(box(0.15, 0.008, 0.3, steel, 0, top, 0), box(0.15, 0.04, 0.006, steel, 0, top, -0.15));
+  root.add(box(0.21, 0.008, 0.3, steel, 0, top, 0), box(0.21, 0.04, 0.006, steel, 0, top, -0.15));
   const slots = cups.map((cup, index) => {
-    const column = index % 2;
-    const row = Math.floor(index / 2);
-    const slotX = (column - 0.5) * 0.07;
+    const column = index % 3;
+    const row = Math.floor(index / 3);
+    const slotX = (column - 1) * 0.065;
     const slotZ = (row - 1.5) * 0.07;
     const peg = mesh(new CylinderGeometry(0.002, 0.002, 0.04, 6), steel, false);
     peg.position.set(slotX, top + 0.028, slotZ);

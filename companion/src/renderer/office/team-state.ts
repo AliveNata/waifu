@@ -86,5 +86,9 @@ export function emptyTeamRuntime(): TeamRuntime {
     yor: emptyRuntime(),
     erza: emptyRuntime(),
     ruby: emptyRuntime(),
+    arisu: emptyRuntime(),
+    komachi: emptyRuntime(),
+    miruku: emptyRuntime(),
+    huagua: emptyRuntime(),
   };
 }

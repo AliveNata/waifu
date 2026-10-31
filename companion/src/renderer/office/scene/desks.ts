@@ -272,6 +272,73 @@ function lampLook(member: DeskMember): LampLook {
         light: "#ffb3d1",
       };
     }
+    case "arisu": {
+      // A tidy white task lamp with a round head: the planner's desk is always in order.
+      const white = standard("#f2f3f6", 0.35);
+      const bulb = glow("#f4f8ff", 0);
+      const arm = mesh(new CylinderGeometry(0.006, 0.006, 0.24, 8), white);
+      arm.rotation.x = 0.3;
+      const head = mesh(new CylinderGeometry(0.045, 0.045, 0.014, 20), white);
+      return {
+        parts: [
+          at(mesh(new CylinderGeometry(0.045, 0.05, 0.012, 20), white), 0, y + 0.006, 0),
+          at(arm, 0, y + 0.115, 0.035),
+          at(head, 0, y + 0.235, 0.08),
+          at(mesh(new CylinderGeometry(0.035, 0.035, 0.004, 20), bulb, false), 0, y + 0.227, 0.08),
+        ],
+        bulb,
+        poolAhead: 0.14,
+        light: "#eef4ff",
+      };
+    }
+    case "komachi": {
+      // A light bar clipped along the top of the screen: an engineer's lamp that lights the keys, not the screen.
+      const ink = standard("#20232e", 0.35, 0.3);
+      const bulb = glow("#dde4ff", 0);
+      return {
+        parts: [
+          box(0.07, 0.012, 0.07, ink, 0, y, 0),
+          box(0.012, 0.3, 0.012, ink, 0, y, 0),
+          box(0.32, 0.018, 0.03, ink, 0, y + 0.3, 0.02),
+          box(0.3, 0.004, 0.02, bulb, 0, y + 0.297, 0.025),
+        ],
+        bulb,
+        poolAhead: 0.16,
+        light: "#dde4ff",
+      };
+    }
+    case "miruku": {
+      // A low dome in dark glass with a violet glow, like a status light that is always on watch.
+      const bulb = glow("#c9a8ff", 0);
+      bulb.transparent = true;
+      bulb.opacity = 0.85;
+      return {
+        parts: [
+          at(mesh(new CylinderGeometry(0.05, 0.055, 0.018, 20), standard("#1d1b26", 0.4, 0.3)), 0, y + 0.009, 0),
+          at(mesh(new SphereGeometry(0.05, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), bulb, false), 0, y + 0.018, 0),
+          at(mesh(new TorusGeometry(0.051, 0.004, 6, 24), standard("#8a5fd0", 0.4, 0.4)), 0, y + 0.02, 0),
+        ],
+        bulb,
+        poolAhead: 0.1,
+        light: "#cdb2ff",
+      };
+    }
+    case "huagua": {
+      // A wooden lamp with a soft green fabric shade, warm like a sketchbook corner.
+      const wood = standard("#a87a52", 0.7);
+      const bulb = glow("#fff0d6", 0);
+      return {
+        parts: [
+          at(mesh(new CylinderGeometry(0.04, 0.05, 0.02, 16), wood), 0, y + 0.01, 0),
+          at(mesh(new CylinderGeometry(0.008, 0.008, 0.2, 10), wood), 0, y + 0.11, 0),
+          at(mesh(new CylinderGeometry(0.05, 0.07, 0.08, 20, 1, true), standard("#7fb894", 0.85)), 0, y + 0.22, 0),
+          at(mesh(new SphereGeometry(0.018, 10, 8), bulb, false), 0, y + 0.2, 0),
+        ],
+        bulb,
+        poolAhead: 0.12,
+        light: "#ffe9c8",
+      };
+    }
   }
 }
 
@@ -321,6 +388,10 @@ export const memberPropLooks: Record<MemberId, PropLook> = {
   yor: { mug: "#2a2a2e", shell: "#b9bec7" },
   erza: { mug: "#e35d5d", shell: "#b9bec7" },
   ruby: { mug: "#f4a6c4", shell: "#d9d4cc" },
+  arisu: { mug: "#7fb6dc", shell: "#b9bec7" },
+  komachi: { mug: "#3b4466", shell: "#b9bec7" },
+  miruku: { mug: "#8a5fd0", shell: "#2c2a33" },
+  huagua: { mug: "#9fd2b0", shell: "#e8e2d4" },
 };
 
 /** The same mug the member carries, a size up on the desk so it reads from the room camera. */
@@ -883,6 +954,26 @@ function chizuruDesk(piece: Furniture): DeskBuild {
   };
 }
 
+/**
+ * A desk in the east-wing pod: one screen with the member's work on it, keyboard, mouse, their
+ * mug and a drawer with the meeting laptop. Their own desk things come with the desk setups.
+ */
+function podDesk(member: "arisu" | "komachi" | "miruku" | "huagua", piece: Furniture): DeskBuild {
+  const { width, depth } = deskSize(piece);
+  const inner = deskBase(width, depth);
+  const screen = new ScreenSurface(screenScripts[member]);
+  inner.add(monitor(screen.texture, landscape.width, landscape.height, 0, -depth / 2 + 0.14));
+  const keyboard = keyboardFor(member, keyboardZ(depth));
+  const mouse = mouseBeside(keyboard, palette.accent, palette.inkDeep);
+  const mug = mugAt(member, -0.36, nearEdge(depth));
+  const { unit, drawer } = drawerUnit(width, depth, "right");
+  inner.add(keyboard.root, mouse.root, mug, unit);
+  return {
+    root: placedDesk(piece, inner),
+    workstation: { screen, keyboard, mouse, mug, ...noDeskThings, mugSide: "left", drawer },
+  };
+}
+
 /** A desk as its builder makes it; the lamp is added the same way to every desk. */
 interface DeskBuild {
   root: Group;
@@ -907,6 +998,11 @@ function deskParts(member: DeskMember, piece: Furniture, kanban: Texture): DeskB
       return riasDesk(piece);
     case "chizuru":
       return chizuruDesk(piece);
+    case "arisu":
+    case "komachi":
+    case "miruku":
+    case "huagua":
+      return podDesk(member, piece);
   }
 }
 
@@ -921,6 +1017,10 @@ const lampX: Record<DeskMember, number> = {
   // Books and blueprints, or markers and a plant, take the corners.
   rias: 0.2,
   chizuru: 0.2,
+  arisu: 0.5,
+  komachi: 0.5,
+  miruku: 0.5,
+  huagua: 0.5,
 };
 
 export function buildDesk(member: DeskMember, piece: Furniture, kanban: Texture): BuiltDesk {

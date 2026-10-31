@@ -14,6 +14,11 @@ export const speakerColors: Record<MemberId, string> = {
   yor: "#f2d27a",
   erza: "#f58f8f",
   ruby: "#f3a6e0",
+  // Picked per role until the models' own colors are known, as light as the others for contrast.
+  arisu: "#8fd3e8",
+  komachi: "#a9b8ff",
+  miruku: "#d2b8ff",
+  huagua: "#9fe3b8",
 };
 
 /** The part of a line already "spoken", in step with the lip-sync that reads the same clock. */

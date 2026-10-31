@@ -51,9 +51,10 @@ export class ChatPanel {
     });
   }
 
-  start(): void {
+  /** Resolves once the panel shows its saved state (or has shown why it could not load it). */
+  start(): Promise<void> {
     if (!this.bridge.hasNativeMenu) {
-      return;
+      return Promise.resolve();
     }
     this.toggle.hidden = false;
     this.toggle.addEventListener("click", () => this.bridge.setChatEnabled(!this.enabled));
@@ -103,7 +104,7 @@ export class ChatPanel {
     this.bridge.onChatEnabled((enabled) => this.applyEnabled(enabled));
     this.bridge.onChatStatus((status) => this.applyStatus(status));
     this.bridge.onChatEvent((event) => this.applyEvent(event, true));
-    Promise.all([this.bridge.getChatEnabled(), this.bridge.getChatStatus(), this.bridge.getChatHistory()])
+    const loaded = Promise.all([this.bridge.getChatEnabled(), this.bridge.getChatStatus(), this.bridge.getChatHistory()])
       .then(([enabled, status, history]) => {
         this.applyEnabled(enabled);
         this.applyStatus(status);
@@ -113,6 +114,7 @@ export class ChatPanel {
       })
       .catch((error: unknown) => this.showLocalError("Chat gagal dimuat", error));
     this.render();
+    return loaded;
   }
 
   private submit(): void {

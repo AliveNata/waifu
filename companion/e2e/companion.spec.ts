@@ -147,7 +147,7 @@ test.describe("office", () => {
     await postHook(page, { hook_event_name: "PreToolUse", agent_id: "r1", agent_type: "erza", tool_name: "Bash" });
 
     // Assert
-    await expect(caption).toContainText("Erza · Reviewer");
+    await expect(caption).toContainText("Erza · Review + QA");
     await expect(caption).toContainText("(Bash)");
     await expect(caption).toContainText("simulated screen");
   });

@@ -13,8 +13,11 @@ export interface Point {
   z: number;
 }
 
-/** Walls are 2.2 m: tall for a chibi, but not so tall the room swallows them like a warehouse. */
-export const room = { minX: -7, maxX: 7, minZ: -5, maxZ: 4, wallHeight: 2.2 } as const;
+/**
+ * Walls are 2.2 m: tall for a chibi, but not so tall the room swallows them like a warehouse.
+ * East of x 7 is the newer wing, with the planning and security pod and the way in.
+ */
+export const room = { minX: -7, maxX: 10.5, minZ: -5, maxZ: 4, wallHeight: 2.2 } as const;
 
 /**
  * Everything is sized for chibi people, not adults. A standing chibi is about 1.05 m with its
@@ -42,6 +45,10 @@ export type FurnitureKind =
   | "desk-ruby"
   | "desk-rias"
   | "desk-chizuru"
+  | "desk-arisu"
+  | "desk-komachi"
+  | "desk-miruku"
+  | "desk-huagua"
   | "chair"
   | "server-rack"
   | "arcade"
@@ -97,6 +104,10 @@ export type StationId =
   | "desk-ruby"
   | "desk-rias"
   | "desk-chizuru"
+  | "desk-arisu"
+  | "desk-komachi"
+  | "desk-miruku"
+  | "desk-huagua"
   | "board-rias"
   | "board-twob"
   | "idea-board"
@@ -189,6 +200,73 @@ const frontDeskZ = 1.95;
 /** x of the front-row desks east of 2B's. */
 const frontRowDeskX = { rias: 4.55, chizuru: 6.1 } as const;
 
+/**
+ * The pod in the east wing: four desks pushed together in two facing pairs. Arisu and Komachi
+ * sit on the north side facing the room, Miruku and Huagua on the south side with their screens
+ * toward the room, so planning and review happen across one desk.
+ */
+const podCenterZ = -2.6;
+const podDeskDepth = 0.65;
+/** From the desk's middle to the seat, as at the front-row desks. */
+const podSeatGap = 0.55;
+export const podDeskX = { arisu: 7.9, komachi: 9.3, miruku: 7.9, huagua: 9.3 } as const;
+const podNorth = ["arisu", "komachi"] as const;
+const podSouth = ["miruku", "huagua"] as const;
+const podNorthDeskZ = podCenterZ - podDeskDepth / 2;
+const podSouthDeskZ = podCenterZ + podDeskDepth / 2;
+const podNorthSeatZ = podNorthDeskZ - podSeatGap;
+const podSouthSeatZ = podSouthDeskZ + podSeatGap;
+const podApproachClearance = 0.08;
+
+const pod: Furniture[] = [
+  // North pair: like the front row, the desk is between the sitter and the camera.
+  ...podNorth.flatMap((member): Furniture[] => [
+    {
+      id: `desk-${member}`,
+      kind: `desk-${member}`,
+      x: podDeskX[member],
+      z: podNorthDeskZ,
+      width: 1.3,
+      depth: podDeskDepth,
+      yaw: facing.backWall,
+      blocksWalking: true,
+    },
+    {
+      id: `chair-${member}`,
+      kind: "chair",
+      x: podDeskX[member],
+      z: podNorthSeatZ,
+      width: 0.5,
+      depth: 0.5,
+      yaw: facing.camera,
+      blocksWalking: true,
+    },
+  ]),
+  // South pair: like the back row, the sitter faces away from the camera with the screen in view.
+  ...podSouth.flatMap((member): Furniture[] => [
+    {
+      id: `desk-${member}`,
+      kind: `desk-${member}`,
+      x: podDeskX[member],
+      z: podSouthDeskZ,
+      width: 1.3,
+      depth: podDeskDepth,
+      yaw: facing.camera,
+      blocksWalking: true,
+    },
+    {
+      id: `chair-${member}`,
+      kind: "chair",
+      x: podDeskX[member],
+      z: podSouthSeatZ,
+      width: 0.5,
+      depth: 0.5,
+      yaw: facing.backWall,
+      blocksWalking: true,
+    },
+  ]),
+];
+
 /** Where Ruby sits at her desk; her camera and ring light both aim here. */
 const rubySeat = { x: -1.9, z: 1.4 } as const;
 
@@ -228,6 +306,7 @@ const ovenX = -4.55;
 
 export const furniture: readonly Furniture[] = [
   ...deskRow,
+  ...pod,
   // Creator and command desks face the camera, so the room reads as "people at work" from the default view.
   {
     id: "desk-ruby",
@@ -383,7 +462,7 @@ export const furniture: readonly Furniture[] = [
   {
     id: "entry-door",
     kind: "entry-door",
-    x: 6.92,
+    x: 10.42,
     z: -0.45,
     width: 0.12,
     depth: 1.8,
@@ -508,7 +587,7 @@ export const furniture: readonly Furniture[] = [
   {
     id: "plant-corner",
     kind: "plant",
-    x: 6.4,
+    x: 10.0,
     z: 3.4,
     width: 0.6,
     depth: 0.6,
@@ -582,8 +661,8 @@ export const furniture: readonly Furniture[] = [
   {
     id: "plant-entry",
     kind: "plant",
-    x: 6.45,
-    z: -1.6,
+    x: 10.05,
+    z: 0.95,
     width: 0.5,
     depth: 0.5,
     yaw: facing.camera,
@@ -613,6 +692,21 @@ function frontRowStation(id: StationId, x: number): Station {
     spot: { x, z: 1.4 },
     facing: facing.camera,
     approach: { x: x + chairSideStep, z: 1.4 },
+    seatHeight: chairSeatHeight,
+  };
+}
+
+/** A pod seat: the north pair faces the room, the south pair faces the back wall. */
+function podStation(id: StationId, x: number, side: "north" | "south"): Station {
+  const z = side === "north" ? podNorthSeatZ : podSouthSeatZ;
+  // Stepping in from a little further out than the seat: the pod desks are shallow, and right
+  // beside the seat the walkable floor is too close to the desk edge to count as clear.
+  const awayFromDesk = side === "north" ? -podApproachClearance : podApproachClearance;
+  return {
+    id,
+    spot: { x, z },
+    facing: side === "north" ? facing.camera : facing.backWall,
+    approach: { x: x + chairSideStep, z: z + awayFromDesk },
     seatHeight: chairSeatHeight,
   };
 }
@@ -667,6 +761,10 @@ export const stations: Record<StationId, Station> = {
   },
   "desk-rias": frontRowStation("desk-rias", frontRowDeskX.rias),
   "desk-chizuru": frontRowStation("desk-chizuru", frontRowDeskX.chizuru),
+  "desk-arisu": podStation("desk-arisu", podDeskX.arisu, "north"),
+  "desk-komachi": podStation("desk-komachi", podDeskX.komachi, "north"),
+  "desk-miruku": podStation("desk-miruku", podDeskX.miruku, "south"),
+  "desk-huagua": podStation("desk-huagua", podDeskX.huagua, "south"),
   // Facing the left wall, the board's left half (+z side) is 2B's plan and the right half Rias's sketches.
   "board-twob": standing("board-twob", { x: boardStandX, z: -1.4 }, facing.leftWall),
   "board-rias": standing("board-rias", { x: boardStandX, z: -2.65 }, facing.leftWall),
@@ -713,7 +811,7 @@ export const stations: Record<StationId, Station> = {
   },
   "bar-food": standing("bar-food", { x: barCounter.x, z: barCounter.z + barCounter.depth / 2 + 0.33 }, facing.backWall),
   trash: standing("trash", { x: -6.36, z: -3.36 }, facing.leftWall),
-  door: standing("door", { x: 6.5, z: -0.45 }, facing.right),
+  door: standing("door", { x: 10.0, z: -0.45 }, facing.right),
   "sofa-1": {
     id: "sofa-1",
     spot: { x: -4.62, z: 2.4 },
@@ -747,7 +845,7 @@ export const stations: Record<StationId, Station> = {
   // In front of her backdrop, so the ring light and camera frame her like a real shoot.
   selfie: standing("selfie", { x: -2.75, z: 1.05 }, yawToward({ x: -2.75, z: 1.05 }, { x: -1.0, z: 2.75 })),
   "plant-lounge": standing("plant-lounge", { x: -3.0, z: 3.0 }, facing.camera),
-  "plant-corner": standing("plant-corner", { x: 5.85, z: 3.05 }, yawToward({ x: 5.85, z: 3.05 }, { x: 6.4, z: 3.4 })),
+  "plant-corner": standing("plant-corner", { x: 9.45, z: 3.05 }, yawToward({ x: 9.45, z: 3.05 }, { x: 10.0, z: 3.4 })),
   "plant-desks": standing("plant-desks", { x: 4.55, z: -3.9 }, facing.backWall),
   // From the open side by the meeting table, not the narrow lane to 2B's desk on the other side.
   ...meetingStations(),

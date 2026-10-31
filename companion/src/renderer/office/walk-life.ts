@@ -28,6 +28,14 @@ export const walkStyles: Record<MemberId, WalkStyle> = {
   erza: { stride: 1.2, armSwing: 1.3, bounce: 0.8, sway: 0.5, lean: 0 },
   // Bouncy, always on camera.
   ruby: { stride: 1.05, armSwing: 1.2, bounce: 1.5, sway: 1.4, lean: 0 },
+  // Quick and organized, always on her way to the next thing.
+  arisu: { stride: 1.1, armSwing: 1, bounce: 0.9, sway: 0.9, lean: 0.04 },
+  // Steady and upright.
+  komachi: { stride: 1, armSwing: 0.8, bounce: 0.7, sway: 0.8, lean: 0.02 },
+  // Light on her feet and watchful.
+  miruku: { stride: 0.95, armSwing: 0.7, bounce: 0.9, sway: 1, lean: 0.03 },
+  // Relaxed and a little dreamy.
+  huagua: { stride: 0.9, armSwing: 0.9, bounce: 1.1, sway: 1.2, lean: 0 },
 };
 
 /** Something done on the way, on top of the walk. */
