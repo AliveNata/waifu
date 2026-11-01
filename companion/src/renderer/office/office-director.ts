@@ -112,7 +112,12 @@ export type HandPropKind =
   | "donut"
   | "sushi"
   | "food-box"
-  | "food-bag";
+  | "food-bag"
+  | "clipboard"
+  | "hourglass"
+  | "pen"
+  | "padlock"
+  | "swatch";
 
 /** The prop an action puts in the right hand, or null for empty-handed actions. */
 export function propForAction(action: OfficeAction | null): HandPropKind | null {

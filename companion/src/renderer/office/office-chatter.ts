@@ -218,10 +218,20 @@ const voices: Record<MemberId, Voice> = {
       malam: ["Malem. Jangan lembur kelamaan ya."],
     },
     openers: {
-      kerjaan: [{ text: "Task-nya udah aku urutin, tinggal jalan." }, { text: "Ada yang nge-block nggak?" }],
+      kerjaan: [
+        { text: "Task-nya udah aku urutin, tinggal jalan." },
+        { text: "Ada yang nge-block nggak?" },
+        { text: "Acceptance criteria-nya udah aku tulis di plans." },
+      ],
       makan: [{ text: "Makan dulu, rencana bisa nunggu.", laugh: true }],
-      santai: [{ text: "Aku baru beres nyusun jadwal minggu depan." }],
-      kantor: [{ text: "Papan task-ku makin rapi nih." }],
+      santai: [
+        { text: "Aku baru beres nyusun jadwal minggu depan." },
+        { text: "Clipboard-ku penuh centang hari ini." },
+      ],
+      kantor: [
+        { text: "Papan task-ku makin rapi nih." },
+        { text: "Jam pasir ini buat timebox rapat, biar nggak molor." },
+      ],
     },
     replies: {
       kerjaan: [{ text: "Oke, aku catet di rencana." }, { text: "Nanti aku update statusnya." }],
@@ -239,10 +249,20 @@ const voices: Record<MemberId, Voice> = {
       malam: ["Malem. Commit dulu sebelum pulang."],
     },
     openers: {
-      kerjaan: [{ text: "Kontrak API-nya udah aku tulis." }, { text: "Bagian ini mending dipecah dua." }],
+      kerjaan: [
+        { text: "Kontrak API-nya udah aku tulis." },
+        { text: "Bagian ini mending dipecah dua." },
+        { text: "Interface-nya aku corat-coret di notebook dulu." },
+      ],
       makan: [{ text: "Aku makan sambil baca dokumentasi.", laugh: true }],
-      santai: [{ text: "Aku lagi baca soal arsitektur event." }],
-      kantor: [{ text: "Monitor kedua bikin review lebih enak." }],
+      santai: [
+        { text: "Aku lagi baca soal arsitektur event." },
+        { text: "Buku paling atas di mejaku belum kelar-kelar." },
+      ],
+      kantor: [
+        { text: "Monitor kedua bikin review lebih enak." },
+        { text: "Diagram kontraknya aku pajang di layar kanan." },
+      ],
     },
     replies: {
       kerjaan: [{ text: "Masuk akal, lanjut." }, { text: "Cek dulu edge case-nya." }],
@@ -260,10 +280,20 @@ const voices: Record<MemberId, Voice> = {
       malam: ["Malem. Aku masih jaga."],
     },
     openers: {
-      kerjaan: [{ text: "Jangan taruh secret di kode, ya." }, { text: "Dependency-nya udah aku cek." }],
+      kerjaan: [
+        { text: "Jangan taruh secret di kode, ya." },
+        { text: "Dependency-nya udah aku cek." },
+        { text: "Log scan-nya bersih, tapi aku cek sekali lagi." },
+      ],
       makan: [{ text: "Makanan juga harus lolos pemeriksaan.", laugh: true }],
-      santai: [{ text: "Aku lagi main game teka-teki." }],
-      kantor: [{ text: "Pintu kaca itu harusnya pakai kartu." }],
+      santai: [
+        { text: "Aku lagi main game teka-teki." },
+        { text: "Gembok di mejaku cuma buat iseng, kok.", laugh: true },
+      ],
+      kantor: [
+        { text: "Pintu kaca itu harusnya pakai kartu." },
+        { text: "Security key-ku nggak pernah lepas dari hub." },
+      ],
     },
     replies: {
       kerjaan: [{ text: "Aku cek bagian itu." }, { text: "Sip, catat di laporan." }],
@@ -281,10 +311,14 @@ const voices: Record<MemberId, Voice> = {
       malam: ["Malem. Masih ngulik warna nih."],
     },
     openers: {
-      kerjaan: [{ text: "Aku coba dua arah warna buat dashboard." }, { text: "Tombol ini kekecilan buat dipencet." }],
+      kerjaan: [
+        { text: "Aku coba dua arah warna buat dashboard." },
+        { text: "Tombol ini kekecilan buat dipencet." },
+        { text: "Flow-nya aku gambar dulu di tablet." },
+      ],
       makan: [{ text: "Platingnya rapi, aku suka.", laugh: true }],
-      santai: [{ text: "Aku lagi sketsa tanaman di lounge." }],
-      kantor: [{ text: "Neon ungunya pas sama mood kantor." }],
+      santai: [{ text: "Aku lagi sketsa tanaman di lounge." }, { text: "Sketchbook-ku udah mau penuh." }],
+      kantor: [{ text: "Neon ungunya pas sama mood kantor." }, { text: "Kipas swatch ini selalu aku bawa." }],
     },
     replies: {
       kerjaan: [{ text: "Nanti aku bikinin mock-nya." }, { text: "Coba kita sederhanain." }],
