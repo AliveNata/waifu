@@ -53,12 +53,13 @@ interface Activity {
 const sofaSeats: readonly StationId[] = ["sofa-1", "sofa-2", "sofa-3"];
 
 /**
- * Desk time weighs well over every break together (weight times duration): about three quarters
- * of the idle time is spent at the desk, with longer stretches there, so the office reads as a
- * place where people work and the walking stays occasional.
+ * Desk time weighs well over every break together (weight times duration), and a stretch at the
+ * desk can run straight into another one: people work for a good while, take a break every
+ * several minutes, and mostly head back to the desk after it. The office reads as a place where
+ * people work, with only a few of them walking about at any moment.
  */
 const activities: Record<ActivityId, Activity> = {
-  desk: { stations: null, action: "desk-idle", durationSeconds: [60, 120], weight: 4, cooldownSeconds: 0 },
+  desk: { stations: null, action: "desk-idle", durationSeconds: [150, 300], weight: 10, cooldownSeconds: 0 },
   coffee: { stations: ["coffee"], action: "brew", durationSeconds: [8, 14], weight: 1, cooldownSeconds: 90 },
   snack: { stations: ["fridge"], action: "snack", durationSeconds: [5, 9], weight: 0.6, cooldownSeconds: 120 },
   tv: { stations: sofaSeats, action: "watch", durationSeconds: [20, 40], weight: 0.9, cooldownSeconds: 60 },
@@ -300,6 +301,8 @@ export interface ExtraStep {
   action: OfficeAction;
   errand: TimedErrand;
 }
+/** After a break, going back to the desk is this much more likely than heading off on another. */
+const backToDeskBoost = 3;
 /** An empty mug makes coffee or washing up this much more likely than a casual break. */
 const emptyMugBoost = 2.5;
 
@@ -570,7 +573,8 @@ export class OfficeLife {
     if (activity.only !== undefined && !activity.only.includes(memberId)) {
       return 0;
     }
-    if (id === previous) {
+    // Staying on at the desk is fine; the same break twice in a row is not.
+    if (id === previous && id !== "desk") {
       return 0;
     }
     if (id === "desk" && this.cameFromWork.has(memberId)) {
@@ -613,6 +617,9 @@ export class OfficeLife {
     const part = this.dayPart();
     let weight =
       activity.weight * (preferences[memberId][id] ?? 1) * (part === null ? 1 : (byTimeOfDay[part][id] ?? 1));
+    if (id === "desk" && previous !== null && previous !== "desk") {
+      weight *= backToDeskBoost;
+    }
     if ((id === "coffee" || id === "wash-mug") && emptyOnDesk) {
       weight *= emptyMugBoost;
     }
