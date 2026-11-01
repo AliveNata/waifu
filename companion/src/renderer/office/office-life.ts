@@ -32,7 +32,8 @@ export type ActivityId =
   | "buy-food"
   | "treadmill"
   | "boxing"
-  | "aquarium";
+  | "aquarium"
+  | "huddle";
 
 interface Activity {
   /** Null means the member's own idle spot. */
@@ -76,6 +77,15 @@ const activities: Record<ActivityId, Activity> = {
   },
   boxing: { stations: ["punching-bag"], action: "box", durationSeconds: [10, 18], weight: 0.4, cooldownSeconds: 180 },
   aquarium: { stations: ["aquarium"], action: "gaze", durationSeconds: [10, 20], weight: 0.6, cooldownSeconds: 120 },
+  // A quick talk at the high table in the collaboration corner.
+  huddle: {
+    stations: ["collab-1", "collab-2", "collab-3"],
+    action: "chat",
+    durationSeconds: [15, 30],
+    weight: 0.7,
+    cooldownSeconds: 60,
+    social: true,
+  },
   plants: {
     stations: ["plant-lounge", "plant-corner", "plant-desks"],
     action: "water",
@@ -161,10 +171,10 @@ const preferences: Record<MemberId, Partial<Record<ActivityId, number>>> = {
   yor: { rack: 2, plants: 1.3, snack: 1.2, pingpong: 1.3, arcade: 0.6, boxing: 1.6, treadmill: 1.3 },
   erza: { snack: 1.8, read: 1.2, meeting: 1.3, console: 0.7, boxing: 1.8, treadmill: 1.2 },
   ruby: { chat: 1.5, tv: 1.2, read: 0.6, aquarium: 1.2, boxing: 0.5 },
-  // Arisu keeps people in sync, so she is drawn to meetings and the bar.
-  arisu: { meeting: 1.8, chat: 1.3, coffee: 1.2, arcade: 0.6 },
+  // Arisu keeps people in sync, so she is drawn to meetings, the bar and quick huddles.
+  arisu: { meeting: 1.8, chat: 1.3, coffee: 1.2, arcade: 0.6, huddle: 1.8 },
   // Komachi reads up between reviews and likes a game of ping-pong.
-  komachi: { read: 1.6, pingpong: 1.3, coffee: 1.3, beanbag: 0.7 },
+  komachi: { read: 1.6, pingpong: 1.3, coffee: 1.3, beanbag: 0.7, huddle: 1.5 },
   // Miruku is on watch: short breaks, coffee, and a round of arcade.
   miruku: { coffee: 1.5, arcade: 1.4, plants: 0.7, beanbag: 0.7 },
   // Huagua looks for ideas away from the screen: plants, the fish, the lounge and the TV.

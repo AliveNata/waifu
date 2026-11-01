@@ -1062,8 +1062,8 @@ export class OfficeStage {
   }
 
   /**
-   * Pairs at the bar or the pantry talk; anyone walking past a teammate on a break waves and
-   * says hello.
+   * Pairs at the bar, the high table or the pantry talk; anyone walking past a teammate on a break
+   * waves and says hello.
    */
   private updateChatter(delta: number): void {
     const settledAt = (station: StationId, action: OfficeAction): MemberId | null =>
@@ -1081,6 +1081,14 @@ export class OfficeStage {
     const westRight = settledAt("bar-west-right", "chat");
     if (westLeft !== null && westRight !== null) {
       pairs.push([westLeft, westRight]);
+    }
+    // At the high table, the first two to settle talk with each other.
+    const huddling = (["collab-1", "collab-2", "collab-3"] as const)
+      .map((station) => settledAt(station, "chat"))
+      .filter((memberId): memberId is MemberId => memberId !== null);
+    const [first, second] = huddling;
+    if (first !== undefined && second !== undefined) {
+      pairs.push([first, second]);
     }
     const brewing = settledAt("coffee", "brew");
     const snacking = settledAt("fridge", "snack");

@@ -119,6 +119,7 @@ Tiap zona punya bentuk yang kebaca jelas dari kamera, dan meja meeting, meja 2B,
 | Pod planning | Empat meja lurus yang nempel saling hadap di depan papan tulis: Rias dan Arisu di sisi utara menghadap ruangan, Chizuru dan Komachi di seberangnya |
 | Deretan meja belakang | Meja L buat yang ngerjain: Kobayashi dan Huagua di kiri logo, Asuna dan Yor di kanan, lemari printer tepat di bawah logo, plus rak server di ujung sebelah Yor. Sayap meja L semuanya di kanan, jadi deretannya keliatan seragam |
 | Tengah | Meja meeting enam kursi, di garis tengah ruangan |
+| Pojok kolaborasi | Di antara meja meeting dan zona game, di atas karpet terang: meja tinggi bundar dengan tiga bar stool dan papan kaca berisi sticky note. Dipakai buat ngobrol singkat tanpa harus ke meja meeting |
 | Depan | Meja L 2B di tengah, diapit meja L Erza (review dan QA) di kiri dan Miruku (security) di kanan, semua menghadap kamera. Sayap meja Erza ke kiri, punya 2B dan Miruku ke kanan, plus dua tanaman di depan meja 2B |
 | Dinding kiri | Papan tulis (2B dan Rias) dan papan ide Chizuru, masing masing dengan panggung rendah di depannya, TV lounge |
 | Lounge | Sofa menghadap TV, meja kopi, beanbag, dan akuarium panjang yang jadi pembatas antara lounge dan meja depan |
@@ -168,7 +169,7 @@ Setup meja sesuai role:
 
 Selain itu semua cast sesekali nyeruput kopi dari gelasnya sendiri, selama gelasnya ada di meja dan masih ada isinya.
 
-**Pas nggak ada tugas**, tiap cast milih kegiatan sendiri dan jalan ke sana tanpa nembus furnitur atau cast lain: kerja santai di meja, bikin kopi, ngemil di kulkas, cuci tangan di wastafel, manasin makanan di oven, nonton TV, main game di sofa, main arcade, lari di treadmill, ninju samsak, ngelihatin ikan di akuarium, nyiram tanaman, rebahan di beanbag, baca, ngobrol di meja bar, meeting di meja tengah, atau main pingpong. Kira-kira setengah waktunya di meja, setengahnya istirahat. Biar nggak monoton:
+**Pas nggak ada tugas**, tiap cast milih kegiatan sendiri dan jalan ke sana tanpa nembus furnitur atau cast lain: kerja santai di meja, bikin kopi, ngemil di kulkas, cuci tangan di wastafel, manasin makanan di oven, nonton TV, main game di sofa, main arcade, lari di treadmill, ninju samsak, ngelihatin ikan di akuarium, ngobrol di meja tinggi pojok kolaborasi, nyiram tanaman, rebahan di beanbag, baca, ngobrol di meja bar, meeting di meja tengah, atau main pingpong. Kira-kira setengah waktunya di meja, setengahnya istirahat. Biar nggak monoton:
 - Kegiatan yang sama nggak dipilih dua kali berturut-turut, dan tiap kegiatan punya jeda sebelum bisa diulang.
 - Tiap cast punya kesukaan sendiri. Kobayashi sering main arcade, Erza sering ngemil dan ninju samsak, Rias sering baca, Yor sering ngecek rak server dan latihan di samsak, Asuna dan 2B suka treadmill, Huagua sering ngelihatin akuarium, Ruby sering selfie di depan ring light. Treadmill lebih sering dipakai pagi, samsak dan treadmill juga rame sore.
 - Pas lari, belt treadmill ikut jalan dan layarnya nyala. Pas ninju, samsaknya keayun mundur tiap pukulan kena.

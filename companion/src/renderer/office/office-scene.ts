@@ -58,7 +58,15 @@ import {
   type Oven,
   type SinkTap,
 } from "./scene/furniture.js";
-import { Aquarium, buildBench, buildDeskReturn, PunchingBag, Treadmill } from "./scene/gym.js";
+import {
+  Aquarium,
+  buildBench,
+  buildDeskReturn,
+  buildGlassBoard,
+  buildHighTable,
+  PunchingBag,
+  Treadmill,
+} from "./scene/gym.js";
 import { NeonStrips } from "./scene/neon.js";
 import { box, glow, mesh, palette, printed, sceneQuality, standard, unlit } from "./scene/palette.js";
 import { StatusBoard } from "./scene/status-board.js";
@@ -426,6 +434,12 @@ export function buildOffice(): OfficeProps {
         break;
       case "bench":
         root.add(buildBench(piece));
+        break;
+      case "high-table":
+        root.add(buildHighTable(piece));
+        break;
+      case "glass-board":
+        root.add(buildGlassBoard(piece));
         break;
       case "treadmill": {
         const built = new Treadmill(piece);

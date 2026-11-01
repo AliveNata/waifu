@@ -19,7 +19,8 @@ export interface Point {
  * planning pod by the boards on the left, the builders' L-desks along the back wall mirrored
  * around the logo, 2B front and center between Erza and Miruku, the meeting table on the same
  * center line, a game and fitness corner at the back right, the way in by the door, Ruby's studio
- * at the front right, and the lounge at the front left behind a long aquarium.
+ * at the front right, the lounge at the front left behind a long aquarium, and a collaboration
+ * corner between the meeting table and the game corner.
  */
 export const room = { minX: -7, maxX: 10.5, minZ: -5, maxZ: 4, wallHeight: 2.2 } as const;
 
@@ -84,7 +85,9 @@ export type FurnitureKind =
   | "treadmill"
   | "punching-bag"
   | "aquarium"
-  | "bench";
+  | "bench"
+  | "high-table"
+  | "glass-board";
 
 export interface Furniture {
   id: string;
@@ -142,6 +145,9 @@ export type StationId =
   | "treadmill-2"
   | "punching-bag"
   | "aquarium"
+  | "collab-1"
+  | "collab-2"
+  | "collab-3"
   | "rack"
   | "selfie"
   | "plant-lounge"
@@ -382,6 +388,20 @@ const punchingBagSpot = { x: 9.9, z: -2.75 } as const;
 /** A long low aquarium between the front row and the lounge. */
 const aquariumSpot = { x: -1.9, z: 3.6 } as const;
 
+/**
+ * The collaboration corner between the meeting table and the game corner: a round standing-height
+ * table with three stools around it and a glass board behind, for a quick talk that does not need
+ * the meeting table.
+ */
+const collabCenter = { x: 3.6, z: -1.3 } as const;
+/** From the table's middle to each stool: close enough to lean on the table, clear of its edge. */
+const collabStoolRadius = 0.62;
+/** Stools at the south, then back left and back right, evenly round the table. */
+const collabStools = [Math.PI / 2, (7 * Math.PI) / 6, (11 * Math.PI) / 6].map((angle) => ({
+  x: collabCenter.x + collabStoolRadius * Math.cos(angle),
+  z: collabCenter.z + collabStoolRadius * Math.sin(angle),
+}));
+
 const meetingIds = ["meeting-1", "meeting-2", "meeting-3", "meeting-4", "meeting-5", "meeting-6"] as const;
 export type MeetingStationId = (typeof meetingIds)[number];
 
@@ -557,6 +577,48 @@ export const furniture: readonly Furniture[] = [
     ...aquariumSpot,
     width: 2.0,
     depth: 0.5,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  // A light rug marks the collaboration corner off from the walkway around it.
+  {
+    id: "rug-collab",
+    kind: "rug",
+    x: collabCenter.x,
+    z: collabCenter.z - 0.15,
+    width: 2.5,
+    depth: 2.4,
+    yaw: facing.camera,
+    blocksWalking: false,
+  },
+  {
+    id: "high-table",
+    kind: "high-table",
+    ...collabCenter,
+    width: 0.7,
+    depth: 0.7,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  ...collabStools.map(
+    (stool, index): Furniture => ({
+      id: `stool-collab-${index + 1}`,
+      kind: "stool",
+      ...stool,
+      width: 0.36,
+      depth: 0.36,
+      yaw: yawToward(stool, collabCenter),
+      blocksWalking: true,
+    }),
+  ),
+  // Behind the table, facing the camera, so whoever sits there can point at it.
+  {
+    id: "glass-board",
+    kind: "glass-board",
+    x: collabCenter.x,
+    z: collabCenter.z - 1.2,
+    width: 1.1,
+    depth: 0.08,
     yaw: facing.camera,
     blocksWalking: true,
   },
@@ -980,6 +1042,7 @@ export const stations: Record<StationId, Station> = {
   // A short step back from the bag: a chibi's jab reaches about a third of a meter.
   "punching-bag": standing("punching-bag", { x: punchingBagSpot.x, z: punchingBagSpot.z + 0.55 }, facing.backWall),
   aquarium: standing("aquarium", { x: aquariumSpot.x, z: aquariumSpot.z - 0.55 }, facing.camera),
+  ...collabStations(),
   rack: standing("rack", { x: 4.55, z: -3.85 }, facing.backWall),
   // In front of her backdrop, so the ring light and camera frame her like a real shoot.
   selfie: standing("selfie", selfieSpot, yawToward(selfieSpot, tripodSpot)),
@@ -1013,6 +1076,21 @@ function meetingStations(): Record<MeetingStationId, Station> {
 export const arcadeStationIds = ["arcade", "arcade-2"] as const satisfies readonly StationId[];
 /** The treadmills' stations, in floor-plan order, for the belt that belongs to each. */
 export const treadmillStationIds = ["treadmill-1", "treadmill-2"] as const satisfies readonly StationId[];
+
+function collabStations(): Record<"collab-1" | "collab-2" | "collab-3", Station> {
+  const ids = ["collab-1", "collab-2", "collab-3"] as const;
+  return Object.fromEntries(
+    collabStools.map((stool, index) => {
+      const id = ids[index] as (typeof ids)[number];
+      const facingTable = yawToward(stool, collabCenter);
+      // Stepped onto from straight behind the stool, away from the table.
+      const away = { x: stool.x - collabCenter.x, z: stool.z - collabCenter.z };
+      const length = Math.hypot(away.x, away.z);
+      const approach = { x: stool.x + (away.x / length) * 0.5, z: stool.z + (away.z / length) * 0.5 };
+      return [id, { id, spot: stool, facing: facingTable, approach, seatHeight: stoolSeatHeight }];
+    }),
+  ) as Record<(typeof ids)[number], Station>;
+}
 
 /** The meeting seats in order, for the props that belong to each one. */
 export const meetingStationIds: readonly MeetingStationId[] = meetingIds;

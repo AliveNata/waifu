@@ -569,8 +569,9 @@ function deskBitBody(bit: ActiveDeskBit, input: OfficePoseInput): UpperBody {
         break;
       }
       const tick = cycle(using, 1.6);
-      setArm(bones, "left", { x: -0.55, y: 0, z: 1.1 }, { x: 0, y: 1.7, z: 0 });
-      setArm(bones, "right", { x: -0.55 - 0.08 * tick, y: 0, z: 1.05 }, { x: 0, y: 1.6 + 0.15 * tick, z: 0 });
+      // Both hands in front of the chest, as round a handheld: the board in one, the other on it.
+      setArm(bones, "left", { x: -0.6, y: 0, z: 0.95 }, { x: 0, y: 1.9, z: 0 });
+      setArm(bones, "right", { x: -0.62 - 0.06 * tick, y: 0, z: 0.9 }, { x: 0, y: 1.95 + 0.12 * tick, z: 0 });
       pointingFingers(bones, "right", 1);
       bones.head = { x: 0.3, y: 0.08, z: 0 };
       break;
@@ -607,17 +608,17 @@ function deskBitBody(bit: ActiveDeskBit, input: OfficePoseInput): UpperBody {
     }
     case "key-tap":
       // Reaching over to the key in the hub: IK puts the fingertip on it, eyes on the screen.
-      bones.spine = { x: 0.12, y: 0, z: 0.1 };
-      bones.chest = { x: 0, y: -0.15, z: 0 };
+      bones.spine = { x: 0.12, y: 0, z: -0.1 * toward };
+      bones.chest = { x: 0, y: 0.15 * toward, z: 0 };
       bones.head = { x: 0.05, y: 0.1, z: 0 };
-      pointingFingers(bones, "right", 1);
+      pointingFingers(bones, hand, 1);
       break;
     case "padlock":
       // Turned over in the hand in front of the chest, the shackle clicked now and then.
       if (reachingForItem(bit)) {
         break;
       }
-      setArm(bones, hand, { x: -0.7, y: 0, z: 0.95 }, { x: 0.25 * Math.sin(using * 2.4), y: 1.8, z: 0 });
+      setArm(bones, hand, { x: -0.85, y: 0, z: 0.85 }, { x: 0.25 * Math.sin(using * 2.4), y: 1.95, z: 0 });
       Object.assign(bones, curledFingers(0.4 + 0.5 * Math.max(0, Math.sin(using * 5))));
       bones.head = { x: 0.25, y: 0.1 * toward, z: 0 };
       break;
