@@ -256,7 +256,9 @@ test.describe("office HUD", () => {
 
     // Assert: the office shows the line itself, the desktop overlay stays hidden.
     expect(response.status()).toBe(202);
-    await expect(office.locator("#office-dialog")).toContainText("Erza");
+    // The dialog is drawn by the office's frame loop, which runs a frame every couple of seconds on
+    // a software renderer, longer at night when every lamp is lit, so the default 5 s is not enough.
+    await expect(office.locator("#office-dialog")).toContainText("Erza", { timeout: 20_000 });
     expect(await teamOverlayVisible()).toBe(false);
     // Guards the check above: the window exists, it is just kept hidden.
     const teamOverlayExists = await app.evaluate(({ BrowserWindow }) =>
