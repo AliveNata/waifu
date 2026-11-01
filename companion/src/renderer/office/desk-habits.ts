@@ -25,7 +25,14 @@ export type DeskBit =
   | "key-tap"
   | "padlock"
   | "sketch"
-  | "swatch";
+  | "swatch"
+  | "calendar"
+  | "stamp"
+  | "safe"
+  | "phone-test"
+  | "moodboard"
+  | "printout"
+  | "pi-reseat";
 
 /** Things on a desk that a bit picks up or moves. The stage hides them while they are in a hand. */
 export type DeskItem =
@@ -44,7 +51,10 @@ export type DeskItem =
   | "book"
   | "padlock"
   | "security-key"
-  | "swatch";
+  | "swatch"
+  | "stamp"
+  | "test-phone"
+  | "printout";
 
 export type DeskHand = "left" | "right";
 
@@ -83,22 +93,31 @@ const bitSpecs: Record<DeskBit, BitSpec> = {
   padlock: { duration: 5, item: "padlock", prop: "padlock", hand: "right" },
   sketch: { duration: 8, item: "pen", prop: "pen", hand: "right" },
   swatch: { duration: 5, item: "swatch", prop: "swatch", hand: "left" },
+  // The things on the short leg of an L-desk, worked with the hand on that side: the right hand
+  // on the back row and Erza's desk, the left on 2B's and Miruku's.
+  calendar: { duration: 5.5, item: null, prop: null, hand: "left" },
+  stamp: { duration: 7, item: "stamp", prop: "stamp", hand: "right" },
+  safe: { duration: 8, item: null, prop: null, hand: "left" },
+  "phone-test": { duration: 6, item: "test-phone", prop: "phone", hand: "right" },
+  moodboard: { duration: 5.5, item: null, prop: null, hand: "right" },
+  printout: { duration: 6, item: "printout", prop: "printout", hand: "right" },
+  "pi-reseat": { duration: 6.5, item: null, prop: null, hand: "right" },
 };
 
 /** Each member's bits, from what is on their desk and who they are. */
 export const deskBits: Record<MemberId, readonly DeskBit[]> = {
-  twob: ["planner", "sip"],
+  twob: ["planner", "calendar", "sip"],
   chizuru: ["sticky", "idea-pop", "sip"],
   rias: ["sip", "chess"],
-  asuna: ["monitor-check", "duck", "sip"],
-  kobayashi: ["console", "plush-hug", "sip"],
-  yor: ["rose", "sip"],
-  erza: ["cake", "sip"],
+  asuna: ["monitor-check", "duck", "printout", "sip"],
+  kobayashi: ["console", "plush-hug", "phone-test", "sip"],
+  yor: ["rose", "pi-reseat", "sip"],
+  erza: ["cake", "stamp", "sip"],
   ruby: ["mic", "desk-selfie", "sip"],
   arisu: ["kanban-check", "clipboard", "hourglass", "sip"],
   komachi: ["notes", "desk-read", "sip"],
-  miruku: ["monitor-check", "key-tap", "padlock", "sip"],
-  huagua: ["sketch", "swatch", "idea-pop", "sip"],
+  miruku: ["monitor-check", "key-tap", "padlock", "safe", "sip"],
+  huagua: ["sketch", "swatch", "idea-pop", "moodboard", "sip"],
 };
 
 /** Seconds to reach out and take an item, and the same again at the end to put it back. */
@@ -171,6 +190,135 @@ export function chessCarry(bit: ActiveDeskBit): { along: number; lift: number } 
   return { along, lift: Math.sin(Math.PI * along) };
 }
 
+/** Eased progress of `t` from `from` to `to`, held at 0 before and 1 after. */
+function progress(t: number, from: number, to: number): number {
+  const k = Math.min(1, Math.max(0, (t - from) / (to - from)));
+  return k * k * (3 - 2 * k);
+}
+
+/** 0..1 presses, `count` of them evenly over `from` to `to`, resting at 0 outside. */
+function presses(t: number, from: number, to: number, count: number): number {
+  if (t < from || t >= to) {
+    return 0;
+  }
+  return Math.abs(Math.sin(((t - from) / (to - from)) * Math.PI * count));
+}
+
+/**
+ * 2B's desk calendar: the fingertip takes the page's lower edge and carries it over the top to
+ * the back, then taps a date on the new page twice. `flip` is 0 on the front, 1 hung on the back.
+ */
+export interface CalendarStep {
+  hand: "page" | "face" | null;
+  flip: number;
+  press: number;
+}
+
+export function calendarStep(elapsed: number): CalendarStep {
+  if (elapsed < 1.9) {
+    return { hand: "page", flip: progress(elapsed, 0.9, 1.9), press: 0 };
+  }
+  if (elapsed < 3.7) {
+    return { hand: "face", flip: 1, press: presses(elapsed, 2.5, 3.7, 2) };
+  }
+  return { hand: null, flip: 1, press: 0 };
+}
+
+/**
+ * Erza's stamp, once it is in her hand: dabbed on the ink pad twice, pressed once on the top
+ * sheet, then held up while she looks the sheet over. The mark is on the sheet from the press on.
+ */
+export interface StampStep {
+  hand: "pad" | "paper" | null;
+  press: number;
+  stamped: boolean;
+}
+
+export const stampPressAt = 3.3;
+
+export function stampStep(elapsed: number): StampStep {
+  const stamped = elapsed >= stampPressAt;
+  if (elapsed < reachSeconds) {
+    return { hand: null, press: 0, stamped };
+  }
+  if (elapsed < 2.3) {
+    return { hand: "pad", press: presses(elapsed, 1.5, 2.3, 2), stamped };
+  }
+  if (elapsed < 3.6) {
+    return { hand: "paper", press: presses(elapsed, 3.0, 3.6, 1), stamped };
+  }
+  return { hand: null, press: 0, stamped };
+}
+
+/**
+ * Miruku's safe: the combination dialled in, the door pulled open by its handle, a look inside,
+ * the door shut and the dial spun to lock it. `door` is 0 shut to 1 open; `dial` in radians.
+ */
+export interface SafeStep {
+  hand: "dial" | "handle" | null;
+  door: number;
+  dial: number;
+}
+
+const dialSwing = 1.6;
+const dialRate = 3.5;
+const dialSet = dialSwing * Math.sin(1.8 * dialRate);
+
+export function safeStep(elapsed: number): SafeStep {
+  const door = progress(elapsed, 3.3, 4.1) - progress(elapsed, 5.6, 6.3);
+  let dial = 0;
+  if (elapsed >= 0.9 && elapsed < 2.7) {
+    dial = dialSwing * Math.sin((elapsed - 0.9) * dialRate);
+  } else if (elapsed >= 2.7) {
+    // Left where the combination ended, then spun on locking.
+    dial = dialSet + 7 * Math.max(0, Math.min(elapsed, 7.2) - 6.3);
+  }
+  let hand: SafeStep["hand"] = null;
+  if (elapsed < 2.7) {
+    hand = "dial";
+  } else if (elapsed < 4.1 || (elapsed >= 5.6 && elapsed < 6.3)) {
+    hand = "handle";
+  } else if (elapsed >= 6.3 && elapsed < 7.2) {
+    hand = "dial";
+  }
+  return { hand, door, dial };
+}
+
+/**
+ * Huagua's mood board: one card moved to the other spot on the board and patted flat, then a
+ * step back in the chair to look at it. `along` is the card's trip, 0..1.
+ */
+export interface MoodboardStep {
+  hand: boolean;
+  along: number;
+  press: number;
+}
+
+export function moodboardStep(elapsed: number): MoodboardStep {
+  return {
+    hand: elapsed < 3.0,
+    along: progress(elapsed, 1.0, 2.2),
+    press: presses(elapsed, 2.2, 3.0, 2),
+  };
+}
+
+/**
+ * Yor reseating one node's network cable: pulled out, held a moment, pushed back in, then the
+ * node's light blinks fast while it comes back. `out` is how far the plug is out, 0..1.
+ */
+export interface PiStep {
+  hand: boolean;
+  out: number;
+  linkUp: boolean;
+  booting: boolean;
+}
+
+export function piStep(elapsed: number): PiStep {
+  const out = progress(elapsed, 0.9, 1.6) - progress(elapsed, 3.0, 3.6);
+  const linkUp = out < 0.3;
+  return { hand: elapsed < 3.8, out, linkUp, booting: linkUp && elapsed >= 3.0 && elapsed < 5.0 };
+}
+
 /** The face that goes with a bit, or null to keep the mood's own. `time` drives talking and bites. */
 export function deskBitFace(bit: ActiveDeskBit, time: number): ExpressionWeights | null {
   const k = deskBitEnvelope(bit);
@@ -191,6 +339,11 @@ export function deskBitFace(bit: ActiveDeskBit, time: number): ExpressionWeights
     case "idea-pop":
       // Surprise at the idea first, then delight.
       return bit.elapsed < 0.9 ? { surprised: 0.8 * k } : { happy: 0.8 * k };
+    case "stamp":
+      // Pleased with the mark once it is on the paper.
+      return stampStep(bit.elapsed).stamped ? { happy: 0.6 * k } : null;
+    case "moodboard":
+      return moodboardStep(bit.elapsed).hand ? null : { happy: 0.45 * k };
     default:
       return null;
   }

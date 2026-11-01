@@ -457,3 +457,95 @@ export function securityLogTexture(): CanvasTexture {
     "#d2b8ff",
   );
 }
+
+/**
+ * 2B's desk calendar page: the month on a dark band, the days as a grid, today circled in the
+ * accent color. Drawn once when the office is built, from the office's own clock zone.
+ */
+export function calendarTexture(now: Date = new Date()): CanvasTexture {
+  const { canvas: element, ctx } = canvas(128, 112);
+  const zone = { timeZone: "Asia/Jakarta" } as const;
+  const month = now
+    .toLocaleString("id-ID", { ...zone, month: "short" })
+    .replace(".", "")
+    .toUpperCase();
+  const today = Number(now.toLocaleString("en-US", { ...zone, day: "numeric" }));
+  ctx.fillStyle = "#f7f3ea";
+  ctx.fillRect(0, 0, 128, 112);
+  ctx.fillStyle = "#2d3a5c";
+  ctx.fillRect(0, 0, 128, 30);
+  ctx.fillStyle = "#f7f3ea";
+  ctx.font = `600 20px ${uiFont}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(month, 64, 16);
+  const cell = { width: 16, height: 15 };
+  for (let day = 1; day <= 31; day++) {
+    const column = (day - 1) % 7;
+    const row = Math.floor((day - 1) / 7);
+    const x = 10 + column * cell.width + cell.width / 2;
+    const y = 38 + row * cell.height + cell.height / 2;
+    if (day === today) {
+      ctx.strokeStyle = palette.accent;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(x, y, 7, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.fillStyle = day === today ? palette.accent : "#3a3058";
+    ctx.font = `500 9px ${uiFont}`;
+    ctx.fillText(String(day), x, y);
+  }
+  return texture(element);
+}
+
+/** The red APPROVED mark Erza's stamp leaves on a sheet. */
+export function approvedTexture(): CanvasTexture {
+  const { canvas: element, ctx } = canvas(160, 64);
+  ctx.fillStyle = "#f7f3ea";
+  ctx.fillRect(0, 0, 160, 64);
+  ctx.strokeStyle = "#c0392b";
+  ctx.lineWidth = 5;
+  ctx.strokeRect(6, 6, 148, 52);
+  ctx.fillStyle = "#c0392b";
+  ctx.font = `800 26px ${uiFont}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("APPROVED", 80, 33);
+  return texture(element);
+}
+
+/** Huagua's mood board: photo blocks, swatches and a type sample pinned on cork. */
+export function moodboardTexture(): CanvasTexture {
+  const { canvas: element, ctx } = canvas(160, 128);
+  ctx.fillStyle = "#d9b48a";
+  ctx.fillRect(0, 0, 160, 128);
+  const blocks: readonly [number, number, number, number, string][] = [
+    [10, 10, 52, 38, "#9fd2b0"],
+    [70, 12, 40, 30, "#f4a6c4"],
+    [116, 10, 34, 46, "#5fa8d3"],
+    [12, 58, 36, 50, "#f7f3ea"],
+    [56, 50, 50, 34, "#8a5fd0"],
+    [112, 64, 38, 22, "#e8833a"],
+  ];
+  for (const [x, y, width, height, color] of blocks) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, width, height);
+  }
+  ctx.fillStyle = "#2a2140";
+  ctx.font = `700 22px ${uiFont}`;
+  ctx.textBaseline = "top";
+  ctx.fillText("Aa", 18, 70);
+  ctx.fillStyle = "#c0392b";
+  for (const [x, y] of [
+    [36, 12],
+    [90, 14],
+    [133, 12],
+    [80, 52],
+  ] as const) {
+    ctx.beginPath();
+    ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  return texture(element);
+}

@@ -166,20 +166,22 @@ Setup meja sesuai role:
 
 | Anggota | Yang dilakuin |
 |---|---|
-| 2B | Buka planner dan baca |
+| 2B | Buka planner dan baca, atau noleh ke kalender meja di sayap L, ngebalik halamannya lewat atas, terus ngetuk tanggal hari ini dua kali |
 | Arisu | Condong ke papan sprint di monitor kanannya sambil megang dagu, ngangkat clipboard terus nyentang daftar satu-satu, atau ngebalik jam pasir terus ngelihatin pasirnya turun |
 | Komachi | Nulis di notebook pakai pena, atau ngambil buku paling atas dari tumpukan terus baca |
-| Miruku | Ngecek log di monitor vertikal, nekan security key di hub beberapa kali, atau mainin gembok di tangan |
-| Huagua | Gambar di tablet pakai stylus, ngangkat kipas swatch terus bandingin warnanya sama layar, atau tiba tiba dapet ide sambil ngacungin jari |
-| Asuna | Ngecek job run di monitor vertikal, atau ngajak ngomong bebek karetnya |
-| Kobayashi | Ambil konsol dari dock terus main pakai dua tangan, atau meluk boneka naga sambil senyum |
-| Erza | Makan kue pakai garpu, suap demi suap |
-| Yor | Ambil mawar dari vas dan nyium wanginya |
+| Miruku | Ngecek log di monitor vertikal, nekan security key di hub beberapa kali, mainin gembok di tangan, atau muter kunci kombinasi brankas kecil di sayap L, buka pintunya, ngintip isinya (dua batang emas dan security key cadangan), terus ditutup dan dialnya diputer lagi |
+| Huagua | Gambar di tablet pakai stylus, ngangkat kipas swatch terus bandingin warnanya sama layar, tiba tiba dapet ide sambil ngacungin jari, atau mindahin satu kartu warna di easel mood board, nepuk-nepuk biar nempel, terus mundur ngelihatin sambil megang dagu |
+| Asuna | Ngecek job run di monitor vertikal, ngajak ngomong bebek karetnya, atau ngambil kertas print grafik dari tumpukan di sayap L terus baca pakai dua tangan |
+| Kobayashi | Ambil konsol dari dock terus main pakai dua tangan, meluk boneka naga sambil senyum, atau ngambil HP testing dari stand di sayap L, di-tap pakai tangan satunya, terus balikin ke stand |
+| Erza | Makan kue pakai garpu suap demi suap, atau ngambil stempel di sayap L, nyelupin ke bantalan tinta dua kali, ngecap kertas paling atas sampai muncul cap merah APPROVED, terus ngelihatin hasilnya sambil senyum |
+| Yor | Ambil mawar dari vas dan nyium wanginya, atau nyabut kabel jaringan salah satu node cluster Raspberry Pi di sayap L. Lampu node itu mati selama kabelnya lepas, kedip cepet pas dicolok lagi, terus balik normal |
 | Ruby | Ngomong ke mic, atau selfie pakai HP |
 | Rias | Nyeruput teh, atau mindahin bidak catur terus mikir sambil megang dagu |
 | Chizuru | Nulis di sticky note pakai spidol, atau tiba tiba dapet ide sambil ngacungin jari |
 
 Selain itu semua cast sesekali nyeruput kopi dari gelasnya sendiri, selama gelasnya ada di meja dan masih ada isinya.
+
+Barang di sayap L ditaruh di samping pinggul yang duduk, jadi pas makenya badannya muter ke samping, bukan condong ke depan. Sayap L 2B dan Miruku ada di kiri mereka, jadi mereka pakai tangan kiri. Yang lain pakai tangan kanan. Lampu di cluster Pi Yor kedip terus kayak lagi ada trafik, walaupun nggak lagi dipegang.
 
 **Pas nggak ada tugas**, tiap cast milih kegiatan sendiri dan jalan ke sana tanpa nembus furnitur atau cast lain: kerja santai di meja, bikin kopi, ngemil di kulkas, cuci tangan di wastafel, manasin makanan di oven, nonton TV, main game di sofa, main arcade, lari di treadmill, ninju samsak, ngelihatin ikan di akuarium, ngobrol di meja tinggi pojok kolaborasi, nyiram tanaman, rebahan di beanbag, baca, ngobrol di meja bar, meeting di meja tengah, atau main pingpong. Kira-kira setengah waktunya di meja, setengahnya istirahat. Biar nggak monoton:
 - Kegiatan yang sama nggak dipilih dua kali berturut-turut, dan tiap kegiatan punya jeda sebelum bisa diulang.

@@ -1,5 +1,15 @@
 import { addRotation, armsRelaxed, type BoneRotation, type Pose, type PoseBones } from "../common/pose.js";
-import { type ActiveDeskBit, reachingForItem, reachSeconds } from "./desk-habits.js";
+import {
+  type ActiveDeskBit,
+  calendarStep,
+  deskBitEnvelope,
+  moodboardStep,
+  piStep,
+  reachingForItem,
+  reachSeconds,
+  safeStep,
+  stampStep,
+} from "./desk-habits.js";
 import type { ChatGesture, ChatReaction } from "./office-chatter.js";
 import { type OfficeAction, ovenStep } from "./office-director.js";
 import type { SeatFit } from "./seating.js";
@@ -630,8 +640,103 @@ function deskBitBody(bit: ActiveDeskBit, input: OfficePoseInput): UpperBody {
       setArm(bones, hand, { x: -1.05, y: 0, z: 0.7 }, { x: 0, y: 1.5, z: 0 });
       bones.head = { x: 0.0, y: (0.1 + 0.18 * Math.sin(using * 1.2)) * toward, z: 0.05 };
       break;
+    case "calendar": {
+      // Turned to the calendar on the return: the page flipped over, a date tapped, a nod.
+      const step = calendarStep(bit.elapsed);
+      leanToReturn(bones, toward, deskBitEnvelope(bit));
+      if (step.hand === "face") {
+        pointingFingers(bones, hand, 1);
+      }
+      if (step.hand === null) {
+        bones.head = addRotation(bones.head, { x: 0.08 * Math.max(0, Math.sin(bit.elapsed * 4)) });
+      }
+      break;
+    }
+    case "stamp": {
+      const step = stampStep(bit.elapsed);
+      if (reachingForItem(bit)) {
+        leanToReturn(bones, toward, reachLean(bit));
+        break;
+      }
+      if (step.hand !== null) {
+        leanToReturn(bones, toward, 1);
+        break;
+      }
+      // Stamp lifted, looking the stamped sheet over.
+      leanToReturn(bones, toward, 0.6);
+      setArm(bones, hand, { x: -0.85, y: 0, z: 0.9 }, { x: 0, y: 1.8, z: 0 });
+      Object.assign(bones, curledFingers(0.8));
+      break;
+    }
+    case "safe": {
+      const step = safeStep(bit.elapsed);
+      leanToReturn(bones, toward, deskBitEnvelope(bit));
+      if (step.hand === "dial") {
+        Object.assign(bones, curledFingers(0.6));
+      } else if (step.hand === null && step.door > 0.5) {
+        // Bent down to look inside.
+        bones.spine = addRotation(bones.spine, { x: 0.12 });
+        bones.head = addRotation(bones.head, { x: 0.15 });
+      }
+      break;
+    }
+    case "phone-test": {
+      // The phone in the holding hand, the other hand tapping through the build.
+      if (reachingForItem(bit)) {
+        leanToReturn(bones, toward, reachLean(bit));
+        break;
+      }
+      const tap = cycle(using, 0.7);
+      setArm(bones, hand, { x: -0.6, y: 0, z: 0.95 }, { x: 0, y: 1.9, z: 0 });
+      setArm(bones, other, { x: -0.62 - 0.05 * tap, y: 0, z: 0.9 }, { x: 0, y: 1.95 + 0.1 * tap, z: 0 });
+      pointingFingers(bones, other, 1);
+      bones.head = { x: 0.32, y: 0.06 * toward, z: 0 };
+      break;
+    }
+    case "moodboard": {
+      const step = moodboardStep(bit.elapsed);
+      leanToReturn(bones, toward, deskBitEnvelope(bit));
+      if (step.hand) {
+        pointingFingers(bones, hand, 1);
+      } else {
+        // Sitting back to judge it, hand to the chin, head on one side.
+        setArm(bones, hand, { x: -0.9, y: 0, z: 0.9 }, { x: 0, y: 2.2, z: 0 });
+        bones.head = addRotation(bones.head, { z: 0.15 * toward });
+      }
+      break;
+    }
+    case "printout": {
+      // The sheet up in both hands, reading the chart down, a small nod at the numbers.
+      if (reachingForItem(bit)) {
+        leanToReturn(bones, toward, reachLean(bit));
+        break;
+      }
+      setArm(bones, "left", { x: -0.7, y: 0, z: 0.9 }, { x: 0, y: 1.85, z: 0 });
+      setArm(bones, "right", { x: -0.7, y: 0, z: 0.9 }, { x: 0, y: 1.85, z: 0 });
+      bones.spine = { x: -0.02, y: 0, z: 0 };
+      bones.head = { x: 0.28 + 0.05 * Math.max(0, Math.sin(using * 2.5)), y: 0, z: 0 };
+      break;
+    }
+    case "pi-reseat": {
+      const step = piStep(bit.elapsed);
+      leanToReturn(bones, toward, deskBitEnvelope(bit));
+      if (step.hand) {
+        Object.assign(bones, curledFingers(0.7));
+      }
+      break;
+    }
   }
   return { bones };
+}
+
+/**
+ * Turned in the chair to the short leg of the L-desk, which is beside the sitter rather than in
+ * front: more chest turn and sideways lean than reaching across the main desk.
+ */
+function leanToReturn(bones: PoseBones, toward: number, amount: number): void {
+  bones.spine = { x: 0.14 * amount, y: 0, z: -0.3 * toward * amount };
+  bones.chest = { x: 0.05 * amount, y: 0.5 * toward * amount, z: 0 };
+  bones.head = { x: 0.3 * amount, y: 0.55 * toward * amount, z: 0 };
 }
 
 /**
