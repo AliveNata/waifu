@@ -365,6 +365,8 @@ Promise.all([quality, chatShown])
     await afterPaint();
     setSceneQuality(chosen);
     new OfficePage(bridge, canvas).start();
+    // Hook signals are only listened to from here on: anything that drives the office waits for this.
+    document.documentElement.dataset.office = "ready";
   })
   .catch((error: unknown) => {
     console.error("[office] failed to start the office scene", error);
