@@ -340,6 +340,9 @@ export class OfficeLife {
     private readonly ritual: (memberId: MemberId) => RitualNow | null = () => null,
   ) {}
 
+  /** Teammates playing ping-pong against Alyx: their game lasts as long as he keeps playing. */
+  private readonly bossGames = new Set<MemberId>();
+
   /** Standup and lunch already had today, by member, as "standup:2026-11-01". */
   private readonly ritualsDone = new Map<MemberId, Set<string>>();
 
@@ -467,6 +470,48 @@ export class OfficeLife {
     return seats[Math.floor(this.random() * seats.length) % Math.max(1, seats.length)] ?? null;
   }
 
+  /**
+   * Alyx wants a game of ping-pong from his end of the table: the teammate on a break the longest
+   * comes to `station`, the other end. Returns them, or null when nobody is free to play.
+   */
+  playBoss(station: StationId, now: number): MemberId | null {
+    const partner = this.idlePartner(null);
+    if (partner === null || this.reserved.has(station)) {
+      return null;
+    }
+    const previous = this.choices.get(partner);
+    if (previous !== undefined) {
+      this.finish(partner, previous, now);
+    }
+    this.dropQueue(partner);
+    this.choices.set(partner, {
+      activity: "pingpong",
+      station,
+      action: "pingpong",
+      // Until Alyx stops; this is only the upper bound.
+      durationMs: 30 * 60 * 1000,
+      arrivedAt: null,
+      chosenAt: now,
+      errand: null,
+      step: 0,
+    });
+    this.reserved.set(station, partner);
+    this.bossGames.add(partner);
+    return partner;
+  }
+
+  /** Alyx put his paddle down: his opponent goes back to their own routine. */
+  endBossGame(memberId: MemberId, now: number): void {
+    if (!this.bossGames.delete(memberId)) {
+      return;
+    }
+    const current = this.choices.get(memberId);
+    if (current !== undefined) {
+      this.finish(memberId, current, now);
+      this.choices.delete(memberId);
+    }
+  }
+
   /** The member's opponent while a ping-pong game is on, or null. */
   partnerOf(memberId: MemberId): MemberId | null {
     return this.partners.get(memberId) ?? null;
@@ -510,6 +555,7 @@ export class OfficeLife {
 
   /** Real work takes over: free the spot and make the next idle choice a break, not more desk. */
   interrupt(memberId: MemberId, now: number): void {
+    this.bossGames.delete(memberId);
     const current = this.choices.get(memberId);
     if (current !== undefined) {
       this.finish(memberId, current, now);
@@ -533,7 +579,7 @@ export class OfficeLife {
   }
 
   private isOver(memberId: MemberId, choice: LifeChoice, now: number): boolean {
-    if (choice.activity === "pingpong") {
+    if (choice.activity === "pingpong" && !this.bossGames.has(memberId)) {
       // When one player leaves (time is up, or Claude Code calls them to work) the game is over.
       const partner = this.partners.get(memberId);
       if (partner === undefined || this.choices.get(partner)?.activity !== "pingpong") {
@@ -645,7 +691,7 @@ export class OfficeLife {
    * not already playing and can still play. The one idle the longest goes, so it is fair and
    * does not spend a random draw.
    */
-  private idlePartner(memberId: MemberId): MemberId | null {
+  private idlePartner(memberId: MemberId | null): MemberId | null {
     let best: { id: MemberId; since: number } | null = null;
     for (const [id, choice] of this.choices) {
       // Someone carrying a mug or a laptop finishes that first, and nobody is pulled out of

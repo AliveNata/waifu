@@ -28,7 +28,7 @@ const portraitFraming: SpeakerFraming = { height: 0.55, drop: 0.06 };
 /** Keep the portrait loaded briefly after a line, so back-to-back lines do not flicker. */
 const portraitHoldMs = 1500;
 
-const firstPersonControls = "WASD jalan · Shift lari · mouse buat noleh · E buat nyapa · Esc buat berhenti";
+const firstPersonControls = "WASD jalan · Shift lari · mouse buat noleh · E buat interaksi · Esc buat berhenti";
 const firstPersonPaused = "Klik kantornya buat lanjut jalan · Esc buat keluar dari mode Alyx";
 
 class OfficePage {
@@ -43,7 +43,8 @@ class OfficePage {
   private readonly firstPersonHint = requireElement("first-person-hint", HTMLElement);
   private readonly crosshair = requireElement("crosshair", HTMLElement);
   private readonly interactPrompt = requireElement("interact-prompt", HTMLElement);
-  private interactFor: MemberId | null = null;
+  /** The label the prompt shows now, to rebuild it only when it changes. */
+  private interactLabel: string | null = null;
   private readonly frameRate = new FrameRate();
   private fpsVisible = false;
   private fpsShownAt = 0;
@@ -308,16 +309,16 @@ class OfficePage {
       this.firstPersonHint.textContent = hint;
     }
     this.firstPersonHint.hidden = !on;
-    const target = walking ? this.stage.firstPersonTarget() : null;
-    if (target !== this.interactFor) {
-      this.interactFor = target;
-      if (target !== null) {
+    const label = walking ? (this.stage.firstPersonTarget()?.label ?? null) : null;
+    if (label !== this.interactLabel) {
+      this.interactLabel = label;
+      if (label !== null) {
         const key = document.createElement("kbd");
         key.textContent = "E";
-        this.interactPrompt.replaceChildren(key, ` Sapa ${roster[target].displayName}`);
+        this.interactPrompt.replaceChildren(key, ` ${label}`);
       }
     }
-    this.interactPrompt.hidden = target === null;
+    this.interactPrompt.hidden = label === null;
   }
 
   private setFirstPerson(on: boolean): void {
