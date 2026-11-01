@@ -51,11 +51,12 @@ interface Activity {
 const sofaSeats: readonly StationId[] = ["sofa-1", "sofa-2", "sofa-3"];
 
 /**
- * Desk time weighs about as much as every break together (weight times duration),
- * which is the "balanced" mix: roughly half the idle time at the desk.
+ * Desk time weighs well over every break together (weight times duration): about three quarters
+ * of the idle time is spent at the desk, with longer stretches there, so the office reads as a
+ * place where people work and the walking stays occasional.
  */
 const activities: Record<ActivityId, Activity> = {
-  desk: { stations: null, action: "desk-idle", durationSeconds: [25, 50], weight: 3, cooldownSeconds: 0 },
+  desk: { stations: null, action: "desk-idle", durationSeconds: [60, 120], weight: 4, cooldownSeconds: 0 },
   coffee: { stations: ["coffee"], action: "brew", durationSeconds: [8, 14], weight: 1, cooldownSeconds: 90 },
   snack: { stations: ["fridge"], action: "snack", durationSeconds: [5, 9], weight: 0.6, cooldownSeconds: 120 },
   tv: { stations: sofaSeats, action: "watch", durationSeconds: [20, 40], weight: 0.9, cooldownSeconds: 60 },
@@ -293,6 +294,11 @@ export class OfficeLife {
   /** The rest of a multi-step activity, such as walking the coffee back to the desk. */
   private readonly queued = new Map<MemberId, LifeChoice[]>();
   private readonly lastDone = new Map<MemberId, Map<ActivityId, number>>();
+  /**
+   * The activity last picked, not the last step taken: coffee ends with a stretch back at the
+   * desk, and comparing with that step would let coffee be picked again straight after.
+   */
+  private readonly lastPicked = new Map<MemberId, ActivityId>();
   private readonly reserved = new Map<StationId, MemberId>();
   private readonly cameFromWork = new Set<MemberId>();
   /** Ping-pong opponents, both ways. A game always has two players or none. */
@@ -327,10 +333,11 @@ export class OfficeLife {
       this.choices.set(memberId, next);
       return next;
     }
-    const [next, ...rest] = this.choose(memberId, now, current?.activity ?? null);
+    const [next, ...rest] = this.choose(memberId, now, this.lastPicked.get(memberId) ?? current?.activity ?? null);
     if (next === undefined) {
       throw new Error(`no idle choice for ${memberId}`);
     }
+    this.lastPicked.set(memberId, next.activity);
     this.choices.set(memberId, next);
     this.queued.set(memberId, rest);
     // Every shared spot along the way is held from the start, so nobody takes the sink or a seat

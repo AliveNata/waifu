@@ -32,7 +32,7 @@ npm start
 ```
 
 - `fetch-base-model` ngambil model cadangan, dipakai selama anggota tim belum punya `.vrm` sendiri.
-- `team:install` masang tujuh subagent dan blok 2B ke `%USERPROFILE%\.claude`.
+- `team:install` masang sebelas subagent dan blok 2B ke `%USERPROFILE%\.claude`.
 - `hooks:install` nyambungin Claude Code ke companion. Tanpa ini companion tetap nyala, tapi nggak pernah bereaksi.
 - Dua installer itu bikin backup dulu dan punya `--dry-run` buat lihat perubahannya tanpa nulis.
 - Sesi 2B opsional dan butuh API key [Groq](https://console.groq.com). Key-nya diminta pas pertama kali lo ketik `@2B` di chat kantor, terus disimpan terenkripsi di komputer lo. Bisa juga lewat variabel `GROQ_API_KEY`.

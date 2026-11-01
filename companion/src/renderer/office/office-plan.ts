@@ -164,6 +164,12 @@ export type StationId =
   | "meeting-4"
   | "meeting-5"
   | "meeting-6"
+  | "meeting-7"
+  | "meeting-8"
+  | "meeting-9"
+  | "meeting-10"
+  | "meeting-11"
+  | "meeting-12"
   | "pingpong-west"
   | "pingpong-east"
   | VisitStationId
@@ -317,19 +323,20 @@ interface Pod {
 }
 
 /**
- * Planning, by the boards: Rias and Arisu on the north side, Chizuru and Komachi across from them.
- * Straight desks pushed together, not L-desks, so the four talk across one table.
+ * Planning, at the front right beside Miruku: Rias and Arisu on the north side facing the room,
+ * Chizuru and Komachi across from them. Straight desks pushed together, not L-desks, so the four
+ * talk across one table. The boards stay on the left wall, a walk away for drawing sessions.
  */
-const planningPod: Pod = { centerZ: -0.5, deskWidth: 1.3, deskDepth: 0.65 };
+const planningPod: Pod = { centerZ: 1.9, deskWidth: 1.3, deskDepth: 0.65 };
 
 type PodMember = "rias" | "chizuru" | "arisu" | "komachi";
 type PodSide = "north" | "south";
 
 export const podSeats: Record<PodMember, { x: number; side: PodSide; pod: Pod }> = {
-  rias: { x: -5.1, side: "north", pod: planningPod },
-  arisu: { x: -3.7, side: "north", pod: planningPod },
-  chizuru: { x: -5.1, side: "south", pod: planningPod },
-  komachi: { x: -3.7, side: "south", pod: planningPod },
+  rias: { x: 4.85, side: "north", pod: planningPod },
+  arisu: { x: 6.25, side: "north", pod: planningPod },
+  chizuru: { x: 4.85, side: "south", pod: planningPod },
+  komachi: { x: 6.25, side: "south", pod: planningPod },
 };
 
 /** From the desk's middle to the seat, as at 2B's desk. */
@@ -404,7 +411,7 @@ const aquariumSpot = { x: -1.9, z: 3.6 } as const;
  * table with three stools around it and a glass board behind, for a quick talk that does not need
  * the meeting table.
  */
-const collabCenter = { x: 3.6, z: -1.3 } as const;
+const collabCenter = { x: 4.2, z: -1.3 } as const;
 /** From the table's middle to each stool: close enough to lean on the table, clear of its edge. */
 const collabStoolRadius = 0.62;
 /** Stools at the south, then back left and back right, evenly round the table. */
@@ -413,17 +420,61 @@ const collabStools = [Math.PI / 2, (7 * Math.PI) / 6, (11 * Math.PI) / 6].map((a
   z: collabCenter.z + collabStoolRadius * Math.sin(angle),
 }));
 
-const meetingIds = ["meeting-1", "meeting-2", "meeting-3", "meeting-4", "meeting-5", "meeting-6"] as const;
+const meetingIds = [
+  "meeting-1",
+  "meeting-2",
+  "meeting-3",
+  "meeting-4",
+  "meeting-5",
+  "meeting-6",
+  "meeting-7",
+  "meeting-8",
+  "meeting-9",
+  "meeting-10",
+  "meeting-11",
+  "meeting-12",
+] as const;
 export type MeetingStationId = (typeof meetingIds)[number];
 
-/** The meeting table's middle, and its six chairs: three on the back side facing the camera, three in front. */
-/** On the room's center line, under the logo and in line with 2B's desk. */
-const meetingTableX = 0.4;
-const meetingSeatXs = [meetingTableX - 0.8, meetingTableX, meetingTableX + 0.8] as const;
+/**
+ * The meeting table, on the room's center line under the logo and in line with 2B's desk, with
+ * twelve chairs so the whole team fits: five along each side and one at each end.
+ */
+const meetingTable = { x: 0.4, z: -1.3, width: 3.25, depth: 0.9 } as const;
+/** Chairs along each side, as close together as chibi elbows allow. */
+const meetingSeatGap = 0.65;
+const meetingSideXs = [-2, -1, 0, 1, 2].map((step) => meetingTable.x + step * meetingSeatGap);
+/** From the table's edge to a chair's middle. */
+const meetingChairReach = 0.3;
 const meetingSeats = [
-  ...meetingSeatXs.map((x) => ({ x, z: -2.05, yaw: facing.camera })),
-  ...meetingSeatXs.map((x) => ({ x, z: -0.55, yaw: facing.backWall })),
-] as const;
+  ...meetingSideXs.map((x) => ({
+    x,
+    z: meetingTable.z - meetingTable.depth / 2 - meetingChairReach,
+    yaw: facing.camera,
+    end: false,
+  })),
+  ...meetingSideXs.map((x) => ({
+    x,
+    z: meetingTable.z + meetingTable.depth / 2 + meetingChairReach,
+    yaw: facing.backWall,
+    end: false,
+  })),
+  { x: meetingTable.x - meetingTable.width / 2 - 0.35, z: meetingTable.z, yaw: facing.right, end: true },
+  { x: meetingTable.x + meetingTable.width / 2 + 0.35, z: meetingTable.z, yaw: facing.leftWall, end: true },
+];
+
+/**
+ * Where each seat's laptop goes on the table, in the table's own frame. A laptop's keys face +z in
+ * its own frame, so each is turned to face the chair it belongs to.
+ */
+export const meetingLaptopSpots: readonly { x: number; z: number; yaw: number }[] = meetingSeats.map((seat) => {
+  if (seat.end) {
+    const east = seat.x > meetingTable.x;
+    return { x: (east ? 1 : -1) * (meetingTable.width / 2 - 0.17), z: 0, yaw: east ? Math.PI / 2 : -Math.PI / 2 };
+  }
+  const back = seat.z < meetingTable.z;
+  return { x: seat.x - meetingTable.x, z: back ? -0.22 : 0.22, yaw: back ? Math.PI : 0 };
+});
 
 /**
  * The pantry is an L: the counter along the back wall, and at its east end a raised bar running
@@ -462,7 +513,6 @@ export const furniture: readonly Furniture[] = [
     yaw: facing.backWall,
     blocksWalking: true,
   },
-  deskReturn("ruby", rubySeat.x, rubyDeskWidth, rubyDeskZ - rubyDeskDepth / 2, 1, -1),
   {
     id: "chair-ruby",
     kind: "chair",
@@ -527,7 +577,7 @@ export const furniture: readonly Furniture[] = [
     blocksWalking: true,
   },
   // A rubber mat marks the game and fitness corner off from the office floor.
-  { id: "rug-game", kind: "rug", x: 7.8, z: -3.45, width: 5.2, depth: 3.0, yaw: facing.camera, blocksWalking: false },
+  { id: "rug-game", kind: "rug", x: 7.85, z: -3.45, width: 5.1, depth: 3.0, yaw: facing.camera, blocksWalking: false },
   ...arcadeX.map(
     (x, index): Furniture => ({
       id: index === 0 ? "arcade" : `arcade-${index + 1}`,
@@ -597,7 +647,7 @@ export const furniture: readonly Furniture[] = [
     kind: "rug",
     x: collabCenter.x,
     z: collabCenter.z - 0.15,
-    width: 2.5,
+    width: 2.1,
     depth: 2.4,
     yaw: facing.camera,
     blocksWalking: false,
@@ -837,10 +887,10 @@ export const furniture: readonly Furniture[] = [
   {
     id: "meeting-table",
     kind: "meeting-table",
-    x: meetingTableX,
-    z: -1.3,
-    width: 2.6,
-    depth: 0.9,
+    x: meetingTable.x,
+    z: meetingTable.z,
+    width: meetingTable.width,
+    depth: meetingTable.depth,
     yaw: facing.camera,
     blocksWalking: true,
   },
@@ -959,8 +1009,8 @@ const placeStations: Record<Exclude<StationId, VisitStationId>, Station> = {
     id: "desk-ruby",
     spot: rubySeat,
     facing: facing.camera,
-    // From the left, the desk's return being on her right, and a little back from the desk: her desk
-    // is as shallow as the pod desks, so right beside the seat is too close to its edge.
+    // From the left, the side away from the camera tripod, and a little back from the desk: her
+    // desk is as shallow as the pod desks, so right beside the seat is too close to its edge.
     approach: { x: rubySeat.x - chairSideStep, z: rubySeat.z - podApproachClearance },
     seatHeight: chairSeatHeight,
   },
@@ -1102,13 +1152,12 @@ function meetingStations(): Record<MeetingStationId, Station> {
   return Object.fromEntries(
     meetingSeats.map((seat, index) => {
       const id = meetingIds[index] as MeetingStationId;
-      const back = seat.z < -1.3;
-      // End seats are entered from the outer end of the table; the middle ones from behind the
+      const back = seat.z < meetingTable.z;
+      // Head seats are entered from beyond the end of the table; the side ones from behind the
       // chair, since a neighbour sits on either side.
-      const approach =
-        seat.x === meetingTableX
-          ? { x: seat.x, z: seat.z + (back ? -0.55 : 0.55) }
-          : { x: seat.x + (seat.x < meetingTableX ? -chairSideStep : chairSideStep), z: seat.z };
+      const approach = seat.end
+        ? { x: seat.x + (seat.x < meetingTable.x ? -chairSideStep : chairSideStep), z: seat.z }
+        : { x: seat.x, z: seat.z + (back ? -0.55 : 0.55) };
       return [id, { id, spot: { x: seat.x, z: seat.z }, facing: seat.yaw, approach, seatHeight: chairSeatHeight }];
     }),
   ) as Record<MeetingStationId, Station>;

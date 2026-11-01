@@ -16,9 +16,11 @@ import { loadVrm } from "../common/vrm-loader.js";
 import { VrmOfficeAvatar } from "./avatar.js";
 import { ChatPanel } from "./chat-panel.js";
 import { MusicPanel } from "./music-panel.js";
+import { OfficePointer } from "./office-pointer.js";
 import { type CloseupRect, closeupRect, OfficeStage, portraitSize, teamDialogDock } from "./office-stage.js";
 import { setSceneQuality } from "./scene/palette.js";
 import { SpeechBubbles } from "./speech-bubbles.js";
+import { StatusDialog } from "./status-dialog.js";
 
 /** Head and shoulders: the portrait is small, so the face has to fill it. */
 const portraitFraming: SpeakerFraming = { height: 0.55, drop: 0.06 };
@@ -28,6 +30,8 @@ const portraitHoldMs = 1500;
 class OfficePage {
   private readonly status = new StatusChip(requireElement("status", HTMLElement));
   private readonly caption = requireElement("closeup-caption", HTMLElement);
+  private readonly statusDialog: StatusDialog;
+  private readonly pointer: OfficePointer;
   private readonly speechBubbles = new SpeechBubbles(requireElement("speech-layer", HTMLElement));
   private readonly chatPanel = requireElement("chat", HTMLElement);
   private readonly dialogBox = new DialogBox(requireElement("office-dialog", HTMLElement));
@@ -57,11 +61,27 @@ class OfficePage {
     canvas: HTMLCanvasElement,
   ) {
     this.stage = new OfficeStage(canvas, () => this.tick());
+    this.statusDialog = new StatusDialog(
+      requireElement("status-dialog", HTMLDialogElement),
+      requireElement("status-dialog-summary", HTMLElement),
+      requireElement("status-dialog-rows", HTMLTableSectionElement),
+      requireElement("status-dialog-close", HTMLButtonElement),
+      () => this.stage.statusNow(),
+    );
+    this.pointer = new OfficePointer(
+      canvas,
+      this.stage,
+      requireElement("member-tip", HTMLElement),
+      () => this.statusDialog.open(),
+      () => document.querySelector("dialog[open]") !== null,
+    );
     this.models = new MemberModelLoader(bridge);
     this.speakerModels = new SpeakerModels(this.models, () => this.portrait.currentSpeaker());
   }
 
   start(): void {
+    this.pointer.start();
+    requireElement("status-open", HTMLButtonElement).addEventListener("click", () => this.statusDialog.open());
     this.bridge.onSignal((signal) => {
       this.conversation.handle(signal, this.conversationMode);
       if (signal.kind === "reaction") {
@@ -247,6 +267,8 @@ class OfficePage {
     this.renderCaption(rect);
     this.speechBubbles.render(this.stage.speechAnchors(), this.stage.closeupFocus() === null ? null : rect);
     this.renderDialog(now);
+    this.pointer.refresh();
+    this.statusDialog.render();
   }
 
   /**

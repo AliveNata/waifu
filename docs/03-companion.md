@@ -116,18 +116,24 @@ Tiap zona punya bentuk yang kebaca jelas dari kamera, dan meja meeting, meja 2B,
 
 | Zona | Isi |
 |---|---|
-| Pod planning | Empat meja lurus yang nempel saling hadap di depan papan tulis: Rias dan Arisu di sisi utara menghadap ruangan, Chizuru dan Komachi di seberangnya |
+| Pod planning | Empat meja lurus yang nempel saling hadap di depan kanan, di sebelah meja Miruku: Rias dan Arisu di sisi utara menghadap ruangan, Chizuru dan Komachi di seberangnya. Papan tulis tetap di dinding kiri |
 | Deretan meja belakang | Meja L buat yang ngerjain: Kobayashi dan Huagua di kiri logo, Asuna dan Yor di kanan, lemari printer tepat di bawah logo, plus rak server di ujung sebelah Yor. Sayap meja L semuanya di kanan, jadi deretannya keliatan seragam |
-| Tengah | Meja meeting enam kursi, di garis tengah ruangan |
+| Tengah | Meja meeting dua belas kursi (lima di tiap sisi, satu di tiap ujung), di garis tengah ruangan |
 | Pojok kolaborasi | Di antara meja meeting dan zona game, di atas karpet terang: meja tinggi bundar dengan tiga bar stool dan papan kaca berisi sticky note. Dipakai buat ngobrol singkat tanpa harus ke meja meeting |
 | Depan | Meja L 2B di tengah, diapit meja L Erza (review dan QA) di kiri dan Miruku (security) di kanan, semua menghadap kamera. Sayap meja Erza ke kiri, punya 2B dan Miruku ke kanan, plus dua tanaman di depan meja 2B |
 | Dinding kiri | Papan tulis (2B dan Rias) dan papan ide Chizuru, masing masing dengan panggung rendah di depannya, TV lounge |
 | Lounge | Sofa menghadap TV, meja kopi, beanbag, dan akuarium panjang yang jadi pembatas antara lounge dan meja depan |
 | Pantry | Jam digital besar di dinding (zona Asia/Jakarta). Counter bentuk L: wastafel dengan rak pengering gelas di sampingnya, mesin kopi, dan oven di counter belakang, lalu meja bar yang nyambung ke ujungnya dengan dua bar stool di tiap sisi, plus kulkas dan tempat sampah yang mepet dinding di samping kulkas. Makanan bareng ditaruh di ujung meja bar |
 | Game dan fitness | Pojok kanan belakang di atas matras karet: dua mesin arcade, dua treadmill menghadap jendela, meja pingpong dengan bangku penonton di depannya, dan samsak |
-| Layar status tim | Layar besar di dinding belakang di atas mesin arcade. Isinya tiap anggota: lagi kerja, nunggu kamu, selesai, atau idle, plus nama tool terakhir dan sudah berapa lama. Datanya dari hook Claude Code yang sama yang ngegerakin cast. Yang ditampilin cuma status dan nama tool, nggak pernah isi pesan atau isi file. Status selesai tetap kelihatan 15 menit setelah run berhenti |
-| Studio Ruby | Pojok kanan depan, menghadap kamera kayak set: backdrop logo di belakang kursinya, meja L, ring light, dan kamera di tripod |
+| Layar status tim | Layar besar di dinding belakang di atas mesin arcade. Isinya tiap anggota: lagi kerja, nunggu kamu, selesai, atau idle, plus nama tool terakhir dan sudah berapa lama. Datanya dari hook Claude Code yang sama yang ngegerakin cast. Yang ditampilin cuma status dan nama tool, nggak pernah isi pesan atau isi file. Status selesai tetap kelihatan 15 menit setelah run berhenti Klik layarnya (atau tombol **Status tim** di bawah) buat buka versi besar, tutup pakai tombol X, Escape, atau klik di luar |
+| Studio Ruby | Pojok kanan depan, menghadap kamera kayak set: backdrop logo di belakang kursinya, meja lurus, ring light, dan kamera di tripod |
 | Sisi kanan | Pintu kaca otomatis dengan tanaman di sebelahnya, buat yang keluar beli makanan. Pas ketutup tulisannya kebaca AlyxLabs, pas kebuka kepisah jadi Alyx dan Labs |
+
+**Interaksi:**
+- Arahin kursor ke anggota buat lihat nama dan role-nya.
+- Klik anggota buat buka preview close-up dan statusnya (lagi ngapain, kerja atau idle, tool terakhir). Kalau dia lagi jalan, kameranya ngikutin. Klik di tempat lain atau tekan Escape buat nutup.
+- Pas 2B ngedelegasi tugas ke anggota, dia jalan bawa map ke meja anggota itu dan nyerahin. Pas run anggota selesai, anggotanya jalan ke meja 2B bawa laporan. Kalau yang selesai barengan, mereka antre di depan meja 2B (maksimal tiga).
+- Cast lebih lama santai di meja, sekitar dua pertiga waktu luangnya, jadi jalan-jalannya nggak kebanyakan.
 
 Setup meja sesuai role:
 

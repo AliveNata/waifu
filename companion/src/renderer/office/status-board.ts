@@ -123,3 +123,12 @@ const toolNameLimit = 24;
 function shortTool(tool: string): string {
   return tool.length <= toolNameLimit ? tool : `${tool.slice(0, toolNameLimit - 1)}…`;
 }
+
+/** "2 kerja · 1 nunggu kamu", or that everyone is idle. */
+export function statusSummary(rows: readonly StatusRow[]): string {
+  const counts = (["working", "waiting", "done"] as const)
+    .map((status) => ({ status, count: rows.filter((row) => row.status === status).length }))
+    .filter(({ count }) => count > 0)
+    .map(({ status, count }) => `${count} ${statusLabels[status]}`);
+  return counts.length === 0 ? "semua idle" : counts.join(" · ");
+}
