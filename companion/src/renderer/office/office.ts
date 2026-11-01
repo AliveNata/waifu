@@ -68,6 +68,12 @@ class OfficePage {
         this.tracker.apply(signal.reaction);
       } else if (signal.kind === "member") {
         this.stage.applyMemberSignal(signal.member);
+      } else {
+        const { memberId } = signal.delegation;
+        // Subagents outside the roster (Explore, Plan, ...) have no desk to take a brief to.
+        if (memberId !== null && memberId !== "twob") {
+          this.stage.applyDelegation(memberId);
+        }
       }
     });
     // The office chat's run ending (Stop, an error, or done) ends its subagents too, but a stopped

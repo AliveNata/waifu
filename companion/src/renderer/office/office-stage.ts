@@ -43,6 +43,7 @@ import {
   reachingForItem,
   reachSeconds,
 } from "./desk-habits.js";
+import { Handoffs, type Teammate } from "./handoffs.js";
 import { aimHand, solveCcd } from "./ik.js";
 import { type ActorState, angleDelta, initialActor, isWalking, stepActor } from "./office-actor.js";
 import { ChatterDirector } from "./office-chatter.js";
@@ -148,6 +149,8 @@ interface MemberRig {
   plan: MemberPlan;
   /** Whether the last frame was real work, to hand the member back to their routine exactly once. */
   wasWorking: boolean;
+  /** Walking a brief or report over, or handing it over: the break plan waits until it is done. */
+  inHandoff: boolean;
   props: HandProps;
   /** The avatar's wrist bones, which hand props follow. */
   hands: Record<ArmSide, Object3D | null>;
@@ -385,6 +388,8 @@ const actionLabels: Record<OfficeAction, string> = {
   out: "out getting food",
   "pingpong-wait": "waiting for a ping-pong partner",
   run: "on the treadmill",
+  "hand-over": "handing over",
+  "wait-report": "waiting to report",
   box: "at the punching bag",
   gaze: "watching the fish",
 };
@@ -418,6 +423,7 @@ export class OfficeStage {
 
   private team: TeamRuntime = emptyTeamRuntime();
   private readonly twobStatus = new TwobStatus();
+  private readonly handoffs = new Handoffs();
   private twobReaction: Reaction = idleReaction(Date.now());
   private elapsed = 0;
   private closeupEnabled = true;
@@ -558,6 +564,14 @@ export class OfficeStage {
       return;
     }
     this.team = { ...this.team, [signal.memberId]: applyMemberSignal(this.team[signal.memberId], signal) };
+    if (signal.activity === "stop" && this.team[signal.memberId].activeAgents.size === 0) {
+      this.handoffs.finished(signal.memberId, Date.now());
+    }
+  }
+
+  /** 2B handed a task to a teammate: she walks the brief over to their desk. */
+  applyDelegation(memberId: Teammate): void {
+    this.handoffs.delegated(memberId, Date.now());
   }
 
   /** After a stopped run: members leave their desks and the close-up closes until the next task. */
@@ -644,6 +658,7 @@ export class OfficeStage {
       keystrokes: 0,
       plan,
       wasWorking: false,
+      inHandoff: false,
       props,
       hands: this.wrists(avatar),
       laptop: laptopView({ errand: null, arrived: false, stepElapsed: 0, remaining: 0 }),
@@ -698,6 +713,20 @@ export class OfficeStage {
   }
 
   private planFor(memberId: MemberId, now: number, rig: MemberRig | null): MemberPlan {
+    const handoff = this.handoffs.planFor(memberId);
+    if (handoff !== null) {
+      // A brief or a report takes over from whatever they were doing, and their break plan
+      // starts fresh afterwards.
+      if (rig !== null && !rig.inHandoff) {
+        this.life.interrupt(memberId, now);
+        delete this.lifeSteps[memberId];
+        rig.inHandoff = true;
+      }
+      return { station: handoff.station, action: handoff.action, mood: memberId === "twob" ? "working" : "done" };
+    }
+    if (rig !== null) {
+      rig.inHandoff = false;
+    }
     if (memberId === "twob") {
       const mood = this.twobReaction.mood;
       if (mood !== "idle") {
@@ -908,6 +937,7 @@ export class OfficeStage {
     const arrived = !walking && rig.actor.target === plan.station;
     if (arrived) {
       this.life.arrived(memberId, now);
+      this.handoffs.arrived(memberId, plan.station, now);
     }
     let action = walking ? null : plan.action;
     if (action === "pingpong" && !this.opponentReady(memberId)) {
@@ -980,8 +1010,11 @@ export class OfficeStage {
         : rig.food.piece === null
           ? null
           : pieceProps[rig.food.piece];
+    const folder = rig.inHandoff && action !== "hand-over" ? "folder" : null;
     const carrying =
-      this.mugs[memberId].place === "hand" || rig.laptop.place === "hand" || (foodHeld !== null && action === null);
+      this.mugs[memberId].place === "hand" ||
+      rig.laptop.place === "hand" ||
+      ((foodHeld !== null || folder !== null) && action === null);
     const gimmick = rig.walkHabits.update(this.elapsed, action === null, carrying);
     const pose = officePose({
       action,
@@ -1043,6 +1076,7 @@ export class OfficeStage {
       action !== null && usesHandIk(action)
         ? null
         : (foodHeld ??
+          (rig.inHandoff ? "folder" : null) ??
           fromDesk ??
           plate ??
           (carried === "laptop" ? carried : null) ??
@@ -1126,12 +1160,13 @@ export class OfficeStage {
 
   /** Head turn toward a conversation partner, or toward whoever is being waved at. */
   private lookYawFor(memberId: MemberId, rig: MemberRig, waving: boolean): number {
-    const other = waving ? rig.greeted : this.chatter.partnerOf(memberId);
+    const handing = waving ? null : this.handoffs.partnerOf(memberId);
+    const other = waving ? rig.greeted : (handing ?? this.chatter.partnerOf(memberId));
     if (other === null) {
       return 0;
     }
     // In conversation the turn follows the gaze: the opener looks over first, the other after.
-    const weight = waving ? 1 : this.chatter.gazeOf(memberId);
+    const weight = waving || handing !== null ? 1 : this.chatter.gazeOf(memberId);
     const target = this.rigs[other].actor.position;
     const { position, yaw } = rig.actor;
     const toward = Math.atan2(target.x - position.x, target.z - position.z);
@@ -1630,6 +1665,7 @@ export class OfficeStage {
     this.onFrame();
 
     this.updateChatter(delta);
+    this.handoffs.update(now);
     for (const memberId of memberIds) {
       this.updateMember(memberId, delta, now);
     }

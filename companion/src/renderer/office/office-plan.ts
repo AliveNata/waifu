@@ -8,6 +8,8 @@
  * sits at z = minZ and the left wall at x = minX; the camera looks in from +x/+z.
  */
 
+import { type MemberId, memberIds } from "../../shared/team.js";
+
 export interface Point {
   x: number;
   z: number;
@@ -107,6 +109,9 @@ export interface Furniture {
   blocksWalking: boolean;
 }
 
+/** Beside a teammate's desk, where 2B stands to hand over a brief. */
+type VisitStationId = `visit-${Exclude<MemberId, "twob">}`;
+
 export type StationId =
   | "desk-asuna"
   | "desk-kobayashi"
@@ -160,7 +165,11 @@ export type StationId =
   | "meeting-5"
   | "meeting-6"
   | "pingpong-west"
-  | "pingpong-east";
+  | "pingpong-east"
+  | VisitStationId
+  | "report-1"
+  | "report-2"
+  | "report-3";
 
 export interface Station {
   id: StationId;
@@ -268,6 +277,8 @@ export const frontRow = {
   miruku: { x: 2.8, returnSide: 1 },
 } as const;
 type FrontMember = keyof typeof frontRow;
+/** 2B's seat, which reporters face across her desk. */
+const twobSeat = { x: frontRow.twob.x, z: frontSeatZ } as const;
 
 const frontDesks: Furniture[] = (Object.entries(frontRow) as [FrontMember, (typeof frontRow)[FrontMember]][]).flatMap(
   ([member, { x, returnSide }]): Furniture[] => [
@@ -939,7 +950,7 @@ export function yawToward(from: Point, to: Point): number {
 /** Close enough to the boards (surface at x -6.91) that a chibi arm reaches the writing. */
 const boardStandX = -6.68;
 
-export const stations: Record<StationId, Station> = {
+const placeStations: Record<Exclude<StationId, VisitStationId>, Station> = {
   "desk-asuna": deskRowStation("desk-asuna", deskRowX.asuna),
   "desk-kobayashi": deskRowStation("desk-kobayashi", deskRowX.kobayashi),
   "desk-huagua": deskRowStation("desk-huagua", deskRowX.huagua),
@@ -965,6 +976,19 @@ export const stations: Record<StationId, Station> = {
   "board-rias": standing("board-rias", { x: boardStandX, z: -2.65 }, facing.leftWall),
   "idea-board": standing("idea-board", { x: boardStandX, z: 0.4 }, facing.leftWall),
   front: standing("front", { x: 0.4, z: 3.0 }, facingCamera),
+  // In front of 2B's desk for a report: the first spot hands it over across the desk, the other
+  // two wait their turn either side, clear of the plants.
+  "report-1": standing("report-1", { x: twobSeat.x, z: 2.62 }, facing.backWall),
+  "report-2": standing(
+    "report-2",
+    { x: twobSeat.x + 0.65, z: 2.78 },
+    yawToward({ x: twobSeat.x + 0.65, z: 2.78 }, twobSeat),
+  ),
+  "report-3": standing(
+    "report-3",
+    { x: twobSeat.x - 0.65, z: 2.78 },
+    yawToward({ x: twobSeat.x - 0.65, z: 2.78 }, twobSeat),
+  ),
   coffee: standing("coffee", { x: -5.35, z: -3.95 }, facing.backWall),
   fridge: standing("fridge", { x: -6.55, z: -3.85 }, facing.backWall),
   sink: standing("sink", { x: sinkX, z: -3.95 }, facing.backWall),
@@ -1055,6 +1079,24 @@ export const stations: Record<StationId, Station> = {
   "pingpong-west": standing("pingpong-west", { x: pingpongCenter.x - 1.1, z: pingpongCenter.z }, facing.right),
   "pingpong-east": standing("pingpong-east", { x: pingpongCenter.x + 1.1, z: pingpongCenter.z }, facing.leftWall),
 };
+
+/**
+ * Where 2B stands to hand a teammate a brief: the spot where they step to their chair, turned
+ * toward the seat, so she is right beside them without walking into the desk.
+ */
+function visitStations(desks: typeof placeStations): Record<VisitStationId, Station> {
+  return Object.fromEntries(
+    memberIds
+      .filter((memberId): memberId is Exclude<MemberId, "twob"> => memberId !== "twob")
+      .map((memberId) => {
+        const id: VisitStationId = `visit-${memberId}`;
+        const desk = desks[`desk-${memberId}`];
+        return [id, standing(id, desk.approach, yawToward(desk.approach, desk.spot))];
+      }),
+  ) as Record<VisitStationId, Station>;
+}
+
+export const stations: Record<StationId, Station> = { ...placeStations, ...visitStations(placeStations) };
 
 function meetingStations(): Record<MeetingStationId, Station> {
   return Object.fromEntries(
