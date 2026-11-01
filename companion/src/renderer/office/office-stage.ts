@@ -54,6 +54,16 @@ import { FreeCamera } from "./free-camera.js";
 import { Handoffs, type Teammate } from "./handoffs.js";
 import { aimHand, solveCcd } from "./ik.js";
 import { type ActorState, angleDelta, initialActor, isWalking, stepActor } from "./office-actor.js";
+import {
+  Cat,
+  type CatChoice,
+  type CatSpotId,
+  catLine,
+  catName,
+  catSpots,
+  greetingsForCat,
+  nextCatPlan,
+} from "./office-cat.js";
 import { ChatterDirector } from "./office-chatter.js";
 import {
   type HandPropKind,
@@ -90,6 +100,7 @@ import { officeDay, ritualFor, standupTurn, standupTurnSeconds } from "./office-
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
 import { atJakartaTime, type DayPart, dayPart, jakartaHours, skyAt } from "./office-time.js";
 import { PlaceholderAvatar } from "./placeholder.js";
+import { OfficeCat } from "./scene/cat.js";
 import { drawerTravel, memberPropLooks } from "./scene/desks.js";
 import { HandProps, handPropModel, setCupFill } from "./scene/hand-props.js";
 import { sceneQuality } from "./scene/palette.js";
@@ -282,8 +293,11 @@ const greetDistance = 1.1;
 const bubbleAboveHead = 0.3;
 
 /** A line of small talk and where on screen its speaker's head is. */
+/** Who a speech bubble belongs to: a teammate, or the office cat. */
+export type Speaker = MemberId | "mochi";
+
 export interface SpeechAnchor {
-  memberId: MemberId;
+  memberId: Speaker;
   text: string;
   x: number;
   y: number;
@@ -397,6 +411,12 @@ const alyxSeats: readonly StationId[] = [
 ];
 /** Seated, his eyes are this far above the seat. */
 const seatedEye = 0.62;
+/** How long a stroke lasts, from his hand going down to her purring stopping. */
+const catPetSeconds = 3;
+/** A teammate walking this close to Mochi says hello to her. */
+const catGreetDistance = 1;
+/** Seconds before the same teammate greets her again, and before anyone does. */
+const catGreetCooldown = { each: 120, anyone: 15 } as const;
 /** The shell of the laptop Alyx opens at a meeting seat. */
 const alyxLaptopShell = "#2f3340";
 
@@ -458,6 +478,17 @@ export class OfficeStage {
   private alyxWaveAt: number | null = null;
   /** The desk thing Alyx is carrying: whose desk, which thing, and the thing itself, hidden there. */
   private alyxHeld: { owner: DeskMember; item: DeskItem; object: Object3D } | null = null;
+  /** Mochi, the office cat: where she goes, and her model. */
+  private readonly cat = new Cat();
+  private readonly catModel = new OfficeCat();
+  /** What she is saying, in stage seconds. */
+  private catSpeech: { text: string; startedAt: number; until: number } | null = null;
+  /** Someone she turns her head to for a moment: whoever greeted or is stroking her. */
+  private catLook: { point: Point; until: number } | null = null;
+  private catPettedAt: number | null = null;
+  private catBegged: number | null = null;
+  private readonly catGreetedBy = new Map<MemberId, number>();
+  private catGreetedLast = Number.NEGATIVE_INFINITY;
   /** The TV, arcades, fridge and meeting laptops he switched on or opened, by target id. */
   private readonly alyxOn = new Set<string>();
   /** Desk lamps he switched on or off himself, which then stay that way. */
@@ -550,7 +581,7 @@ export class OfficeStage {
     const [backGlow, sideGlow] = this.neonGlow as [PointLight, PointLight];
     backGlow.position.set(0, 1.6, -4.3);
     sideGlow.position.set(-6.3, 1.6, 0);
-    this.scene.add(this.hemisphere, sun, this.windowFill, backGlow, sideGlow, this.office.root);
+    this.scene.add(this.hemisphere, sun, this.windowFill, backGlow, sideGlow, this.office.root, this.catModel.root);
     this.applyDaylight();
 
     this.controls = new OrbitControls(this.camera, canvas);
@@ -622,8 +653,11 @@ export class OfficeStage {
     if (this.rigs === undefined) {
       return false;
     }
-    // Alyx sitting there, or at his end of the ping-pong table.
+    // Alyx sitting there, or at his end of the ping-pong table; or Mochi asleep on the beanbag.
     if (this.alyxSeat === station || this.alyxGame?.station === station) {
+      return true;
+    }
+    if (station === "beanbag-lounge" && this.cat.onBeanbag) {
       return true;
     }
     const { spot, approach } = stations[station];
@@ -880,6 +914,12 @@ export class OfficeStage {
         });
       }
     }
+    targets.push({
+      id: "cat",
+      label: `Elus ${catName}`,
+      point: { x: this.cat.position.x, y: this.cat.height + 0.2, z: this.cat.position.z },
+      reach: 1.4,
+    });
     for (const station of ["pingpong-west", "pingpong-east"] as const) {
       const { spot } = stations[station];
       // The middle of his half of the table, where the eye goes when he looks at it.
@@ -923,6 +963,9 @@ export class OfficeStage {
         return;
       case "pingpong":
         this.playAsAlyx(first as StationId);
+        return;
+      case "cat":
+        this.petCat();
         return;
       case "lamp": {
         const owner = first as DeskMember;
@@ -1049,6 +1092,111 @@ export class OfficeStage {
         this.rigs[memberId].plan.station === seat &&
         this.rigs[memberId].laptop.place === "seat",
     );
+  }
+
+  /** Alyx strokes Mochi: she stays put, turns to him, shuts her eyes and purrs. */
+  private petCat(): void {
+    this.catPettedAt = this.elapsed;
+    this.catLook = { point: this.firstPerson.position, until: this.elapsed + catPetSeconds };
+    this.catSpeech = {
+      text: catLine("petted", Math.random),
+      startedAt: this.elapsed + 0.5,
+      until: this.elapsed + catPetSeconds,
+    };
+  }
+
+  /** Where Mochi goes next, from the hour and what the team is doing. */
+  private chooseCatPlan(previous: CatSpotId | null): CatChoice {
+    const unavailable = new Set<CatSpotId>();
+    const beanbag = stations["beanbag-lounge"];
+    const someoneOnBeanbag =
+      this.life.occupant("beanbag-lounge") !== null ||
+      memberIds.some((memberId) => distance(this.rigs[memberId].actor.position, beanbag.spot) < 0.5);
+    if (someoneOnBeanbag) {
+      unavailable.add("beanbag");
+    }
+    // Teammates working or idling at their own desk, whom she might drop in on.
+    const atDesks = memberIds.filter((memberId) => {
+      const rig = this.rigs[memberId];
+      return (
+        rig.avatar.root.visible &&
+        rig.plan.station === `desk-${memberId}` &&
+        (rig.action === "desk-idle" || rig.action === "type")
+      );
+    });
+    if (atDesks.length === 0) {
+      unavailable.add("visit");
+    }
+    const snacking = memberIds.some((memberId) => this.rigs[memberId].action === "snack");
+    const plan = nextCatPlan(previous, jakartaHours(this.clock()), Math.random, { snacking, unavailable });
+    if (plan.spot !== "visit") {
+      return { plan, target: catSpots[plan.spot] };
+    }
+    const visited = atDesks[Math.floor(Math.random() * atDesks.length) % atDesks.length] as MemberId;
+    const desk = stations[`desk-${visited}`];
+    const spot = navGrid.nearestFree(desk.approach);
+    return {
+      plan,
+      target: { spot, height: 0, approach: spot, facing: Math.atan2(desk.spot.x - spot.x, desk.spot.z - spot.z) },
+    };
+  }
+
+  /** Moves and poses Mochi, and lets passing teammates say hello to her. */
+  private updateCat(delta: number, now: number): void {
+    const petted = this.catPettedAt !== null && this.elapsed - this.catPettedAt < catPetSeconds;
+    const look = this.catLook !== null && this.elapsed < this.catLook.until ? this.catLook.point : null;
+    const { position } = this.cat;
+    const face = look === null ? null : Math.atan2(look.x - position.x, look.z - position.z);
+    const pose = this.cat.update(delta, now, (previous) => this.chooseCatPlan(previous), petted, face);
+    // Begging at the fridge: one plaintive meow once she gets there.
+    const arrived = this.cat.arrivedAt;
+    if (pose === "beg" && arrived !== null && this.catBegged !== arrived) {
+      this.catBegged = arrived;
+      this.catSpeech = { text: catLine("begging", Math.random), startedAt: this.elapsed, until: this.elapsed + 2.5 };
+    }
+    this.greetCat();
+    const lookTurn = face === null ? 0 : Math.atan2(Math.sin(face - this.cat.yaw), Math.cos(face - this.cat.yaw));
+    this.catModel.root.position.set(this.cat.position.x, this.cat.height, this.cat.position.z);
+    this.catModel.root.rotation.y = this.cat.yaw;
+    this.catModel.update({
+      pose,
+      walkPhase: this.cat.walkPhase,
+      time: this.elapsed,
+      petted: petted ? Math.min(1, (this.elapsed - (this.catPettedAt ?? 0)) / 0.4) : 0,
+      look: lookTurn,
+    });
+  }
+
+  /** A teammate walking past says hello to Mochi, and she answers. */
+  private greetCat(): void {
+    if (this.elapsed - this.catGreetedLast < catGreetCooldown.anyone) {
+      return;
+    }
+    for (const memberId of memberIds) {
+      const rig = this.rigs[memberId];
+      const last = this.catGreetedBy.get(memberId) ?? Number.NEGATIVE_INFINITY;
+      if (
+        !rig.avatar.root.visible ||
+        !isWalking(rig.actor) ||
+        this.elapsed - last < catGreetCooldown.each ||
+        distance(rig.actor.position, this.cat.position) > catGreetDistance ||
+        this.chatter.speechOf(memberId) !== null
+      ) {
+        continue;
+      }
+      this.catGreetedBy.set(memberId, this.elapsed);
+      this.catGreetedLast = this.elapsed;
+      const line = greetingsForCat[Math.floor(Math.random() * greetingsForCat.length)] ?? "Halo, Mochi.";
+      this.chatter.announce(memberId, line, this.elapsed, this.elapsed + 2.5);
+      rig.walkHabits.wave(this.elapsed);
+      this.catLook = { point: rig.actor.position, until: this.elapsed + 3 };
+      this.catSpeech = {
+        text: catLine("greeted", Math.random),
+        startedAt: this.elapsed + 0.8,
+        until: this.elapsed + 2.8,
+      };
+      return;
+    }
   }
 
   /** Leaving first person puts back what he carried and switched, so nothing is left stuck. */
@@ -1773,6 +1921,19 @@ export class OfficeStage {
         shownFor: speech.shownFor,
       });
     }
+    const meow = this.catSpeech;
+    if (meow !== null && this.elapsed >= meow.startedAt && this.elapsed < meow.until) {
+      const point = new Vector3(this.cat.position.x, this.cat.height + 0.32, this.cat.position.z).project(this.camera);
+      if (point.z <= 1 && Math.abs(point.x) <= 1 && Math.abs(point.y) <= 1) {
+        anchors.push({
+          memberId: "mochi",
+          text: meow.text,
+          x: ((point.x + 1) / 2) * width,
+          y: ((1 - point.y) / 2) * height,
+          shownFor: this.elapsed - meow.startedAt,
+        });
+      }
+    }
     return anchors;
   }
 
@@ -2366,6 +2527,7 @@ export class OfficeStage {
       this.updateMember(memberId, delta, now);
     }
     this.updateProps(delta);
+    this.updateCat(delta, now);
     if (now - this.lastDaylightAt > 1000) {
       this.lastDaylightAt = now;
       this.applyDaylight();
@@ -2413,6 +2575,10 @@ export class OfficeStage {
           wave: wave !== null && wave <= waveSeconds ? wave : null,
           holding: this.alyxHeld !== null || game !== null,
           swing,
+          pet:
+            this.catPettedAt !== null && this.elapsed - this.catPettedAt < catPetSeconds
+              ? this.elapsed - this.catPettedAt
+              : null,
         },
         this.night,
       );

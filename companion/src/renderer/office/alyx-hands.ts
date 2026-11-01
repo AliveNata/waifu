@@ -77,7 +77,21 @@ export interface HandsPose {
   holding: boolean;
   /** A ping-pong stroke, -0.5 for the wind-up to 1 at contact; 0 when not playing. */
   swing: number;
+  /** Seconds into stroking the cat, or null. */
+  pet: number | null;
 }
+
+/** How long a stroke of the cat lasts, from reaching down to taking the hand back. */
+export const petSeconds = 3;
+
+/** Reached down low in front, palm down, as over a cat's back. */
+const stroking: Placement = {
+  palm: new Vector3(0.08, -0.34, -0.46),
+  fingers: new Vector3(-0.1, -0.3, -1),
+  facing: new Vector3(0, -1, 0.1),
+  curl: { thumb: 0.2, index: 0.12, middle: 0.12, ring: 0.15, pinky: 0.2 },
+  roll: 0,
+};
 
 /** Raised beside the face, palm out to whoever he greets. */
 const waving: Placement = {
@@ -202,6 +216,13 @@ export class AlyxHands {
         // Forehand: back and out for the wind-up, forward and across through contact.
         const stroke = new Vector3(0.05 - 0.12 * pose.swing, 0.02 * pose.swing, -0.1 * Math.max(0, pose.swing));
         placement = { ...placement, palm: placement.palm.clone().add(stroke), roll: -0.3 * pose.swing };
+      }
+      if (side === "Right" && pose.pet !== null && pose.pet <= petSeconds) {
+        // Down onto her, then long strokes from head to tail.
+        const reach = Math.min(1, pose.pet / 0.4, (petSeconds - pose.pet) / 0.4);
+        const along = 0.05 * Math.sin(pose.pet * 4.5);
+        const down = { ...stroking, palm: stroking.palm.clone().add(new Vector3(0, 0, along)) };
+        placement = mix(placement, down, reach * reach * (3 - 2 * reach));
       }
       if (side === "Right" && raise > 0) {
         placement = mix(placement, { ...waving, roll: 0.35 * Math.sin((wave ?? 0) * 9) }, raise);

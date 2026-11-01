@@ -1,5 +1,4 @@
-import type { MemberId } from "../../shared/team.js";
-import type { CloseupRect, SpeechAnchor } from "./office-stage.js";
+import type { CloseupRect, Speaker, SpeechAnchor } from "./office-stage.js";
 
 /** Fades a new line in over this long, so bubbles do not pop. */
 const fadeSeconds = 0.15;
@@ -8,13 +7,13 @@ const stackGap = 4;
 
 /** Small talk drawn as bubbles over the chibis' heads, positioned from the stage each frame. */
 export class SpeechBubbles {
-  private readonly bubbles = new Map<MemberId, HTMLParagraphElement>();
+  private readonly bubbles = new Map<Speaker, HTMLParagraphElement>();
 
   constructor(private readonly layer: HTMLElement) {}
 
   /** `avoid` is the close-up viewport, where a bubble would cover the picture-in-picture. */
   render(anchors: readonly SpeechAnchor[], avoid: CloseupRect | null): void {
-    const shown = new Set<MemberId>();
+    const shown = new Set<Speaker>();
     for (const anchor of anchors) {
       if (avoid !== null && inside(anchor, avoid)) {
         continue;
@@ -66,7 +65,7 @@ export class SpeechBubbles {
     }
   }
 
-  private bubbleFor(memberId: MemberId): HTMLParagraphElement {
+  private bubbleFor(memberId: Speaker): HTMLParagraphElement {
     let bubble = this.bubbles.get(memberId);
     if (bubble === undefined) {
       bubble = document.createElement("p");
