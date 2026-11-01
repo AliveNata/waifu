@@ -26,6 +26,11 @@
       <p class="member-tip" id="member-tip" aria-hidden="true" hidden></p>
       <!-- Frame rate, frame time and draw calls, for judging how smoothly the office runs here. -->
       <p class="fps-meter" id="fps-meter" hidden></p>
+      <!-- Walking as Alyx: the controls (or how to carry on after the mouse was freed), an aim dot
+           in the middle of the view, and what E does for whoever is under it. -->
+      <p class="camera-hint" id="first-person-hint" aria-live="polite" hidden></p>
+      <div class="crosshair" id="crosshair" aria-hidden="true" hidden></div>
+      <p class="interact-prompt" id="interact-prompt" aria-live="polite" hidden></p>
       <p class="camera-hint" id="camera-hint" hidden>
         WASD atau panah buat jalan · Q/E turun naik · Shift lebih cepat · drag buat noleh · Esc buat keluar
       </p>
@@ -124,6 +129,7 @@
       <div class="hud">
         <p class="status" id="status" role="status" hidden></p>
         <!-- First of the right-hand group, so it lines up with the others whichever of them are shown. -->
+        <button class="button hud-button" id="first-person" type="button" aria-pressed="false">Jadi Alyx</button>
         <button class="button hud-button" id="free-camera" type="button" aria-pressed="false">Kamera bebas</button>
         <button class="button hud-button" id="status-open" type="button" aria-haspopup="dialog">Status tim</button>
         <button class="button hud-button" id="music-toggle" type="button" aria-expanded="false" aria-controls="music" hidden>

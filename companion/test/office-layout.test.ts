@@ -314,6 +314,39 @@ describe("office life", () => {
     expect(new Set(history).size).toBeGreaterThan(4);
   });
 
+  it("spends most of a quiet day at the desk and leaves it only every several minutes", () => {
+    // Arrange: a whole idle working day, nobody else around, seeded so it repeats.
+    let seed = 7;
+    const life = new OfficeLife(() => {
+      seed = (seed * 1664525 + 1013904223) % 4294967296;
+      return seed / 4294967296;
+    });
+    const day = 8 * 3600 * 1000;
+    let now = 0;
+    let atDesk = 0;
+    let breaks = 0;
+    let previous: string | null = null;
+
+    // Act
+    while (now < day) {
+      const choice = life.planFor("asuna", now);
+      life.arrived("asuna", now);
+      if (choice.activity === "desk") {
+        atDesk += choice.durationMs;
+      } else if (choice.step === 0 && previous === "desk") {
+        breaks += 1;
+      }
+      if (choice.step === 0) {
+        previous = choice.activity;
+      }
+      now += choice.durationMs + 1;
+    }
+
+    // Assert: over three quarters at the desk, and well under one trip away every five minutes.
+    expect(atDesk / now).toBeGreaterThan(0.75);
+    expect(breaks / (now / 3600_000)).toBeLessThan(12);
+  });
+
   it("never seats two members in the same reserved spot", () => {
     // Arrange
     const life = new OfficeLife(sequence([0.2, 0.8, 0.5, 0.1, 0.9, 0.35, 0.65]));
