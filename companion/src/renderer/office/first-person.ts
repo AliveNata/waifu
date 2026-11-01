@@ -39,6 +39,17 @@ export const maxLookJump = 250;
 /** And for a moment after locking, nothing turns the view at all. */
 const settleAfterLockMs = 150;
 
+/**
+ * Held in one place: sitting down, or standing at his end of the ping-pong table. He can still
+ * look around; a walking key gets him up and back to `standAt`.
+ */
+export interface Anchor {
+  spot: Point;
+  eye: number;
+  standAt: Point;
+  onLeave: () => void;
+}
+
 /** Where he walks in: just inside the entry door, facing into the room. */
 export const startView: WalkerView = { x: 9.35, z: -0.45, yaw: Math.PI / 2, pitch: -0.12 };
 
@@ -118,6 +129,7 @@ export class FirstPerson {
   private walked = 0;
   private speed = 0;
   private lockedAt = 0;
+  private anchor: Anchor | null = null;
 
   constructor(
     private readonly camera: PerspectiveCamera,
@@ -184,6 +196,27 @@ export class FirstPerson {
     return { walked: this.walked, speed: this.speed };
   }
 
+  /** Sits him down (or holds him at a spot), turned to `yaw`. */
+  anchorAt(anchor: Anchor, yaw: number): void {
+    this.anchor = anchor;
+    this.view = { ...this.view, x: anchor.spot.x, z: anchor.spot.z, yaw, pitch: -0.15 };
+  }
+
+  /** Gets him up and back on his feet beside wherever he was. */
+  release(): void {
+    const anchor = this.anchor;
+    if (anchor === null) {
+      return;
+    }
+    this.anchor = null;
+    this.view = { ...this.view, x: anchor.standAt.x, z: anchor.standAt.z };
+    anchor.onLeave();
+  }
+
+  get anchored(): boolean {
+    return this.anchor !== null;
+  }
+
   /** Steps in where he last stood, or at the door the first time; has to come from a click. */
   enable(): void {
     this.on = true;
@@ -195,6 +228,7 @@ export class FirstPerson {
   }
 
   disable(): void {
+    this.release();
     this.on = false;
     this.held.clear();
     if (this.locked) {
@@ -224,6 +258,16 @@ export class FirstPerson {
         input.forward += axis?.forward ?? 0;
         input.right += axis?.right ?? 0;
       }
+    }
+    if (this.anchor !== null && (input.forward !== 0 || input.right !== 0)) {
+      this.release();
+    }
+    const anchor = this.anchor;
+    if (anchor !== null) {
+      this.speed = 0;
+      this.camera.position.set(anchor.spot.x, anchor.eye, anchor.spot.z);
+      this.camera.rotation.set(this.view.pitch, this.view.yaw, 0, "YXZ");
+      return;
     }
     const before = this.position;
     this.view = stepWalker(this.view, input, delta, this.free);

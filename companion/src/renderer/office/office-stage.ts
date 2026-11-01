@@ -33,12 +33,14 @@ import {
 import { memberLooks } from "../common/looks.js";
 import { PoseApplier } from "../common/pose.js";
 import { AlyxHands, waveSeconds } from "./alyx-hands.js";
+import { type AlyxTarget, pickableItems, pickTarget } from "./alyx-targets.js";
 import type { ArmSide, ArmTip, OfficeAvatar } from "./avatar.js";
 import { bossLine } from "./boss-greetings.js";
 import {
   type ActiveDeskBit,
   chessCarry,
   DeskHabits,
+  type DeskItem,
   deskBitFace,
   deskBitProp,
   deskBitSpec,
@@ -47,7 +49,7 @@ import {
   reachingForItem,
   reachSeconds,
 } from "./desk-habits.js";
-import { FirstPerson, firstPersonFov } from "./first-person.js";
+import { eyeHeight, FirstPerson, firstPersonFov } from "./first-person.js";
 import { FreeCamera } from "./free-camera.js";
 import { Handoffs, type Teammate } from "./handoffs.js";
 import { aimHand, solveCcd } from "./ik.js";
@@ -83,13 +85,13 @@ import {
   surface,
   treadmillStationIds,
 } from "./office-plan.js";
-import { type BoardFocus, bossWaveWindow, officePose } from "./office-pose.js";
+import { type BoardFocus, bossWaveWindow, officePose, pingpongSwing } from "./office-pose.js";
 import { officeDay, ritualFor, standupTurn, standupTurnSeconds } from "./office-rituals.js";
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
 import { atJakartaTime, type DayPart, dayPart, jakartaHours, skyAt } from "./office-time.js";
 import { PlaceholderAvatar } from "./placeholder.js";
 import { drawerTravel, memberPropLooks } from "./scene/desks.js";
-import { HandProps, setCupFill } from "./scene/hand-props.js";
+import { HandProps, handPropModel, setCupFill } from "./scene/hand-props.js";
 import { sceneQuality } from "./scene/palette.js";
 import { fitSeat } from "./seating.js";
 import { rowDetail, type StatusRow, statusLabels, statusRows, TwobStatus } from "./status-board.js";
@@ -374,6 +376,29 @@ const greetReach = 1.8;
 const bossAnswerSeconds = 3.8;
 /** Alyx does not walk into people: about two bodies' widths between centers. */
 const alyxPersonalSpace = 0.34;
+/** How far he reaches for a thing on a desk or a switch. */
+const handReach = 1.5;
+/** How far a seat or his end of the table may be: a step away. */
+const stepReach = 1.7;
+/** Seats he may take: anything people sit on for a break, but nobody's own desk chair. */
+const alyxSeats: readonly StationId[] = [
+  "sofa-1",
+  "sofa-2",
+  "sofa-3",
+  "beanbag-lounge",
+  "bar-left",
+  "bar-right",
+  "bar-west-left",
+  "bar-west-right",
+  "collab-1",
+  "collab-2",
+  "collab-3",
+  ...meetingStationIds,
+];
+/** Seated, his eyes are this far above the seat. */
+const seatedEye = 0.62;
+/** The shell of the laptop Alyx opens at a meeting seat. */
+const alyxLaptopShell = "#2f3340";
 
 const actionLabels: Record<OfficeAction, string> = {
   type: "typing",
@@ -431,6 +456,17 @@ export class OfficeStage {
   private readonly bossGreetedAt: Partial<Record<MemberId, number>> = {};
   /** When Alyx's own wave began, in stage seconds. */
   private alyxWaveAt: number | null = null;
+  /** The desk thing Alyx is carrying: whose desk, which thing, and the thing itself, hidden there. */
+  private alyxHeld: { owner: DeskMember; item: DeskItem; object: Object3D } | null = null;
+  /** The TV, arcades, fridge and meeting laptops he switched on or opened, by target id. */
+  private readonly alyxOn = new Set<string>();
+  /** Desk lamps he switched on or off himself, which then stay that way. */
+  private readonly alyxLamps = new Map<DeskMember, boolean>();
+  /** The lamp level the time of day gives, before his own switching. */
+  private autoLamps = 0;
+  private alyxSeat: StationId | null = null;
+  /** His game of ping-pong: his end of the table, and his opponent once someone comes. */
+  private alyxGame: { station: StationId; partner: MemberId | null; askedAt: number } | null = null;
   /** The room view's lens, put back on leaving first person. */
   private roomFov = 30;
   /** Draw calls in the last frame, all passes together, for the frame rate meter. */
@@ -568,6 +604,10 @@ export class OfficeStage {
   }
 
   private opponentReady(memberId: MemberId): boolean {
+    // Playing Alyx: he is already at his end of the table, paddle in hand.
+    if (this.alyxGame?.partner === memberId) {
+      return true;
+    }
     const partner = this.life.partnerOf(memberId);
     if (partner === null) {
       return false;
@@ -581,6 +621,10 @@ export class OfficeStage {
     // The life planner runs while the rigs are still being created.
     if (this.rigs === undefined) {
       return false;
+    }
+    // Alyx sitting there, or at his end of the ping-pong table.
+    if (this.alyxSeat === station || this.alyxGame?.station === station) {
+      return true;
     }
     const { spot, approach } = stations[station];
     return memberIds.some((memberId) => {
@@ -700,6 +744,7 @@ export class OfficeStage {
       });
     } else {
       this.firstPerson.disable();
+      this.resetAlyx();
       this.camera.fov = this.roomFov;
       this.camera.updateProjectionMatrix();
       this.controls.enabled = true;
@@ -717,25 +762,188 @@ export class OfficeStage {
     return this.firstPerson.active && this.firstPerson.locked;
   }
 
-  /** The teammate in the middle of Alyx's view and close enough to greet, or null. */
-  firstPersonTarget(): MemberId | null {
+  /** What E does right now in first person: the target under the aim dot, or ending what he is in. */
+  firstPersonTarget(): AlyxTarget | null {
     if (!this.firstPerson.active) {
       return null;
     }
-    const box = this.canvas.getBoundingClientRect();
-    const memberId = this.memberAt(box.left + box.width / 2, box.top + box.height / 2);
-    if (memberId === null) {
-      return null;
+    const here = { ...this.firstPerson.position, y: eyeHeight };
+    const now = (id: string, label: string): AlyxTarget => ({ id, label, point: here, reach: 0 });
+    if (this.alyxGame !== null) {
+      return now("stop-game", "Udahan main");
     }
-    const rig = this.rigs[memberId];
-    const near = distance(rig.actor.position, this.firstPerson.position) <= greetReach;
-    return rig.avatar.root.visible && near ? memberId : null;
+    if (this.alyxSeat !== null) {
+      return now("stand", "Berdiri");
+    }
+    if (this.alyxHeld !== null) {
+      return now("put-back", `Taruh balik ${pickableItems[this.alyxHeld.item] ?? "barang"}`);
+    }
+    const width = this.canvas.clientWidth;
+    const height = this.canvas.clientHeight;
+    return pickTarget(this.alyxTargets(), this.camera.position, (point) => {
+      const projected = new Vector3(point.x, point.y, point.z).project(this.camera);
+      return {
+        dx: (projected.x * width) / 2,
+        dy: (-projected.y * height) / 2,
+        inFront: projected.z > -1 && projected.z < 1,
+      };
+    });
   }
 
-  /** E in first person: greets the teammate he is looking at, who turns, waves and answers. */
+  /** Everything in the room Alyx could use with E, wherever it is. */
+  private alyxTargets(): AlyxTarget[] {
+    const targets: AlyxTarget[] = [];
+    const at = (object: Object3D, lift = 0): AlyxTarget["point"] => {
+      const point = object.getWorldPosition(new Vector3());
+      return { x: point.x, y: point.y + lift, z: point.z };
+    };
+    for (const memberId of memberIds) {
+      const rig = this.rigs[memberId];
+      if (!rig.avatar.root.visible) {
+        continue;
+      }
+      const head = rig.avatar.poseTarget.node("head");
+      const point = head === null ? { ...rig.actor.position, y: 0.8 } : at(head);
+      targets.push({
+        id: `member:${memberId}`,
+        label: `Sapa ${roster[memberId].displayName}`,
+        point,
+        reach: greetReach,
+      });
+    }
+    for (const owner of memberIds) {
+      for (const [item, object] of Object.entries(this.office.workstations[owner].items)) {
+        const name = pickableItems[item as DeskItem];
+        if (name !== undefined && object.visible) {
+          targets.push({ id: `item:${owner}:${item}`, label: `Ambil ${name}`, point: at(object), reach: handReach });
+        }
+      }
+      const lamp = this.office.workstations[owner].lamp;
+      const lit = this.alyxLamps.get(owner) ?? (this.autoLamps > 0.5 && !this.goneHome(owner));
+      targets.push({
+        id: `lamp:${owner}`,
+        label: lit ? "Matiin lampu meja" : "Nyalain lampu meja",
+        point: at(lamp.root, 0.3),
+        reach: handReach,
+      });
+    }
+    const piecePoint = (piece: { x: number; z: number }, y: number): AlyxTarget["point"] => ({
+      x: piece.x,
+      y,
+      z: piece.z,
+    });
+    const toggle = (id: string, on: string, off: string): string => (this.alyxOn.has(id) ? off : on);
+    const tv = furniture.find((piece) => piece.kind === "tv-wall");
+    if (tv !== undefined) {
+      targets.push({ id: "tv", label: toggle("tv", "Nyalain TV", "Matiin TV"), point: piecePoint(tv, 1.1), reach: 3 });
+    }
+    furniture
+      .filter((piece) => piece.kind === "arcade")
+      .forEach((piece, index) => {
+        const id = `arcade:${index}`;
+        targets.push({
+          id,
+          label: toggle(id, "Nyalain arcade", "Matiin arcade"),
+          point: piecePoint(piece, 1.0),
+          reach: handReach,
+        });
+      });
+    const fridge = furniture.find((piece) => piece.kind === "fridge");
+    if (fridge !== undefined) {
+      targets.push({
+        id: "fridge",
+        label: toggle("fridge", "Buka kulkas", "Tutup kulkas"),
+        point: piecePoint(fridge, 0.8),
+        reach: handReach,
+      });
+    }
+    this.office.meetingLaptops.forEach((laptop, index) => {
+      if (this.meetingLaptopOwner(index) !== undefined) {
+        return;
+      }
+      const id = `laptop:${index}`;
+      targets.push({
+        id,
+        label: toggle(id, "Buka laptop", "Tutup laptop"),
+        point: at(laptop.root, surface.desk),
+        reach: handReach,
+      });
+    });
+    for (const station of alyxSeats) {
+      const { spot, seatHeight } = stations[station];
+      if (this.life.occupant(station) === null && !this.stationCrowded(station)) {
+        targets.push({
+          id: `seat:${station}`,
+          label: "Duduk",
+          point: { ...spot, y: (seatHeight ?? 0.45) + 0.15 },
+          reach: stepReach,
+        });
+      }
+    }
+    for (const station of ["pingpong-west", "pingpong-east"] as const) {
+      const { spot } = stations[station];
+      // The middle of his half of the table, where the eye goes when he looks at it.
+      const towardTable = station === "pingpong-west" ? 0.75 : -0.75;
+      if (this.life.occupant(station) === null && !this.stationCrowded(station)) {
+        targets.push({
+          id: `pingpong:${station}`,
+          label: "Main pingpong",
+          point: { x: spot.x + towardTable, y: surface.pingpong, z: spot.z },
+          reach: stepReach,
+        });
+      }
+    }
+    return targets;
+  }
+
+  /** E in first person: does whatever the target under the aim dot offers. */
   private interactAsAlyx(): void {
-    const memberId = this.firstPersonTarget();
-    if (memberId === null || this.bossGreeting(memberId) !== null) {
+    const target = this.firstPersonTarget();
+    if (target === null) {
+      return;
+    }
+    const [kind, first, second] = target.id.split(":");
+    switch (kind) {
+      case "member":
+        this.greetAsAlyx(first as MemberId);
+        return;
+      case "item":
+        this.takeAsAlyx(first as DeskMember, second as DeskItem);
+        return;
+      case "put-back":
+        this.alyxHeld = null;
+        this.alyxHands.hold(null);
+        return;
+      case "stand":
+      case "stop-game":
+        this.firstPerson.release();
+        return;
+      case "seat":
+        this.sitAsAlyx(target.id.slice("seat:".length) as StationId);
+        return;
+      case "pingpong":
+        this.playAsAlyx(first as StationId);
+        return;
+      case "lamp": {
+        const owner = first as DeskMember;
+        const lit = this.alyxLamps.get(owner) ?? (this.autoLamps > 0.5 && !this.goneHome(owner));
+        this.alyxLamps.set(owner, !lit);
+        this.applyDaylight();
+        return;
+      }
+      default:
+        // The TV, an arcade, the fridge or a meeting laptop.
+        if (this.alyxOn.has(target.id)) {
+          this.alyxOn.delete(target.id);
+        } else {
+          this.alyxOn.add(target.id);
+        }
+    }
+  }
+
+  /** The teammate turns to him, smiles, waves back and answers. */
+  private greetAsAlyx(memberId: MemberId): void {
+    if (this.bossGreeting(memberId) !== null) {
       return;
     }
     this.alyxWaveAt = this.elapsed;
@@ -750,6 +958,106 @@ export class OfficeStage {
       this.elapsed + 0.4,
       this.elapsed + bossAnswerSeconds,
     );
+  }
+
+  /** Picks the thing up off its desk; the owner leaves anything that needs it alone until it is back. */
+  private takeAsAlyx(owner: DeskMember, item: DeskItem): void {
+    const object = this.office.workstations[owner].items[item];
+    if (object === undefined) {
+      return;
+    }
+    this.alyxHeld = { owner, item, object };
+    this.alyxHands.hold(object.clone(true));
+  }
+
+  private sitAsAlyx(station: StationId): void {
+    const { spot, approach, facing, seatHeight } = stations[station];
+    this.alyxSeat = station;
+    this.firstPerson.anchorAt(
+      {
+        spot,
+        eye: (seatHeight ?? 0.45) + seatedEye,
+        standAt: approach,
+        onLeave: () => {
+          this.alyxSeat = null;
+        },
+      },
+      // The camera looks along -z at yaw 0, a seated avatar along +z.
+      facing + Math.PI,
+    );
+  }
+
+  /** Takes his end of the table, paddle in hand; a teammate on a break comes over to play. */
+  private playAsAlyx(station: StationId): void {
+    const { spot, facing } = stations[station];
+    this.alyxGame = { station, partner: null, askedAt: Number.NEGATIVE_INFINITY };
+    this.alyxHands.hold(handPropModel("paddle"));
+    this.firstPerson.anchorAt(
+      { spot, eye: eyeHeight, standAt: spot, onLeave: () => this.endAlyxGame() },
+      facing + Math.PI,
+    );
+  }
+
+  private endAlyxGame(): void {
+    const partner = this.alyxGame?.partner ?? null;
+    if (partner !== null) {
+      this.life.endBossGame(partner, Date.now());
+    }
+    this.alyxGame = null;
+    this.alyxHands.hold(this.alyxHeld === null ? null : this.alyxHeld.object.clone(true));
+  }
+
+  /** Keeps asking for an opponent every couple of seconds until someone is free. */
+  private updateAlyxGame(): void {
+    const game = this.alyxGame;
+    if (game === null) {
+      return;
+    }
+    // An opponent who never made it to the table, or was called to work, is replaced.
+    if (game.partner !== null && this.lifeSteps[game.partner]?.activity !== "pingpong") {
+      game.partner = null;
+      game.askedAt = this.elapsed;
+    }
+    if (game.partner !== null || this.elapsed - game.askedAt < 2) {
+      return;
+    }
+    game.askedAt = this.elapsed;
+    const other = game.station === "pingpong-west" ? "pingpong-east" : "pingpong-west";
+    game.partner = this.life.playBoss(other, Date.now());
+    if (game.partner !== null) {
+      this.chatter.announce(game.partner, "Siap, Bos! Aku lawan.", this.elapsed, this.elapsed + 2.5);
+    }
+  }
+
+  /** His opponent is at the other end and ready, so the ball is in play. */
+  private alyxRally(): boolean {
+    const game = this.alyxGame;
+    if (game === null || game.partner === null) {
+      return false;
+    }
+    const rig = this.rigs[game.partner];
+    const other = game.station === "pingpong-west" ? "pingpong-east" : "pingpong-west";
+    return rig.action === "pingpong" && rig.plan.station === other && !isWalking(rig.actor);
+  }
+
+  /** Whose laptop is open at this meeting seat, if anyone's. */
+  private meetingLaptopOwner(index: number): MemberId | undefined {
+    const seat = meetingStationIds[index];
+    return memberIds.find(
+      (memberId) =>
+        this.lifeSteps[memberId]?.errand === "meeting-laptop" &&
+        this.rigs[memberId].plan.station === seat &&
+        this.rigs[memberId].laptop.place === "seat",
+    );
+  }
+
+  /** Leaving first person puts back what he carried and switched, so nothing is left stuck. */
+  private resetAlyx(): void {
+    this.alyxHeld = null;
+    this.alyxHands.hold(null);
+    this.alyxOn.clear();
+    this.alyxLamps.clear();
+    this.applyDaylight();
   }
 
   /** Seconds since Alyx greeted this teammate while they are still answering, otherwise null. */
@@ -1160,7 +1468,10 @@ export class OfficeStage {
     const deskBit = rig.deskHabits.update(
       this.elapsed,
       atOwnDesk,
-      (bit) => bit !== "sip" || (mug.place === "desk" && mug.level > 0),
+      (bit) =>
+        (bit !== "sip" || (mug.place === "desk" && mug.level > 0)) &&
+        // Alyx has walked off with what this bit needs.
+        !(this.alyxHeld?.owner === memberId && deskBitSpec(bit).item === this.alyxHeld.item),
     );
     if (deskBit?.kind === "sip" && deskBit.elapsed >= reachSeconds + 1.5 && rig.sippedIn !== deskBit.startedAt) {
       this.mugs[memberId] = afterSip(mug);
@@ -1655,7 +1966,7 @@ export class OfficeStage {
     const workstation = this.office.workstations[memberId as DeskMember];
     const held = bit !== null && itemInHand(bit) ? deskBitSpec(bit.kind).item : null;
     for (const [item, object] of Object.entries(workstation.items)) {
-      object.visible = item !== held;
+      object.visible = item !== held && this.alyxHeld?.object !== object;
     }
     const mug = this.mugs[memberId];
     workstation.mug.visible = mug.place === "desk" && held !== "mug";
@@ -1763,10 +2074,11 @@ export class OfficeStage {
       });
     const onSofa = (action: OfficeAction): boolean =>
       usingAt("sofa-1", action) || usingAt("sofa-2", action) || usingAt("sofa-3", action);
-    this.office.tv.update(delta, onSofa("game") ? "game" : onSofa("watch") ? "show" : "off");
+    this.office.tv.update(delta, onSofa("game") ? "game" : onSofa("watch") || this.alyxOn.has("tv") ? "show" : "off");
     this.office.arcades.forEach((screen, index) => {
       const station = arcadeStationIds[index];
-      screen.update(delta, station !== undefined && usingAt(station, "arcade") ? "playing" : "attract");
+      const playing = (station !== undefined && usingAt(station, "arcade")) || this.alyxOn.has(`arcade:${index}`);
+      screen.update(delta, playing ? "playing" : "attract");
     });
     this.office.treadmills.forEach((treadmill, index) => {
       const station = treadmillStationIds[index];
@@ -1779,8 +2091,11 @@ export class OfficeStage {
     this.office.punchingBag.update(boxer === undefined ? null : this.elapsed - this.rigs[boxer].actionStartedAt, delta);
     this.office.aquarium.update(this.elapsed);
     this.office.rackLights.update(this.elapsed, usingAt("rack", "rack"));
-    this.updatePingpongBall(usingAt("pingpong-west", "pingpong") && usingAt("pingpong-east", "pingpong"));
-    this.office.fridgeDoor.update(usingAt("fridge", "snack"), delta);
+    this.updateAlyxGame();
+    this.updatePingpongBall(
+      (usingAt("pingpong-west", "pingpong") && usingAt("pingpong-east", "pingpong")) || this.alyxRally(),
+    );
+    this.office.fridgeDoor.update(usingAt("fridge", "snack") || this.alyxOn.has("fridge"), delta);
     const door = stations.door.spot;
     this.office.entryDoor.update(
       memberIds.some((memberId) => {
@@ -1813,7 +2128,11 @@ export class OfficeStage {
           this.rigs[memberId].laptop.place === "seat",
       );
       if (owner === undefined) {
-        laptop.update(delta, null);
+        // Alyx's own, opened at an empty seat.
+        laptop.update(
+          delta,
+          this.alyxOn.has(`laptop:${index}`) ? { lid: 1, screenOn: true, shell: alyxLaptopShell } : null,
+        );
         return;
       }
       const { lid, screenOn } = this.rigs[owner].laptop;
@@ -2007,9 +2326,13 @@ export class OfficeStage {
     this.office.setSky(sky);
     // On once it is getting dark, not at the first hint of dusk, and only for whoever is still in.
     const lamps = Math.min(1, Math.max(0, (night - 0.35) / 0.4));
+    this.autoLamps = lamps;
     const away = memberIds.filter((memberId) => this.goneHome(memberId));
     for (const memberId of memberIds) {
-      this.office.workstations[memberId].lamp.setLevel(away.includes(memberId) ? 0 : lamps);
+      const own = this.alyxLamps.get(memberId);
+      this.office.workstations[memberId].lamp.setLevel(
+        own === undefined ? (away.includes(memberId) ? 0 : lamps) : own ? 1 : 0,
+      );
     }
     // The room lights go down as the office empties out for the night.
     const emptied = (away.length / memberIds.length) * night;
@@ -2077,7 +2400,22 @@ export class OfficeStage {
     if (this.firstPerson.active) {
       const { walked, speed } = this.firstPerson.stride;
       const wave = this.alyxWaveAt === null ? null : this.elapsed - this.alyxWaveAt;
-      this.alyxHands.update(this.camera, walked, speed, wave !== null && wave <= waveSeconds ? wave : null, this.night);
+      const game = this.alyxGame;
+      const swing =
+        game !== null && this.alyxRally()
+          ? pingpongSwing(pingpongBeat(this.elapsed, game.station === "pingpong-west" ? "west" : "east"))
+          : 0;
+      this.alyxHands.update(
+        this.camera,
+        walked,
+        speed,
+        {
+          wave: wave !== null && wave <= waveSeconds ? wave : null,
+          holding: this.alyxHeld !== null || game !== null,
+          swing,
+        },
+        this.night,
+      );
       this.alyxHands.render(this.renderer);
     }
 

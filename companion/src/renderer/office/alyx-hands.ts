@@ -60,6 +60,25 @@ const rest: Record<VrHandSide, Placement> = {
   },
 };
 
+/** Something carried in the right hand: held up a little in front, palm up under it, fingers round it. */
+const holding: Placement = {
+  palm: new Vector3(0.17, -0.2, -0.4),
+  fingers: new Vector3(-0.25, 0.15, -1),
+  facing: new Vector3(-0.25, 1, 0),
+  curl: { thumb: 0.45, index: 0.55, middle: 0.6, ring: 0.62, pinky: 0.65 },
+  roll: 0,
+};
+
+/** What the hands are doing this frame besides walking. */
+export interface HandsPose {
+  /** Seconds into a wave, or null. */
+  wave: number | null;
+  /** Carrying something in the right hand. */
+  holding: boolean;
+  /** A ping-pong stroke, -0.5 for the wind-up to 1 at contact; 0 when not playing. */
+  swing: number;
+}
+
 /** Raised beside the face, palm out to whoever he greets. */
 const waving: Placement = {
   palm: new Vector3(0.17, -0.02, -0.45),
@@ -121,10 +140,23 @@ export class AlyxHands {
   private readonly key = new DirectionalLight(0xffffff, 1.8);
   private readonly fill = new AmbientLight(0xffffff, 0.9);
   private loading: Promise<void> | null = null;
+  /** Whatever is in his right hand, kept on the palm. */
+  private readonly held = new Group();
 
   constructor() {
     this.key.position.set(0.5, 1.2, 0.8);
-    this.scene.add(this.key, this.fill);
+    this.scene.add(this.key, this.fill, this.held);
+  }
+
+  /** Puts a copy of `thing` in his right hand, or empties the hand with null. */
+  hold(thing: Object3D | null): void {
+    this.held.clear();
+    if (thing !== null) {
+      // Held upright in the view, whatever way it stood on the desk.
+      thing.position.set(0, 0, 0);
+      thing.rotation.set(0, 0, 0);
+      this.held.add(thing);
+    }
   }
 
   /** Loads both hands once; until they are in, the view simply has no hands. */
@@ -147,9 +179,10 @@ export class AlyxHands {
 
   /**
    * Poses the hands for this frame. `walked` is meters walked (for the bob), `speed` how fast,
-   * `wave` seconds into a wave or null, `night` 0..1 to dim them with the room.
+   * `night` 0..1 to dim them with the room.
    */
-  update(view: PerspectiveCamera, walked: number, speed: number, wave: number | null, night: number): void {
+  update(view: PerspectiveCamera, walked: number, speed: number, pose: HandsPose, night: number): void {
+    const { wave } = pose;
     this.camera.fov = view.fov;
     this.camera.aspect = view.aspect;
     this.camera.updateProjectionMatrix();
@@ -164,7 +197,12 @@ export class AlyxHands {
       if (rig === undefined) {
         continue;
       }
-      let placement = rest[side];
+      let placement = side === "Right" && pose.holding ? holding : rest[side];
+      if (side === "Right" && pose.swing !== 0) {
+        // Forehand: back and out for the wind-up, forward and across through contact.
+        const stroke = new Vector3(0.05 - 0.12 * pose.swing, 0.02 * pose.swing, -0.1 * Math.max(0, pose.swing));
+        placement = { ...placement, palm: placement.palm.clone().add(stroke), roll: -0.3 * pose.swing };
+      }
       if (side === "Right" && raise > 0) {
         placement = mix(placement, { ...waving, roll: 0.35 * Math.sin((wave ?? 0) * 9) }, raise);
       }
@@ -179,6 +217,14 @@ export class AlyxHands {
       rig.root.updateMatrixWorld(true);
       const palm = rig.anchors.palm.getWorldPosition(new Vector3());
       rig.root.position.copy(placement.palm.clone().add(bob).sub(palm));
+      if (side === "Right") {
+        // Resting on the palm, just above it.
+        this.held.position
+          .copy(placement.palm)
+          .add(bob)
+          .add(new Vector3(0, 0.035, -0.01));
+        this.held.rotation.set(0, 0, placement.roll);
+      }
     }
   }
 
