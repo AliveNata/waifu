@@ -4,6 +4,8 @@ import {
   type OfficePoseInput,
   officePose,
   pingpongSwing,
+  punchReach,
+  punchRound,
 } from "../src/renderer/office/office-pose.js";
 import { pingpongBeat } from "../src/renderer/office/office-stage.js";
 
@@ -76,5 +78,32 @@ describe("ping-pong timing", () => {
     expect(westAtStart).toBeCloseTo(0);
     expect(eastAfterOneCrossing).toBeCloseTo(0);
     expect(westHalfway).toBeCloseTo(0.5);
+  });
+});
+
+describe("punchReach", () => {
+  it("throws the right, then the left, never both at once", () => {
+    // Arrange
+    const samples = Array.from({ length: 260 }, (_, index) => (index / 260) * punchRound);
+
+    // Act
+    const reaches = samples.map((time) => punchReach(time));
+
+    // Assert
+    expect(reaches.every(({ left, right }) => left === 0 || right === 0)).toBe(true);
+    const firstRight = reaches.findIndex(({ right }) => right > 0.9);
+    const firstLeft = reaches.findIndex(({ left }) => left > 0.9);
+    expect(firstRight).toBeGreaterThanOrEqual(0);
+    expect(firstLeft).toBeGreaterThan(firstRight);
+  });
+
+  it("repeats every round", () => {
+    // Act
+    const now = punchReach(0.07);
+    const nextRound = punchReach(0.07 + punchRound);
+
+    // Assert
+    expect(nextRound.right).toBeCloseTo(now.right, 6);
+    expect(nextRound.left).toBeCloseTo(now.left, 6);
   });
 });

@@ -61,6 +61,7 @@ import { type LaptopView, laptopPutSeconds, laptopTakeSeconds, laptopView } from
 import { type Errand, type LifeChoice, OfficeLife } from "./office-life.js";
 import { afterSip, initialMug, type MugState, mugPickSeconds, stepMug } from "./office-mug.js";
 import {
+  arcadeStationIds,
   barFoodSpot,
   distance,
   floorHeightAt,
@@ -69,6 +70,7 @@ import {
   type StationId,
   stations,
   surface,
+  treadmillStationIds,
 } from "./office-plan.js";
 import { type BoardFocus, officePose } from "./office-pose.js";
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
@@ -382,6 +384,9 @@ const actionLabels: Record<OfficeAction, string> = {
   eat: "having a bite",
   out: "out getting food",
   "pingpong-wait": "waiting for a ping-pong partner",
+  run: "on the treadmill",
+  box: "at the punching bag",
+  gaze: "watching the fish",
 };
 
 export class OfficeStage {
@@ -1439,7 +1444,20 @@ export class OfficeStage {
     const onSofa = (action: OfficeAction): boolean =>
       usingAt("sofa-1", action) || usingAt("sofa-2", action) || usingAt("sofa-3", action);
     this.office.tv.update(delta, onSofa("game") ? "game" : onSofa("watch") ? "show" : "off");
-    this.office.arcade.update(delta, usingAt("arcade", "arcade") ? "playing" : "attract");
+    this.office.arcades.forEach((screen, index) => {
+      const station = arcadeStationIds[index];
+      screen.update(delta, station !== undefined && usingAt(station, "arcade") ? "playing" : "attract");
+    });
+    this.office.treadmills.forEach((treadmill, index) => {
+      const station = treadmillStationIds[index];
+      treadmill.update(station !== undefined && usingAt(station, "run"), delta);
+    });
+    const boxer = memberIds.find((memberId) => {
+      const rig = this.rigs[memberId];
+      return rig.action === "box" && rig.plan.station === "punching-bag";
+    });
+    this.office.punchingBag.update(boxer === undefined ? null : this.elapsed - this.rigs[boxer].actionStartedAt, delta);
+    this.office.aquarium.update(this.elapsed);
     this.office.rackLights.update(this.elapsed, usingAt("rack", "rack"));
     this.updatePingpongBall(usingAt("pingpong-west", "pingpong") && usingAt("pingpong-east", "pingpong"));
     this.office.fridgeDoor.update(usingAt("fridge", "snack"), delta);

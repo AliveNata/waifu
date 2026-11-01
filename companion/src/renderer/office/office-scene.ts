@@ -58,6 +58,7 @@ import {
   type Oven,
   type SinkTap,
 } from "./scene/furniture.js";
+import { Aquarium, buildBench, buildDeskReturn, PunchingBag, Treadmill } from "./scene/gym.js";
 import { NeonStrips } from "./scene/neon.js";
 import { box, glow, mesh, palette, printed, sceneQuality, standard, unlit } from "./scene/palette.js";
 import { StatusBoard } from "./scene/status-board.js";
@@ -87,7 +88,12 @@ export interface OfficeProps {
   /** Floor and backrest colliders every avatar's hair should respect. */
   hairColliders: VRMSpringBoneCollider[];
   tv: TvScreen;
-  arcade: ArcadeScreen;
+  /** One screen per cabinet, in the order of `arcadeStationIds`. */
+  arcades: ArcadeScreen[];
+  /** One per treadmill, in the order of `treadmillStationIds`. */
+  treadmills: Treadmill[];
+  punchingBag: PunchingBag;
+  aquarium: Aquarium;
   rackLights: RackLights;
   neon: NeonStrips;
   /** Hidden unless two players are at the table. */
@@ -207,8 +213,8 @@ function buildRoomShell(root: Group, logo: Texture): SkyGlass {
     box(0.03, 0.1, depth, standard(palette.skirting, 0.7), room.minX + 0.015, 0, centerZ),
   );
 
-  // Two windows over the desks with the sign between them, so the brand sits at the room's focal point.
-  // The east wing has none: Ruby's backdrop and the status board take that wall.
+  // Two windows over the desks with the sign between them, so the brand sits at the room's focal point,
+  // and a third over the treadmills, so the runners look out at the city.
   // The sills clear the monitors and the tops stay under a chibi-scaled 2.2 m wall.
   const sill = 1.0;
   const windowHeight = 0.85;
@@ -217,6 +223,7 @@ function buildRoomShell(root: Group, logo: Texture): SkyGlass {
     [
       [-3.6, -1.05],
       [1.75, 4.3],
+      [7.85, 9.85],
     ] as const
   ).entries()) {
     const windowWidth = right - left;
@@ -288,7 +295,10 @@ export function buildOffice(): OfficeProps {
   const kanban = kanbanTexture();
   const desks: Partial<Record<DeskMember, Workstation>> = {};
   let tv: TvScreen | null = null;
-  let arcade: ArcadeScreen | null = null;
+  const arcades: ArcadeScreen[] = [];
+  const treadmills: Treadmill[] = [];
+  let punchingBag: PunchingBag | null = null;
+  let aquarium: Aquarium | null = null;
   let rackLights: RackLights | null = null;
   let meetingLaptops: MeetingLaptop[] = [];
   let rackCups: Object3D[] = [];
@@ -389,7 +399,7 @@ export function buildOffice(): OfficeProps {
       case "arcade": {
         const built = buildArcade(piece);
         root.add(built.root);
-        arcade = built.screen;
+        arcades.push(built.screen);
         break;
       }
       case "tv-wall": {
@@ -402,13 +412,34 @@ export function buildOffice(): OfficeProps {
         root.add(buildTvConsole(piece));
         break;
       case "rug":
-        root.add(buildRug(piece));
+        // The game corner's mat is dark rubber, the lounge rug soft and light.
+        root.add(piece.id === "rug-game" ? buildRug(piece, "#3b3646", "#47414f") : buildRug(piece));
         break;
       case "coffee-table":
         root.add(buildCoffeeTable(piece));
         break;
       case "plant":
         root.add(buildPlant(piece));
+        break;
+      case "desk-return":
+        root.add(buildDeskReturn(piece));
+        break;
+      case "bench":
+        root.add(buildBench(piece));
+        break;
+      case "treadmill": {
+        const built = new Treadmill(piece);
+        treadmills.push(built);
+        root.add(built.root);
+        break;
+      }
+      case "punching-bag":
+        punchingBag = new PunchingBag(piece);
+        root.add(punchingBag.root);
+        break;
+      case "aquarium":
+        aquarium = new Aquarium(piece);
+        root.add(aquarium.root);
         break;
       case "status-board":
         statusBoard = new StatusBoard(piece);
@@ -448,7 +479,10 @@ export function buildOffice(): OfficeProps {
   }
   if (
     tv === null ||
-    arcade === null ||
+    arcades.length !== 2 ||
+    treadmills.length !== 2 ||
+    punchingBag === null ||
+    aquarium === null ||
     rackLights === null ||
     fridgeDoor === null ||
     sink === null ||
@@ -459,7 +493,9 @@ export function buildOffice(): OfficeProps {
     statusBoard === null ||
     entryDoor === null
   ) {
-    throw new Error("Floor plan is missing the TV, arcade, server rack, fridge, meeting table, status board or door");
+    throw new Error(
+      "Floor plan is missing the TV, an arcade, a treadmill, the punching bag, the aquarium, server rack, fridge, meeting table, status board or door",
+    );
   }
 
   const whiteboardPiece = pieceById("whiteboard");
@@ -508,7 +544,10 @@ export function buildOffice(): OfficeProps {
     closeups: buildCloseups(whiteboardSpec, ideaSpec),
     hairColliders,
     tv,
-    arcade,
+    arcades,
+    treadmills,
+    punchingBag,
+    aquarium,
     rackLights,
     neon,
     pingpongBall,
@@ -539,7 +578,7 @@ function buildCloseups(whiteboard: BoardSpec, idea: BoardSpec): Record<MemberId,
   // Back row: over the right shoulder and a little high, so the head never blocks the monitors.
   // The south side of each pod sits the same way, so it takes the same shot.
   const backRowShot = (
-    station: "desk-asuna" | "desk-kobayashi" | "desk-huagua" | "desk-yor" | "desk-komachi" | "desk-miruku",
+    station: "desk-asuna" | "desk-kobayashi" | "desk-huagua" | "desk-yor" | "desk-komachi",
   ): CloseupShot => {
     const seat = stations[station].spot;
     return {
@@ -551,7 +590,7 @@ function buildCloseups(whiteboard: BoardSpec, idea: BoardSpec): Record<MemberId,
   // over the right shoulder and well to the side, so a chibi's big head does not hide the screen
   // and the camera stays clear of the panel behind the chair.
   // The north side of each pod faces the room the same way.
-  const frontShot = (station: "desk-twob" | "desk-ruby" | "desk-arisu" | "desk-erza"): CloseupShot => {
+  const frontShot = (station: "desk-twob" | "desk-ruby" | "desk-arisu" | "desk-erza" | "desk-miruku"): CloseupShot => {
     const seat = stations[station].spot;
     return {
       eye: new Vector3(seat.x + 0.95, 1.0, seat.z - 0.05),
@@ -574,7 +613,7 @@ function buildCloseups(whiteboard: BoardSpec, idea: BoardSpec): Record<MemberId,
     chizuru: boardShot(idea, stations["idea-board"].spot.z, 0.5),
     arisu: frontShot("desk-arisu"),
     komachi: backRowShot("desk-komachi"),
-    miruku: backRowShot("desk-miruku"),
+    miruku: frontShot("desk-miruku"),
     huagua: backRowShot("desk-huagua"),
   };
 }

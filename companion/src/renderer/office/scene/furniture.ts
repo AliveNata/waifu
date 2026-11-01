@@ -673,12 +673,12 @@ export function buildTvConsole(piece: Furniture): Group {
   return root;
 }
 
-export function buildRug(piece: Furniture): Group {
+export function buildRug(piece: Furniture, color: string = palette.rug, inner = "#cfc5b6"): Group {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
-  const rug = box(width, 0.012, depth, standard(palette.rug, 1), 0, 0, 0);
+  const rug = box(width, 0.012, depth, standard(color, 1), 0, 0, 0);
   rug.castShadow = false;
-  const border = box(width - 0.2, 0.013, depth - 0.2, standard("#cfc5b6", 1), 0, 0, 0);
+  const border = box(width - 0.2, 0.013, depth - 0.2, standard(inner, 1), 0, 0, 0);
   border.castShadow = false;
   root.add(rug, border);
   return root;

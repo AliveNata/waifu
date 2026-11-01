@@ -29,7 +29,10 @@ export type ActivityId =
   | "heat"
   | "wash-mug"
   | "grab-food"
-  | "buy-food";
+  | "buy-food"
+  | "treadmill"
+  | "boxing"
+  | "aquarium";
 
 interface Activity {
   /** Null means the member's own idle spot. */
@@ -56,7 +59,23 @@ const activities: Record<ActivityId, Activity> = {
   snack: { stations: ["fridge"], action: "snack", durationSeconds: [5, 9], weight: 0.6, cooldownSeconds: 120 },
   tv: { stations: sofaSeats, action: "watch", durationSeconds: [20, 40], weight: 0.9, cooldownSeconds: 60 },
   console: { stations: sofaSeats, action: "game", durationSeconds: [20, 35], weight: 0.6, cooldownSeconds: 90 },
-  arcade: { stations: ["arcade"], action: "arcade", durationSeconds: [15, 30], weight: 0.7, cooldownSeconds: 90 },
+  arcade: {
+    stations: ["arcade", "arcade-2"],
+    action: "arcade",
+    durationSeconds: [15, 30],
+    weight: 0.7,
+    cooldownSeconds: 90,
+    social: true,
+  },
+  treadmill: {
+    stations: ["treadmill-1", "treadmill-2"],
+    action: "run",
+    durationSeconds: [20, 40],
+    weight: 0.5,
+    cooldownSeconds: 180,
+  },
+  boxing: { stations: ["punching-bag"], action: "box", durationSeconds: [10, 18], weight: 0.4, cooldownSeconds: 180 },
+  aquarium: { stations: ["aquarium"], action: "gaze", durationSeconds: [10, 20], weight: 0.6, cooldownSeconds: 120 },
   plants: {
     stations: ["plant-lounge", "plant-corner", "plant-desks"],
     action: "water",
@@ -134,22 +153,22 @@ export const activityIds = Object.keys(activities) as ActivityId[];
 
 /** Character habits as weight multipliers. Missing entries count as 1. */
 const preferences: Record<MemberId, Partial<Record<ActivityId, number>>> = {
-  twob: { plants: 1.5, coffee: 1.2, meeting: 1.6, arcade: 0.6, console: 0.7 },
-  chizuru: { beanbag: 2, chat: 1.6, tv: 1.2, pingpong: 1.4, arcade: 0.7 },
-  rias: { read: 2, coffee: 1.4, chat: 1.2, meeting: 1.5, arcade: 0.5 },
-  asuna: { coffee: 1.6, console: 1.3, pingpong: 1.5, plants: 0.8 },
+  twob: { plants: 1.5, coffee: 1.2, meeting: 1.6, arcade: 0.6, console: 0.7, treadmill: 1.3 },
+  chizuru: { beanbag: 2, chat: 1.6, tv: 1.2, pingpong: 1.4, arcade: 0.7, aquarium: 1.5 },
+  rias: { read: 2, coffee: 1.4, chat: 1.2, meeting: 1.5, arcade: 0.5, aquarium: 1.3, boxing: 0.5 },
+  asuna: { coffee: 1.6, console: 1.3, pingpong: 1.5, plants: 0.8, treadmill: 1.5 },
   kobayashi: { arcade: 1.8, console: 1.5, rack: 0.6 },
-  yor: { rack: 2, plants: 1.3, snack: 1.2, pingpong: 1.3, arcade: 0.6 },
-  erza: { snack: 1.8, read: 1.2, meeting: 1.3, console: 0.7 },
-  ruby: { chat: 1.5, tv: 1.2, read: 0.6 },
+  yor: { rack: 2, plants: 1.3, snack: 1.2, pingpong: 1.3, arcade: 0.6, boxing: 1.6, treadmill: 1.3 },
+  erza: { snack: 1.8, read: 1.2, meeting: 1.3, console: 0.7, boxing: 1.8, treadmill: 1.2 },
+  ruby: { chat: 1.5, tv: 1.2, read: 0.6, aquarium: 1.2, boxing: 0.5 },
   // Arisu keeps people in sync, so she is drawn to meetings and the bar.
   arisu: { meeting: 1.8, chat: 1.3, coffee: 1.2, arcade: 0.6 },
   // Komachi reads up between reviews and likes a game of ping-pong.
   komachi: { read: 1.6, pingpong: 1.3, coffee: 1.3, beanbag: 0.7 },
   // Miruku is on watch: short breaks, coffee, and a round of arcade.
   miruku: { coffee: 1.5, arcade: 1.4, plants: 0.7, beanbag: 0.7 },
-  // Huagua looks for ideas away from the screen: plants, the lounge and the TV.
-  huagua: { plants: 1.6, beanbag: 1.4, tv: 1.2, meeting: 0.8 },
+  // Huagua looks for ideas away from the screen: plants, the fish, the lounge and the TV.
+  huagua: { plants: 1.6, beanbag: 1.4, tv: 1.2, meeting: 0.8, aquarium: 1.8 },
 };
 
 /**
@@ -157,9 +176,19 @@ const preferences: Record<MemberId, Partial<Record<ActivityId, number>>> = {
  * lunch, winding down in the afternoon, a quieter evening. Multiplies the personal preferences.
  */
 const byTimeOfDay: Record<DayPart, Partial<Record<ActivityId, number>>> = {
-  pagi: { coffee: 2, plants: 1.4, snack: 0.6, heat: 0.4, console: 0.6, arcade: 0.6, "grab-food": 0.7 },
+  pagi: { coffee: 2, plants: 1.4, snack: 0.6, heat: 0.4, console: 0.6, arcade: 0.6, "grab-food": 0.7, treadmill: 1.6 },
   siang: { heat: 2.5, snack: 2, chat: 1.5, coffee: 0.8, "grab-food": 2 },
-  sore: { tv: 1.5, console: 1.5, pingpong: 1.5, arcade: 1.5, beanbag: 1.3, coffee: 1.2, "grab-food": 1.3 },
+  sore: {
+    tv: 1.5,
+    console: 1.5,
+    pingpong: 1.5,
+    arcade: 1.5,
+    beanbag: 1.3,
+    coffee: 1.2,
+    "grab-food": 1.3,
+    treadmill: 1.3,
+    boxing: 1.3,
+  },
   malam: { tv: 1.3, read: 1.4, beanbag: 1.3, coffee: 0.6, pingpong: 0.7, plants: 0.5 },
 };
 
