@@ -68,6 +68,7 @@ import {
   PunchingBag,
   Treadmill,
 } from "./scene/gym.js";
+import { collectLiveParts, mergeStaticMeshes } from "./scene/merge-static.js";
 import { NeonStrips } from "./scene/neon.js";
 import { box, glow, mesh, palette, printed, sceneQuality, standard, unlit } from "./scene/palette.js";
 import { StatusBoard } from "./scene/status-board.js";
@@ -549,7 +550,7 @@ export function buildOffice(): OfficeProps {
   }
 
   const workstations = desks as Record<DeskMember, Workstation>;
-  return {
+  const props: OfficeProps = {
     root,
     workstations,
     whiteboard,
@@ -587,6 +588,11 @@ export function buildOffice(): OfficeProps {
     barFood,
     entryDoor,
   };
+  // Everything left untouched by the running office goes into a few big meshes: one draw call per
+  // material look instead of one per box, which is most of what makes the room slow to draw.
+  const { merged, into } = mergeStaticMeshes(root, collectLiveParts({ ...props }, [root]));
+  console.info(`[office] merged ${merged} static meshes into ${into}`);
+  return props;
 }
 
 function buildCloseups(whiteboard: BoardSpec, idea: BoardSpec): Record<MemberId, CloseupShot> {

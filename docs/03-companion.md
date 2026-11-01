@@ -137,7 +137,9 @@ Tiap zona punya bentuk yang kebaca jelas dari kamera, dan meja meeting, meja 2B,
 - **Kamera bebas**: klik tombol **Kamera bebas** di bawah. WASD atau panah buat jalan, Q dan E buat turun naik, Shift biar lebih cepat, drag mouse buat noleh. Kameranya nggak bisa keluar jauh dari ruangan. Esc atau klik tombolnya lagi buat balik ke tampilan awal.
 - **FPS**: tekan F (atau centang **Tampilkan FPS kantor** di menu) buat nampilin chip di kiri atas: frame per detik, waktu per frame, dan jumlah draw call. Tekan F lagi buat nyembunyiin. Pilihannya tersimpan.
 
-**Kalau kantornya patah-patah**: yang paling berat jumlah draw call (tiap barang kecil digambar terpisah), bayangan matahari yang bikin semua objek digambar dua kali, fisika rambut 12 karakter, dan close-up yang ngegambar adegan sekali lagi. Yang bisa langsung dicoba: matiin **Grafis kantor tinggi** di menu (nonaktifin efek ambient occlusion), atau matiin close-up otomatis. Angka di chip FPS bisa dipakai buat bandingin sebelum dan sesudah.
+**Kalau kantornya patah-patah**: yang paling berat jumlah draw call, bayangan matahari yang bikin semua objek digambar dua kali, fisika rambut 12 karakter, dan close-up yang ngegambar adegan sekali lagi. Yang bisa langsung dicoba: matiin **Grafis kantor tinggi** di menu (nonaktifin efek ambient occlusion), atau matiin close-up otomatis. Angka di chip FPS bisa dipakai buat bandingin sebelum dan sesudah.
+
+**Yang udah dioptimasi**: furnitur yang nggak pernah gerak digabung jadi satu mesh per jenis material pas kantor selesai dibangun. Barang yang masih hidup (layar, lampu, pintu, mug, laptop, keyboard, apa pun yang dipegang atau berubah warna) tetap terpisah. Tuts keyboard sekarang satu `InstancedMesh` per keyboard, bukan satu mesh per tuts. Diukur di kamera default: mesh yang kelihatan turun dari 1.759 jadi 718, dan draw call per frame (termasuk bayangan) dari sekitar 2.900 jadi sekitar 1.370. Log `[office] merged ... static meshes into ...` di console nunjukin berapa yang digabung.
 
 Setup meja sesuai role:
 
