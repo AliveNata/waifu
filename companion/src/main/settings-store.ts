@@ -9,6 +9,8 @@ export interface CompanionSettings {
   officeOpen: boolean;
   conversationMode: ConversationMode;
   closeupEnabled: boolean;
+  /** Shows the frame rate meter in the office, for judging how smooth it runs on this machine. */
+  fpsVisible: boolean;
   officeQuality: OfficeQuality;
   /** Shows 2B's desktop companion window. */
   companionVisible: boolean;
@@ -28,6 +30,7 @@ export const defaultSettings: CompanionSettings = {
   officeOpen: false,
   conversationMode: "simulated",
   closeupEnabled: true,
+  fpsVisible: false,
   officeQuality: "high",
   companionVisible: true,
   chatEnabled: true,
@@ -62,6 +65,7 @@ export function normalizeSettings(input: unknown): CompanionSettings {
       ? record.conversationMode
       : defaultSettings.conversationMode,
     closeupEnabled: typeof record.closeupEnabled === "boolean" ? record.closeupEnabled : defaultSettings.closeupEnabled,
+    fpsVisible: typeof record.fpsVisible === "boolean" ? record.fpsVisible : defaultSettings.fpsVisible,
     officeQuality: isOfficeQuality(record.officeQuality) ? record.officeQuality : defaultSettings.officeQuality,
     companionVisible:
       typeof record.companionVisible === "boolean" ? record.companionVisible : defaultSettings.companionVisible,

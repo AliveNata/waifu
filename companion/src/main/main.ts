@@ -348,6 +348,12 @@ function showMenu(window: BrowserWindow): void {
       click: (item) => setCloseupEnabled(item.checked),
     },
     {
+      label: "Tampilkan FPS kantor (F)",
+      type: "checkbox",
+      checked: settings.fpsVisible,
+      click: (item) => setFpsVisible(item.checked),
+    },
+    {
       label: "Grafis kantor tinggi",
       type: "checkbox",
       checked: settings.officeQuality === "high",
@@ -401,6 +407,12 @@ function modelPathFor(memberId: MemberId): string | null {
 function setCloseupEnabled(enabled: boolean): void {
   updateSettings({ closeupEnabled: enabled })
     .then(() => broadcast(ipcChannels.closeupEnabled, enabled))
+    .catch((error: unknown) => console.error("[main] failed to save settings", error));
+}
+
+function setFpsVisible(visible: boolean): void {
+  updateSettings({ fpsVisible: visible })
+    .then(() => broadcast(ipcChannels.fpsVisible, visible))
     .catch((error: unknown) => console.error("[main] failed to save settings", error));
 }
 
@@ -643,6 +655,14 @@ function registerIpc(): void {
       return;
     }
     setCloseupEnabled(enabled);
+  });
+  ipcMain.handle(ipcChannels.getFpsVisible, () => settings.fpsVisible);
+  ipcMain.on(ipcChannels.setFpsVisible, (_event, visible: unknown) => {
+    if (typeof visible !== "boolean") {
+      console.error(`[main] ignoring non-boolean fps setting: ${String(visible)}`);
+      return;
+    }
+    setFpsVisible(visible);
   });
   ipcMain.on(ipcChannels.setConversationMode, (_event, mode: unknown) => {
     if (!isConversationMode(mode)) {

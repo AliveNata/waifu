@@ -25,6 +25,7 @@ describe("settings store", () => {
       officeOpen: true,
       conversationMode: "real" as const,
       closeupEnabled: false,
+      fpsVisible: true,
       officeQuality: "low" as const,
       companionVisible: false,
       chatEnabled: false,

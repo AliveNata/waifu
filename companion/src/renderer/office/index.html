@@ -24,6 +24,11 @@
       <p class="closeup-caption" id="closeup-caption" hidden></p>
       <!-- Name and role of whoever is under the pointer; the same is in the close-up caption on click. -->
       <p class="member-tip" id="member-tip" aria-hidden="true" hidden></p>
+      <!-- Frame rate, frame time and draw calls, for judging how smoothly the office runs here. -->
+      <p class="fps-meter" id="fps-meter" hidden></p>
+      <p class="camera-hint" id="camera-hint" hidden>
+        WASD atau panah buat jalan · Q/E turun naik · Shift lebih cepat · drag buat noleh · Esc buat keluar
+      </p>
       <!-- Before the dialog in the DOM, so the dialog's top edge covers the bottom of the portrait. -->
       <canvas class="speaker-portrait" id="speaker-portrait" aria-hidden="true" hidden></canvas>
       <section class="dialog office-dialog" id="office-dialog" aria-live="polite" hidden>
@@ -119,6 +124,7 @@
       <div class="hud">
         <p class="status" id="status" role="status" hidden></p>
         <!-- First of the right-hand group, so it lines up with the others whichever of them are shown. -->
+        <button class="button hud-button" id="free-camera" type="button" aria-pressed="false">Kamera bebas</button>
         <button class="button hud-button" id="status-open" type="button" aria-haspopup="dialog">Status tim</button>
         <button class="button hud-button" id="music-toggle" type="button" aria-expanded="false" aria-controls="music" hidden>
           Musik
@@ -180,6 +186,10 @@
         <label class="setting-row">
           <input type="checkbox" id="closeup-setting" checked />
           Close-up pas ada yang kerja
+        </label>
+        <label class="setting-row">
+          <input type="checkbox" id="fps-setting" />
+          Tampilkan FPS (tombol F)
         </label>
         <form method="dialog">
           <button class="button" type="submit">Tutup</button>
