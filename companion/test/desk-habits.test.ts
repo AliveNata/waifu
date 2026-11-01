@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   type ActiveDeskBit,
+  calendarStep,
   chessCarry,
   DeskHabits,
   deskBitFace,
@@ -8,9 +9,15 @@ import {
   deskBitSpec,
   deskBits,
   itemInHand,
+  moodboardStep,
+  piStep,
   reachingForItem,
   reachSeconds,
+  safeStep,
+  stampPressAt,
+  stampStep,
 } from "../src/renderer/office/desk-habits.js";
+import { furniture } from "../src/renderer/office/office-plan.js";
 import { officePose } from "../src/renderer/office/office-pose.js";
 import { memberIds } from "../src/shared/team.js";
 
@@ -194,5 +201,128 @@ describe("the newer members' desk bits", () => {
     // Assert: with no item, the key never disappears from the hub.
     expect(spec.item).toBeNull();
     expect(spec.prop).toBeNull();
+  });
+});
+
+describe("the L-desk return bits", () => {
+  // Each L-desk owner and the thing on their return.
+  const returnBits = {
+    twob: "calendar",
+    erza: "stamp",
+    miruku: "safe",
+    kobayashi: "phone-test",
+    huagua: "moodboard",
+    asuna: "printout",
+    yor: "pi-reseat",
+  } as const;
+
+  it.each(Object.entries(returnBits))("works %s's return with the hand on its side", (member, kind) => {
+    // Arrange: the return's side in the desk's own frame, where +x is the sitter's right.
+    const desk = furniture.find((piece) => piece.id === `desk-${member}`);
+    const leg = furniture.find((piece) => piece.id === `return-${member}`);
+    if (desk === undefined || leg === undefined) {
+      throw new Error(`${member} has no L-desk`);
+    }
+    const localX = (leg.x - desk.x) * Math.cos(desk.yaw) - (leg.z - desk.z) * Math.sin(desk.yaw);
+
+    // Act
+    const spec = deskBitSpec(kind);
+
+    // Assert
+    expect(deskBits[member as keyof typeof returnBits]).toContain(kind);
+    expect(spec.hand).toBe(localX > 0 ? "right" : "left");
+  });
+
+  it("flips the calendar page all the way over before tapping a date twice", () => {
+    // Act
+    const reaching = calendarStep(0.5);
+    const flipped = calendarStep(1.95);
+    const taps = [2.5, 2.8, 3.1, 3.4, 3.69].map((t) => calendarStep(t).press);
+    const done = calendarStep(4.5);
+
+    // Assert
+    expect(reaching).toMatchObject({ hand: "page", flip: 0 });
+    expect(flipped).toMatchObject({ hand: "face", flip: 1 });
+    expect(taps[1]).toBeGreaterThan(0.95);
+    expect(taps[2]).toBeLessThan(0.05);
+    expect(taps[3]).toBeGreaterThan(0.95);
+    expect(done.hand).toBeNull();
+  });
+
+  it("dabs the ink pad first and leaves the mark only from the press on the sheet", () => {
+    // Act
+    const inking = stampStep(1.9);
+    const beforePress = stampStep(stampPressAt - 0.05);
+    const pressed = stampStep(stampPressAt);
+    const admiring = stampStep(5);
+
+    // Assert
+    expect(inking.hand).toBe("pad");
+    expect(inking.stamped).toBe(false);
+    expect(beforePress).toMatchObject({ hand: "paper", stamped: false });
+    expect(pressed.press).toBeGreaterThan(0.95);
+    expect(pressed.stamped).toBe(true);
+    expect(admiring).toMatchObject({ hand: null, stamped: true });
+  });
+
+  it("dials in, opens the safe for a look inside, and leaves it shut", () => {
+    // Act
+    const dialling = safeStep(1.5);
+    const peeking = safeStep(4.8);
+    const end = safeStep(deskBitSpec("safe").duration);
+
+    // Assert
+    expect(dialling.hand).toBe("dial");
+    expect(dialling.door).toBe(0);
+    expect(Math.abs(dialling.dial)).toBeGreaterThan(0);
+    expect(peeking).toMatchObject({ hand: null, door: 1 });
+    expect(end.door).toBe(0);
+  });
+
+  it("carries the mood board card over and lets go before sitting back", () => {
+    // Act
+    const start = moodboardStep(0.5);
+    const placed = moodboardStep(2.4);
+    const judging = moodboardStep(4);
+
+    // Assert
+    expect(start.along).toBe(0);
+    expect(placed.along).toBe(1);
+    expect(placed.hand).toBe(true);
+    expect(judging.hand).toBe(false);
+  });
+
+  it("drops the node's link while its cable is out and blinks it back up after", () => {
+    // Act
+    const unplugged = piStep(2.2);
+    const booting = piStep(4);
+    const end = piStep(deskBitSpec("pi-reseat").duration);
+
+    // Assert
+    expect(unplugged.out).toBe(1);
+    expect(unplugged.linkUp).toBe(false);
+    expect(booting).toMatchObject({ linkUp: true, booting: true });
+    expect(end).toMatchObject({ out: 0, linkUp: true, booting: false });
+  });
+
+  it("turns the chest to the return on the working hand's side", () => {
+    // Arrange
+    const seated = {
+      action: "desk-idle" as const,
+      walkPhase: 0,
+      time: 0,
+      actionElapsed: 10,
+      seat: null,
+      keystrokes: 0,
+      carrying: false,
+    };
+
+    // Act: 2B's calendar is on her left, Yor's cluster on his right.
+    const calendar = officePose({ ...seated, deskBit: bit("calendar", 2.8, 5.5) });
+    const cluster = officePose({ ...seated, deskBit: bit("pi-reseat", 2.2, 6.5) });
+
+    // Assert: positive chest y turns toward the avatar's left.
+    expect(calendar.bones.chest?.y ?? 0).toBeGreaterThan(0.3);
+    expect(cluster.bones.chest?.y ?? 0).toBeLessThan(-0.3);
   });
 });

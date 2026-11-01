@@ -290,6 +290,23 @@ function buildNeon(): NeonStrips {
   ]);
 }
 
+/**
+ * Which side of a desk its L-desk return is on, in the desk's own frame (+1 the sitter's right,
+ * which is the desk's +x), or null when the desk has no return.
+ */
+function returnSideOf(desk: Furniture, pieces: readonly Furniture[]): -1 | 1 | null {
+  const member = desk.kind.slice("desk-".length);
+  const piece = pieces.find((candidate) => candidate.id === `return-${member}`);
+  if (piece === undefined) {
+    return null;
+  }
+  const dx = piece.x - desk.x;
+  const dz = piece.z - desk.z;
+  // Into the desk's frame: the inverse of its turn about y.
+  const localX = dx * Math.cos(desk.yaw) - dz * Math.sin(desk.yaw);
+  return localX >= 0 ? 1 : -1;
+}
+
 export function buildOffice(): OfficeProps {
   const root = new Group();
   const logo = new TextureLoader().load(logoUrl);
@@ -338,7 +355,7 @@ export function buildOffice(): OfficeProps {
       case "desk-miruku":
       case "desk-huagua": {
         const member = piece.kind.slice("desk-".length) as DeskMember;
-        const built = buildDesk(member, piece, kanban);
+        const built = buildDesk(member, piece, kanban, returnSideOf(piece, furniture));
         root.add(built.root);
         desks[member] = built.workstation;
         break;

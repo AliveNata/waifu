@@ -120,7 +120,9 @@ export type HandPropKind =
   | "pen"
   | "padlock"
   | "swatch"
-  | "folder";
+  | "folder"
+  | "stamp"
+  | "printout";
 
 /** The prop an action puts in the right hand, or null for empty-handed actions. */
 export function propForAction(action: OfficeAction | null): HandPropKind | null {

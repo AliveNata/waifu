@@ -23,6 +23,7 @@ import { Keyboard } from "../surfaces/keyboard.js";
 import { DeskMouse } from "../surfaces/mouse.js";
 import { type ScreenSize, ScreenSurface } from "../surfaces/screen.js";
 import { screenScripts } from "../surfaces/screen-scripts.js";
+import { type DeskGadget, returnSetup } from "./desk-returns.js";
 import { handPropModel, type PropLook } from "./hand-props.js";
 import { box, glow, mesh, palette, standard, unlit } from "./palette.js";
 import { leafyCrown } from "./plant.js";
@@ -72,6 +73,8 @@ export interface Workstation {
   lid: Group | null;
   /** Switched on in the evening. */
   lamp: DeskLamp;
+  /** The moving thing on the L-desk's short leg, if this desk has one. */
+  gadget: DeskGadget | null;
 }
 
 /**
@@ -378,6 +381,7 @@ const noDeskThings = {
   mugSide: "right",
   drawer: null,
   lid: null,
+  gadget: null,
 } as const;
 
 /** Each member's own mug, so it is clear whose is on the drying rack, and the laptop they take to meetings. */
@@ -421,7 +425,8 @@ function drawerUnit(width: number, depth: number, side: ArmSide): { unit: Group;
   unit.add(box(0.32, height, unitDepth, standard(palette.ink, 0.6), x, top - height, front - unitDepth / 2 - 0.02));
   const drawer = new Group();
   drawer.add(
-    box(0.3, 0.17, 0.018, standard(palette.inkSoft, 0.5), 0, -0.085, -0.009),
+    // Its top stays 5 mm under the desktop, inside the slab, so it never shows through on top.
+    box(0.3, 0.16, 0.018, standard(palette.inkSoft, 0.5), 0, -0.085, -0.009),
     box(0.12, 0.012, 0.012, standard(palette.steel, 0.3, 0.6), 0, -0.006, 0.006),
     // The tray behind the front, seen when it is pulled out.
     box(0.28, 0.12, 0.3, standard(palette.ink, 0.7), 0, -0.155, -0.17),
@@ -1137,10 +1142,10 @@ function huaguaDesk(piece: Furniture): DeskBuild {
   };
 }
 
-/** A desk as its builder makes it; the lamp is added the same way to every desk. */
+/** A desk as its builder makes it; the lamp and the return's things are added the same way to every desk. */
 interface DeskBuild {
   root: Group;
-  workstation: Omit<Workstation, "lamp">;
+  workstation: Omit<Workstation, "lamp" | "gadget">;
 }
 
 function deskParts(member: DeskMember, piece: Furniture, kanban: Texture): DeskBuild {
@@ -1193,11 +1198,32 @@ const lampX: Record<DeskMember, number> = {
   huagua: 0.5,
 };
 
-export function buildDesk(member: DeskMember, piece: Furniture, kanban: Texture): BuiltDesk {
+/**
+ * `returnSide` is the side of the desk its L-desk return is on, in the desk's frame (+1 the
+ * sitter's right), or null for a desk without one.
+ */
+export function buildDesk(
+  member: DeskMember,
+  piece: Furniture,
+  kanban: Texture,
+  returnSide: -1 | 1 | null = null,
+): BuiltDesk {
   const built = deskParts(member, piece, kanban);
   const { depth } = deskSize(piece);
   const lamp = deskLamp(member, lampX[member], -depth / 2 + 0.1, depth);
   // The desk's root holds the desk frame, so the lamp goes in at desk coordinates.
   built.root.add(lamp.root);
-  return { root: built.root, workstation: { ...built.workstation, lamp } };
+  const onReturn = returnSide === null ? null : returnSetup(member, returnSide, depth, deskTop);
+  if (onReturn !== null) {
+    built.root.add(onReturn.root);
+  }
+  return {
+    root: built.root,
+    workstation: {
+      ...built.workstation,
+      items: { ...built.workstation.items, ...onReturn?.items },
+      lamp,
+      gadget: onReturn?.gadget ?? null,
+    },
+  };
 }

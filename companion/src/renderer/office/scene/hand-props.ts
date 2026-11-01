@@ -120,6 +120,35 @@ export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook):
       group.rotation.x = 0.7;
       break;
     }
+    case "stamp": {
+      // Erza's rubber stamp, held by the knob: the grip point is the top of the knob, so it
+      // hangs under the hand with the red rubber face at the bottom.
+      const knob = mesh(new SphereGeometry(0.011, 12, 10), standard("#e35d5d", 0.4));
+      knob.position.y = -0.008;
+      const handle = mesh(new CylinderGeometry(0.006, 0.008, 0.03, 10), standard(palette.oak, 0.6));
+      handle.position.y = -0.03;
+      group.add(
+        knob,
+        handle,
+        box(0.04, 0.012, 0.024, standard(palette.ink, 0.5), 0, -0.057, 0),
+        box(0.038, 0.004, 0.022, standard("#c0392b", 0.7), 0, -0.061, 0),
+      );
+      break;
+    }
+    case "printout": {
+      // Asuna's printout: a sheet with a bar chart of pipeline runs and a title line, lying flat.
+      group.add(
+        box(0.06, 0.0015, 0.085, standard("#f7f3ea", 0.9), 0, 0, 0),
+        box(0.034, 0.0005, 0.004, standard(palette.ink, 0.6), -0.008, 0.0015, -0.032),
+      );
+      const bars = [0.022, 0.034, 0.016, 0.04, 0.028];
+      bars.forEach((length, index) => {
+        group.add(
+          box(0.007, 0.0005, length, standard("#5fa8d3", 0.6), -0.02 + index * 0.01, 0.0015, 0.032 - length / 2),
+        );
+      });
+      break;
+    }
     case "padlock": {
       // Miruku's padlock: a brass body and a steel shackle.
       const shackle = mesh(new TorusGeometry(0.012, 0.003, 6, 14, Math.PI), standard(palette.steel, 0.3, 0.8));
@@ -356,6 +385,10 @@ const gripOffset: Record<HandPropKind, { x: number; y: number; z: number; tilt: 
   swatch: { x: 0, y: 0.01, z: 0.02, tilt: 0, turn: 0 },
   // Upright in the hand, the front cover toward whoever it is handed to.
   folder: { x: 0, y: 0.02, z: 0.02, tilt: 0, turn: 0 },
+  // Hanging under the hand by its knob, upright, so the rubber face meets the desk flat.
+  stamp: { x: 0, y: -0.004, z: 0.008, tilt: 0, turn: 0 },
+  // Held up between both hands like the clipboard, tipped back toward the eyes.
+  printout: { x: 0.05, y: 0.015, z: 0.05, tilt: -1.1, turn: 0 },
 };
 
 const handPosition = new Vector3();

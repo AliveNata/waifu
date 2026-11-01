@@ -1464,6 +1464,8 @@ export class OfficeStage {
       const open = workstation.lid.userData.openAngle as number;
       workstation.lid.rotation.x = deskLidClosedAngle + (open - deskLidClosedAngle) * laptop.lid;
     }
+    const { gadget } = workstation;
+    gadget?.update(bit !== null && bit.kind === gadget.bit ? bit : null, this.elapsed);
     const piece = workstation.items["chess-piece"];
     const squares = workstation.chessMove;
     if (piece === undefined || squares === null) {
@@ -1490,9 +1492,14 @@ export class OfficeStage {
     const workstation = this.office.workstations[memberId as DeskMember];
     const spec = deskBitSpec(bit.kind);
     let target: Vector3 | null = null;
+    let tip: HandTargets["tip"] = "fingertip";
+    const { gadget } = workstation;
     if (reachingForItem(bit) && spec.item !== null) {
       const item = spec.item === "mug" ? workstation.mug : workstation.items[spec.item];
       target = item?.getWorldPosition(new Vector3()) ?? null;
+    } else if (gadget !== null && bit.kind === gadget.bit) {
+      target = gadget.handTarget(bit);
+      tip = gadget.tip;
     } else if (bit.kind === "plush-hug" || bit.kind === "console") {
       // Both hands meet in front of the chest, around the plush or on either side of the console.
       const { root } = rig.avatar;
@@ -1531,7 +1538,7 @@ export class OfficeStage {
     return {
       left: bit.hand === "left" ? target : null,
       right: bit.hand === "right" ? target : null,
-      tip: "fingertip",
+      tip,
       approach: this.fingersDown(rig),
       board: null,
       rate: deskReachRate,
