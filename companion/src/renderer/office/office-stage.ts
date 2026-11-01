@@ -8,9 +8,11 @@ import {
   PCFShadowMap,
   PerspectiveCamera,
   PointLight,
+  Raycaster,
   Scene,
   Spherical,
   Timer,
+  Vector2,
   Vector3,
   WebGLRenderer,
   WebGLRenderTarget,
@@ -43,6 +45,7 @@ import {
   reachingForItem,
   reachSeconds,
 } from "./desk-habits.js";
+import { Handoffs, type Teammate } from "./handoffs.js";
 import { aimHand, solveCcd } from "./ik.js";
 import { type ActorState, angleDelta, initialActor, isWalking, stepActor } from "./office-actor.js";
 import { ChatterDirector } from "./office-chatter.js";
@@ -80,7 +83,7 @@ import { drawerTravel, memberPropLooks } from "./scene/desks.js";
 import { HandProps, setCupFill } from "./scene/hand-props.js";
 import { sceneQuality } from "./scene/palette.js";
 import { fitSeat } from "./seating.js";
-import { statusRows, TwobStatus } from "./status-board.js";
+import { rowDetail, type StatusRow, statusLabels, statusRows, TwobStatus } from "./status-board.js";
 import type { PenState } from "./surfaces/board-pen.js";
 import { applyMemberSignal, emptyTeamRuntime, endAllRuns, memberBehavior, type TeamRuntime } from "./team-state.js";
 import { handForKey, MouseHabit, TypingHands } from "./typing-hands.js";
@@ -148,6 +151,8 @@ interface MemberRig {
   plan: MemberPlan;
   /** Whether the last frame was real work, to hand the member back to their routine exactly once. */
   wasWorking: boolean;
+  /** Walking a brief or report over, or handing it over: the break plan waits until it is done. */
+  inHandoff: boolean;
   props: HandProps;
   /** The avatar's wrist bones, which hand props follow. */
   hands: Record<ArmSide, Object3D | null>;
@@ -385,6 +390,8 @@ const actionLabels: Record<OfficeAction, string> = {
   out: "out getting food",
   "pingpong-wait": "waiting for a ping-pong partner",
   run: "on the treadmill",
+  "hand-over": "handing over",
+  "wait-report": "waiting to report",
   box: "at the punching bag",
   gaze: "watching the fish",
 };
@@ -418,9 +425,13 @@ export class OfficeStage {
 
   private team: TeamRuntime = emptyTeamRuntime();
   private readonly twobStatus = new TwobStatus();
+  private readonly handoffs = new Handoffs();
   private twobReaction: Reaction = idleReaction(Date.now());
   private elapsed = 0;
   private closeupEnabled = true;
+  /** A member clicked for a preview: their close-up stays up until closed, whatever else happens. */
+  private pinned: MemberId | null = null;
+  private readonly pointerRay = new Raycaster();
   private focus: CloseupFocus | null = null;
   /**
    * The last close-up, frozen while the hold runs out: the camera stays where the work happened
@@ -558,6 +569,14 @@ export class OfficeStage {
       return;
     }
     this.team = { ...this.team, [signal.memberId]: applyMemberSignal(this.team[signal.memberId], signal) };
+    if (signal.activity === "stop" && this.team[signal.memberId].activeAgents.size === 0) {
+      this.handoffs.finished(signal.memberId, Date.now());
+    }
+  }
+
+  /** 2B handed a task to a teammate: she walks the brief over to their desk. */
+  applyDelegation(memberId: Teammate): void {
+    this.handoffs.delegated(memberId, Date.now());
   }
 
   /** After a stopped run: members leave their desks and the close-up closes until the next task. */
@@ -576,7 +595,7 @@ export class OfficeStage {
 
   /** Who the close-up is showing right now, or null when nobody is busy (or it is turned off). */
   closeupFocus(): CloseupFocus | null {
-    return this.closeupEnabled ? this.focus : null;
+    return this.closeupEnabled || this.pinned !== null ? this.focus : null;
   }
 
   /** Back to the default view, the same framing the office opens with. */
@@ -644,6 +663,7 @@ export class OfficeStage {
       keystrokes: 0,
       plan,
       wasWorking: false,
+      inHandoff: false,
       props,
       hands: this.wrists(avatar),
       laptop: laptopView({ errand: null, arrived: false, stepElapsed: 0, remaining: 0 }),
@@ -698,6 +718,20 @@ export class OfficeStage {
   }
 
   private planFor(memberId: MemberId, now: number, rig: MemberRig | null): MemberPlan {
+    const handoff = this.handoffs.planFor(memberId);
+    if (handoff !== null) {
+      // A brief or a report takes over from whatever they were doing, and their break plan
+      // starts fresh afterwards.
+      if (rig !== null && !rig.inHandoff) {
+        this.life.interrupt(memberId, now);
+        delete this.lifeSteps[memberId];
+        rig.inHandoff = true;
+      }
+      return { station: handoff.station, action: handoff.action, mood: memberId === "twob" ? "working" : "done" };
+    }
+    if (rig !== null) {
+      rig.inHandoff = false;
+    }
     if (memberId === "twob") {
       const mood = this.twobReaction.mood;
       if (mood !== "idle") {
@@ -908,6 +942,7 @@ export class OfficeStage {
     const arrived = !walking && rig.actor.target === plan.station;
     if (arrived) {
       this.life.arrived(memberId, now);
+      this.handoffs.arrived(memberId, plan.station, now);
     }
     let action = walking ? null : plan.action;
     if (action === "pingpong" && !this.opponentReady(memberId)) {
@@ -980,8 +1015,11 @@ export class OfficeStage {
         : rig.food.piece === null
           ? null
           : pieceProps[rig.food.piece];
+    const folder = rig.inHandoff && action !== "hand-over" ? "folder" : null;
     const carrying =
-      this.mugs[memberId].place === "hand" || rig.laptop.place === "hand" || (foodHeld !== null && action === null);
+      this.mugs[memberId].place === "hand" ||
+      rig.laptop.place === "hand" ||
+      ((foodHeld !== null || folder !== null) && action === null);
     const gimmick = rig.walkHabits.update(this.elapsed, action === null, carrying);
     const pose = officePose({
       action,
@@ -1043,6 +1081,7 @@ export class OfficeStage {
       action !== null && usesHandIk(action)
         ? null
         : (foodHeld ??
+          (rig.inHandoff ? "folder" : null) ??
           fromDesk ??
           plate ??
           (carried === "laptop" ? carried : null) ??
@@ -1126,12 +1165,13 @@ export class OfficeStage {
 
   /** Head turn toward a conversation partner, or toward whoever is being waved at. */
   private lookYawFor(memberId: MemberId, rig: MemberRig, waving: boolean): number {
-    const other = waving ? rig.greeted : this.chatter.partnerOf(memberId);
+    const handing = waving ? null : this.handoffs.partnerOf(memberId);
+    const other = waving ? rig.greeted : (handing ?? this.chatter.partnerOf(memberId));
     if (other === null) {
       return 0;
     }
     // In conversation the turn follows the gaze: the opener looks over first, the other after.
-    const weight = waving ? 1 : this.chatter.gazeOf(memberId);
+    const weight = waving || handing !== null ? 1 : this.chatter.gazeOf(memberId);
     const target = this.rigs[other].actor.position;
     const { position, yaw } = rig.actor;
     const toward = Math.atan2(target.x - position.x, target.z - position.z);
@@ -1533,6 +1573,13 @@ export class OfficeStage {
   }
 
   private chooseFocus(now: number): CloseupFocus | null {
+    if (this.pinned !== null) {
+      const memberId = this.pinned;
+      const row = statusRows(this.team, this.twobStatus, now).find((candidate) => candidate.memberId === memberId);
+      const detail = row === undefined ? "" : rowDetail(row, now);
+      const status = row === undefined ? "" : ` · ${statusLabels[row.status]}${detail === "" ? "" : ` (${detail})`}`;
+      return { memberId, label: `${this.focusLabel(memberId, null)}${status}` };
+    }
     let best: { memberId: MemberId; at: number } | null = null;
     for (const memberId of memberIds) {
       if (memberId === "twob") {
@@ -1554,14 +1601,75 @@ export class OfficeStage {
       this.heldFocus = null;
       return null;
     }
-    const rig = this.rigs[best.memberId];
-    const profile = roster[best.memberId];
-    const activity = rig.action === null ? "walking" : actionLabels[rig.action];
     const tool = best.memberId === "twob" ? null : this.team[best.memberId].lastTool;
-    const label = `${profile.displayName} · ${profile.role} · ${activity}${tool === null ? "" : ` (${tool})`}`;
-    const focus = { memberId: best.memberId, label };
+    const focus = { memberId: best.memberId, label: this.focusLabel(best.memberId, tool) };
     this.heldFocus = { focus, shot: this.liveShot(best.memberId), until: now + closeupHoldMs };
     return focus;
+  }
+
+  /** "Name · Role · what they are doing", with the tool when there is one. */
+  private focusLabel(memberId: MemberId, tool: string | null): string {
+    const rig = this.rigs[memberId];
+    const profile = roster[memberId];
+    const activity = rig.action === null ? "walking" : actionLabels[rig.action];
+    return `${profile.displayName} · ${profile.role} · ${activity}${tool === null ? "" : ` (${tool})`}`;
+  }
+
+  /** Shows a member's close-up until it is closed with null, as a preview of what they are up to. */
+  pinCloseup(memberId: MemberId | null): void {
+    this.pinned = memberId;
+    this.heldFocus = null;
+  }
+
+  pinnedMember(): MemberId | null {
+    return this.pinned;
+  }
+
+  /** The team member under a point on the page, nearest the camera first, or null for none. */
+  memberAt(clientX: number, clientY: number): MemberId | null {
+    const box = this.canvas.getBoundingClientRect();
+    const toScreen = (point: Vector3): { x: number; y: number; depth: number } => {
+      const projected = point.clone().project(this.camera);
+      return {
+        x: box.left + ((projected.x + 1) / 2) * box.width,
+        y: box.top + ((1 - projected.y) / 2) * box.height,
+        depth: projected.z,
+      };
+    };
+    let hit: { memberId: MemberId; depth: number } | null = null;
+    for (const memberId of memberIds) {
+      const rig = this.rigs[memberId];
+      if (!rig.avatar.root.visible) {
+        continue;
+      }
+      const { x, z } = rig.actor.position;
+      const feet = toScreen(new Vector3(x, rig.lift, z));
+      // A seated chibi's head is lower, but the standing height still covers them comfortably.
+      const head = toScreen(new Vector3(x, rig.lift + 1.05, z));
+      const halfWidth = Math.max(8, (feet.y - head.y) * 0.22);
+      const inside = clientY >= head.y && clientY <= feet.y && Math.abs(clientX - (feet.x + head.x) / 2) <= halfWidth;
+      if (inside && feet.depth < 1 && (hit === null || feet.depth < hit.depth)) {
+        hit = { memberId, depth: feet.depth };
+      }
+    }
+    return hit?.memberId ?? null;
+  }
+
+  /** True when a point on the page is over the team status board on the back wall. */
+  statusBoardAt(clientX: number, clientY: number): boolean {
+    const box = this.canvas.getBoundingClientRect();
+    const pointer = new Vector2(
+      ((clientX - box.left) / box.width) * 2 - 1,
+      -((clientY - box.top) / box.height) * 2 + 1,
+    );
+    this.pointerRay.setFromCamera(pointer, this.camera);
+    return this.pointerRay.intersectObject(this.office.statusBoard.face, false).length > 0;
+  }
+
+  /** The status board's rows right now, for showing them large on the page. */
+  statusNow(): { rows: StatusRow[]; now: number } {
+    const now = Date.now();
+    return { rows: statusRows(this.team, this.twobStatus, now), now };
   }
 
   /** The held shot while the hold runs, otherwise the member's live shot. */
@@ -1573,6 +1681,15 @@ export class OfficeStage {
   private liveShot(memberId: MemberId): CloseupShot {
     if (memberId === "twob" && this.rigs.twob.action === "draw") {
       return twobBoardShot(this.office);
+    }
+    const rig = this.rigs[memberId];
+    // A previewed member away from their desk: follow them instead of showing an empty chair.
+    if (memberId === this.pinned && !(rig.plan.station === `desk-${memberId}` && !isWalking(rig.actor))) {
+      const { x, z } = rig.actor.position;
+      return {
+        eye: new Vector3(x + 0.85, rig.lift + 1.25, z + 1.05),
+        target: new Vector3(x, rig.lift + 0.55, z),
+      };
     }
     return this.office.closeups[memberId];
   }
@@ -1630,6 +1747,7 @@ export class OfficeStage {
     this.onFrame();
 
     this.updateChatter(delta);
+    this.handoffs.update(now);
     for (const memberId of memberIds) {
       this.updateMember(memberId, delta, now);
     }
@@ -1658,7 +1776,7 @@ export class OfficeStage {
       this.renderer.render(this.scene, this.camera);
     }
 
-    if (this.closeupEnabled && this.focus !== null) {
+    if ((this.closeupEnabled || this.pinned !== null) && this.focus !== null) {
       const rect = this.closeupLayout ?? closeupRect(width, height, null);
       const shot = this.closeupShotFor(this.focus.memberId);
       this.closeupCamera.aspect = rect.width / rect.height;

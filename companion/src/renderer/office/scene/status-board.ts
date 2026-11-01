@@ -1,7 +1,7 @@
-import { CanvasTexture, Group, PlaneGeometry, SRGBColorSpace } from "three";
+import { CanvasTexture, Group, type Mesh, PlaneGeometry, SRGBColorSpace } from "three";
 import { speakerColors } from "../../common/dialog-box.js";
 import type { Furniture } from "../office-plan.js";
-import { type BoardStatus, rowDetail, type StatusRow, statusLabels } from "../status-board.js";
+import { type BoardStatus, rowDetail, type StatusRow, statusLabels, statusSummary } from "../status-board.js";
 import { box, glow, mesh, palette, standard, unlit } from "./palette.js";
 
 const faceWidth = 2048;
@@ -33,6 +33,8 @@ const rowHeight = (faceHeight - header - 10) / rowsPerColumn;
  */
 export class StatusBoard {
   readonly root: Group;
+  /** The lit screen, for telling when the pointer is over the board. */
+  readonly face: Mesh;
   private readonly texture: CanvasTexture;
   private readonly context: CanvasRenderingContext2D;
   private shown = "";
@@ -59,9 +61,9 @@ export class StatusBoard {
       box(piece.width, height, 0.03, standard(palette.inkDeep, 0.4), 0, centerY - height / 2, 0),
       box(piece.width - 0.04, 0.008, 0.032, glow(palette.accent, 1.4), 0, centerY - height / 2 + 0.01, 0),
     );
-    const face = mesh(new PlaneGeometry(piece.width - 0.04, height - 0.03), unlit(this.texture), false);
-    face.position.set(0, centerY, 0.017);
-    this.root.add(face);
+    this.face = mesh(new PlaneGeometry(piece.width - 0.04, height - 0.03), unlit(this.texture), false);
+    this.face.position.set(0, centerY, 0.017);
+    this.root.add(this.face);
   }
 
   update(rows: readonly StatusRow[], now: number): void {
@@ -87,7 +89,7 @@ export class StatusBoard {
     ctx.textAlign = "right";
     ctx.fillStyle = mutedText;
     ctx.font = `500 34px ${uiFont}`;
-    ctx.fillText(summary(rows), faceWidth - 44, header / 2);
+    ctx.fillText(statusSummary(rows), faceWidth - 44, header / 2);
     ctx.fillStyle = "#2a2338";
     ctx.fillRect(44, header - 4, faceWidth - 88, 2);
 
@@ -131,15 +133,6 @@ export class StatusBoard {
     });
     this.texture.needsUpdate = true;
   }
-}
-
-/** "2 kerja · 1 nunggu kamu", or that everyone is idle. */
-function summary(rows: readonly StatusRow[]): string {
-  const counts = (["working", "waiting", "done"] as const)
-    .map((status) => ({ status, count: rows.filter((row) => row.status === status).length }))
-    .filter(({ count }) => count > 0)
-    .map(({ status, count }) => `${count} ${statusLabels[status]}`);
-  return counts.length === 0 ? "semua idle" : counts.join(" · ");
 }
 
 /** Cuts a long tool name (MCP tools can be long) so it never runs into the name column. */

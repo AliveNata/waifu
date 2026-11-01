@@ -19,6 +19,7 @@ import {
   chairSeatHeight,
   type Furniture,
   furniture,
+  meetingLaptopSpots,
   meetingStationIds,
   room,
   stations,
@@ -106,7 +107,7 @@ export interface OfficeProps {
   neon: NeonStrips;
   /** Hidden unless two players are at the table. */
   pingpongBall: Mesh;
-  /** One per meeting chair, in seat order meeting-1..6. */
+  /** One per meeting chair, in seat order meeting-1..12. */
   meetingLaptops: MeetingLaptop[];
   fridgeDoor: FridgeDoor;
   sink: SinkTap;
@@ -362,7 +363,7 @@ export function buildOffice(): OfficeProps {
         break;
       }
       case "meeting-table": {
-        const built = buildMeetingTable(piece);
+        const built = buildMeetingTable(piece, meetingLaptopSpots);
         root.add(built.root);
         meetingLaptops = built.laptops;
         break;

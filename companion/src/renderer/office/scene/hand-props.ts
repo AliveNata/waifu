@@ -140,6 +140,14 @@ export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook):
       group.rotation.x = -1.0;
       break;
     }
+    case "folder": {
+      // A brief or a report: a card folder with the pages showing at the edge.
+      group.add(
+        box(0.07, 0.095, 0.006, standard(palette.accent, 0.6), 0, -0.04, 0),
+        box(0.064, 0.088, 0.004, standard("#f7f3ea", 0.9), 0.002, -0.038, 0.004),
+      );
+      break;
+    }
     case "laptop": {
       // Folded shut and carried flat, a thin line of the screen bezel showing at the hinge.
       const shell = standard(look.shell, 0.5);
@@ -346,6 +354,8 @@ const gripOffset: Record<HandPropKind, { x: number; y: number; z: number; tilt: 
   pen: { x: 0, y: 0, z: 0.01, tilt: 0, turn: 0 },
   padlock: { x: 0, y: 0.01, z: 0.02, tilt: 0, turn: 0 },
   swatch: { x: 0, y: 0.01, z: 0.02, tilt: 0, turn: 0 },
+  // Upright in the hand, the front cover toward whoever it is handed to.
+  folder: { x: 0, y: 0.02, z: 0.02, tilt: 0, turn: 0 },
 };
 
 const handPosition = new Vector3();

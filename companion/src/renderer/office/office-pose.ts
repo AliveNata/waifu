@@ -892,6 +892,38 @@ function boxBody(input: OfficePoseInput): UpperBody {
   return { bones, standingHipsY: 0.008 * Math.abs(Math.sin(input.time * 7)) };
 }
 
+function handOverBody(input: OfficePoseInput): UpperBody {
+  // The folder comes up from the side and goes out at chest height, with a small bow, then held
+  // there while the other takes it.
+  const reach = Math.min(1, input.actionElapsed / 0.6);
+  const ease = reach * reach * (3 - 2 * reach);
+  const bones: PoseBones = {
+    ...armsRelaxed,
+    spine: { x: 0.12 * ease, y: 0, z: 0 },
+    head: { x: 0.12 * ease, y: 0, z: 0 },
+  };
+  setArm(
+    bones,
+    "right",
+    mixRotation({ x: -0.3, y: 0, z: 1.3 }, { x: -1.3, y: 0, z: 1.15 }, ease),
+    mixRotation({ x: 0, y: 1.4, z: 0 }, { x: 0, y: 0.25, z: 0 }, ease),
+  );
+  return { bones };
+}
+
+function waitReportBody(input: OfficePoseInput): UpperBody {
+  // Waiting their turn with the report held to the chest, weight shifting now and then.
+  const shift = Math.sin(input.time * 0.8);
+  const bones: PoseBones = {
+    hips: { x: 0, y: 0, z: 0.03 * shift },
+    spine: { x: 0.02, y: 0, z: -0.02 * shift },
+    head: { x: 0.05, y: 0.1 * Math.sin(input.time * 0.3), z: 0 },
+  };
+  setArm(bones, "right", { x: -0.45, y: 0, z: 1.2 }, { x: 0, y: 1.6, z: 0 });
+  setArm(bones, "left", { x: -0.4, y: 0, z: 1.25 }, { x: 0, y: 1.3, z: 0 });
+  return { bones };
+}
+
 function gazeBody(input: OfficePoseInput): UpperBody {
   // Bent a little toward the glass, hands clasped behind the back, eyes following a fish.
   return {
@@ -1179,6 +1211,10 @@ function upperBody(action: OfficeAction, input: OfficePoseInput): UpperBody {
       return boxBody(input);
     case "gaze":
       return gazeBody(input);
+    case "hand-over":
+      return handOverBody(input);
+    case "wait-report":
+      return waitReportBody(input);
   }
 }
 

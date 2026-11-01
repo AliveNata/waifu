@@ -22,6 +22,8 @@
       <!-- Ambient small talk between the chibis; decoration, so screen readers skip it. -->
       <div class="speech-layer" id="speech-layer" aria-hidden="true"></div>
       <p class="closeup-caption" id="closeup-caption" hidden></p>
+      <!-- Name and role of whoever is under the pointer; the same is in the close-up caption on click. -->
+      <p class="member-tip" id="member-tip" aria-hidden="true" hidden></p>
       <!-- Before the dialog in the DOM, so the dialog's top edge covers the bottom of the portrait. -->
       <canvas class="speaker-portrait" id="speaker-portrait" aria-hidden="true" hidden></canvas>
       <section class="dialog office-dialog" id="office-dialog" aria-live="polite" hidden>
@@ -116,6 +118,8 @@
       </section>
       <div class="hud">
         <p class="status" id="status" role="status" hidden></p>
+        <!-- First of the right-hand group, so it lines up with the others whichever of them are shown. -->
+        <button class="button hud-button" id="status-open" type="button" aria-haspopup="dialog">Status tim</button>
         <button class="button hud-button" id="music-toggle" type="button" aria-expanded="false" aria-controls="music" hidden>
           Musik
         </button>
@@ -125,6 +129,29 @@
         </button>
         <button class="button menu-button" id="menu-button" type="button">Menu</button>
       </div>
+      <dialog class="model-dialog status-dialog" id="status-dialog" aria-labelledby="status-dialog-title">
+        <div class="status-dialog-body">
+          <header class="status-dialog-header">
+            <h2 class="panel-title" id="status-dialog-title">Status tim</h2>
+            <button class="dialog-close" id="status-dialog-close" type="button" aria-label="Tutup">&times;</button>
+          </header>
+          <p class="panel-body" id="status-dialog-summary" aria-live="polite"></p>
+          <table class="status-table">
+            <thead class="visually-hidden">
+              <tr>
+                <th scope="col">Anggota</th>
+                <th scope="col">Role</th>
+                <th scope="col">Status</th>
+                <th scope="col">Tool dan waktu</th>
+              </tr>
+            </thead>
+            <tbody id="status-dialog-rows"></tbody>
+          </table>
+          <p class="panel-body status-dialog-note">
+            Dari hook Claude Code yang sama dengan layar di dinding. Cuma status dan nama tool, tanpa isi pesan atau file.
+          </p>
+        </div>
+      </dialog>
       <dialog class="model-dialog sessions-dialog" id="chat-sessions" aria-labelledby="chat-sessions-title">
         <h2 class="panel-title" id="chat-sessions-title">Lanjutin sesi</h2>
         <p class="panel-body">

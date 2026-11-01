@@ -36,7 +36,9 @@ export type OfficeAction =
   | "out"
   | "run"
   | "box"
-  | "gaze";
+  | "gaze"
+  | "hand-over"
+  | "wait-report";
 
 export interface MemberPlan {
   station: StationId;
@@ -117,7 +119,8 @@ export type HandPropKind =
   | "hourglass"
   | "pen"
   | "padlock"
-  | "swatch";
+  | "swatch"
+  | "folder";
 
 /** The prop an action puts in the right hand, or null for empty-handed actions. */
 export function propForAction(action: OfficeAction | null): HandPropKind | null {

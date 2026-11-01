@@ -285,12 +285,18 @@ describe("office life", () => {
 
   it("never repeats a break activity twice in a row", () => {
     // Arrange
-    const life = new OfficeLife(sequence([0.13, 0.71, 0.42, 0.95, 0.05, 0.6, 0.33]));
+    // A seeded generator: repeatable, but without the short cycle a fixed list of values falls into.
+    let seed = 42;
+    const life = new OfficeLife(() => {
+      seed = (seed * 1664525 + 1013904223) % 4294967296;
+      return seed / 4294967296;
+    });
     let now = 0;
     const history: string[] = [];
 
     // Act: later steps of one activity (fetching the mug, walking the coffee back) are not new picks.
-    for (let turn = 0; turn < 40; turn++) {
+    // Long enough for a good run of breaks between the longer stretches at the desk.
+    for (let turn = 0; turn < 120; turn++) {
       const choice = life.planFor("asuna", now);
       life.arrived("asuna", now);
       if (choice.step === 0) {
@@ -418,7 +424,7 @@ describe("office life", () => {
 
     // Act
     const seen = new Set<string>();
-    for (let turn = 0; turn < 200; turn++) {
+    for (let turn = 0; turn < 120; turn++) {
       const choice = life.planFor("erza", now);
       life.arrived("erza", now);
       seen.add(choice.activity);
@@ -521,12 +527,12 @@ describe("ovenStep", () => {
 });
 
 describe("the pantry and the meeting table", () => {
-  it("seats six around the meeting table", () => {
+  it("seats the whole team of twelve around the meeting table", () => {
     // Act
     const seats = stationIds.filter((id) => id.startsWith("meeting-"));
 
     // Assert
-    expect(seats).toHaveLength(6);
+    expect(seats).toHaveLength(12);
   });
 
   it("turns the two bar stools a little toward each other", () => {

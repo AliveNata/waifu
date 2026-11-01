@@ -826,7 +826,10 @@ export class MeetingLaptop {
   }
 }
 
-export function buildMeetingTable(piece: Furniture): { root: Group; laptops: MeetingLaptop[] } {
+export function buildMeetingTable(
+  piece: Furniture,
+  laptopSpots: readonly { x: number; z: number; yaw: number }[],
+): { root: Group; laptops: MeetingLaptop[] } {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const top = surface.desk;
@@ -837,18 +840,8 @@ export function buildMeetingTable(piece: Furniture): { root: Group; laptops: Mee
     box(0.05, top - 0.035, depth - 0.2, legs, width / 2 - 0.12, 0, 0),
     box(width - 0.3, 0.012, 0.01, glow(), 0, top - 0.045, depth / 2 - 0.01),
   );
-  // A laptop's keys face +z in its own frame, so the back-row seats (sitting at -z) need it
-  // turned half way round; the front-row seats sit at +z and take it as built.
-  const laptops = (
-    [
-      [-0.8, -0.22, Math.PI],
-      [0, -0.22, Math.PI],
-      [0.8, -0.22, Math.PI],
-      [-0.8, 0.22, 0],
-      [0, 0.22, 0],
-      [0.8, 0.22, 0],
-    ] as const
-  ).map(([x, z, yaw], index) => {
+  // One per chair, each turned so its keys face the chair it belongs to.
+  const laptops = laptopSpots.map(({ x, z, yaw }, index) => {
     const screen = new LaptopScreen(index + 1);
     const laptop = new Group();
     const shell = standard("#d9d4cc", 0.5);
@@ -868,7 +861,7 @@ export function buildMeetingTable(piece: Furniture): { root: Group; laptops: Mee
     return new MeetingLaptop(laptop, lid, shell, screen);
   });
   // Between the laptops: a printout. Mugs are everyone's own now, so none is left lying here.
-  root.add(box(0.14, 0.004, 0.2, standard("#fbfaf7", 0.9), 0.4, top, 0));
+  root.add(box(0.14, 0.004, 0.2, standard("#fbfaf7", 0.9), 0.33, top, 0));
   return { root, laptops };
 }
 
