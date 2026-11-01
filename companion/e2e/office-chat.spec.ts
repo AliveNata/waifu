@@ -74,6 +74,9 @@ async function launchOffice(
   // Startup includes building the 3D room, which takes several seconds on software WebGL; the
   // page cannot answer until it is done, so this first check waits longer than the default.
   await expect(office.getByRole("heading", { name: "Chat ke 2B" })).toBeVisible({ timeout: 20_000 });
+  // The chat is painted before the room is built, and hook signals reach the office only once the
+  // room is up, so a test that sends one right away has to wait for that too.
+  await expect(office.locator("html")).toHaveAttribute("data-office", "ready", { timeout: 30_000 });
   return { app, office, projectDir };
 }
 

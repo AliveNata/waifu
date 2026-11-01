@@ -9,7 +9,7 @@ import {
   SphereGeometry,
   SRGBColorSpace,
 } from "three";
-import { type Furniture, treadmillDeckHeight } from "../office-plan.js";
+import { type Furniture, surface, treadmillDeckHeight } from "../office-plan.js";
 import { punchReach } from "../office-pose.js";
 import { deskTop } from "./desks.js";
 import { box, glow, mesh, palette, standard } from "./palette.js";
@@ -278,4 +278,92 @@ export class Aquarium {
       fish.body.rotation.y = forward ? 0 : Math.PI;
     }
   }
+}
+
+/**
+ * A round standing-height table on one pedestal, at the bar's height so the stools fit, with a
+ * couple of sticky notes and a tablet left from the last huddle.
+ */
+export function buildHighTable(piece: Furniture): Group {
+  const root = placed(piece);
+  const { width } = localSize(piece);
+  const top = surface.barTable;
+  const radius = width / 2;
+  const frame = standard(palette.ink, 0.5, 0.2);
+  const base = mesh(new CylinderGeometry(radius * 0.55, radius * 0.6, 0.03, 24), frame);
+  base.position.y = 0.015;
+  const pole = mesh(new CylinderGeometry(0.03, 0.03, top - 0.04, 12), frame);
+  pole.position.y = (top - 0.04) / 2 + 0.03;
+  const tabletop = mesh(new CylinderGeometry(radius, radius, 0.035, 32), standard(palette.oak, 0.6));
+  tabletop.position.y = top - 0.0175;
+  // The accent ring under the edge, like the strip under every desk.
+  const ring = mesh(new CylinderGeometry(radius - 0.02, radius - 0.02, 0.008, 32), glow());
+  ring.position.y = top - 0.04;
+  root.add(base, pole, tabletop, ring);
+  for (const [index, color] of ["#ffd84d", "#9fe0ff", "#ff9fc2"].entries()) {
+    const note = box(0.05, 0.003, 0.05, standard(color, 0.9), -0.12 + index * 0.06, top, 0.08 - index * 0.03);
+    note.rotation.y = (index - 1) * 0.3;
+    root.add(note);
+  }
+  const tablet = box(0.16, 0.008, 0.11, standard("#1b1b1f", 0.4), 0.1, top, -0.08);
+  tablet.rotation.y = 0.4;
+  root.add(tablet);
+  return root;
+}
+
+/**
+ * A glass board on two legs, the writing band at a standing chibi's reach, with a few sticky notes
+ * and a rough flow already on it.
+ */
+export function buildGlassBoard(piece: Furniture): Group {
+  const root = placed(piece);
+  const { width } = localSize(piece);
+  const bottom = 0.4;
+  const height = 0.7;
+  const frame = standard(palette.ink, 0.5, 0.2);
+  const glass = new MeshStandardMaterial({
+    color: "#dfe9f2",
+    transparent: true,
+    opacity: 0.35,
+    roughness: 0.05,
+    depthWrite: false,
+  });
+  const pane = mesh(new PlaneGeometry(width - 0.06, height), glass, false);
+  pane.position.set(0, bottom + height / 2, 0);
+  root.add(
+    box(0.03, bottom + height + 0.03, 0.03, frame, -width / 2 + 0.015, 0, 0),
+    box(0.03, bottom + height + 0.03, 0.03, frame, width / 2 - 0.015, 0, 0),
+    box(0.25, 0.02, 0.25, frame, -width / 2 + 0.015, 0, 0),
+    box(0.25, 0.02, 0.25, frame, width / 2 - 0.015, 0, 0),
+    box(width, 0.025, 0.035, frame, 0, bottom + height, 0),
+    box(width, 0.025, 0.035, frame, 0, bottom - 0.025, 0),
+    pane,
+  );
+  // Three notes joined by marker lines: a flow sketched during a huddle.
+  const notes = [
+    { x: -0.32, y: 0.85, color: "#ffd84d" },
+    { x: 0, y: 0.72, color: "#9fe0ff" },
+    { x: 0.32, y: 0.88, color: "#ff9fc2" },
+  ];
+  const ink = standard("#3b4466", 0.6);
+  for (const [index, note] of notes.entries()) {
+    root.add(box(0.1, 0.1, 0.004, standard(note.color, 0.9), note.x, note.y - 0.05, 0.01));
+    const next = notes[index + 1];
+    if (next !== undefined) {
+      const dx = next.x - note.x;
+      const dy = next.y - note.y;
+      const line = box(
+        Math.hypot(dx, dy) - 0.1,
+        0.006,
+        0.002,
+        ink,
+        (note.x + next.x) / 2,
+        (note.y + next.y) / 2 - 0.003,
+        0.012,
+      );
+      line.rotation.z = Math.atan2(dy, dx);
+      root.add(line);
+    }
+  }
+  return root;
 }

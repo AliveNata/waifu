@@ -79,8 +79,8 @@ const bitSpecs: Record<DeskBit, BitSpec> = {
   notes: { duration: 7, item: "pen", prop: "pen", hand: "right" },
   "desk-read": { duration: 9, item: "book", prop: "book", hand: "left" },
   // Tapped where it sits in the hub, never picked up, so there is no item to take off the desk.
-  "key-tap": { duration: 3, item: null, prop: null, hand: "right" },
-  padlock: { duration: 5, item: "padlock", prop: "padlock", hand: "left" },
+  "key-tap": { duration: 3, item: null, prop: null, hand: "left" },
+  padlock: { duration: 5, item: "padlock", prop: "padlock", hand: "right" },
   sketch: { duration: 8, item: "pen", prop: "pen", hand: "right" },
   swatch: { duration: 5, item: "swatch", prop: "swatch", hand: "left" },
 };
