@@ -1126,6 +1126,37 @@ function chatBody(input: OfficePoseInput): UpperBody {
   };
 }
 
+/**
+ * Running standup by the board: explaining with open hands, now and then counting off on the
+ * fingers, unless a line of small talk has its own gesture.
+ */
+function standupLeadBody(input: OfficePoseInput): UpperBody {
+  if (input.chatGesture !== undefined && input.chatGesture !== null) {
+    return chatBody(input);
+  }
+  const kind = Math.sin(input.actionElapsed * 0.4) > -0.3 ? "explain" : "count";
+  return chatBody({ ...input, chatGesture: { kind, elapsed: input.actionElapsed % 6 } });
+}
+
+/** Lunch at the meeting table: chopsticks from the lunch box up to the mouth, a bite, back down. */
+function lunchBody(input: OfficePoseInput): UpperBody {
+  const bite = cycle(Math.max(0, input.actionElapsed - 1), 3.2);
+  const bones: PoseBones = {
+    ...armsRelaxed,
+    spine: { x: 0.12 - 0.08 * bite, y: 0, z: 0 },
+    head: { x: 0.3 - 0.25 * bite, y: 0, z: 0 },
+  };
+  setArm(
+    bones,
+    "right",
+    mixRotation({ x: -0.75, y: 0, z: 1.0 }, { x: -0.6, y: 0, z: 1.0 }, bite),
+    mixRotation({ x: 0, y: 1.1, z: 0 }, { x: 0, y: 2.3, z: 0 }, bite),
+  );
+  // The other hand steadies the box on the table.
+  setArm(bones, "left", { x: -0.7, y: 0, z: 1.1 }, { x: 0, y: 1.0, z: 0 });
+  return { bones };
+}
+
 function meetingBody(input: OfficePoseInput): UpperBody {
   // Laptop work at the team table, looking up to talk every so often.
   const talking = Math.sin(input.time * 0.33) > 0.4;
@@ -1301,7 +1332,12 @@ function upperBody(action: OfficeAction, input: OfficePoseInput): UpperBody {
     case "rack":
       return rackBody(input);
     case "chat":
+    case "standup":
       return chatBody(input);
+    case "standup-lead":
+      return standupLeadBody(input);
+    case "lunch":
+      return lunchBody(input);
     case "meeting":
       return meetingBody(input);
     case "pingpong":

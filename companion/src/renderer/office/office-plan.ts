@@ -153,6 +153,7 @@ export type StationId =
   | "collab-1"
   | "collab-2"
   | "collab-3"
+  | StandupStationId
   | "rack"
   | "selfie"
   | "plant-lounge"
@@ -176,6 +177,21 @@ export type StationId =
   | "report-1"
   | "report-2"
   | "report-3";
+
+/** Where people stand at the morning standup: 1 is the lead's spot by the glass board. */
+export type StandupStationId =
+  | "standup-1"
+  | "standup-2"
+  | "standup-3"
+  | "standup-4"
+  | "standup-5"
+  | "standup-6"
+  | "standup-7"
+  | "standup-8"
+  | "standup-9"
+  | "standup-10"
+  | "standup-11"
+  | "standup-12";
 
 export interface Station {
   id: StationId;
@@ -412,6 +428,21 @@ const aquariumSpot = { x: -1.9, z: 3.6 } as const;
  * the meeting table.
  */
 const collabCenter = { x: 4.2, z: -1.3 } as const;
+
+/**
+ * The standup circle around the high table, everyone facing the glass board: the lead stands at
+ * the board's right edge facing the group, the rest on an arc on the open sides of the table, a
+ * body's width apart and clear of the stools.
+ */
+const standupRadius = 1.15;
+const standupArc = { from: -0.26, to: Math.PI + 0.26 } as const;
+const standupLeadSpot = { x: collabCenter.x + 0.78, z: collabCenter.z - 0.9 } as const;
+
+export const standupStationIds: readonly StandupStationId[] = Array.from(
+  { length: 12 },
+  (_, index) => `standup-${index + 1}` as StandupStationId,
+);
+
 /** From the table's middle to each stool: close enough to lean on the table, clear of its edge. */
 const collabStoolRadius = 0.62;
 /** Stools at the south, then back left and back right, evenly round the table. */
@@ -1117,6 +1148,7 @@ const placeStations: Record<Exclude<StationId, VisitStationId>, Station> = {
   "punching-bag": standing("punching-bag", { x: punchingBagSpot.x, z: punchingBagSpot.z + 0.55 }, facing.backWall),
   aquarium: standing("aquarium", { x: aquariumSpot.x, z: aquariumSpot.z - 0.55 }, facing.camera),
   ...collabStations(),
+  ...standupStations(),
   rack: standing("rack", { x: 4.55, z: -3.85 }, facing.backWall),
   // In front of her backdrop, so the ring light and camera frame her like a real shoot.
   selfie: standing("selfie", selfieSpot, yawToward(selfieSpot, tripodSpot)),
@@ -1181,6 +1213,22 @@ function collabStations(): Record<"collab-1" | "collab-2" | "collab-3", Station>
       return [id, { id, spot: stool, facing: facingTable, approach, seatHeight: stoolSeatHeight }];
     }),
   ) as Record<(typeof ids)[number], Station>;
+}
+
+function standupStations(): Record<StandupStationId, Station> {
+  const center = { x: collabCenter.x, z: collabCenter.z - 0.15 };
+  const board = { x: collabCenter.x, z: collabCenter.z - 1.0 };
+  const ring = standupStationIds.length - 1;
+  return Object.fromEntries(
+    standupStationIds.map((id, index) => {
+      if (index === 0) {
+        return [id, standing(id, standupLeadSpot, yawToward(standupLeadSpot, center))];
+      }
+      const angle = standupArc.from + ((index - 1) / (ring - 1)) * (standupArc.to - standupArc.from);
+      const spot = { x: center.x + standupRadius * Math.cos(angle), z: center.z + standupRadius * Math.sin(angle) };
+      return [id, standing(id, spot, yawToward(spot, board))];
+    }),
+  ) as Record<StandupStationId, Station>;
 }
 
 /** The meeting seats in order, for the props that belong to each one. */

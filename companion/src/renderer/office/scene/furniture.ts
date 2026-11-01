@@ -829,7 +829,7 @@ export class MeetingLaptop {
 export function buildMeetingTable(
   piece: Furniture,
   laptopSpots: readonly { x: number; z: number; yaw: number }[],
-): { root: Group; laptops: MeetingLaptop[] } {
+): { root: Group; laptops: MeetingLaptop[]; lunchBoxes: Group[] } {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const top = surface.desk;
@@ -862,7 +862,30 @@ export function buildMeetingTable(
   });
   // Between the laptops: a printout. Mugs are everyone's own now, so none is left lying here.
   root.add(box(0.14, 0.004, 0.2, standard("#fbfaf7", 0.9), 0.33, top, 0));
-  return { root, laptops };
+  // A lunch box for each chair, set out while someone eats there.
+  const lunchBoxes = laptopSpots.map(({ x, z, yaw }) => {
+    const lunch = lunchBox(top);
+    lunch.position.set(x, 0, z);
+    lunch.rotation.y = yaw;
+    lunch.visible = false;
+    root.add(lunch);
+    return lunch;
+  });
+  return { root, laptops, lunchBoxes };
+}
+
+/** An open bento: rice on one side, salmon, egg and greens on the other, nearer the chair than a laptop. */
+function lunchBox(top: number): Group {
+  const lunch = new Group();
+  const z = 0.06;
+  lunch.add(
+    box(0.13, 0.03, 0.09, standard(palette.inkDeep, 0.5), 0, top, z),
+    box(0.058, 0.006, 0.078, standard("#f7f3ea", 0.9), -0.03, top + 0.026, z),
+    box(0.03, 0.012, 0.03, standard("#f2a65a", 0.7), 0.03, top + 0.026, z - 0.018),
+    box(0.024, 0.01, 0.022, standard("#f2c94c", 0.7), 0.026, top + 0.026, z + 0.022),
+    box(0.016, 0.012, 0.02, standard(palette.leaf, 0.8), 0.05, top + 0.026, z + 0.02),
+  );
+  return lunch;
 }
 
 /** The low step along a board: oak top, dark sides, a thin glow along its front edge. */

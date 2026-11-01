@@ -73,11 +73,13 @@ import {
   meetingStationIds,
   room,
   type StationId,
+  standupStationIds,
   stations,
   surface,
   treadmillStationIds,
 } from "./office-plan.js";
 import { type BoardFocus, officePose } from "./office-pose.js";
+import { officeDay, ritualFor, standupTurn, standupTurnSeconds } from "./office-rituals.js";
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
 import { atJakartaTime, type DayPart, dayPart, jakartaHours, skyAt } from "./office-time.js";
 import { PlaceholderAvatar } from "./placeholder.js";
@@ -396,6 +398,9 @@ const actionLabels: Record<OfficeAction, string> = {
   "wait-report": "waiting to report",
   box: "at the punching bag",
   gaze: "watching the fish",
+  standup: "at standup",
+  "standup-lead": "running standup",
+  lunch: "having lunch",
 };
 
 export class OfficeStage {
@@ -424,7 +429,10 @@ export class OfficeStage {
     (memberId) => this.mugs[memberId],
     () => this.dayPart(),
     () => ({ pieces: this.food.boxOnBar ? this.food.left : 0, canBuy: canBuy(this.food, Date.now()) }),
+    (memberId) => ritualFor(memberId, this.clock()),
   );
+  /** This morning's standup: when the round of updates began and who joined, in the order they came. */
+  private standup: { startedAt: number | null; order: MemberId[] } = { startedAt: null, order: [] };
   /** The idle step each member is on, or nothing while real work has them. */
   private readonly lifeSteps: Partial<Record<MemberId, LifeChoice>> = {};
   private readonly rigs: Record<MemberId, MemberRig>;
@@ -1046,9 +1054,9 @@ export class OfficeStage {
     // Up onto a board step and down again over a moment, not in one jump.
     rig.lift += (floorHeightAt(actor.position) - rig.lift) * (1 - Math.exp(-stepUpRate * delta));
     avatar.root.position.set(actor.position.x, rig.lift, actor.position.z);
-    // Out through the door for food: gone from the room until the walk back in.
+    // Out through the door for food, or home for the night: gone from the room until the walk back in.
     avatar.root.visible = !(
-      errand === "go-out" &&
+      (errand === "go-out" || errand === "go-home") &&
       arrived &&
       stepElapsed > doorwaySeconds &&
       remaining > doorwaySeconds
@@ -1178,6 +1186,17 @@ export class OfficeStage {
     if (first !== undefined && second !== undefined) {
       pairs.push([first, second]);
     }
+    // At lunch, the two across the table from each other talk.
+    for (let seat = 0; seat < 5; seat++) {
+      const near = meetingStationIds[seat];
+      const across = meetingStationIds[seat + 5];
+      const first = near === undefined ? null : settledAt(near, "lunch");
+      const second = across === undefined ? null : settledAt(across, "lunch");
+      if (first !== null && second !== null) {
+        pairs.push([first, second]);
+      }
+    }
+    pairs.push(...this.updateStandup(settledAt));
     const brewing = settledAt("coffee", "brew");
     const snacking = settledAt("fridge", "snack");
     if (brewing !== null && snacking !== null) {
@@ -1210,6 +1229,54 @@ export class OfficeStage {
         }
       }
     }
+  }
+
+  /**
+   * The round of updates at standup: the lead opens, everyone who came says what they finished
+   * and what is next, the lead closes. After the round, neighbors in the circle chat quietly until
+   * it breaks up. Returns those chatting pairs.
+   */
+  private updateStandup(
+    settledAt: (station: StationId, action: OfficeAction) => MemberId | null,
+  ): [MemberId, MemberId][] {
+    const [leadSpot, ...circle] = standupStationIds;
+    const lead = leadSpot === undefined ? null : settledAt(leadSpot, "standup-lead");
+    const present = circle
+      .map((station) => settledAt(station, "standup"))
+      .filter((memberId): memberId is MemberId => memberId !== null);
+    if (present.length === 0) {
+      this.standup = { startedAt: null, order: [] };
+      return [];
+    }
+    for (const memberId of [...(lead === null ? [] : [lead]), ...present]) {
+      if (!this.standup.order.includes(memberId)) {
+        this.standup.order.push(memberId);
+      }
+    }
+    // It starts once the lead is at the board with someone to talk to, or without a lead once a
+    // few have gathered.
+    if (this.standup.startedAt === null && ((lead !== null && present.length > 0) || present.length >= 3)) {
+      this.standup.startedAt = this.elapsed;
+    }
+    if (this.standup.startedAt === null) {
+      return [];
+    }
+    const speakerOrder = this.standup.order.filter((memberId) => memberId === lead || present.includes(memberId));
+    const opener = lead ?? speakerOrder[0];
+    if (opener === undefined) {
+      return [];
+    }
+    const turn = standupTurn(opener, speakerOrder, this.elapsed - this.standup.startedAt, officeDay(this.clock()));
+    if (turn !== null) {
+      const startedAt = this.elapsed - turn.elapsed;
+      this.chatter.announce(turn.speaker, turn.text, startedAt, startedAt + standupTurnSeconds - 0.3);
+      return [];
+    }
+    const pairs: [MemberId, MemberId][] = [];
+    for (let index = 0; index + 1 < present.length; index += 2) {
+      pairs.push([present[index] as MemberId, present[index + 1] as MemberId]);
+    }
+    return pairs;
   }
 
   /** Head turn toward a conversation partner, or toward whoever is being waved at. */
@@ -1588,6 +1655,13 @@ export class OfficeStage {
     });
     const step = cook === undefined ? null : ovenStep(this.elapsed - this.rigs[cook].actionStartedAt);
     this.office.oven.update(step?.oven ?? "off", step?.foodInside ?? false, delta, this.elapsed);
+    this.office.lunchBoxes.forEach((lunch, index) => {
+      const seat = meetingStationIds[index];
+      lunch.visible = memberIds.some((memberId) => {
+        const step = this.lifeSteps[memberId];
+        return step?.activity === "lunch" && step.station === seat && step.arrivedAt !== null;
+      });
+    });
     this.office.meetingLaptops.forEach((laptop, index) => {
       const seat = meetingStationIds[index];
       const owner = memberIds.find(
@@ -1667,7 +1741,14 @@ export class OfficeStage {
   private focusLabel(memberId: MemberId, tool: string | null): string {
     const rig = this.rigs[memberId];
     const profile = roster[memberId];
-    const activity = rig.action === null ? "walking" : actionLabels[rig.action];
+    const home = this.lifeSteps[memberId]?.errand === "go-home";
+    const activity = home
+      ? rig.avatar.root.visible
+        ? "heading home"
+        : "gone home"
+      : rig.action === null
+        ? "walking"
+        : actionLabels[rig.action];
     return `${profile.displayName} · ${profile.role} · ${activity}${tool === null ? "" : ` (${tool})`}`;
   }
 
@@ -1750,6 +1831,11 @@ export class OfficeStage {
     return this.office.closeups[memberId];
   }
 
+  /** Out the door for the night, not just walking toward it. */
+  private goneHome(memberId: MemberId): boolean {
+    return this.lifeSteps[memberId]?.errand === "go-home" && !this.rigs[memberId].avatar.root.visible;
+  }
+
   /** The time of day in the office, Jakarta time. */
   private dayPart(): DayPart {
     return dayPart(jakartaHours(this.clock()));
@@ -1777,11 +1863,16 @@ export class OfficeStage {
     }
     this.renderer.toneMappingExposure = mix("exposure");
     this.office.setSky(sky);
-    // On once it is getting dark, not at the first hint of dusk.
+    // On once it is getting dark, not at the first hint of dusk, and only for whoever is still in.
     const lamps = Math.min(1, Math.max(0, (night - 0.35) / 0.4));
+    const away = memberIds.filter((memberId) => this.goneHome(memberId));
     for (const memberId of memberIds) {
-      this.office.workstations[memberId].lamp.setLevel(lamps);
+      this.office.workstations[memberId].lamp.setLevel(away.includes(memberId) ? 0 : lamps);
     }
+    // The room lights go down as the office empties out for the night.
+    const emptied = (away.length / memberIds.length) * night;
+    this.hemisphere.intensity *= 1 - 0.45 * emptied;
+    this.windowFill.intensity *= 1 - 0.3 * emptied;
     this.night = night;
   }
 
