@@ -195,6 +195,20 @@ Selain itu semua cast sesekali nyeruput kopi dari gelasnya sendiri, selama gelas
 
 Barang di sayap L ditaruh di samping pinggul yang duduk, jadi pas makenya badannya muter ke samping, bukan condong ke depan. Sayap L 2B dan Miruku ada di kiri mereka, jadi mereka pakai tangan kiri. Yang lain pakai tangan kanan. Lampu di cluster Pi Yor kedip terus kayak lagi ada trafik, walaupun nggak lagi dipegang.
 
+**Kucing kantor**: Mochi, kucing oren belang yang tinggal di kantor. Dia jalan sendiri lewat lantai, nggak nembus furnitur, dan punya kegiatan sendiri:
+
+| Di mana | Ngapain |
+|---|---|
+| Beanbag di lounge | Tidur melingkar. Siang sesekali, malam hampir terus, dan dia tetap di kantor walaupun semua udah pulang. Selama Mochi di situ, nggak ada yang duduk di beanbag |
+| Depan akuarium | Duduk ngelihatin ikan, kepalanya ngikutin ikan, ujung ekornya kedut-kedut |
+| Lantai di bawah jendela | Rebahan kayak roti (kaki dilipat) pas jam 09.00 sampai 15.00 |
+| Depan kulkas | Minta makan sambil ngeong, apalagi kalau ada yang lagi ngemil |
+| Karpet lounge | Jilat-jilat bulu |
+| Karpet pojok kolaborasi, deket bangku game, keset pintu | Duduk atau rebahan |
+| Di samping kursi anggota yang lagi di meja | Mampir, duduk, dan ngelihatin orangnya |
+
+Anggota yang lewat deket Mochi kadang nyapa ("Halo, Mochi.", "Pus, pus."), terus Mochi noleh dan bales ngeong. Di mode Alyx, arahin titik tengah ke Mochi sampai muncul **E Elus Mochi**: Alyx ngelus dia, Mochi diem, merem, noleh ke Alyx, dan ngedengkur ("Prrr...").
+
 **Ritual harian** (jam Jakarta, sama kayak jam dinding). Cuma cast yang lagi nganggur yang ikut. Yang lagi dijalanin Claude Code tetap kerja.
 
 | Jam | Ritual |
