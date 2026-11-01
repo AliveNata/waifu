@@ -174,3 +174,25 @@ describe("desk bit poses", () => {
     expect(reaching.bones.chest?.y ?? 0).toBeGreaterThan(0.1);
   });
 });
+
+describe("the newer members' desk bits", () => {
+  it.each(["arisu", "komachi", "miruku", "huagua"] as const)(
+    "gives %s things of their own to do besides a sip",
+    (member) => {
+      // Act
+      const own = deskBits[member].filter((kind) => kind !== "sip");
+
+      // Assert
+      expect(own.length).toBeGreaterThanOrEqual(2);
+    },
+  );
+
+  it("taps the security key where it sits instead of picking it up", () => {
+    // Act
+    const spec = deskBitSpec("key-tap");
+
+    // Assert: with no item, the key never disappears from the hub.
+    expect(spec.item).toBeNull();
+    expect(spec.prop).toBeNull();
+  });
+});

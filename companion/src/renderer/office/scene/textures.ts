@@ -386,3 +386,74 @@ export function pullRequestsTexture(): CanvasTexture {
     "#b45cff",
   );
 }
+
+/** Komachi's second monitor: how the pieces of the feature meet, the contracts she writes up. */
+export function contractDiagramTexture(): CanvasTexture {
+  const { canvas: element, ctx } = canvas(640, 400);
+  ctx.fillStyle = "#171a2b";
+  ctx.fillRect(0, 0, 640, 400);
+  ctx.fillStyle = "#dfe3f7";
+  ctx.font = `bold 18px ${uiFont}`;
+  ctx.textBaseline = "top";
+  ctx.fillText("kontrak: orders", 16, 12);
+  simulatedTag(ctx, 640, "#7f86a8");
+  const nodes: [string, string, number, number][] = [
+    ["web", "Kobayashi", 30, 80],
+    ["api", "Kobayashi", 240, 80],
+    ["postgres", "Asuna", 450, 60],
+    ["topic orders.v1", "Asuna", 450, 170],
+    ["dbt", "Asuna", 450, 280],
+    ["deploy", "Yor", 240, 260],
+  ];
+  const edges: [number, number][] = [
+    [0, 1],
+    [1, 2],
+    [1, 3],
+    [3, 4],
+    [1, 5],
+  ];
+  ctx.strokeStyle = "#a9b8ff";
+  ctx.lineWidth = 3;
+  for (const [from, to] of edges) {
+    const a = nodes[from] as [string, string, number, number];
+    const b = nodes[to] as [string, string, number, number];
+    ctx.beginPath();
+    ctx.moveTo(a[2] + 80, a[3] + 28);
+    ctx.lineTo(b[2] + 80, b[3] + 28);
+    ctx.stroke();
+  }
+  for (const [label, owner, x, y] of nodes) {
+    ctx.fillStyle = "#262b45";
+    ctx.fillRect(x, y, 160, 56);
+    ctx.strokeStyle = "#a9b8ff";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, 160, 56);
+    ctx.fillStyle = "#dfe3f7";
+    ctx.font = `bold 17px ${uiFont}`;
+    ctx.textBaseline = "top";
+    ctx.fillText(label, x + 12, y + 8);
+    ctx.fillStyle = "#9aa2c4";
+    ctx.font = `14px ${uiFont}`;
+    ctx.fillText(owner, x + 12, y + 32);
+  }
+  return texture(element);
+}
+
+/** Miruku's vertical monitor: the checks she runs before anything ships. */
+export function securityLogTexture(): CanvasTexture {
+  return feedTexture(
+    "Security log",
+    [
+      "secret scan  bersih",
+      "npm audit  cek",
+      "rbac diff  cek",
+      "iam role  ok",
+      "port publik  cek",
+      "input sql  ok",
+      "dependency  antri",
+    ],
+    "#16121f",
+    "#e6dcf7",
+    "#d2b8ff",
+  );
+}

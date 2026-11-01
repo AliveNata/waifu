@@ -140,12 +140,10 @@ Setup meja sesuai role:
 | Ruby | Laptop, mic, ring light | Ngetik draft post |
 | Rias | Papan tulis, plus meja sendiri: laptop, papan catur, cangkir teh di atas tatakan, tumpukan buku, gulungan blueprint | Gambar diagram, tangannya ngikutin ujung spidol, kepala dan badannya ngikutin tulisan |
 | Chizuru | Papan ide, plus meja sendiri: laptop yang tutupnya ditempelin sticky note, tumpukan sticky note, gelas spidol, tanaman kecil | Nempel sticky note satu-satu |
-| Arisu | Monitor rencana kerja, monitor kedua dengan papan sprint tim, laci dengan laptop meeting | Ngetik rencana di `plans/` |
-| Komachi | Monitor kontrak antar bagian, laci dengan laptop meeting | Ngetik kontrak dan langkah teknis |
-| Miruku | Monitor checklist keamanan, laci dengan laptop meeting | Ngetik catatan pemeriksaan keamanan |
-| Huagua | Monitor `DESIGN.md`, laci dengan laptop meeting | Ngetik arah desain |
-
-Setup meja Arisu, Komachi, Miruku, dan Huagua masih dasar. Barang khas masing-masing di meja, kebiasaan kecil di meja, dan kegiatan favorit pas istirahat nyusul di update berikutnya.
+| Arisu | Monitor rencana kerja, monitor kedua dengan papan sprint tim, clipboard checklist, jam pasir buat timebox, laci dengan laptop meeting | Ngetik rencana di `plans/` |
+| Komachi | Monitor kontrak antar bagian, monitor kedua dengan diagram kontrak (siapa nyambung ke siapa), notebook terbuka dengan pena, tumpukan buku referensi, laci dengan laptop meeting | Ngetik kontrak dan langkah teknis |
+| Miruku | Monitor checklist keamanan, monitor vertikal log scan, security key di hub USB, gembok, laci dengan laptop meeting | Ngetik catatan pemeriksaan keamanan |
+| Huagua | Monitor `DESIGN.md`, tablet gambar dengan stylus, kipas swatch warna, sketchbook, laci dengan laptop meeting | Ngetik arah desain |
 
 **Ngetik**: tiap karakter yang muncul di layar dipencet jari beneran. Telapak tangan ngambang di atas keyboard dengan jari ditekuk ke tuts, jadi tangan nggak tenggelam ke keyboard. Tangan kiri pegang separuh kiri keyboard (1 sampai 5, Q sampai T, A sampai G, Z sampai B), tangan kanan sisanya, spasi, dan Enter, kayak touch typing. Tiap meja juga punya mouse di kanan keyboard. Sesekali tangan kanan pindah ke mouse beberapa detik dengan telapak di atas mouse, mouse-nya geser geser dan tombolnya nyala pas diklik, dan teks di layar berhenti dulu sampai tangannya balik ke keyboard.
 
@@ -156,7 +154,10 @@ Setup meja Arisu, Komachi, Miruku, dan Huagua masih dasar. Barang khas masing-ma
 | Anggota | Yang dilakuin |
 |---|---|
 | 2B | Buka planner dan baca |
-| Arisu | Condong ke papan sprint di monitor kanannya sambil megang dagu |
+| Arisu | Condong ke papan sprint di monitor kanannya sambil megang dagu, ngangkat clipboard terus nyentang daftar satu-satu, atau ngebalik jam pasir terus ngelihatin pasirnya turun |
+| Komachi | Nulis di notebook pakai pena, atau ngambil buku paling atas dari tumpukan terus baca |
+| Miruku | Ngecek log di monitor vertikal, nekan security key di hub beberapa kali, atau mainin gembok di tangan |
+| Huagua | Gambar di tablet pakai stylus, ngangkat kipas swatch terus bandingin warnanya sama layar, atau tiba tiba dapet ide sambil ngacungin jari |
 | Asuna | Ngecek job run di monitor vertikal, atau ngajak ngomong bebek karetnya |
 | Kobayashi | Ambil konsol dari dock terus main pakai dua tangan, atau meluk boneka naga sambil senyum |
 | Erza | Makan kue pakai garpu, suap demi suap |

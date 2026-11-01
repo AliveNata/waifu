@@ -78,6 +78,68 @@ export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook):
       );
       break;
     }
+    case "clipboard": {
+      // Arisu's clipboard: a board, the clip at the top and a printed checklist.
+      group.add(
+        box(0.07, 0.004, 0.095, standard("#8a6a4a", 0.7), 0, 0, 0),
+        box(0.062, 0.002, 0.08, standard("#f7f3ea", 0.9), 0, 0.003, 0.004),
+        box(0.03, 0.008, 0.012, standard(palette.steel, 0.4, 0.7), 0, 0.004, -0.043),
+      );
+      for (let row = 0; row < 4; row++) {
+        group.add(box(0.04, 0.001, 0.004, standard("#7fb6dc", 0.6), 0.005, 0.0045, -0.025 + row * 0.018));
+      }
+      break;
+    }
+    case "hourglass": {
+      // Two glass bulbs between wooden caps, sand mostly in the bottom one.
+      const wood = standard(palette.oak, 0.6);
+      const glass = standard(palette.glass, 0.1);
+      glass.transparent = true;
+      glass.opacity = 0.45;
+      const top = mesh(new CylinderGeometry(0.016, 0.004, 0.03, 12), glass, false);
+      top.position.y = 0.034;
+      const bottom = mesh(new CylinderGeometry(0.004, 0.016, 0.03, 12), glass, false);
+      bottom.position.y = 0.006;
+      const sand = mesh(new CylinderGeometry(0.008, 0.014, 0.012, 12), standard("#e8c37a", 0.9));
+      sand.position.y = -0.003;
+      group.add(
+        box(0.04, 0.006, 0.04, wood, 0, -0.012, 0),
+        box(0.04, 0.006, 0.04, wood, 0, 0.049, 0),
+        top,
+        bottom,
+        sand,
+      );
+      break;
+    }
+    case "pen": {
+      // A slim pen or stylus, held to write: tip down and forward.
+      const barrel = mesh(new CylinderGeometry(0.0035, 0.0035, 0.085, 8), standard(look.mug, 0.5));
+      const tip = mesh(new CylinderGeometry(0.0035, 0.0008, 0.012, 8), standard(palette.ink, 0.5));
+      tip.position.y = -0.048;
+      group.add(barrel, tip);
+      group.rotation.x = 0.7;
+      break;
+    }
+    case "padlock": {
+      // Miruku's padlock: a brass body and a steel shackle.
+      const shackle = mesh(new TorusGeometry(0.012, 0.003, 6, 14, Math.PI), standard(palette.steel, 0.3, 0.8));
+      shackle.position.y = 0.014;
+      group.add(box(0.032, 0.028, 0.014, standard("#c9a24a", 0.35, 0.6), 0, -0.014, 0), shackle);
+      break;
+    }
+    case "swatch": {
+      // Huagua's swatch fan: color strips pinned at one end, fanned out.
+      const colors = ["#e8833a", "#f2c94c", "#9fd2b0", "#5fa8d3", "#8a5fd0", "#f4a6c4"];
+      colors.forEach((color, index) => {
+        const strip = new Group();
+        strip.add(box(0.016, 0.002, 0.08, standard(color, 0.8), 0, index * 0.0022, 0.035));
+        strip.rotation.y = (index - (colors.length - 1) / 2) * 0.22;
+        group.add(strip);
+      });
+      group.add(mesh(new CylinderGeometry(0.004, 0.004, 0.016, 8), standard(palette.steel, 0.4, 0.7)));
+      group.rotation.x = -1.0;
+      break;
+    }
     case "laptop": {
       // Folded shut and carried flat, a thin line of the screen bezel showing at the hinge.
       const shell = standard(look.shell, 0.5);
@@ -278,6 +340,12 @@ const gripOffset: Record<HandPropKind, { x: number; y: number; z: number; tilt: 
   "food-box": { x: 0.04, y: -0.01, z: 0.08, tilt: 0, turn: 0 },
   // Hanging from the hand at the side.
   "food-bag": { x: 0, y: 0, z: 0, tilt: 0, turn: 0 },
+  // Held up in front of the chest, tipped back toward the eyes.
+  clipboard: { x: 0.03, y: 0.01, z: 0.04, tilt: -1.0, turn: 0 },
+  hourglass: { x: 0, y: 0.005, z: 0.02, tilt: 0, turn: 0 },
+  pen: { x: 0, y: 0, z: 0.01, tilt: 0, turn: 0 },
+  padlock: { x: 0, y: 0.01, z: 0.02, tilt: 0, turn: 0 },
+  swatch: { x: 0, y: 0.01, z: 0.02, tilt: 0, turn: 0 },
 };
 
 const handPosition = new Vector3();

@@ -1413,8 +1413,15 @@ export class OfficeStage {
         board: null,
         rate: deskReachRate,
       };
-    } else if (bit.kind === "sticky" && workstation.writingPad !== null) {
-      // Short words across the note, the marker lifting off between them.
+    } else if (bit.kind === "key-tap" && workstation.items["security-key"] !== undefined) {
+      // A couple of taps on the key's gold contact, the finger lifting off between them.
+      const press = Math.max(0, Math.sin(bit.elapsed * 7));
+      target = workstation.items["security-key"].localToWorld(new Vector3(0, 0.03 + 0.012 * press, 0.026));
+    } else if (
+      (bit.kind === "sticky" || bit.kind === "notes" || bit.kind === "sketch") &&
+      workstation.writingPad !== null
+    ) {
+      // Short strokes across the note, notebook or tablet, the pen lifting off between them.
       const t = bit.elapsed;
       const lift = Math.sin(t * 1.9) > 0.75 ? 0.025 : 0;
       target = workstation.writingPad.localToWorld(

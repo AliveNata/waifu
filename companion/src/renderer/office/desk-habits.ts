@@ -17,10 +17,34 @@ export type DeskBit =
   | "sip"
   | "chess"
   | "sticky"
-  | "idea-pop";
+  | "idea-pop"
+  | "clipboard"
+  | "hourglass"
+  | "notes"
+  | "desk-read"
+  | "key-tap"
+  | "padlock"
+  | "sketch"
+  | "swatch";
 
 /** Things on a desk that a bit picks up or moves. The stage hides them while they are in a hand. */
-export type DeskItem = "planner" | "duck" | "console" | "plush" | "fork" | "rose" | "mug" | "chess-piece" | "marker";
+export type DeskItem =
+  | "planner"
+  | "duck"
+  | "console"
+  | "plush"
+  | "fork"
+  | "rose"
+  | "mug"
+  | "chess-piece"
+  | "marker"
+  | "clipboard"
+  | "hourglass"
+  | "pen"
+  | "book"
+  | "padlock"
+  | "security-key"
+  | "swatch";
 
 export type DeskHand = "left" | "right";
 
@@ -50,6 +74,15 @@ const bitSpecs: Record<DeskBit, BitSpec> = {
   chess: { duration: 4, item: "chess-piece", prop: null, hand: "left" },
   sticky: { duration: 6, item: "marker", prop: "marker", hand: "right" },
   "idea-pop": { duration: 3, item: null, prop: null, hand: "right" },
+  clipboard: { duration: 6, item: "clipboard", prop: "clipboard", hand: "left" },
+  hourglass: { duration: 5, item: "hourglass", prop: "hourglass", hand: "right" },
+  notes: { duration: 7, item: "pen", prop: "pen", hand: "right" },
+  "desk-read": { duration: 9, item: "book", prop: "book", hand: "left" },
+  // Tapped where it sits in the hub, never picked up, so there is no item to take off the desk.
+  "key-tap": { duration: 3, item: null, prop: null, hand: "right" },
+  padlock: { duration: 5, item: "padlock", prop: "padlock", hand: "left" },
+  sketch: { duration: 8, item: "pen", prop: "pen", hand: "right" },
+  swatch: { duration: 5, item: "swatch", prop: "swatch", hand: "left" },
 };
 
 /** Each member's bits, from what is on their desk and who they are. */
@@ -62,12 +95,10 @@ export const deskBits: Record<MemberId, readonly DeskBit[]> = {
   yor: ["rose", "sip"],
   erza: ["cake", "sip"],
   ruby: ["mic", "desk-selfie", "sip"],
-  // Arisu leans in to the sprint board on her second screen. The others' own bits come with
-  // their desk setups, and until then they check the screen and sip.
-  arisu: ["kanban-check", "sip"],
-  komachi: ["monitor-check", "sip"],
-  miruku: ["monitor-check", "sip"],
-  huagua: ["idea-pop", "sip"],
+  arisu: ["kanban-check", "clipboard", "hourglass", "sip"],
+  komachi: ["notes", "desk-read", "sip"],
+  miruku: ["monitor-check", "key-tap", "padlock", "sip"],
+  huagua: ["sketch", "swatch", "idea-pop", "sip"],
 };
 
 /** Seconds to reach out and take an item, and the same again at the end to put it back. */

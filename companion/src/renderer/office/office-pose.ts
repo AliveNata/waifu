@@ -563,6 +563,72 @@ function deskBitBody(bit: ActiveDeskBit, input: OfficePoseInput): UpperBody {
       setArm(bones, "right", { x: -0.5, y: 0, z: 1.0 }, { x: 0, y: 2.0, z: 0 });
       pointingFingers(bones, "right", 1);
       break;
+    case "clipboard": {
+      // Clipboard up in the left hand, the right hand ticking items off down the list.
+      if (reachingForItem(bit)) {
+        break;
+      }
+      const tick = cycle(using, 1.6);
+      setArm(bones, "left", { x: -0.55, y: 0, z: 1.1 }, { x: 0, y: 1.7, z: 0 });
+      setArm(bones, "right", { x: -0.55 - 0.08 * tick, y: 0, z: 1.05 }, { x: 0, y: 1.6 + 0.15 * tick, z: 0 });
+      pointingFingers(bones, "right", 1);
+      bones.head = { x: 0.3, y: 0.08, z: 0 };
+      break;
+    }
+    case "hourglass": {
+      // Held up at eye level and turned over, then watched while the sand runs.
+      if (reachingForItem(bit)) {
+        break;
+      }
+      const turn = Math.min(1, using / 0.6);
+      setArm(bones, hand, { x: -0.95, y: 0, z: 0.8 }, { x: 0.6 * Math.sin(turn * Math.PI), y: 1.7, z: 0 });
+      bones.head = { x: 0.02, y: 0.12 * toward, z: 0.06 };
+      break;
+    }
+    case "notes":
+    case "sketch":
+      // Writing in the notebook, or drawing on the tablet, by the right hand: IK keeps the pen on
+      // it, the body turned a little to it and the free hand resting on the desk.
+      bones.spine = { x: 0.16, y: 0, z: 0.06 };
+      bones.chest = { x: 0.04, y: -0.2, z: 0 };
+      bones.head = { x: 0.35, y: -0.25, z: 0 };
+      setArm(bones, other, { x: -0.6, y: 0, z: 1.1 }, { x: 0, y: 1.0, z: 0 });
+      break;
+    case "desk-read": {
+      // The book open in both hands over the desk, head bowed, a page turned now and then.
+      if (reachingForItem(bit)) {
+        break;
+      }
+      const page = Math.max(0, Math.sin(using * 1.1) - 0.85) * 5;
+      setArm(bones, "left", { x: -0.35, y: 0, z: 1.3 }, { x: 0, y: 1.35, z: 0 });
+      setArm(bones, "right", { x: -0.35 - 0.15 * page, y: 0, z: 1.3 }, { x: 0, y: 1.35 - 0.3 * page, z: 0 });
+      bones.head = { x: 0.3, y: 0, z: 0.03 * Math.sin(using * 0.5) };
+      break;
+    }
+    case "key-tap":
+      // Reaching over to the key in the hub: IK puts the fingertip on it, eyes on the screen.
+      bones.spine = { x: 0.12, y: 0, z: 0.1 };
+      bones.chest = { x: 0, y: -0.15, z: 0 };
+      bones.head = { x: 0.05, y: 0.1, z: 0 };
+      pointingFingers(bones, "right", 1);
+      break;
+    case "padlock":
+      // Turned over in the hand in front of the chest, the shackle clicked now and then.
+      if (reachingForItem(bit)) {
+        break;
+      }
+      setArm(bones, hand, { x: -0.7, y: 0, z: 0.95 }, { x: 0.25 * Math.sin(using * 2.4), y: 1.8, z: 0 });
+      Object.assign(bones, curledFingers(0.4 + 0.5 * Math.max(0, Math.sin(using * 5))));
+      bones.head = { x: 0.25, y: 0.1 * toward, z: 0 };
+      break;
+    case "swatch":
+      // The fan held up beside the screen, eyes going from the colors to the screen and back.
+      if (reachingForItem(bit)) {
+        break;
+      }
+      setArm(bones, hand, { x: -1.05, y: 0, z: 0.7 }, { x: 0, y: 1.5, z: 0 });
+      bones.head = { x: 0.0, y: (0.1 + 0.18 * Math.sin(using * 1.2)) * toward, z: 0.05 };
+      break;
   }
   return { bones };
 }

@@ -28,10 +28,12 @@ import { box, glow, mesh, palette, standard, unlit } from "./palette.js";
 import { leafyCrown } from "./plant.js";
 import {
   checklistTexture,
+  contractDiagramTexture,
   jobRunsTexture,
   monitoringTexture,
   pipelineTexture,
   pullRequestsTexture,
+  securityLogTexture,
 } from "./textures.js";
 
 export const deskTop = surface.desk;
@@ -952,32 +954,180 @@ function chizuruDesk(piece: Furniture): DeskBuild {
   };
 }
 
-/**
- * A desk for the newer members: one screen with the member's work on it, keyboard, mouse, their
- * mug and a drawer with the meeting laptop. Arisu also has the team's sprint board on a second
- * screen to her right. Their own desk things come with the desk setups.
- */
-function podDesk(member: "arisu" | "komachi" | "miruku" | "huagua", piece: Furniture, kanban: Texture): DeskBuild {
-  const { width, depth } = deskSize(piece);
-  const inner = deskBase(width, depth);
-  const screen = new ScreenSurface(screenScripts[member]);
-  const back = -depth / 2 + 0.14;
-  if (member === "arisu") {
-    inner.add(
-      monitor(screen.texture, landscape.width, landscape.height, -0.24, back, 0.12),
-      monitor(kanban, landscape.width, landscape.height, 0.24, back, -0.12),
-    );
-  } else {
-    inner.add(monitor(screen.texture, landscape.width, landscape.height, 0, back));
-  }
+/** Shared by the newer members' desks: keyboard, mouse, their mug on the left and a drawer with the meeting laptop. */
+function deskBasics(member: DeskMember, width: number, depth: number) {
   const keyboard = keyboardFor(member, keyboardZ(depth));
   const mouse = mouseBeside(keyboard, palette.accent, palette.inkDeep);
   const mug = mugAt(member, -0.36, nearEdge(depth));
   const { unit, drawer } = drawerUnit(width, depth, "right");
-  inner.add(keyboard.root, mouse.root, mug, unit);
+  return { keyboard, mouse, mug, unit, drawer };
+}
+
+/** PM: the plan on one screen and the team's sprint board on the other, her clipboard and an hourglass for timeboxes. */
+function arisuDesk(piece: Furniture, kanban: Texture): DeskBuild {
+  const { width, depth } = deskSize(piece);
+  const inner = deskBase(width, depth);
+  const screen = new ScreenSurface(screenScripts.arisu);
+  const back = -depth / 2 + 0.14;
+  inner.add(
+    monitor(screen.texture, landscape.width, landscape.height, -0.24, back, 0.12),
+    monitor(kanban, landscape.width, landscape.height, 0.24, back, -0.12),
+  );
+  const { keyboard, mouse, mug, unit, drawer } = deskBasics("arisu", width, depth);
+  // The clipboard by her left hand, for ticking off the plan away from the screen.
+  const clipboard = deskItem(handPropModel("clipboard"), -0.52, deskTop + 0.003, -0.02);
+  clipboard.rotation.y = 0.2;
+  const hourglass = deskItem(handPropModel("hourglass"), 0.53, deskTop + 0.015, -0.04);
+  inner.add(keyboard.root, mouse.root, mug, clipboard, hourglass, unit);
   return {
     root: placedDesk(piece, inner),
-    workstation: { screen, keyboard, mouse, mug, ...noDeskThings, mugSide: "left", drawer },
+    workstation: {
+      screen,
+      keyboard,
+      mouse,
+      mug,
+      ...noDeskThings,
+      items: { clipboard, hourglass },
+      mugSide: "left",
+      drawer,
+    },
+  };
+}
+
+/** Tech lead: the steps she writes on one screen, the contract diagram on the other, a notebook and a stack of books. */
+function komachiDesk(piece: Furniture): DeskBuild {
+  const { width, depth } = deskSize(piece);
+  const inner = deskBase(width, depth);
+  const screen = new ScreenSurface(screenScripts.komachi);
+  const back = -depth / 2 + 0.14;
+  inner.add(
+    monitor(screen.texture, landscape.width, landscape.height, -0.22, back, 0.12),
+    monitor(contractDiagramTexture(), landscape.width, landscape.height, 0.22, back, -0.12),
+  );
+  const { keyboard, mouse, mug, unit, drawer } = deskBasics("komachi", width, depth);
+  // An open notebook by her right hand, past the mouse, where she sketches interfaces by hand.
+  const padX = 0.48;
+  const padZ = nearEdge(depth) - 0.03;
+  const paper = standard("#f7f3ea", 0.9);
+  const notebook = new Group();
+  notebook.add(
+    box(0.13, 0.006, 0.095, standard("#3b4466", 0.7), 0, deskTop, 0),
+    box(0.06, 0.004, 0.088, paper, -0.032, deskTop + 0.006, 0),
+    box(0.06, 0.004, 0.088, paper, 0.032, deskTop + 0.006, 0),
+  );
+  notebook.position.set(padX, 0, padZ);
+  notebook.rotation.y = -0.15;
+  const writingPad = new Group();
+  writingPad.position.set(padX + 0.03, deskTop + 0.01, padZ);
+  const penModel = handPropModel("pen", memberPropLooks.komachi);
+  penModel.rotation.set(-Math.PI / 2, 0, 0);
+  const pen = deskItem(penModel, padX + 0.085, deskTop + 0.004, padZ);
+  // Reference books, the top one taken down to read.
+  const stack = new Group();
+  for (const [index, color] of ["#5a4f78", "#2f6fd6", "#c97b6b"].entries()) {
+    const book = box(0.11, 0.022, 0.08, standard(color, 0.8), 0, deskTop + index * 0.022, 0);
+    book.rotation.y = (index - 1) * 0.08;
+    stack.add(book);
+  }
+  stack.position.set(-0.5, 0, -0.14);
+  const bookModel = new Group();
+  bookModel.add(box(0.1, 0.02, 0.075, standard("#9fb3e8", 0.8), 0, 0, 0));
+  const book = deskItem(bookModel, -0.5, deskTop + 0.066, -0.14);
+  inner.add(keyboard.root, mouse.root, mug, notebook, writingPad, pen, stack, book, unit);
+  return {
+    root: placedDesk(piece, inner),
+    workstation: {
+      screen,
+      keyboard,
+      mouse,
+      mug,
+      ...noDeskThings,
+      items: { pen, book },
+      writingPad,
+      mugSide: "left",
+      drawer,
+    },
+  };
+}
+
+/** Security: findings on the main screen, the scan log on a vertical one, a hardware key and a padlock to fidget with. */
+function mirukuDesk(piece: Furniture): DeskBuild {
+  const { width, depth } = deskSize(piece);
+  const inner = deskBase(width, depth);
+  const screen = new ScreenSurface(screenScripts.miruku);
+  const back = -depth / 2 + 0.16;
+  inner.add(
+    monitor(screen.texture, landscape.width, landscape.height, -0.12, back),
+    monitor(securityLogTexture(), portrait.width, portrait.height, 0.28, back + 0.03, -0.25),
+  );
+  const { keyboard, mouse, mug, unit, drawer } = deskBasics("miruku", width, depth);
+  // A small hub on the right with her security key in it, tapped to approve each sign-in.
+  const hub = box(0.06, 0.016, 0.03, standard(palette.ink, 0.5), 0, 0, 0);
+  const keyBody = box(0.018, 0.006, 0.03, standard("#1b1b1f", 0.4), 0, 0.016, 0.02);
+  const contact = mesh(new CylinderGeometry(0.005, 0.005, 0.002, 12), standard("#c9a24a", 0.3, 0.8));
+  contact.position.set(0, 0.023, 0.026);
+  const securityKey = new Group();
+  securityKey.add(hub, keyBody, contact);
+  securityKey.position.set(0.6, deskTop, 0.1);
+  const padlock = deskItem(handPropModel("padlock"), -0.55, deskTop + 0.028, 0.06);
+  padlock.rotation.y = 0.4;
+  inner.add(keyboard.root, mouse.root, mug, securityKey, padlock, unit);
+  return {
+    root: placedDesk(piece, inner),
+    workstation: {
+      screen,
+      keyboard,
+      mouse,
+      mug,
+      ...noDeskThings,
+      items: { "security-key": securityKey, padlock },
+      mugSide: "left",
+      drawer,
+    },
+  };
+}
+
+/** UI/UX: the design doc on screen, a drawing tablet with its stylus, a swatch fan and a sketchbook. */
+function huaguaDesk(piece: Furniture): DeskBuild {
+  const { width, depth } = deskSize(piece);
+  const inner = deskBase(width, depth);
+  const screen = new ScreenSurface(screenScripts.huagua);
+  inner.add(monitor(screen.texture, landscape.width, landscape.height, -0.08, -depth / 2 + 0.16));
+  const { keyboard, mouse, mug, unit, drawer } = deskBasics("huagua", width, depth);
+  // The tablet sits right of the mouse, angled toward her drawing hand.
+  const padX = 0.5;
+  const padZ = nearEdge(depth) - 0.04;
+  const tablet = new Group();
+  tablet.add(
+    box(0.24, 0.01, 0.16, standard("#1b1b1f", 0.4), 0, deskTop, 0),
+    box(0.19, 0.002, 0.12, glow("#3b4a5e", 0.4), -0.01, deskTop + 0.01, 0),
+  );
+  tablet.position.set(padX, 0, padZ);
+  tablet.rotation.y = -0.12;
+  const writingPad = new Group();
+  writingPad.position.set(padX - 0.01, deskTop + 0.012, padZ);
+  const stylusModel = handPropModel("pen", memberPropLooks.huagua);
+  stylusModel.rotation.set(-Math.PI / 2, 0, 0);
+  const pen = deskItem(stylusModel, padX + 0.105, deskTop + 0.014, padZ);
+  const swatchModel = handPropModel("swatch");
+  swatchModel.rotation.set(0, 0.6, 0);
+  const swatch = deskItem(swatchModel, -0.6, deskTop + 0.004, 0.02);
+  const sketchbook = box(0.15, 0.014, 0.11, standard("#9fd2b0", 0.8), -0.58, deskTop, -0.2);
+  sketchbook.rotation.y = 0.2;
+  inner.add(keyboard.root, mouse.root, mug, tablet, writingPad, pen, swatch, sketchbook, unit);
+  return {
+    root: placedDesk(piece, inner),
+    workstation: {
+      screen,
+      keyboard,
+      mouse,
+      mug,
+      ...noDeskThings,
+      items: { pen, swatch },
+      writingPad,
+      mugSide: "left",
+      drawer,
+    },
   };
 }
 
@@ -1006,10 +1156,13 @@ function deskParts(member: DeskMember, piece: Furniture, kanban: Texture): DeskB
     case "chizuru":
       return chizuruDesk(piece);
     case "arisu":
+      return arisuDesk(piece, kanban);
     case "komachi":
+      return komachiDesk(piece);
     case "miruku":
+      return mirukuDesk(piece);
     case "huagua":
-      return podDesk(member, piece, kanban);
+      return huaguaDesk(piece);
   }
 }
 
@@ -1027,8 +1180,10 @@ const lampX: Record<DeskMember, number> = {
   // On the planning pod's outer corner, clear of her second screen. Her desk faces the back
   // wall, so the outer (east) corner is on its -x side.
   arisu: -0.55,
-  komachi: 0.5,
-  miruku: 0.5,
+  // Past the second screen, on the pod's outer corner.
+  komachi: 0.56,
+  // Clear of the log screen on the right.
+  miruku: -0.62,
   huagua: 0.5,
 };
 
