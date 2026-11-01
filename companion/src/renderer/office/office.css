@@ -830,3 +830,47 @@
     display: none;
   }
 }
+
+/* Top left, out of the way of the dialog at the top right and the close-up at the bottom left. */
+.fps-meter {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 4;
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  background: var(--chip-bg);
+  color: var(--chip-ink);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.fps-meter[hidden],
+.camera-hint[hidden] {
+  display: none;
+}
+
+/* While the free camera is on: how to move, along the top. */
+.camera-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 4;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  background: var(--chip-bg);
+  color: var(--chip-ink);
+  font-size: 12px;
+  text-align: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+#free-camera[aria-pressed="true"] {
+  outline: 2px solid var(--chip-ink);
+  outline-offset: -4px;
+}

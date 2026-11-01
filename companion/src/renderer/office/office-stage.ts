@@ -45,6 +45,7 @@ import {
   reachingForItem,
   reachSeconds,
 } from "./desk-habits.js";
+import { FreeCamera } from "./free-camera.js";
 import { Handoffs, type Teammate } from "./handoffs.js";
 import { aimHand, solveCcd } from "./ik.js";
 import { type ActorState, angleDelta, initialActor, isWalking, stepActor } from "./office-actor.js";
@@ -70,6 +71,7 @@ import {
   floorHeightAt,
   furniture,
   meetingStationIds,
+  room,
   type StationId,
   stations,
   surface,
@@ -404,6 +406,10 @@ export class OfficeStage {
   private readonly camera = new PerspectiveCamera(30, 1.6, 0.1, 120);
   private readonly closeupCamera = new PerspectiveCamera(38, 1.6, 0.05, 30);
   private readonly controls: OrbitControls;
+  /** Walk-and-look camera, switched on in place of the orbit view. */
+  private readonly freeCamera: FreeCamera;
+  /** Draw calls in the last frame, all passes together, for the frame rate meter. */
+  private lastDrawCalls = 0;
   private readonly timer = new Timer();
   private readonly office = buildOffice();
   /** Every mug starts on its desk, some fuller than others. */
@@ -498,7 +504,21 @@ export class OfficeStage {
       this.lastInputAt = Date.now();
     });
     canvas.addEventListener("keydown", (event) => this.handleKey(event));
-    canvas.addEventListener("dblclick", () => this.resetView());
+    canvas.addEventListener("dblclick", () => {
+      if (!this.freeCamera.active) {
+        this.resetView();
+      }
+    });
+    // A little way past the walls and up to a bird's eye view, so the room is never lost from sight.
+    this.freeCamera = new FreeCamera(this.camera, canvas, {
+      minX: room.minX - 3,
+      maxX: room.maxX + 4,
+      minY: 0.35,
+      maxY: 9,
+      minZ: room.minZ - 1,
+      maxZ: room.maxZ + 7,
+    });
+    this.renderer.info.autoReset = false;
 
     this.rigs = Object.fromEntries(
       memberIds.map((memberId) => [memberId, this.createRig(memberId, new PlaceholderAvatar(memberLooks[memberId]))]),
@@ -607,7 +627,36 @@ export class OfficeStage {
   }
 
   /** Keyboard parity with the mouse: arrows orbit, +/- zoom, 0 resets. */
+  /** Switches between the orbit view and the free camera; leaving it goes back to the default view. */
+  setFreeCamera(on: boolean): void {
+    if (on === this.freeCamera.active) {
+      return;
+    }
+    if (on) {
+      this.controls.enabled = false;
+      this.freeCamera.enable();
+    } else {
+      this.freeCamera.disable();
+      this.controls.enabled = true;
+      this.resetView();
+    }
+    this.lastInputAt = Date.now();
+  }
+
+  freeCameraOn(): boolean {
+    return this.freeCamera.active;
+  }
+
+  /** Draw calls in the last frame, every pass together. */
+  drawCalls(): number {
+    return this.lastDrawCalls;
+  }
+
   private handleKey(event: KeyboardEvent): void {
+    // In free camera mode the arrows walk instead of orbiting.
+    if (this.freeCamera.active) {
+      return;
+    }
     const step = 0.08;
     switch (event.key) {
       case "ArrowLeft":
@@ -1741,7 +1790,9 @@ export class OfficeStage {
 
   private frame(timestamp: number): void {
     this.timer.update(timestamp);
-    const delta = Math.min(this.timer.getDelta(), 0.1);
+    const rawDelta = this.timer.getDelta();
+    const delta = Math.min(rawDelta, 0.1);
+    this.renderer.info.reset();
     this.elapsed += delta;
     const now = Date.now();
     this.onFrame();
@@ -1760,8 +1811,13 @@ export class OfficeStage {
     this.office.wallClock.update(this.clock());
     this.office.statusBoard.update(statusRows(this.team, this.twobStatus, now), now);
     this.focus = this.chooseFocus(now);
-    this.drift(delta, now);
-    this.controls.update(delta);
+    if (this.freeCamera.active) {
+      // The real time step, so walking keeps its pace even when frames are slow.
+      this.freeCamera.update(Math.min(rawDelta, 0.25));
+    } else {
+      this.drift(delta, now);
+      this.controls.update(delta);
+    }
 
     const width = this.canvas.clientWidth;
     const height = this.canvas.clientHeight;
@@ -1793,5 +1849,6 @@ export class OfficeStage {
       this.renderer.render(this.scene, this.closeupCamera);
       this.renderer.setScissorTest(false);
     }
+    this.lastDrawCalls = this.renderer.info.render.calls;
   }
 }

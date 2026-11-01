@@ -101,6 +101,25 @@ function storeCloseup(enabled: boolean): void {
   }
 }
 
+const fpsVisibleKey = "waifu.fpsVisible";
+
+function readStoredFps(): boolean {
+  try {
+    return window.localStorage.getItem(fpsVisibleKey) === "true";
+  } catch (error) {
+    console.warn("[bridge] localStorage unavailable, the fps meter starts hidden", error);
+    return false;
+  }
+}
+
+function storeFps(visible: boolean): void {
+  try {
+    window.localStorage.setItem(fpsVisibleKey, String(visible));
+  } catch (error) {
+    console.warn("[bridge] could not persist the fps setting", error);
+  }
+}
+
 /** Browser preview: ?quality=low on the office URL, for checking how slower machines see it. */
 function webOfficeQuality(): OfficeQuality {
   const asked = new URLSearchParams(window.location.search).get("quality");
@@ -113,6 +132,8 @@ function createWebBridge(): RendererBridge {
   const modeListeners = new Set<(mode: ConversationMode) => void>();
   let closeupEnabled = readStoredCloseup();
   const closeupListeners = new Set<(enabled: boolean) => void>();
+  let fpsVisible = readStoredFps();
+  const fpsListeners = new Set<(visible: boolean) => void>();
   const signalListeners = new Set<(signal: CompanionSignal) => void>();
 
   const ensureEventStream = (): void => {
@@ -170,6 +191,20 @@ function createWebBridge(): RendererBridge {
     onCloseupEnabled(listener) {
       closeupListeners.add(listener);
       return () => closeupListeners.delete(listener);
+    },
+    async getFpsVisible() {
+      return fpsVisible;
+    },
+    setFpsVisible(visible) {
+      fpsVisible = visible;
+      storeFps(visible);
+      for (const listener of fpsListeners) {
+        listener(visible);
+      }
+    },
+    onFpsVisible(listener) {
+      fpsListeners.add(listener);
+      return () => fpsListeners.delete(listener);
     },
     // The browser page is itself the companion; there is no separate window to show or hide.
     async getCompanionVisible() {

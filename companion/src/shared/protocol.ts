@@ -59,6 +59,10 @@ export interface CompanionApi {
   getCloseupEnabled(): Promise<boolean>;
   setCloseupEnabled(enabled: boolean): void;
   onCloseupEnabled(listener: (enabled: boolean) => void): () => void;
+  /** Whether the office shows its frame rate meter. */
+  getFpsVisible(): Promise<boolean>;
+  setFpsVisible(visible: boolean): void;
+  onFpsVisible(listener: (visible: boolean) => void): () => void;
   /** Graphics quality of the office, read once when the office page loads. */
   getOfficeQuality(): Promise<OfficeQuality>;
   /** Whether 2B's desktop companion window is shown. */
@@ -126,6 +130,9 @@ export const ipcChannels = {
   getCloseupEnabled: "companion:get-closeup-enabled",
   setCloseupEnabled: "companion:set-closeup-enabled",
   closeupEnabled: "companion:closeup-enabled",
+  getFpsVisible: "companion:get-fps-visible",
+  setFpsVisible: "companion:set-fps-visible",
+  fpsVisible: "companion:fps-visible",
   getOfficeQuality: "companion:get-office-quality",
   getCompanionVisible: "companion:get-companion-visible",
   setCompanionVisible: "companion:set-companion-visible",

@@ -134,6 +134,10 @@ Tiap zona punya bentuk yang kebaca jelas dari kamera, dan meja meeting, meja 2B,
 - Klik anggota buat buka preview close-up dan statusnya (lagi ngapain, kerja atau idle, tool terakhir). Kalau dia lagi jalan, kameranya ngikutin. Klik di tempat lain atau tekan Escape buat nutup.
 - Pas 2B ngedelegasi tugas ke anggota, dia jalan bawa map ke meja anggota itu dan nyerahin. Pas run anggota selesai, anggotanya jalan ke meja 2B bawa laporan. Kalau yang selesai barengan, mereka antre di depan meja 2B (maksimal tiga).
 - Cast lebih lama santai di meja, sekitar dua pertiga waktu luangnya, jadi jalan-jalannya nggak kebanyakan.
+- **Kamera bebas**: klik tombol **Kamera bebas** di bawah. WASD atau panah buat jalan, Q dan E buat turun naik, Shift biar lebih cepat, drag mouse buat noleh. Kameranya nggak bisa keluar jauh dari ruangan. Esc atau klik tombolnya lagi buat balik ke tampilan awal.
+- **FPS**: tekan F (atau centang **Tampilkan FPS kantor** di menu) buat nampilin chip di kiri atas: frame per detik, waktu per frame, dan jumlah draw call. Tekan F lagi buat nyembunyiin. Pilihannya tersimpan.
+
+**Kalau kantornya patah-patah**: yang paling berat jumlah draw call (tiap barang kecil digambar terpisah), bayangan matahari yang bikin semua objek digambar dua kali, fisika rambut 12 karakter, dan close-up yang ngegambar adegan sekali lagi. Yang bisa langsung dicoba: matiin **Grafis kantor tinggi** di menu (nonaktifin efek ambient occlusion), atau matiin close-up otomatis. Angka di chip FPS bisa dipakai buat bandingin sebelum dan sesudah.
 
 Setup meja sesuai role:
 

@@ -15,6 +15,7 @@ import { requireElement, StatusChip } from "../common/status-chip.js";
 import { loadVrm } from "../common/vrm-loader.js";
 import { VrmOfficeAvatar } from "./avatar.js";
 import { ChatPanel } from "./chat-panel.js";
+import { FrameRate, frameLabel } from "./frame-rate.js";
 import { MusicPanel } from "./music-panel.js";
 import { OfficePointer } from "./office-pointer.js";
 import { type CloseupRect, closeupRect, OfficeStage, portraitSize, teamDialogDock } from "./office-stage.js";
@@ -31,6 +32,13 @@ class OfficePage {
   private readonly status = new StatusChip(requireElement("status", HTMLElement));
   private readonly caption = requireElement("closeup-caption", HTMLElement);
   private readonly statusDialog: StatusDialog;
+  private readonly fpsMeter = requireElement("fps-meter", HTMLElement);
+  private readonly fpsSetting = requireElement("fps-setting", HTMLInputElement);
+  private readonly freeCameraButton = requireElement("free-camera", HTMLButtonElement);
+  private readonly cameraHint = requireElement("camera-hint", HTMLElement);
+  private readonly frameRate = new FrameRate();
+  private fpsVisible = false;
+  private fpsShownAt = 0;
   private readonly pointer: OfficePointer;
   private readonly speechBubbles = new SpeechBubbles(requireElement("speech-layer", HTMLElement));
   private readonly chatPanel = requireElement("chat", HTMLElement);
@@ -81,6 +89,14 @@ class OfficePage {
 
   start(): void {
     this.pointer.start();
+    this.bridge
+      .getFpsVisible()
+      .then((visible) => this.applyFpsVisible(visible))
+      .catch((error: unknown) => console.error("[office] could not read the fps setting", error));
+    this.bridge.onFpsVisible((visible) => this.applyFpsVisible(visible));
+    this.fpsSetting.addEventListener("change", () => this.bridge.setFpsVisible(this.fpsSetting.checked));
+    this.freeCameraButton.addEventListener("click", () => this.setFreeCamera(!this.stage.freeCameraOn()));
+    window.addEventListener("keydown", (event) => this.handleShortcut(event));
     requireElement("status-open", HTMLButtonElement).addEventListener("click", () => this.statusDialog.open());
     this.bridge.onSignal((signal) => {
       this.conversation.handle(signal, this.conversationMode);
@@ -269,6 +285,50 @@ class OfficePage {
     this.renderDialog(now);
     this.pointer.refresh();
     this.statusDialog.render();
+    this.renderFps();
+  }
+
+  private renderFps(): void {
+    const at = performance.now();
+    this.frameRate.tick(at);
+    // Twice a second: often enough to follow, slow enough to read.
+    if (!this.fpsVisible || at - this.fpsShownAt < 500) {
+      return;
+    }
+    this.fpsShownAt = at;
+    this.fpsMeter.textContent = frameLabel(this.frameRate.fps(), this.frameRate.frameMs(), this.stage.drawCalls());
+  }
+
+  private applyFpsVisible(visible: boolean): void {
+    this.fpsVisible = visible;
+    this.fpsMeter.hidden = !visible;
+    this.fpsSetting.checked = visible;
+    this.fpsShownAt = 0;
+  }
+
+  private setFreeCamera(on: boolean): void {
+    this.stage.setFreeCamera(on);
+    this.freeCameraButton.setAttribute("aria-pressed", String(on));
+    this.cameraHint.hidden = !on;
+  }
+
+  /** F shows or hides the frame rate; Escape leaves the free camera. Never while typing or in a dialog. */
+  private handleShortcut(event: KeyboardEvent): void {
+    const target = event.target;
+    const typing =
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement ||
+      (target instanceof HTMLElement && target.isContentEditable);
+    if (typing || document.querySelector("dialog[open]") !== null || event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+    if (event.code === "KeyF") {
+      event.preventDefault();
+      this.bridge.setFpsVisible(!this.fpsVisible);
+    } else if (event.key === "Escape" && this.stage.freeCameraOn()) {
+      this.setFreeCamera(false);
+    }
   }
 
   /**
