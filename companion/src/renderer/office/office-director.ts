@@ -38,7 +38,10 @@ export type OfficeAction =
   | "box"
   | "gaze"
   | "hand-over"
-  | "wait-report";
+  | "wait-report"
+  | "standup"
+  | "standup-lead"
+  | "lunch";
 
 export interface MemberPlan {
   station: StationId;
@@ -122,7 +125,8 @@ export type HandPropKind =
   | "swatch"
   | "folder"
   | "stamp"
-  | "printout";
+  | "printout"
+  | "chopsticks";
 
 /** The prop an action puts in the right hand, or null for empty-handed actions. */
 export function propForAction(action: OfficeAction | null): HandPropKind | null {
@@ -141,6 +145,8 @@ export function propForAction(action: OfficeAction | null): HandPropKind | null 
     case "pingpong":
     case "pingpong-wait":
       return "paddle";
+    case "lunch":
+      return "chopsticks";
     default:
       return null;
   }

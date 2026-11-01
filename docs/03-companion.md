@@ -183,6 +183,17 @@ Selain itu semua cast sesekali nyeruput kopi dari gelasnya sendiri, selama gelas
 
 Barang di sayap L ditaruh di samping pinggul yang duduk, jadi pas makenya badannya muter ke samping, bukan condong ke depan. Sayap L 2B dan Miruku ada di kiri mereka, jadi mereka pakai tangan kiri. Yang lain pakai tangan kanan. Lampu di cluster Pi Yor kedip terus kayak lagi ada trafik, walaupun nggak lagi dipegang.
 
+**Ritual harian** (jam Jakarta, sama kayak jam dinding). Cuma cast yang lagi nganggur yang ikut. Yang lagi dijalanin Claude Code tetap kerja.
+
+| Jam | Ritual |
+|---|---|
+| 09:30 sampai 09:36 | Standup di pojok kolaborasi. Arisu berdiri di samping glass board, yang lain melingkar di sekitar meja tinggi. Arisu buka, tiap orang gantian bilang apa yang udah beres dan apa yang dikerjain hari ini, Arisu nutup, terus sisanya ngobrol pelan sampai bubar |
+| 12:00 sampai 13:00 | Makan siang bareng di meja meeting. Tiap orang dapet kursi sendiri, kotak bekal muncul di depannya, makan pakai sumpit, dan yang duduk berhadapan ngobrol. Sekali sehari per orang |
+| Mulai 19:00 | Pulang satu-satu lewat pintu masuk, selang 5 menit. Ruby duluan, 2B paling akhir jam 19:55. Lampu meja yang orangnya udah pulang mati, dan lampu ruangan makin redup makin sepi kantornya |
+| Mulai 07:30 | Dateng lagi lewat pintu, selang 4 menit, 2B paling pagi |
+
+Kalau ada tugas masuk buat cast yang lagi di rumah, dia masuk lewat pintu dan langsung ke mejanya. Istirahat biasa (duduk di meja, nonton TV, dan sejenisnya) dipotong pas ritual mulai. Yang lagi bawa gelas atau laptop, atau lagi main pingpong, nyelesaiin itu dulu. Mau lihat tanpa nunggu jamnya? Buka `/office/?clock=09:30`, `?clock=12:00`, atau `?clock=21:00` di versi web.
+
 **Pas nggak ada tugas**, tiap cast milih kegiatan sendiri dan jalan ke sana tanpa nembus furnitur atau cast lain: kerja santai di meja, bikin kopi, ngemil di kulkas, cuci tangan di wastafel, manasin makanan di oven, nonton TV, main game di sofa, main arcade, lari di treadmill, ninju samsak, ngelihatin ikan di akuarium, ngobrol di meja tinggi pojok kolaborasi, nyiram tanaman, rebahan di beanbag, baca, ngobrol di meja bar, meeting di meja tengah, atau main pingpong. Kira-kira setengah waktunya di meja, setengahnya istirahat. Biar nggak monoton:
 - Kegiatan yang sama nggak dipilih dua kali berturut-turut, dan tiap kegiatan punya jeda sebelum bisa diulang.
 - Tiap cast punya kesukaan sendiri. Kobayashi sering main arcade, Erza sering ngemil dan ninju samsak, Rias sering baca, Yor sering ngecek rak server dan latihan di samsak, Asuna dan 2B suka treadmill, Huagua sering ngelihatin akuarium, Ruby sering selfie di depan ring light. Treadmill lebih sering dipakai pagi, samsak dan treadmill juga rame sore.

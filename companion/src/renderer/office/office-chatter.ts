@@ -566,6 +566,14 @@ export class ChatterDirector {
     return true;
   }
 
+  /**
+   * A line said to a group rather than in a two-person chat, such as a turn at standup. It shows
+   * like a greeting from `startedAt` until `until`; calling it again with the same line keeps it.
+   */
+  announce(memberId: MemberId, text: string, startedAt: number, until: number): void {
+    this.greetings.set(memberId, { text, until, startedAt });
+  }
+
   speechOf(memberId: MemberId): Speech | null {
     const greeting = this.greetings.get(memberId);
     if (greeting !== undefined && this.now >= greeting.startedAt) {

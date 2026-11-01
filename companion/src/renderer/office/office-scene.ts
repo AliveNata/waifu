@@ -110,6 +110,8 @@ export interface OfficeProps {
   pingpongBall: Mesh;
   /** One per meeting chair, in seat order meeting-1..12. */
   meetingLaptops: MeetingLaptop[];
+  /** One per meeting chair, in seat order, shown while someone has lunch there. */
+  lunchBoxes: Group[];
   fridgeDoor: FridgeDoor;
   sink: SinkTap;
   oven: Oven;
@@ -328,6 +330,7 @@ export function buildOffice(): OfficeProps {
   let aquarium: Aquarium | null = null;
   let rackLights: RackLights | null = null;
   let meetingLaptops: MeetingLaptop[] = [];
+  let lunchBoxes: Group[] = [];
   let rackCups: Object3D[] = [];
   let wallClock: WallClock | null = null;
   let statusBoard: StatusBoard | null = null;
@@ -384,6 +387,7 @@ export function buildOffice(): OfficeProps {
         const built = buildMeetingTable(piece, meetingLaptopSpots);
         root.add(built.root);
         meetingLaptops = built.laptops;
+        lunchBoxes = built.lunchBoxes;
         break;
       }
       case "pingpong-table":
@@ -585,6 +589,7 @@ export function buildOffice(): OfficeProps {
     neon,
     pingpongBall,
     meetingLaptops,
+    lunchBoxes,
     fridgeDoor,
     sink,
     oven,

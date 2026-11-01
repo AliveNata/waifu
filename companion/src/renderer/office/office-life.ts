@@ -1,7 +1,8 @@
 import type { MemberId } from "../../shared/team.js";
 import type { OfficeAction } from "./office-director.js";
 import { homeStations } from "./office-layout.js";
-import { meetingStationIds, type StationId } from "./office-plan.js";
+import { meetingStationIds, type StationId, standupStationIds } from "./office-plan.js";
+import type { RitualId, RitualNow } from "./office-rituals.js";
 import type { DayPart } from "./office-time.js";
 
 /**
@@ -33,7 +34,8 @@ export type ActivityId =
   | "treadmill"
   | "boxing"
   | "aquarium"
-  | "huddle";
+  | "huddle"
+  | RitualId;
 
 interface Activity {
   /** Null means the member's own idle spot. */
@@ -158,7 +160,23 @@ const activities: Record<ActivityId, Activity> = {
     cooldownSeconds: 90,
     only: ["yor", "kobayashi"],
   },
+  // The daily rituals are never picked by weight: the clock starts them (see ritualChoice).
+  standup: {
+    stations: standupStationIds,
+    action: "standup",
+    durationSeconds: [360, 360],
+    weight: 0,
+    cooldownSeconds: 0,
+  },
+  lunch: { stations: meetingStationIds, action: "lunch", durationSeconds: [900, 1500], weight: 0, cooldownSeconds: 0 },
+  home: { stations: ["door"], action: "out", durationSeconds: [0, 0], weight: 0, cooldownSeconds: 0 },
 };
+
+/** The rituals as activities, for telling them apart from ordinary breaks. */
+const ritualIds: ReadonlySet<ActivityId> = new Set<RitualId>(["standup", "lunch", "home"]);
+
+/** Who runs the standup from the board when she is free. */
+const standupLead: MemberId = "arisu";
 
 export const activityIds = Object.keys(activities) as ActivityId[];
 
@@ -231,6 +249,7 @@ export type Errand =
   | "meeting-laptop"
   | "stow-laptop"
   | "go-out"
+  | "go-home"
   | "set-food"
   | "take-box"
   | "bin-box";
@@ -315,13 +334,22 @@ export class OfficeLife {
     private readonly mugOf: (memberId: MemberId) => MugInfo = () => ({ place: "desk", level: 0 }),
     private readonly dayPart: () => DayPart | null = () => null,
     private readonly food: () => FoodInfo = () => ({ pieces: 0, canBuy: false }),
+    private readonly ritual: (memberId: MemberId) => RitualNow | null = () => null,
   ) {}
+
+  /** Standup and lunch already had today, by member, as "standup:2026-11-01". */
+  private readonly ritualsDone = new Map<MemberId, Set<string>>();
 
   /** The member's current idle activity, picking a new one when the last has run its course. */
   planFor(memberId: MemberId, now: number): LifeChoice {
     const current = this.choices.get(memberId);
+    const due = this.dueRitual(memberId);
     if (current !== undefined && !this.isOver(memberId, current, now)) {
-      return current;
+      // A plain break gives way to a ritual; carrying a mug or laptop, or a game with a partner,
+      // is finished first.
+      if (due === null || current.activity === due.id || !this.canCutShort(memberId, current)) {
+        return current;
+      }
     }
     if (current !== undefined) {
       this.finish(memberId, current, now);
@@ -332,6 +360,17 @@ export class OfficeLife {
       const next = { ...following, chosenAt: now };
       this.choices.set(memberId, next);
       return next;
+    }
+    const ritual = due === null ? null : this.ritualChoice(memberId, due, now);
+    if (ritual !== null) {
+      this.lastPicked.set(memberId, ritual.activity);
+      this.choices.set(memberId, ritual);
+      this.queued.set(memberId, []);
+      // Everyone goes home through the same door, so the door is never held for one person.
+      if (ritual.activity !== "home") {
+        this.reserved.set(ritual.station, memberId);
+      }
+      return ritual;
     }
     const [next, ...rest] = this.choose(memberId, now, this.lastPicked.get(memberId) ?? current?.activity ?? null);
     if (next === undefined) {
@@ -351,6 +390,78 @@ export class OfficeLife {
       this.invitePartner(memberId, next, now);
     }
     return next;
+  }
+
+  /** The ritual this member should be at, unless standup or lunch is already behind them today. */
+  private dueRitual(memberId: MemberId): RitualNow | null {
+    const ritual = this.ritual(memberId);
+    if (ritual === null || ritual.id === "home") {
+      return ritual;
+    }
+    return this.ritualsDone.get(memberId)?.has(`${ritual.id}:${ritual.day}`) === true ? null : ritual;
+  }
+
+  private canCutShort(memberId: MemberId, choice: LifeChoice): boolean {
+    return choice.errand === null && choice.activity !== "pingpong" && (this.queued.get(memberId)?.length ?? 0) === 0;
+  }
+
+  /** The step for a ritual, or null when there is no free spot for it (then it is a normal break). */
+  private ritualChoice(memberId: MemberId, ritual: RitualNow, now: number): LifeChoice | null {
+    const base = { arrivedAt: null, chosenAt: now, step: 0 };
+    if (ritual.id === "home") {
+      // Out through the door and gone until the morning.
+      return {
+        ...base,
+        activity: "home",
+        station: "door",
+        action: "out",
+        durationMs: ritual.remainingMs,
+        errand: "go-home",
+      };
+    }
+    const station = this.ritualStation(memberId, ritual.id);
+    if (station === null) {
+      return null;
+    }
+    let done = this.ritualsDone.get(memberId);
+    if (done === undefined) {
+      done = new Set();
+      this.ritualsDone.set(memberId, done);
+    }
+    done.add(`${ritual.id}:${ritual.day}`);
+    if (ritual.id === "standup") {
+      return {
+        ...base,
+        activity: "standup",
+        station,
+        action: station === standupStationIds[0] ? "standup-lead" : "standup",
+        // Everyone stays until the standup window closes, however late they joined.
+        durationMs: ritual.remainingMs,
+        errand: null,
+      };
+    }
+    const [shortest, longest] = activities.lunch.durationSeconds;
+    return {
+      ...base,
+      activity: "lunch",
+      station,
+      action: "lunch",
+      durationMs: (shortest + this.random() * (longest - shortest)) * 1000,
+      errand: null,
+    };
+  }
+
+  private ritualStation(memberId: MemberId, id: Exclude<RitualId, "home">): StationId | null {
+    const open = (station: StationId): boolean => !this.reserved.has(station) && !this.crowded(station);
+    if (id === "standup") {
+      const [lead, ...circle] = standupStationIds;
+      if (memberId === standupLead && lead !== undefined && open(lead)) {
+        return lead;
+      }
+      return circle.find(open) ?? null;
+    }
+    const seats = meetingStationIds.filter(open);
+    return seats[Math.floor(this.random() * seats.length) % Math.max(1, seats.length)] ?? null;
   }
 
   /** The member's opponent while a ping-pong game is on, or null. */
@@ -530,8 +641,14 @@ export class OfficeLife {
   private idlePartner(memberId: MemberId): MemberId | null {
     let best: { id: MemberId; since: number } | null = null;
     for (const [id, choice] of this.choices) {
-      // Someone carrying a mug or a laptop finishes that first.
-      if (id === memberId || choice.activity === "pingpong" || choice.errand !== null) {
+      // Someone carrying a mug or a laptop finishes that first, and nobody is pulled out of
+      // standup, lunch, or home.
+      if (
+        id === memberId ||
+        choice.activity === "pingpong" ||
+        choice.errand !== null ||
+        ritualIds.has(choice.activity)
+      ) {
         continue;
       }
       if ((this.queued.get(id)?.length ?? 0) > 0) {

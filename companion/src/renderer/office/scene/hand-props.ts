@@ -149,6 +149,13 @@ export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook):
       });
       break;
     }
+    case "chopsticks": {
+      // A pair held together, tips down toward the lunch box and up to the mouth.
+      const wood = standard(palette.oak, 0.6);
+      group.add(box(0.003, 0.075, 0.003, wood, -0.003, -0.05, 0), box(0.003, 0.075, 0.003, wood, 0.003, -0.05, 0.002));
+      group.rotation.x = 0.9;
+      break;
+    }
     case "padlock": {
       // Miruku's padlock: a brass body and a steel shackle.
       const shackle = mesh(new TorusGeometry(0.012, 0.003, 6, 14, Math.PI), standard(palette.steel, 0.3, 0.8));
@@ -387,6 +394,7 @@ const gripOffset: Record<HandPropKind, { x: number; y: number; z: number; tilt: 
   folder: { x: 0, y: 0.02, z: 0.02, tilt: 0, turn: 0 },
   // Hanging under the hand by its knob, upright, so the rubber face meets the desk flat.
   stamp: { x: 0, y: -0.004, z: 0.008, tilt: 0, turn: 0 },
+  chopsticks: { x: 0, y: 0, z: 0.01, tilt: 0, turn: 0 },
   // Held up between both hands like the clipboard, tipped back toward the eyes.
   printout: { x: 0.05, y: 0.015, z: 0.05, tilt: -1.1, turn: 0 },
 };
