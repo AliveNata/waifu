@@ -28,6 +28,9 @@ const portraitFraming: SpeakerFraming = { height: 0.55, drop: 0.06 };
 /** Keep the portrait loaded briefly after a line, so back-to-back lines do not flicker. */
 const portraitHoldMs = 1500;
 
+const firstPersonControls = "WASD jalan · Shift lari · mouse buat noleh · E buat nyapa · Esc buat berhenti";
+const firstPersonPaused = "Klik kantornya buat lanjut jalan · Esc buat keluar dari mode Alyx";
+
 class OfficePage {
   private readonly status = new StatusChip(requireElement("status", HTMLElement));
   private readonly caption = requireElement("closeup-caption", HTMLElement);
@@ -36,6 +39,11 @@ class OfficePage {
   private readonly fpsSetting = requireElement("fps-setting", HTMLInputElement);
   private readonly freeCameraButton = requireElement("free-camera", HTMLButtonElement);
   private readonly cameraHint = requireElement("camera-hint", HTMLElement);
+  private readonly firstPersonButton = requireElement("first-person", HTMLButtonElement);
+  private readonly firstPersonHint = requireElement("first-person-hint", HTMLElement);
+  private readonly crosshair = requireElement("crosshair", HTMLElement);
+  private readonly interactPrompt = requireElement("interact-prompt", HTMLElement);
+  private interactFor: MemberId | null = null;
   private readonly frameRate = new FrameRate();
   private fpsVisible = false;
   private fpsShownAt = 0;
@@ -96,6 +104,7 @@ class OfficePage {
     this.bridge.onFpsVisible((visible) => this.applyFpsVisible(visible));
     this.fpsSetting.addEventListener("change", () => this.bridge.setFpsVisible(this.fpsSetting.checked));
     this.freeCameraButton.addEventListener("click", () => this.setFreeCamera(!this.stage.freeCameraOn()));
+    this.firstPersonButton.addEventListener("click", () => this.setFirstPerson(!this.stage.firstPersonOn()));
     window.addEventListener("keydown", (event) => this.handleShortcut(event));
     requireElement("status-open", HTMLButtonElement).addEventListener("click", () => this.statusDialog.open());
     this.bridge.onSignal((signal) => {
@@ -286,6 +295,37 @@ class OfficePage {
     this.pointer.refresh();
     this.statusDialog.render();
     this.renderFps();
+    this.renderFirstPerson();
+  }
+
+  /** The aim dot, what E would do, and the controls or the paused note, while walking as Alyx. */
+  private renderFirstPerson(): void {
+    const on = this.stage.firstPersonOn();
+    const walking = this.stage.firstPersonWalking();
+    this.crosshair.hidden = !walking;
+    const hint = walking ? firstPersonControls : firstPersonPaused;
+    if (this.firstPersonHint.textContent !== hint) {
+      this.firstPersonHint.textContent = hint;
+    }
+    this.firstPersonHint.hidden = !on;
+    const target = walking ? this.stage.firstPersonTarget() : null;
+    if (target !== this.interactFor) {
+      this.interactFor = target;
+      if (target !== null) {
+        const key = document.createElement("kbd");
+        key.textContent = "E";
+        this.interactPrompt.replaceChildren(key, ` Sapa ${roster[target].displayName}`);
+      }
+    }
+    this.interactPrompt.hidden = target === null;
+  }
+
+  private setFirstPerson(on: boolean): void {
+    this.stage.setFirstPerson(on);
+    if (on) {
+      this.setFreeCamera(false);
+    }
+    this.firstPersonButton.setAttribute("aria-pressed", String(on));
   }
 
   private renderFps(): void {
@@ -307,6 +347,10 @@ class OfficePage {
   }
 
   private setFreeCamera(on: boolean): void {
+    if (on) {
+      this.stage.setFirstPerson(false);
+      this.firstPersonButton.setAttribute("aria-pressed", "false");
+    }
     this.stage.setFreeCamera(on);
     this.freeCameraButton.setAttribute("aria-pressed", String(on));
     this.cameraHint.hidden = !on;
@@ -328,6 +372,9 @@ class OfficePage {
       this.bridge.setFpsVisible(!this.fpsVisible);
     } else if (event.key === "Escape" && this.stage.freeCameraOn()) {
       this.setFreeCamera(false);
+    } else if (event.key === "Escape" && this.stage.firstPersonOn() && !this.stage.firstPersonWalking()) {
+      // The first Esc only frees the mouse (the browser's own rule); the next one leaves.
+      this.setFirstPerson(false);
     }
   }
 

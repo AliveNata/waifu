@@ -6,6 +6,8 @@ export interface PointerStage {
   statusBoardAt(clientX: number, clientY: number): boolean;
   pinCloseup(memberId: MemberId | null): void;
   pinnedMember(): MemberId | null;
+  /** Walking as Alyx: the mouse looks around, so hovering and clicking people is off. */
+  firstPersonOn(): boolean;
 }
 
 /** A press that moves less than this, in CSS pixels, is a click; more is a drag to turn the view. */
@@ -46,7 +48,11 @@ export class OfficePointer {
     this.canvas.addEventListener("pointerup", (event) => {
       const start = this.pressed;
       this.pressed = null;
-      if (start === null || Math.hypot(event.clientX - start.x, event.clientY - start.y) > clickSlop) {
+      if (
+        start === null ||
+        this.stage.firstPersonOn() ||
+        Math.hypot(event.clientX - start.x, event.clientY - start.y) > clickSlop
+      ) {
         return;
       }
       this.click(event.clientX, event.clientY);
@@ -60,7 +66,7 @@ export class OfficePointer {
 
   /** Called every tick too: people walk in and out from under a still pointer. */
   refresh(): void {
-    if (this.last === null || this.pressed !== null) {
+    if (this.last === null || this.pressed !== null || this.stage.firstPersonOn()) {
       this.showTip(null);
       this.canvas.style.cursor = "";
       return;

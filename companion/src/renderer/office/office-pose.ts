@@ -15,9 +15,14 @@ import { type OfficeAction, ovenStep } from "./office-director.js";
 import type { SeatFit } from "./seating.js";
 import type { ActiveGimmick, WalkStyle } from "./walk-life.js";
 
+/** Seconds into waving back at Alyx: the right hand goes up for this long. */
+export const bossWaveWindow = { from: 0.3, to: 2.6 } as const;
+
 export interface OfficePoseInput {
   /** Null while walking. */
   action: OfficeAction | null;
+  /** Seconds since Alyx greeted this member in first person, or null; they wave back. */
+  bossWave?: number | null;
   walkPhase: number;
   time: number;
   /** Seconds since the current action began. Drives one-shot gestures. */
@@ -1388,6 +1393,15 @@ export function officePose(input: OfficePoseInput): Pose {
     const yaw = Math.max(-1, Math.min(1, input.lookYaw));
     pose.bones.head = addRotation(pose.bones.head, { y: yaw * 0.7 });
     pose.bones.chest = addRotation(pose.bones.chest, { y: yaw * 0.25 });
+  }
+  const wave = input.bossWave ?? null;
+  // Waving back at the boss, standing or seated; a walker waves with their walk gimmick instead.
+  if (wave !== null && input.action !== null && wave >= bossWaveWindow.from && wave <= bossWaveWindow.to) {
+    const { rightUpperArm, rightLowerArm } = waveBody(input).bones;
+    if (rightUpperArm !== undefined && rightLowerArm !== undefined) {
+      pose.bones.rightUpperArm = rightUpperArm;
+      pose.bones.rightLowerArm = rightLowerArm;
+    }
   }
   const breath = 0.015 * Math.sin((input.time * 2 * Math.PI) / 4);
   pose.bones.chest = addRotation(pose.bones.chest, { x: breath });

@@ -870,6 +870,55 @@
   pointer-events: none;
 }
 
+/* Walking as Alyx: a small aim dot, light with a dark ring so it reads on desks and on the floor. */
+.crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 4;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 0 1.5px rgb(20 16 30 / 0.85);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* What E does, just under the aim dot so the eye does not have to leave it. */
+.interact-prompt {
+  position: absolute;
+  top: calc(50% + 22px);
+  left: 50%;
+  z-index: 4;
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  background: var(--chip-bg);
+  color: var(--chip-ink);
+  font-size: 13px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.interact-prompt kbd {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 0 4px;
+  border: 1px solid currentcolor;
+  border-radius: 4px;
+  font: inherit;
+  font-weight: 600;
+  text-align: center;
+}
+
+.crosshair[hidden],
+.interact-prompt[hidden] {
+  display: none;
+}
+
+#first-person[aria-pressed="true"],
 #free-camera[aria-pressed="true"] {
   outline: 2px solid var(--chip-ink);
   outline-offset: -4px;

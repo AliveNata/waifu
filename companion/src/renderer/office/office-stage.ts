@@ -32,7 +32,9 @@ import {
 } from "../common/expressions.js";
 import { memberLooks } from "../common/looks.js";
 import { PoseApplier } from "../common/pose.js";
+import { AlyxHands, waveSeconds } from "./alyx-hands.js";
 import type { ArmSide, ArmTip, OfficeAvatar } from "./avatar.js";
+import { bossLine } from "./boss-greetings.js";
 import {
   type ActiveDeskBit,
   chessCarry,
@@ -45,6 +47,7 @@ import {
   reachingForItem,
   reachSeconds,
 } from "./desk-habits.js";
+import { FirstPerson, firstPersonFov } from "./first-person.js";
 import { FreeCamera } from "./free-camera.js";
 import { Handoffs, type Teammate } from "./handoffs.js";
 import { aimHand, solveCcd } from "./ik.js";
@@ -64,6 +67,7 @@ import { type BarFood, binBox, canBuy, deliver, type FoodKind, initialFood, take
 import { type LaptopView, laptopPutSeconds, laptopTakeSeconds, laptopView } from "./office-laptop.js";
 import { type Errand, type LifeChoice, OfficeLife } from "./office-life.js";
 import { afterSip, initialMug, type MugState, mugPickSeconds, stepMug } from "./office-mug.js";
+import { navGrid } from "./office-nav.js";
 import {
   arcadeStationIds,
   barFoodSpot,
@@ -71,6 +75,7 @@ import {
   floorHeightAt,
   furniture,
   meetingStationIds,
+  type Point,
   room,
   type StationId,
   standupStationIds,
@@ -78,7 +83,7 @@ import {
   surface,
   treadmillStationIds,
 } from "./office-plan.js";
-import { type BoardFocus, officePose } from "./office-pose.js";
+import { type BoardFocus, bossWaveWindow, officePose } from "./office-pose.js";
 import { officeDay, ritualFor, standupTurn, standupTurnSeconds } from "./office-rituals.js";
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
 import { atJakartaTime, type DayPart, dayPart, jakartaHours, skyAt } from "./office-time.js";
@@ -363,6 +368,13 @@ export function teamDialogDock(viewWidth: number): TeamDialogDock {
 }
 
 /** Close-up captions are in English, like the window titles; dialog lines stay in the cast's own voice. */
+/** How close Alyx has to be, in meters, to greet someone he is looking at. */
+const greetReach = 1.8;
+/** How long a teammate answers Alyx: turned to him, smiling, the line up and a wave. */
+const bossAnswerSeconds = 3.8;
+/** Alyx does not walk into people: about two bodies' widths between centers. */
+const alyxPersonalSpace = 0.34;
+
 const actionLabels: Record<OfficeAction, string> = {
   type: "typing",
   "desk-idle": "taking it easy",
@@ -413,6 +425,14 @@ export class OfficeStage {
   private readonly controls: OrbitControls;
   /** Walk-and-look camera, switched on in place of the orbit view. */
   private readonly freeCamera: FreeCamera;
+  private readonly firstPerson: FirstPerson;
+  private readonly alyxHands = new AlyxHands();
+  /** When Alyx last greeted each teammate, in stage seconds. */
+  private readonly bossGreetedAt: Partial<Record<MemberId, number>> = {};
+  /** When Alyx's own wave began, in stage seconds. */
+  private alyxWaveAt: number | null = null;
+  /** The room view's lens, put back on leaving first person. */
+  private roomFov = 30;
   /** Draw calls in the last frame, all passes together, for the frame rate meter. */
   private lastDrawCalls = 0;
   private readonly timer = new Timer();
@@ -513,7 +533,7 @@ export class OfficeStage {
     });
     canvas.addEventListener("keydown", (event) => this.handleKey(event));
     canvas.addEventListener("dblclick", () => {
-      if (!this.freeCamera.active) {
+      if (!this.freeCamera.active && !this.firstPerson.active) {
         this.resetView();
       }
     });
@@ -526,6 +546,12 @@ export class OfficeStage {
       minZ: room.minZ - 1,
       maxZ: room.maxZ + 7,
     });
+    this.firstPerson = new FirstPerson(
+      this.camera,
+      canvas,
+      (point) => this.alyxCanStand(point),
+      () => this.interactAsAlyx(),
+    );
     this.renderer.info.autoReset = false;
 
     this.rigs = Object.fromEntries(
@@ -641,6 +667,7 @@ export class OfficeStage {
       return;
     }
     if (on) {
+      this.setFirstPerson(false);
       this.controls.enabled = false;
       this.freeCamera.enable();
     } else {
@@ -655,14 +682,113 @@ export class OfficeStage {
     return this.freeCamera.active;
   }
 
+  /** Walks the office as Alyx in first person; leaving goes back to the default view. Needs a click. */
+  setFirstPerson(on: boolean): void {
+    if (on === this.firstPerson.active) {
+      return;
+    }
+    if (on) {
+      this.setFreeCamera(false);
+      this.controls.enabled = false;
+      this.pinCloseup(null);
+      this.roomFov = this.camera.fov;
+      this.camera.fov = firstPersonFov;
+      this.camera.updateProjectionMatrix();
+      this.firstPerson.enable();
+      this.alyxHands.load().catch((error: unknown) => {
+        console.error("[office] Alyx's hands could not be loaded; walking on without them", error);
+      });
+    } else {
+      this.firstPerson.disable();
+      this.camera.fov = this.roomFov;
+      this.camera.updateProjectionMatrix();
+      this.controls.enabled = true;
+      this.resetView();
+    }
+    this.lastInputAt = Date.now();
+  }
+
+  firstPersonOn(): boolean {
+    return this.firstPerson.active;
+  }
+
+  /** Walking with the mouse locked to the office, as opposed to paused until the next click. */
+  firstPersonWalking(): boolean {
+    return this.firstPerson.active && this.firstPerson.locked;
+  }
+
+  /** The teammate in the middle of Alyx's view and close enough to greet, or null. */
+  firstPersonTarget(): MemberId | null {
+    if (!this.firstPerson.active) {
+      return null;
+    }
+    const box = this.canvas.getBoundingClientRect();
+    const memberId = this.memberAt(box.left + box.width / 2, box.top + box.height / 2);
+    if (memberId === null) {
+      return null;
+    }
+    const rig = this.rigs[memberId];
+    const near = distance(rig.actor.position, this.firstPerson.position) <= greetReach;
+    return rig.avatar.root.visible && near ? memberId : null;
+  }
+
+  /** E in first person: greets the teammate he is looking at, who turns, waves and answers. */
+  private interactAsAlyx(): void {
+    const memberId = this.firstPersonTarget();
+    if (memberId === null || this.bossGreeting(memberId) !== null) {
+      return;
+    }
+    this.alyxWaveAt = this.elapsed;
+    this.bossGreetedAt[memberId] = this.elapsed;
+    const rig = this.rigs[memberId];
+    if (isWalking(rig.actor)) {
+      rig.walkHabits.wave(this.elapsed);
+    }
+    this.chatter.announce(
+      memberId,
+      bossLine(memberId, this.dayPart()),
+      this.elapsed + 0.4,
+      this.elapsed + bossAnswerSeconds,
+    );
+  }
+
+  /** Seconds since Alyx greeted this teammate while they are still answering, otherwise null. */
+  private bossGreeting(memberId: MemberId): number | null {
+    const at = this.bossGreetedAt[memberId];
+    if (at === undefined || !this.firstPerson.active) {
+      return null;
+    }
+    const since = this.elapsed - at;
+    return since <= bossAnswerSeconds ? since : null;
+  }
+
+  /**
+   * Room for Alyx at `point`: clear of furniture and walls, and not inside anyone. Someone who
+   * walks into him can always be stepped away from, so he never gets stuck.
+   */
+  private alyxCanStand(point: Point): boolean {
+    if (!navGrid.isFree(point)) {
+      return false;
+    }
+    const from = this.firstPerson.position;
+    return memberIds.every((memberId) => {
+      const rig = this.rigs[memberId];
+      if (!rig.avatar.root.visible) {
+        return true;
+      }
+      const after = distance(rig.actor.position, point);
+      return after >= alyxPersonalSpace || after > distance(rig.actor.position, from);
+    });
+  }
+
   /** Draw calls in the last frame, every pass together. */
   drawCalls(): number {
     return this.lastDrawCalls;
   }
 
   private handleKey(event: KeyboardEvent): void {
-    // In free camera mode the arrows walk instead of orbiting.
-    if (this.freeCamera.active) {
+    // In free camera and first-person mode the arrows walk instead of orbiting.
+    if (this.freeCamera.active || this.firstPerson.active) {
       return;
     }
     const step = 0.08;
@@ -992,8 +1118,10 @@ export class OfficeStage {
     const plan = this.planFor(memberId, now, rig);
     rig.plan = plan;
     const otherRigs = memberIds.filter((other) => other !== memberId).map((other) => this.rigs[other].actor);
-    const others = otherRigs.map((actor) => actor.position);
-    const standing = otherRigs.filter((actor) => !isWalking(actor)).map((actor) => actor.position);
+    // Alyx, walking the office in first person, is someone to go around too.
+    const alyx = this.firstPerson.active ? [this.firstPerson.position] : [];
+    const others = [...otherRigs.map((actor) => actor.position), ...alyx];
+    const standing = [...otherRigs.filter((actor) => !isWalking(actor)).map((actor) => actor.position), ...alyx];
     rig.actor = stepActor(rig.actor, plan.station, delta, others, standing);
     const walking = isWalking(rig.actor);
     const arrived = !walking && rig.actor.target === plan.station;
@@ -1092,6 +1220,7 @@ export class OfficeStage {
       chatter: this.chatter.reactionOf(memberId),
       chatGesture: this.chatter.gestureOf(memberId),
       lookYaw: this.lookYawFor(memberId, rig, gimmick?.kind === "wave"),
+      bossWave: this.bossGreeting(memberId),
       pingpongBeat:
         action === "pingpong" && this.office.pingpongBall.visible
           ? pingpongBeat(this.elapsed, rig.actor.target === "pingpong-west" ? "west" : "east")
@@ -1101,7 +1230,11 @@ export class OfficeStage {
     });
     rig.poseApplier.apply(avatar.poseTarget, pose, delta);
 
-    this.reachFor(rig, handTargets, delta);
+    const answering = this.bossGreeting(memberId);
+    // The right hand leaves the keys or whatever it holds to wave back at the boss.
+    const waving =
+      answering !== null && action !== null && answering >= bossWaveWindow.from && answering <= bossWaveWindow.to;
+    this.reachFor(rig, waving ? { ...handTargets, right: null } : handTargets, delta);
 
     const reaction = this.chatter.reactionOf(memberId);
     // The mouth during a bit moves too fast to ease, so it is kept apart from the eased face.
@@ -1113,7 +1246,11 @@ export class OfficeStage {
         : reaction === "acknowledge"
           ? { ...moodTargets, happy: 0.6 }
           : moodTargets;
-    rig.expressions = stepExpressionWeights(rig.expressions, targets, delta);
+    rig.expressions = stepExpressionWeights(
+      rig.expressions,
+      answering === null ? targets : { ...targets, happy: 0.8 },
+      delta,
+    );
     const happy = rig.expressions.happy ?? 0;
     // The mouth flaps while a line is up; too quick for the eased weights, so it is added on top.
     const talking = this.chatter.speechOf(memberId) !== null;
@@ -1281,6 +1418,11 @@ export class OfficeStage {
 
   /** Head turn toward a conversation partner, or toward whoever is being waved at. */
   private lookYawFor(memberId: MemberId, rig: MemberRig, waving: boolean): number {
+    if (this.bossGreeting(memberId) !== null) {
+      const boss = this.firstPerson.position;
+      const { position, yaw } = rig.actor;
+      return angleDelta(yaw, Math.atan2(boss.x - position.x, boss.z - position.z));
+    }
     const handing = waving ? null : this.handoffs.partnerOf(memberId);
     const other = waving ? rig.greeted : (handing ?? this.chatter.partnerOf(memberId));
     if (other === null) {
@@ -1909,7 +2051,10 @@ export class OfficeStage {
     this.office.wallClock.update(this.clock());
     this.office.statusBoard.update(statusRows(this.team, this.twobStatus, now), now);
     this.focus = this.chooseFocus(now);
-    if (this.freeCamera.active) {
+    if (this.firstPerson.active) {
+      // The real time step, so walking keeps its pace even when frames are slow.
+      this.firstPerson.update(Math.min(rawDelta, 0.25));
+    } else if (this.freeCamera.active) {
       // The real time step, so walking keeps its pace even when frames are slow.
       this.freeCamera.update(Math.min(rawDelta, 0.25));
     } else {
@@ -1928,6 +2073,12 @@ export class OfficeStage {
       this.renderer.setClearColor(0x000000, 0);
       this.renderer.clear();
       this.renderer.render(this.scene, this.camera);
+    }
+    if (this.firstPerson.active) {
+      const { walked, speed } = this.firstPerson.stride;
+      const wave = this.alyxWaveAt === null ? null : this.elapsed - this.alyxWaveAt;
+      this.alyxHands.update(this.camera, walked, speed, wave !== null && wave <= waveSeconds ? wave : null, this.night);
+      this.alyxHands.render(this.renderer);
     }
 
     if ((this.closeupEnabled || this.pinned !== null) && this.focus !== null) {
