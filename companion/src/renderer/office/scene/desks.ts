@@ -39,7 +39,7 @@ import {
 
 export const deskTop = surface.desk;
 /**
- * Bottom edge of a monitor panel: a short stand above the desk, so a seated chibi
+ * Bottom edge of a monitor panel: a short stand above the desk, so a seated person
  * (eyes near 0.72 m) looks at the middle of the screen, not up at its bezel.
  */
 const panelBottom = deskTop + 0.07;
@@ -538,7 +538,7 @@ function headsetStand(x: number, z: number): Group {
   return group;
 }
 
-/** Near the front edge, the way people pull a keyboard close: chibi arms are short. */
+/** Near the front edge, the way people pull a keyboard close: arms stay relaxed. */
 function keyboardZ(deskDepth: number): number {
   return deskDepth / 2 - 0.115;
 }
@@ -550,7 +550,7 @@ function keyboardFor(member: DeskMember, z: number): Keyboard {
   return keyboard;
 }
 
-/** Just right of the keyboard, within a chibi arm's reach and clear of the mugs at x 0.42 and beyond. */
+/** Just right of the keyboard, within arm's reach and clear of the mugs at x 0.42 and beyond. */
 function mouseBeside(keyboard: Keyboard, accent: string, base: string): DeskMouse {
   const mouse = new DeskMouse(accent, base);
   mouse.root.position.set(keyboard.root.position.x + 0.26, deskTop, keyboard.root.position.z + 0.02);
@@ -982,7 +982,7 @@ function arisuDesk(piece: Furniture, kanban: Texture): DeskBuild {
   // The clipboard by her left hand, for ticking off the plan away from the screen.
   const clipboard = deskItem(handPropModel("clipboard"), -0.42, deskTop + 0.003, nearEdge(depth) - 0.09);
   clipboard.rotation.y = 0.2;
-  // Within a chibi arm's reach: things much past the mouse, or far back on the desk, are out of it.
+  // Within arm's reach: things much past the mouse, or far back on the desk, are out of it.
   const hourglass = deskItem(handPropModel("hourglass"), 0.4, deskTop + 0.015, nearEdge(depth) - 0.11);
   inner.add(keyboard.root, mouse.root, mug, clipboard, hourglass, unit);
   return {

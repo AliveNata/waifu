@@ -227,7 +227,7 @@ function buildRoomShell(root: Group, logo: Texture): SkyGlass {
 
   // Two windows over the desks with the sign between them, so the brand sits at the room's focal point,
   // and a third over the treadmills, so the runners look out at the city.
-  // The sills clear the monitors and the tops stay under a chibi-scaled 2.2 m wall.
+  // The sills clear the monitors and the tops stay under the 2.2 m wall.
   const sill = 1.0;
   const windowHeight = 0.85;
   const sky: SkyGlass = { night: [], twilight: [] };
@@ -539,8 +539,8 @@ export function buildOffice(): OfficeProps {
   const whiteboardSpec: BoardSpec = {
     centerZ: whiteboardPiece.z,
     width: whiteboardPiece.depth,
-    // A normal board's proportions. Standing on the step in front, a chibi's shoulders are about
-    // 0.9 m up and the hand reaches about 0.3 m higher: that is the top of the writing band.
+    // A normal board's proportions. Standing on the step in front, shoulders are about 1.15 m up
+    // and the hand reaches well past the top of the writing band, so every line is within reach.
     bottom: 0.45,
     height: 0.85,
   };
@@ -630,7 +630,7 @@ function buildCloseups(whiteboard: BoardSpec, idea: BoardSpec): Record<MemberId,
     };
   };
   // Front desks face the camera with a backdrop or board behind the chair. The shot comes from
-  // over the right shoulder and well to the side, so a chibi's big head does not hide the screen
+  // over the right shoulder and well to the side, so the head does not hide the screen
   // and the camera stays clear of the panel behind the chair.
   // The north side of each pod faces the room the same way.
   const frontShot = (station: "desk-twob" | "desk-ruby" | "desk-arisu" | "desk-erza" | "desk-miruku"): CloseupShot => {

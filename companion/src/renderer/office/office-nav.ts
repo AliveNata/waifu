@@ -2,7 +2,7 @@ import { distance, type Furniture, furniture, type Point, room, type StationId, 
 
 /** Grid resolution. Fine enough to slip between a desk and a plant, coarse enough for instant A*. */
 export const cellSize = 0.15;
-/** Half a chibi's shoulder width plus clearance, so walkers never brush furniture or walls. */
+/** Half a shoulder width plus clearance, so walkers never brush furniture or walls. */
 export const bodyRadius = 0.18;
 /** How far a detour keeps from other people: two bodies plus a little air. */
 export const personClearance = 0.42;

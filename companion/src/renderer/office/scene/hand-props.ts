@@ -14,8 +14,8 @@ import type { HandPropKind } from "../office-director.js";
 import { box, glow, mesh, palette, standard } from "./palette.js";
 
 /**
- * Small objects a chibi holds in a hand. Each is built around its grip point (the origin), facing
- * +z like the avatar, and sized for chibi hands. Desks use the same models for the things that
+ * Small objects a person holds in a hand. Each is built around its grip point (the origin), facing
+ * +z like the avatar, and sized for the team's hands. Desks use the same models for the things that
  * get picked up, so what lands in the hand is what was on the desk.
  */
 export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook): Group {

@@ -83,4 +83,4 @@ Buka companion (lihat [03-companion.md](03-companion.md)), lalu **Menu > Pilih m
 - Kedip jalan, dan ekspresi berubah pas lo kirim prompt ke Claude Code.
 - Di kantor, rambut nggak tembus badan waktu jalan atau duduk.
 
-Kalau ada yang aneh, catat apa yang lo liat dan kasih tau gua. Proporsi chibi dan sudut pose bisa diatur di kode.
+Kalau ada yang aneh, catat apa yang lo liat dan kasih tau gua. Proporsi badan (`officeProportions` di `companion/src/renderer/office/body-proportions.ts`) dan sudut pose bisa diatur di kode.

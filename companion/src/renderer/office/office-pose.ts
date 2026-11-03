@@ -12,6 +12,7 @@ import {
 } from "./desk-habits.js";
 import type { ChatGesture, ChatReaction } from "./office-chatter.js";
 import { type OfficeAction, ovenStep } from "./office-director.js";
+import { people } from "./office-plan.js";
 import type { SeatFit } from "./seating.js";
 import type { ActiveGimmick, WalkStyle } from "./walk-life.js";
 
@@ -99,8 +100,8 @@ const crouchDrop = 0.11;
 const tiptoeAboveY = 0.85;
 const tiptoeLift = 0.03;
 
-/** Eyes of a standing chibi, in the avatar's frame. */
-const standingEyeY = 0.88;
+/** Eyes of someone standing, in the avatar's frame. */
+const standingEyeY = people.eye;
 
 /** Upper body of one action. Legs and hips come from the posture, so any action works standing or seated. */
 interface UpperBody {

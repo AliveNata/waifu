@@ -16,7 +16,7 @@ export interface Point {
 }
 
 /**
- * Walls are 2.2 m: tall for a chibi, but not so tall the room swallows them like a warehouse.
+ * Walls are 2.2 m: tall for the people here, but not so tall the room swallows them like a warehouse.
  * The room is laid out in zones that each read at a glance from the camera: the pantry and the
  * planning pod by the boards on the left, the builders' L-desks along the back wall mirrored
  * around the logo, 2B front and center between Erza and Miruku, the meeting table on the same
@@ -27,12 +27,12 @@ export interface Point {
 export const room = { minX: -7, maxX: 10.5, minZ: -5, maxZ: 4, wallHeight: 2.2 } as const;
 
 /**
- * Everything is sized for chibi people, not adults. A standing chibi is about 1.05 m with its
- * eyes near 0.88 m; seated, the eyes sit near 0.72 m and the hands reach up to about 1.0 m.
+ * The whole office is scaled to its people: at ordinary proportions they stand 1.2 m with their
+ * eyes near 1.12 m; seated, the eyes sit near 0.86 m and the hands reach up to about 1.15 m.
  * Work surfaces, screens and boards are placed against these numbers, so nobody types into a
  * counter at chin height or watches a screen above their head.
  */
-export const chibi = { standing: 1.05, eye: 0.88, seatedEye: 0.72, reach: 1.0 } as const;
+export const people = { standing: 1.2, eye: 1.12, seatedEye: 0.86, reach: 1.15 } as const;
 
 /** Heights of the surfaces people use, scaled from adult furniture by roughly 0.65. */
 export const surface = { desk: 0.55, counter: 0.58, barTable: 0.72, pingpong: 0.48, coffeeTable: 0.26 } as const;
@@ -206,8 +206,8 @@ export interface Station {
 
 /** Pulled up close, about as far from the desk edge as the front desks' chairs, so short arms reach the keys. */
 const deskRowSeatZ = -3.92;
-/** Office chairs are sized for chibi legs: low enough that most feet reach the floor. */
-export const chairSeatHeight = 0.28;
+/** Office chairs at knee height, so feet rest flat on the floor and thighs stay level. */
+export const chairSeatHeight = 0.32;
 const sofaSeatHeight = 0.26;
 /**
  * The lane between the sofa and the coffee table. The sofa faces the TV with its back to the
@@ -472,7 +472,7 @@ export type MeetingStationId = (typeof meetingIds)[number];
  * twelve chairs so the whole team fits: five along each side and one at each end.
  */
 const meetingTable = { x: 0.4, z: -1.3, width: 3.25, depth: 0.9 } as const;
-/** Chairs along each side, as close together as chibi elbows allow. */
+/** Chairs along each side, as close together as elbows allow. */
 const meetingSeatGap = 0.65;
 const meetingSideXs = [-2, -1, 0, 1, 2].map((step) => meetingTable.x + step * meetingSeatGap);
 /** From the table's edge to a chair's middle. */
@@ -796,7 +796,7 @@ export const furniture: readonly Furniture[] = [
     z: -2.0,
     width: 0.1,
     // 2.2 x 0.85 m, bottom edge 0.45 m up: a normal board's proportions. The writing stays in
-    // the part a chibi reaches from the low step in front.
+    // the part a person reaches from the low step in front.
     depth: 2.2,
     yaw: facing.right,
     blocksWalking: true,
@@ -1028,7 +1028,7 @@ export function yawToward(from: Point, to: Point): number {
   return Math.atan2(to.x - from.x, to.z - from.z);
 }
 
-/** Close enough to the boards (surface at x -6.91) that a chibi arm reaches the writing. */
+/** Close enough to the boards (surface at x -6.91) that an arm reaches the writing. */
 const boardStandX = -6.68;
 
 const placeStations: Record<Exclude<StationId, VisitStationId>, Station> = {
@@ -1144,7 +1144,7 @@ const placeStations: Record<Exclude<StationId, VisitStationId>, Station> = {
     x: treadmillX[1],
     z: treadmillZ + treadmillLength / 2 + 0.25,
   }),
-  // A short step back from the bag: a chibi's jab reaches about a third of a meter.
+  // A short step back from the bag: a jab reaches about a third of a meter.
   "punching-bag": standing("punching-bag", { x: punchingBagSpot.x, z: punchingBagSpot.z + 0.55 }, facing.backWall),
   aquarium: standing("aquarium", { x: aquariumSpot.x, z: aquariumSpot.z - 0.55 }, facing.camera),
   ...collabStations(),

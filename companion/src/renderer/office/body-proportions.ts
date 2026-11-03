@@ -2,22 +2,26 @@ import type { VRM, VRMHumanBoneName } from "@pixiv/three-vrm";
 import { Box3, Vector3 } from "three";
 import type { LegMetrics } from "./seating.js";
 
-export interface ChibiProportions {
+export interface BodyProportions {
   headScale: number;
   legScale: number;
   armScale: number;
-  /** Standing height of the chibi in world meters, sized to match the office furniture. */
+  /** Standing height in world meters, sized to match the office furniture. */
   worldHeight: number;
 }
 
-export const defaultChibiProportions: ChibiProportions = {
-  headScale: 1.65,
-  legScale: 0.72,
-  armScale: 0.85,
-  worldHeight: 1.05,
+/**
+ * The office's people at ordinary human proportions, the model's own head, legs and arms, sized
+ * so the furniture fits them: desks come to just under half their height, as in a real office.
+ */
+export const officeProportions: BodyProportions = {
+  headScale: 1,
+  legScale: 1,
+  armScale: 1,
+  worldHeight: 1.2,
 };
 
-export interface ChibiMetrics {
+export interface BodyMetrics {
   /** Uniform scale applied to vrm.scene. */
   sceneScale: number;
   /** Y offset for vrm.scene so the soles rest on the floor. */
@@ -68,10 +72,10 @@ function scaleSpringRadii(vrm: VRM): void {
 }
 
 /**
- * Turns a full-size VRM into a chibi by scaling raw bones, then sizes and
+ * Reshapes a VRM by scaling raw bones (a scale of 1 keeps the model as made), then sizes and
  * grounds it for the office. Must run on a model in its rest pose.
  */
-export function applyChibi(vrm: VRM, proportions: ChibiProportions = defaultChibiProportions): ChibiMetrics {
+export function applyBodyProportions(vrm: VRM, proportions: BodyProportions = officeProportions): BodyMetrics {
   vrm.scene.updateMatrixWorld(true);
   const restBounds = new Box3().setFromObject(vrm.scene);
   const hipsY = worldY(vrm, "hips");
@@ -87,13 +91,13 @@ export function applyChibi(vrm: VRM, proportions: ChibiProportions = defaultChib
   // Shorter legs lift the soles off the floor by the amount the leg chain shrank.
   const soleY = hipsY * (1 - proportions.legScale);
   const headTopY = headY + headTopAboveBone * proportions.headScale;
-  const chibiHeight = headTopY - soleY;
+  const shapedHeight = headTopY - soleY;
 
-  const sceneScale = proportions.worldHeight / chibiHeight;
+  const sceneScale = proportions.worldHeight / shapedHeight;
   vrm.scene.scale.setScalar(sceneScale);
   vrm.scene.updateMatrixWorld(true);
-  // Simulate hair and skirt relative to the hips. In world space the shrunken
-  // chibi strands trail behind like a windsock whenever she walks.
+  // Simulate hair and skirt relative to the hips. In world space the scaled-down
+  // strands trail behind like a windsock whenever she walks.
   const hips = vrm.humanoid.getRawBoneNode("hips");
   for (const joint of vrm.springBoneManager?.joints ?? []) {
     joint.center = hips;
@@ -102,7 +106,7 @@ export function applyChibi(vrm: VRM, proportions: ChibiProportions = defaultChib
   // Springs cache their rest lengths, so re-seed them at the new scale.
   vrm.springBoneManager?.setInitState();
 
-  // Measured after scaling, so the numbers are the chibi's own legs in world meters.
+  // Measured after scaling, so the numbers are the model's own legs in world meters.
   const soleWorld = soleY * sceneScale;
   const hipsWorld = worldPosition(vrm, "hips");
   const thighWorld = worldPosition(vrm, "leftUpperLeg");

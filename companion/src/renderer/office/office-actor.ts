@@ -15,13 +15,13 @@ export interface ActorState {
   squeezeSeconds: number;
 }
 
-/** A chibi's stroll: an adult walks about 1.4 m/s at 1.7 m tall, so 1.05 m tall gets about 0.9. */
-export const walkSpeed = 0.9;
+/** A stroll: an adult walks about 1.4 m/s at 1.7 m tall, so 1.2 m tall gets about 1.0. */
+export const walkSpeed = 1.0;
 const turnSpeed = 7;
 const arrivalTolerance = 0.02;
 /** Radians of leg cycle per meter walked: short, quick steps, the way small legs actually move. */
-const strideRadiansPerMeter = 14;
-/** Two chibis closer than this, center to center, are about to bump shoulders. */
+const strideRadiansPerMeter = 9.5;
+/** Two people closer than this, center to center, are about to bump shoulders. */
 const personalSpace = 0.55;
 /**
  * Near the end of a walk the actor is stepping into a seat or onto a spot, which the floor

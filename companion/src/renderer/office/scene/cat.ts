@@ -3,9 +3,9 @@ import type { CatPose } from "../office-cat.js";
 import { box, mesh, standard } from "./palette.js";
 
 /**
- * Mochi as a model: an orange tabby built from rounded shapes at chibi scale, about 0.3 m nose to
+ * Mochi as a model: an orange tabby built from rounded shapes at the office's scale, about 0.3 m nose to
  * rump. The parts hang off pivots (hips, shoulders, neck, the tail's joints) so poses are just
- * turns, the same way the chibis are posed. She faces +z.
+ * turns, the same way the team is posed. She faces +z.
  */
 const fur = "#e8833a";
 const furDark = "#c2611f";

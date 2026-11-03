@@ -2,7 +2,7 @@ import type { PerspectiveCamera } from "three";
 import type { Point } from "./office-plan.js";
 
 /**
- * Walking the office as Alyx, the CEO: eyes a head above the chibis, WASD to walk, Shift to
+ * Walking the office as Alyx, the CEO: eyes a head above the team, WASD to walk, Shift to
  * hurry, the mouse (locked to the page) to look around, E to interact. Bumps into furniture,
  * walls and people instead of passing through them, sliding along whatever is in the way.
  */
@@ -20,8 +20,8 @@ export interface WalkInput {
   fast: boolean;
 }
 
-/** A head above the chibis, so he looks down at them a little, the way a grown-up would. */
-export const eyeHeight = 1.15;
+/** A head above the team, so he looks down at them a little: he is the tall one. */
+export const eyeHeight = 1.28;
 /** Meters per second. */
 export const strollSpeed = 1.5;
 export const hurryMultiplier = 1.8;

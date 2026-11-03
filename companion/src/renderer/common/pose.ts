@@ -41,7 +41,7 @@ export function addRotation(base: BoneRotation | undefined, delta: Partial<BoneR
   };
 }
 
-/** Anything with humanoid joints that follow the axis conventions above: a VRM or a placeholder chibi. */
+/** Anything with humanoid joints that follow the axis conventions above: a VRM or a placeholder figure. */
 export interface PoseTarget {
   node(bone: VRMHumanBoneName): Object3D | null;
   /**

@@ -23,8 +23,8 @@ import handsUrl from "../overlay/assets/vr-hands.glb?url";
  * after the room, so they never sink into a desk he walks up to.
  */
 
-/** The model is a real adult's hand; a little smaller keeps it in proportion with the chibi room. */
-const handScale = 0.85;
+/** The model is a real adult's hand, in proportion with the room once it is scaled to the team. */
+const handScale = 0.9;
 const relaxed: Record<Finger, number> = { thumb: 0.3, index: 0.35, middle: 0.45, ring: 0.5, pinky: 0.55 };
 const open: Record<Finger, number> = { thumb: 0.05, index: 0.02, middle: 0.02, ring: 0.04, pinky: 0.06 };
 const suit = "#1f2433";
