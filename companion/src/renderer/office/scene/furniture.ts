@@ -1146,3 +1146,87 @@ export function buildPrinterCabinet(piece: Furniture): Group {
   );
   return root;
 }
+
+/** Spine colors for the books: muted cloth and paper tones with the odd bright paperback. */
+const spineColors = ["#7a2e3a", "#2f4b6e", "#3e5e3a", "#c9a46a", "#5b3f78", "#d9d4cc", "#a8573a", "#22313f", "#e2b33c"];
+
+/**
+ * Chest-high open shelves against a wall: an oak frame, a dark back, three tiers of books with
+ * the odd gap and a leaning one, so it reads as used rather than staged. Any book can be taken
+ * off and put back; a taken one leaves its gap.
+ */
+export class Bookshelf {
+  readonly root: Group;
+  readonly books: Object3D[] = [];
+
+  constructor(piece: Furniture) {
+    this.root = placed(piece);
+    const { width, depth } = localSize(piece);
+    const height = 0.95;
+    const oak = standard(palette.oak, 0.65);
+    const back = standard(palette.inkDeep, 0.8);
+    const side = 0.03;
+    const tiers = [0.04, 0.34, 0.64];
+    this.root.add(
+      box(width, height, 0.02, back, 0, 0, -depth / 2 + 0.01),
+      box(side, height, depth, oak, -width / 2 + side / 2, 0, 0),
+      box(side, height, depth, oak, width / 2 - side / 2, 0, 0),
+      box(width, 0.03, depth, oak, 0, height - 0.03, 0),
+      box(width - 2 * side, 0.04, depth, oak, 0, 0, 0),
+      ...tiers.slice(1).map((y) => box(width - 2 * side, 0.025, depth, oak, 0, y - 0.025, 0)),
+    );
+    // A fixed pattern, so every visit shows the same shelves.
+    let seed = 7;
+    const next = (): number => {
+      seed = (seed * 9301 + 49297) % 233280;
+      return seed / 233280;
+    };
+    for (const floor of tiers) {
+      let x = -width / 2 + side + 0.02;
+      const end = width / 2 - side - 0.02;
+      while (x < end - 0.05) {
+        if (next() < 0.08) {
+          // A gap, as on any real shelf.
+          x += 0.06 + next() * 0.08;
+          continue;
+        }
+        const thick = 0.022 + next() * 0.026;
+        const tall = 0.19 + next() * 0.07;
+        const book = box(
+          thick,
+          tall,
+          0.19 + next() * 0.04,
+          standard(spineColors[Math.floor(next() * spineColors.length)] ?? "#7a2e3a", 0.85),
+          0,
+          0,
+          0,
+        );
+        const holder = new Group();
+        holder.position.set(x + thick / 2, floor, depth / 2 - 0.13);
+        if (next() < 0.06 && x + thick + 0.05 < end) {
+          // Leaning on its neighbor.
+          holder.rotation.z = -0.25;
+          x += 0.05;
+        }
+        holder.add(book);
+        this.root.add(holder);
+        this.books.push(holder);
+        x += thick + 0.002;
+      }
+    }
+  }
+
+  /** Off the shelf or back on it. */
+  setTaken(index: number, taken: boolean): void {
+    const book = this.books[index];
+    if (book !== undefined) {
+      book.visible = !taken;
+    }
+  }
+
+  /** Where a hand takes hold of a book: the middle of its spine, in the room. */
+  spineOf(index: number): Vector3 | null {
+    const book = this.books[index];
+    return book === undefined ? null : book.localToWorld(new Vector3(0, 0.11, 0.1));
+  }
+}

@@ -57,6 +57,7 @@ export type FurnitureKind =
   | "desk-miruku"
   | "desk-huagua"
   | "desk-return"
+  | "bookshelf"
   | "chair"
   | "server-rack"
   | "arcade"
@@ -156,6 +157,7 @@ export type StationId =
   | StandupStationId
   | "rack"
   | "selfie"
+  | "bookshelf"
   | "plant-lounge"
   | "plant-corner"
   | "plant-desks"
@@ -425,6 +427,9 @@ const pingpongCenter = { x: 7.1, z: -2.75 } as const;
 const punchingBagSpot = { x: 9.9, z: -2.75 } as const;
 /** A long low aquarium between the front row and the lounge. */
 const aquariumSpot = { x: -1.9, z: 3.6 } as const;
+/** The bookshelf's middle, its back to the front wall, and how wide it runs along it. */
+const bookshelfSpot = { x: 0.65, z: 3.79 } as const;
+const bookshelfWidth = 1.5;
 
 /**
  * The collaboration corner between the meeting table and the game corner: a round standing-height
@@ -720,19 +725,30 @@ export const furniture: readonly Furniture[] = [
     yaw: facing.camera,
     blocksWalking: true,
   },
-  // A pair of plants framing 2B's desk from the front.
-  ...[-0.85, 1.65].map(
+  // A pair of plants against the front wall, either side of the bookshelf between them.
+  ...[bookshelfSpot.x - bookshelfWidth / 2 - 0.3, bookshelfSpot.x + bookshelfWidth / 2 + 0.3].map(
     (x, index): Furniture => ({
       id: `plant-front-${index + 1}`,
       kind: "plant",
       x,
-      z: 2.75,
+      z: 3.72,
       width: 0.4,
       depth: 0.4,
       yaw: facing.camera,
       blocksWalking: true,
     }),
   ),
+
+  // Chest-high shelves of books against the front wall, the spines facing into the room.
+  {
+    id: "bookshelf",
+    kind: "bookshelf",
+    ...bookshelfSpot,
+    width: bookshelfWidth,
+    depth: 0.34,
+    yaw: facing.backWall,
+    blocksWalking: true,
+  },
 
   { id: "fridge", kind: "fridge", x: -6.6, z: -4.62, width: 0.7, depth: 0.7, yaw: facing.camera, blocksWalking: true },
   {
@@ -1161,6 +1177,8 @@ const placeStations: Record<Exclude<StationId, VisitStationId>, Station> = {
   rack: standing("rack", { x: 4.55, z: -3.85 }, facing.backWall),
   // In front of her backdrop, so the ring light and camera frame her like a real shoot.
   selfie: standing("selfie", selfieSpot, yawToward(selfieSpot, tripodSpot)),
+  // In front of the shelves, facing them, an arm's length off.
+  bookshelf: standing("bookshelf", { x: bookshelfSpot.x, z: bookshelfSpot.z - 0.62 }, facing.camera),
   "plant-lounge": standing("plant-lounge", { x: -3.6, z: 3.05 }, facing.camera),
   "plant-corner": standing("plant-corner", { x: 9.4, z: 0.8 }, facing.right),
   "plant-desks": standing("plant-desks", { x: 5.12, z: -3.9 }, facing.backWall),

@@ -81,7 +81,18 @@ export interface HandsPose {
   time?: { hours: number; minutes: number; seconds: number };
   /** 0 to 1: the right hand raised to the mouth with a piece of food. */
   eating?: number;
+  /** Holding a book up open in front of the eyes to read it. */
+  reading?: boolean;
 }
+
+/** A book held open below the eyes, a little right of the middle, palm under its spine. */
+const readingHold: Placement = {
+  palm: new Vector3(0.04, -0.17, -0.3),
+  fingers: new Vector3(-0.3, 0.25, -1),
+  facing: new Vector3(-0.2, 1, 0.3),
+  curl: { thumb: 0.4, index: 0.45, middle: 0.5, ring: 0.55, pinky: 0.6 },
+  roll: 0,
+};
 
 /** The right hand up at the mouth, the piece it holds just below the eyes. */
 const atMouth: Placement = {
@@ -356,7 +367,12 @@ export class AlyxHands {
       if (rig === undefined) {
         continue;
       }
-      let placement = side === "Right" && pose.holding ? holding : rest[side];
+      let placement =
+        side === "Right" && pose.reading === true
+          ? readingHold
+          : side === "Right" && pose.holding
+            ? holding
+            : rest[side];
       if (side === "Right" && pose.swing !== 0) {
         // Forehand: back and out for the wind-up, forward and across through contact.
         const stroke = new Vector3(0.05 - 0.12 * pose.swing, 0.02 * pose.swing, -0.1 * Math.max(0, pose.swing));

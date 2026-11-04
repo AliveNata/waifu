@@ -1,10 +1,14 @@
 import {
   ACESFilmicToneMapping,
   AmbientLight,
+  BoxGeometry,
   Color,
   DirectionalLight,
+  Group,
   HalfFloatType,
   HemisphereLight,
+  Mesh,
+  MeshStandardMaterial,
   type Object3D,
   PCFShadowMap,
   PerspectiveCamera,
@@ -318,6 +322,26 @@ const pieceProps: Record<FoodKind, HandPropKind> = {
 };
 
 const trashBin = furniture.find((piece) => piece.kind === "trash-bin");
+
+/** A book held open in front of the eyes, pages up, for Alyx to read. */
+function openBook(): Group {
+  const book = new Group();
+  const cover = new MeshStandardMaterial({ color: "#5b3f78", roughness: 0.8 });
+  const paper = new MeshStandardMaterial({ color: "#f4efe4", roughness: 0.95 });
+  for (const side of [-1, 1]) {
+    const half = new Group();
+    half.rotation.z = side * -0.22;
+    const board = new Mesh(new BoxGeometry(0.11, 0.004, 0.16), cover);
+    board.position.x = side * 0.055;
+    const pages = new Mesh(new BoxGeometry(0.104, 0.012, 0.15), paper);
+    pages.position.set(side * 0.054, 0.008, 0);
+    half.add(board, pages);
+    book.add(half);
+  }
+  // Tipped up toward the eyes, as a book is read.
+  book.rotation.x = 1.0;
+  return book;
+}
 
 /** World targets for the hands this frame; null leaves that arm to the pose. */
 interface HandTargets {
@@ -649,6 +673,11 @@ export class OfficeStage {
   private food: BarFood = initialFood(Date.now());
   /** What the order app on Alyx's phone shows; until the page sets it, the phone stays away. */
   private phoneView: () => PickerView | null = () => null;
+  /** How many members' faces are on the mading's polaroids so far, and when that was last checked. */
+  private madingFaces = 0;
+  private madingCheckedAt = Number.NEGATIVE_INFINITY;
+  /** Books off the shelf, by who has them: a teammate reading, or Alyx. */
+  private readonly booksOut = new Map<MemberId | "alyx", number>();
   /** Alyx eating a piece from the bar, or carrying the empty box out in a bin bag. */
   private alyxMeal: AlyxMeal = null;
   /** The piece in Alyx's hand while he eats it, shrinking with each bite. */
@@ -1038,6 +1067,9 @@ export class OfficeStage {
     if (this.alyxHeld !== null) {
       return now("put-back", `Taruh balik ${pickableItems[this.alyxHeld.item] ?? "barang"}`);
     }
+    if (this.booksOut.has("alyx")) {
+      return now("return-book", "Balikin buku ke rak");
+    }
     const width = this.canvas.clientWidth;
     const height = this.canvas.clientHeight;
     // With the bag in hand there is nothing else to pick up, only the bar to take it to.
@@ -1215,6 +1247,15 @@ export class OfficeStage {
         targets.push({ id: "wrap-box", label: "Bungkus jadi sampah", point: barPoint, reach: handReach });
       }
     }
+    const shelf = furniture.find((piece) => piece.kind === "bookshelf");
+    if (handsFree && shelf !== undefined && !this.booksOut.has("alyx")) {
+      targets.push({
+        id: "take-book",
+        label: "Ambil buku",
+        point: { x: shelf.x, y: 0.6, z: shelf.z },
+        reach: handReach,
+      });
+    }
     if (this.alyxMeal?.kind === "bag" && trashBin !== undefined) {
       targets.push({
         id: "bin-bag",
@@ -1241,6 +1282,76 @@ export class OfficeStage {
     if (!this.firstPerson.active && now - this.emptyBoxSince > 60_000) {
       this.food = binBox(this.food, now);
       this.emptyBoxSince = null;
+    }
+  }
+
+  /**
+   * A book off the shelf for reading: taken at the shelf, carried to the seat, read, and back on
+   * the shelf when the reading is over.
+   */
+  private updateBook(
+    memberId: MemberId,
+    errand: Errand | null,
+    arrived: boolean,
+    stepElapsed: number,
+    action: OfficeAction,
+  ): void {
+    const reading = errand === "take-book" || (errand === null && action === "read");
+    if (!reading) {
+      this.returnBook(memberId);
+      return;
+    }
+    if (errand === "take-book" && arrived && stepElapsed >= 0.8 && !this.booksOut.has(memberId)) {
+      const index = this.bookFor(memberId);
+      if (index !== null) {
+        this.booksOut.set(memberId, index);
+        this.office.bookshelf?.setTaken(index, true);
+      }
+    }
+  }
+
+  /** The book this reader takes (or has), picked once from those still on the shelf. */
+  private bookFor(reader: MemberId | "alyx"): number | null {
+    const out = this.booksOut.get(reader);
+    if (out !== undefined) {
+      return out;
+    }
+    const shelf = this.office.bookshelf;
+    if (shelf === null) {
+      return null;
+    }
+    const taken = new Set(this.booksOut.values());
+    const free = shelf.books.map((_, index) => index).filter((index) => !taken.has(index));
+    // The same reader reaches for the same part of the shelf each time.
+    const pick = free[(reader.length * 7) % Math.max(1, free.length)];
+    return pick ?? null;
+  }
+
+  private returnBook(reader: MemberId | "alyx"): void {
+    const index = this.booksOut.get(reader);
+    if (index !== undefined) {
+      this.booksOut.delete(reader);
+      this.office.bookshelf?.setTaken(index, false);
+    }
+  }
+
+  /**
+   * The mading's polaroids get the members' faces as their models load: checked every few seconds,
+   * redrawn only when another face has come in.
+   */
+  private refreshMading(): void {
+    if (this.elapsed - this.madingCheckedAt < 3) {
+      return;
+    }
+    this.madingCheckedAt = this.elapsed;
+    const faces = memberIds.map((memberId) => ({
+      name: roster[memberId].displayName,
+      photo: this.memberPhoto(memberId),
+    }));
+    const count = faces.filter((face) => face.photo !== null).length;
+    if (count > this.madingFaces) {
+      this.madingFaces = count;
+      this.office.ideaBoard.setPhotos(faces);
     }
   }
 
@@ -1325,6 +1436,19 @@ export class OfficeStage {
         this.food = binBox(this.food, Date.now());
         this.alyxMeal = { kind: "bag" };
         this.alyxHands.hold(handPropModel("trash-bag"));
+        return;
+      case "take-book": {
+        const index = this.bookFor("alyx");
+        if (index !== null) {
+          this.booksOut.set("alyx", index);
+          this.office.bookshelf?.setTaken(index, true);
+          this.alyxHands.hold(openBook());
+        }
+        return;
+      }
+      case "return-book":
+        this.returnBook("alyx");
+        this.alyxHands.hold(null);
         return;
       case "bin-bag":
         this.alyxMeal = null;
@@ -1803,6 +1927,7 @@ export class OfficeStage {
 
   /** Leaving first person puts back what he carried and switched, so nothing is left stuck. */
   private resetAlyx(): void {
+    this.returnBook("alyx");
     this.alyxHeld = null;
     this.alyxMeal = null;
     this.alyxPiece = null;
@@ -2353,6 +2478,7 @@ export class OfficeStage {
     });
     rig.laptop = laptopView({ errand, arrived, stepElapsed, remaining });
     this.updateDeskLock(memberId, errand, arrived, stepElapsed);
+    this.updateBook(memberId, errand, arrived, stepElapsed, plan.action);
     this.updateFood(memberId, rig, step, arrived, stepElapsed, remaining, now);
 
     const atOwnDesk = action === "desk-idle" && plan.station === `desk-${memberId}`;
@@ -2491,6 +2617,7 @@ export class OfficeStage {
           fromDesk ??
           plate ??
           (carried === "laptop" ? carried : null) ??
+          (this.booksOut.has(memberId) && (action === null || action === "pick") ? "book" : null) ??
           asCup(propForAction(action)) ??
           carried ??
           onPhone);
@@ -2856,6 +2983,13 @@ export class OfficeStage {
         const laptop = this.office.meetingLaptops[seat];
         if (laptop !== undefined && (t < 1 || remaining < 1.8)) {
           target = laptop.root.getWorldPosition(new Vector3()).setY(surface.desk + 0.03);
+        }
+        break;
+      }
+      case "take-book": {
+        const index = this.bookFor(memberId);
+        if (t < 1.0 && index !== null) {
+          target = this.office.bookshelf?.spineOf(index) ?? null;
         }
         break;
       }
@@ -3463,6 +3597,7 @@ export class OfficeStage {
       statusRows(this.team, this.twobStatus, now, (memberId) => this.presenceOf(memberId)),
       now,
     );
+    this.refreshMading();
     this.focus = this.chooseFocus(now);
     if (this.firstPerson.active) {
       this.crouchToCat();
@@ -3506,7 +3641,11 @@ export class OfficeStage {
         {
           wave: wave !== null && wave <= waveSeconds ? wave : null,
           holding:
-            this.alyxHeld !== null || game !== null || this.foodOrder?.phase === "in-hand" || this.alyxMeal !== null,
+            this.alyxHeld !== null ||
+            game !== null ||
+            this.foodOrder?.phase === "in-hand" ||
+            this.alyxMeal !== null ||
+            this.booksOut.has("alyx"),
           swing,
           pet:
             this.catPettedAt !== null && this.elapsed - this.catPettedAt < catPetSeconds
@@ -3515,6 +3654,7 @@ export class OfficeStage {
           petAt: this.catInView(),
           phone: this.phoneShown(),
           eating: this.alyxEating(),
+          reading: this.booksOut.has("alyx"),
           // The same time as the wall clock: the computer's clock, in the office's time zone.
           time: jakartaTime(this.clock()),
         },
