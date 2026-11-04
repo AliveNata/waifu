@@ -8,7 +8,7 @@ import { resolve } from "node:path";
 import { resolveHookPort } from "../shared/protocol.js";
 import { type MemberId, memberIds } from "../shared/team.js";
 import { findBaseModel, repoRootFrom } from "../tools/base-model.js";
-import { findMemberModel } from "../tools/member-models.js";
+import { findCourierModel, findMemberModel } from "../tools/member-models.js";
 import { HookServer } from "./hook-server.js";
 
 const staticDir = resolve(import.meta.dirname, "../../renderer");
@@ -39,7 +39,12 @@ const server = new HookServer({
   log: (line) => console.log(line),
   host: "127.0.0.1",
   port: resolveHookPort(process.env),
-  web: { staticDir, modelPaths, baseModelPath: findBaseModel(repoRootFrom(import.meta.dirname), process.env) },
+  web: {
+    staticDir,
+    modelPaths,
+    baseModelPath: findBaseModel(repoRootFrom(import.meta.dirname), process.env),
+    courierModelPath: findCourierModel(repoRootFrom(import.meta.dirname)),
+  },
 });
 
 const port = await server.listen();

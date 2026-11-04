@@ -64,6 +64,10 @@ Model tangannya "Free Pack - VR Hands (Rigged)" karya [PolyOne Studio](https://s
 
 Makanan dan minuman di meja bar pakai model dari [Food Kit 2.0](https://kenney.nl/assets/food-kit) karya [Kenney](https://www.kenney.nl), lisensi [CC0](http://creativecommons.org/publicdomain/zero/1.0/). Yang dipakai cuma model yang muncul di kantor, ada di `companion/src/renderer/office/assets/food/`, dan tekstur colormap kit-nya udah ditanam ke tiap GLB.
 
+Kurir pesanan opsional. Simpan model kurir sebagai `models/courier.vrm`, nanti tiap pesanan diantar sama kurirnya: jalan masuk lewat lorong bawa bungkus sesuai pesanan, nunggu di depan pintu sampai Alyx ambil paketnya, terus balik keluar. Kalau 45 detik nggak diambil, paketnya ditaruh di keset dan kurirnya pergi. Tanpa file itu, pesanan langsung muncul di keset kayak sebelumnya.
+
+Model yang dipakai: "Chilly" karya Opinion di [VRoid Hub](https://hub.vroid.com/en/characters/8323797324053045907/models/5875511229924575628). Lisensinya bolehin dipakai siapa aja sebagai avatar, boleh dimodifikasi, wajib kredit, dan nggak boleh didistribusiin ulang. Jadi file-nya nggak ikut di repo: download sendiri (perlu login VRoid Hub) dan catat kreditnya di `models/CREDITS.md`.
+
 | Disentuh | Reaksi pertama | Kalau diulang atau ditahan |
 |---|---|---|
 | Kepala (klik atau usap) | merem senang, nyender | ditahan: santai, matanya sayu |

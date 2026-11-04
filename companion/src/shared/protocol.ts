@@ -54,6 +54,8 @@ export interface CompanionApi {
   pickModel(memberId: MemberId): Promise<ModelFile | null>;
   /** Anime base model used for members without their own .vrm. Null until `npm run fetch-base-model`. */
   loadBaseModel(): Promise<ModelFile | null>;
+  /** The delivery courier's model, models/courier.vrm. Null when there is none. */
+  loadCourierModel(): Promise<ModelFile | null>;
   getConversationMode(): Promise<ConversationMode>;
   setConversationMode(mode: ConversationMode): void;
   onConversationMode(listener: (mode: ConversationMode) => void): () => void;
@@ -134,6 +136,7 @@ export const ipcChannels = {
   loadSavedModel: "companion:load-saved-model",
   pickModel: "companion:pick-model",
   loadBaseModel: "companion:load-base-model",
+  loadCourierModel: "companion:load-courier-model",
   getConversationMode: "companion:get-conversation-mode",
   setConversationMode: "companion:set-conversation-mode",
   conversationMode: "companion:conversation-mode",

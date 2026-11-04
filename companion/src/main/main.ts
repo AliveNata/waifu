@@ -25,7 +25,7 @@ import type { CompanionSignal } from "../shared/reaction.js";
 import { normalizeSoundSettings, type OfficeSoundSettings } from "../shared/sound-settings.js";
 import { isMemberId, type MemberId, memberIds, roster } from "../shared/team.js";
 import { findBaseModel, repoRootFrom } from "../tools/base-model.js";
-import { findMemberModel } from "../tools/member-models.js";
+import { findCourierModel, findMemberModel } from "../tools/member-models.js";
 import { resolveClaudeCommand } from "./chat/claude-command.js";
 import { OfficeChat } from "./chat/office-chat.js";
 import { hookResponse, PermissionGate } from "./chat/permission-gate.js";
@@ -708,6 +708,10 @@ function registerIpc(): void {
   });
   ipcMain.handle(ipcChannels.loadBaseModel, async () => {
     const path = findBaseModel(repoRootFrom(import.meta.dirname), process.env);
+    return path === null ? null : readModel(path);
+  });
+  ipcMain.handle(ipcChannels.loadCourierModel, async () => {
+    const path = findCourierModel(repoRootFrom(import.meta.dirname));
     return path === null ? null : readModel(path);
   });
   ipcMain.handle(ipcChannels.getConversationMode, () => settings.conversationMode);

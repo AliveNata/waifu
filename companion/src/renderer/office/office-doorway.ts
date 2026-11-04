@@ -26,7 +26,7 @@ export interface DoorwayWalk {
 }
 
 /** Where along the path `distance` meters from the door spot is, and which way that stretch runs. */
-function along(distance: number): { position: Point; heading: number } {
+export function doorwayAlong(distance: number): { position: Point; heading: number } {
   let left = distance;
   for (let index = 1; index < doorwayPath.length; index++) {
     const from = doorwayPath[index - 1] as Point;
@@ -54,7 +54,7 @@ export function doorwayWalk(stepElapsed: number, remaining: number): DoorwayWalk
   const back = Math.max(0, remaining * walkSpeed);
   const distance = Math.min(out, back, doorwayLength);
   const returning = back < out;
-  const { position, heading } = along(distance);
+  const { position, heading } = doorwayAlong(distance);
   return {
     position,
     // Walking back in faces the room: the heading of the stretch, turned round.

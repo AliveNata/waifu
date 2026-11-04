@@ -238,6 +238,22 @@ class OfficePage {
     for (const memberId of memberIds) {
       this.loadSaved(memberId);
     }
+    this.loadCourier();
+  }
+
+  /** The courier is optional: no models/courier.vrm keeps orders appearing on the mat as before. */
+  private loadCourier(): void {
+    this.bridge
+      .loadCourierModel()
+      .then(async (file) => {
+        if (file !== null) {
+          this.stage.setCourier(new VrmOfficeAvatar(await loadVrm(file.bytes)));
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("[office] courier model failed to load", error);
+        this.status.showNotice("Model kurir gagal dimuat, pesanan tetap ditaruh di depan pintu.", Date.now());
+      });
   }
 
   private applyCompanionVisible(visible: boolean): void {

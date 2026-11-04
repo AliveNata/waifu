@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { findMemberModel, memberModelFileNames } from "../src/tools/member-models.js";
+import { findCourierModel, findMemberModel, memberModelFileNames } from "../src/tools/member-models.js";
 
 const repoRoot = join("repo");
 
@@ -29,6 +29,27 @@ describe("findMemberModel", () => {
   it("returns null when the member has no file", () => {
     // Act
     const path = findMemberModel(repoRoot, "erza", () => false);
+
+    // Assert
+    expect(path).toBeNull();
+  });
+});
+
+describe("findCourierModel", () => {
+  it("finds courier.vrm in models/", () => {
+    // Arrange
+    const existing = new Set([join(repoRoot, "models", "courier.vrm")]);
+
+    // Act
+    const path = findCourierModel(repoRoot, (candidate) => existing.has(candidate));
+
+    // Assert
+    expect(path).toBe(join(repoRoot, "models", "courier.vrm"));
+  });
+
+  it("returns null without a courier model", () => {
+    // Act
+    const path = findCourierModel(repoRoot, () => false);
 
     // Assert
     expect(path).toBeNull();
