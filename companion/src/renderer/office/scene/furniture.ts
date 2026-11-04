@@ -5,15 +5,19 @@ import {
 } from "@pixiv/three-vrm";
 import {
   BoxGeometry,
+  CatmullRomCurve3,
   CylinderGeometry,
+  ExtrudeGeometry,
   Group,
   MeshBasicMaterial,
   MeshStandardMaterial,
   type Object3D,
   PlaneGeometry,
+  Shape,
   SphereGeometry,
   type Texture,
   TorusGeometry,
+  TubeGeometry,
   Vector3,
 } from "three";
 import { type Furniture, people, surface } from "../office-plan.js";
@@ -116,66 +120,154 @@ function sphereCollider(root: Group, x: number, y: number, z: number, radius: nu
 }
 
 /**
- * Executive office chair: cream leather seat and a tall back with a headrest, a chrome five-star
- * base on casters, short armrests kept low so typing elbows clear them, and the brand's purple
- * as matte panels down both sides of the back.
+ * The chair's body seen from the side, in (depth, height) with the front at +depth: one shell that
+ * runs from the rounded front of the seat, curves up through the lumbar, and rises into a tall
+ * back with the headrest in it, leaning back a little toward the top.
+ */
+function chairShellProfile(seatHeight: number): Shape {
+  const top = seatHeight + 0.6;
+  const under = seatHeight - 0.07;
+  const shape = new Shape();
+  shape.moveTo(0.19, under);
+  shape.quadraticCurveTo(0.225, under + 0.01, 0.215, seatHeight - 0.025);
+  shape.quadraticCurveTo(0.2, seatHeight, 0.16, seatHeight);
+  shape.lineTo(-0.1, seatHeight);
+  shape.quadraticCurveTo(-0.185, seatHeight, -0.19, seatHeight + 0.09);
+  shape.lineTo(-0.215, top - 0.04);
+  shape.quadraticCurveTo(-0.22, top + 0.02, -0.255, top);
+  shape.quadraticCurveTo(-0.272, top - 0.01, -0.272, top - 0.06);
+  shape.lineTo(-0.252, seatHeight + 0.08);
+  shape.quadraticCurveTo(-0.245, under, -0.12, under);
+  shape.closePath();
+  return shape;
+}
+
+/** The colored back cover: a thin shell behind the leather, from the lumbar to the top. */
+function chairCoverProfile(seatHeight: number): Shape {
+  const top = seatHeight + 0.585;
+  const shape = new Shape();
+  shape.moveTo(-0.25, seatHeight + 0.04);
+  shape.lineTo(-0.27, top - 0.06);
+  shape.quadraticCurveTo(-0.272, top + 0.005, -0.255, top + 0.012);
+  shape.lineTo(-0.285, top - 0.02);
+  shape.lineTo(-0.288, top - 0.06);
+  shape.lineTo(-0.268, seatHeight + 0.04);
+  shape.closePath();
+  return shape;
+}
+
+/** A side profile pushed out to `width`, edges rounded, centered on the chair's middle. */
+function extrudedAcross(shape: Shape, width: number, round: number): ExtrudeGeometry {
+  const geometry = new ExtrudeGeometry(shape, {
+    depth: width - 2 * round,
+    bevelEnabled: true,
+    bevelThickness: round,
+    bevelSize: round,
+    bevelSegments: 3,
+    curveSegments: 10,
+  });
+  // The profile is drawn in (depth, height) and extruded along z: turn it so the depth runs along
+  // the chair's z and the width across its x, then center it.
+  geometry.rotateY(-Math.PI / 2);
+  geometry.translate(width / 2 - round, 0, 0);
+  return geometry;
+}
+
+/** Built once per seat height and shared, since all the chairs at that height are alike. */
+const chairParts = new Map<number, { shell: ExtrudeGeometry; cover: ExtrudeGeometry; arm: TubeGeometry }>();
+
+function chairGeometry(seatHeight: number): { shell: ExtrudeGeometry; cover: ExtrudeGeometry; arm: TubeGeometry } {
+  const known = chairParts.get(seatHeight);
+  if (known !== undefined) {
+    return known;
+  }
+  // One armrest loop, from the back's side out and forward over the elbow, down to the seat edge.
+  const arm = new TubeGeometry(
+    new CatmullRomCurve3([
+      new Vector3(0, seatHeight + 0.2, -0.2),
+      new Vector3(0.02, seatHeight + 0.13, -0.08),
+      new Vector3(0.02, seatHeight + 0.1, 0.06),
+      new Vector3(0.01, seatHeight + 0.06, 0.13),
+      new Vector3(0, seatHeight - 0.03, 0.1),
+    ]),
+    24,
+    0.016,
+    8,
+    false,
+  );
+  const parts = {
+    shell: extrudedAcross(chairShellProfile(seatHeight), 0.42, 0.018),
+    cover: extrudedAcross(chairCoverProfile(seatHeight), 0.45, 0.01),
+    arm,
+  };
+  chairParts.set(seatHeight, parts);
+  return parts;
+}
+
+/**
+ * Executive office chair after the modern ones in startup offices: one curved cream leather
+ * shell from the seat up through the headrest, the brand's purple as a cover on the back that
+ * shows down both sides, looping armrests kept low so typing elbows clear them, and a chrome
+ * five-star base on casters.
  */
 export function buildChair(piece: Furniture, seatHeight: number): BuiltPiece {
   const root = placed(piece);
   const leather = standard(palette.leather, 0.45);
   const trim = standard(palette.accentDeep, 0.5);
-  const chrome = standard(palette.steel, 0.25, 0.85);
+  const chrome = standard(palette.steel, 0.2, 0.9);
   const dark = standard(palette.inkDeep, 0.6);
+  const { shell, cover, arm } = chairGeometry(seatHeight);
   const seatThickness = 0.07;
-  const backBottom = seatHeight + 0.03;
-  const backTop = seatHeight + 0.42;
-  const backZ = -0.2;
-  const backDepth = 0.07;
-  const headrestBottom = backTop + 0.035;
-  const headrestTop = headrestBottom + 0.11;
 
   for (let spoke = 0; spoke < 5; spoke++) {
     const angle = (spoke / 5) * Math.PI * 2;
-    const leg = box(0.028, 0.025, 0.22, chrome, Math.sin(angle) * 0.1, 0.03, Math.cos(angle) * 0.1);
-    leg.rotation.y = angle;
-    const caster = mesh(new SphereGeometry(0.022, 10, 8), dark);
-    caster.position.set(Math.sin(angle) * 0.205, 0.022, Math.cos(angle) * 0.205);
-    root.add(leg, caster);
+    const spokeGroup = new Group();
+    spokeGroup.rotation.y = angle;
+    // Each spoke tapers and dips toward its caster, the way a cast base does.
+    const leg = box(0.032, 0.022, 0.2, chrome, 0, 0.055, 0.1);
+    leg.rotation.x = 0.12;
+    const fork = box(0.022, 0.04, 0.022, dark, 0, 0.03, 0.205);
+    const wheel = mesh(new CylinderGeometry(0.024, 0.024, 0.02, 12), dark);
+    wheel.rotation.z = Math.PI / 2;
+    wheel.position.set(0, 0.024, 0.215);
+    spokeGroup.add(leg, fork, wheel);
+    root.add(spokeGroup);
   }
-  const columnHeight = seatHeight - seatThickness - 0.05;
-  const column = mesh(new CylinderGeometry(0.02, 0.026, columnHeight, 12), chrome);
-  column.position.y = 0.05 + columnHeight / 2;
+  const hub = mesh(new CylinderGeometry(0.045, 0.05, 0.035, 16), chrome);
+  hub.position.y = 0.07;
+  const columnHeight = seatHeight - seatThickness - 0.08;
+  const column = mesh(new CylinderGeometry(0.02, 0.022, columnHeight, 12), chrome);
+  column.position.y = 0.08 + columnHeight / 2;
+  const sleeve = mesh(new CylinderGeometry(0.03, 0.03, 0.09, 12), dark);
+  sleeve.position.y = 0.13;
   root.add(
+    hub,
     column,
+    sleeve,
     // The tilt mechanism under the seat.
-    box(0.16, 0.035, 0.18, dark, 0, seatHeight - seatThickness - 0.035, 0),
-    box(0.42, seatThickness, 0.4, leather, 0, seatHeight - seatThickness, 0.01),
-    // The back, with the purple side panels standing a little proud of the leather.
-    box(0.36, backTop - backBottom, backDepth, leather, 0, backBottom, backZ),
-    box(0.035, backTop - backBottom + 0.02, backDepth + 0.012, trim, -0.195, backBottom - 0.01, backZ),
-    box(0.035, backTop - backBottom + 0.02, backDepth + 0.012, trim, 0.195, backBottom - 0.01, backZ),
-    // The headrest on its purple stem.
-    box(0.05, headrestBottom - backTop + 0.02, 0.03, trim, 0, backTop - 0.01, backZ - 0.01),
-    box(0.26, headrestTop - headrestBottom, 0.065, leather, 0, headrestBottom, backZ + 0.005),
+    box(0.18, 0.03, 0.2, dark, 0, seatHeight - seatThickness - 0.03, 0),
+    mesh(shell, leather),
+    mesh(cover, trim),
   );
-  // Short armrests, set out past the seat's edge and low: a skirt spreading over the seat edge
-  // and an elbow at the keys both stay clear of them.
-  const armX = 0.25;
-  const armTop = seatHeight + 0.085;
+  // Armrests close to the seat's sides and low: a skirt spreading over the seat edge and an elbow
+  // at the keys both stay clear of them.
+  const armX = 0.235;
+  const armTop = seatHeight + 0.115;
   for (const side of [-1, 1]) {
-    root.add(
-      box(0.025, armTop - seatHeight + 0.02, 0.025, chrome, side * armX, seatHeight - 0.02, -0.06),
-      box(0.05, 0.022, 0.2, dark, side * armX, armTop - 0.022, -0.05),
-    );
+    const loop = mesh(arm, leather);
+    loop.position.x = side * armX;
+    loop.scale.x = side;
+    // A dark pad along the top where the forearm rests.
+    root.add(loop, box(0.04, 0.012, 0.16, dark, side * (armX + 0.02), armTop - 0.004, -0.02));
   }
+  const backZ = -0.235;
   return {
     root,
     hairColliders: [
-      ...panelColliders(root, 0.38, backZ, backBottom, backTop, 0.04),
-      capsuleCollider(root, 0.26, (headrestBottom + headrestTop) / 2, backZ, 0.05),
+      ...panelColliders(root, 0.4, backZ, seatHeight + 0.06, seatHeight + 0.58, 0.04),
       // Along each armrest pad, so a skirt or long hair drapes over it instead of cutting through.
-      lengthwiseCollider(root, -armX, armTop - 0.01, -0.15, 0.05, 0.03),
-      lengthwiseCollider(root, armX, armTop - 0.01, -0.15, 0.05, 0.03),
+      lengthwiseCollider(root, -armX - 0.02, armTop - 0.01, -0.15, 0.08, 0.03),
+      lengthwiseCollider(root, armX + 0.02, armTop - 0.01, -0.15, 0.08, 0.03),
       ...seatColliders(root, 0.4, seatHeight - 0.03, 0.15, -0.15, 0.035),
     ],
   };
