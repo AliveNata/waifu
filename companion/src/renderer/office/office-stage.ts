@@ -23,6 +23,7 @@ import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { idleReaction, type MemberSignal, type Reaction } from "../../shared/reaction.js";
+import type { OfficeSoundSettings } from "../../shared/sound-settings.js";
 import { type MemberId, memberIds, roster } from "../../shared/team.js";
 import {
   BlinkScheduler,
@@ -103,6 +104,7 @@ import {
 import { type BoardFocus, bossWaveWindow, officePose, pingpongSwing } from "./office-pose.js";
 import { officeDay, ritualFor, standupTurn, standupTurnSeconds } from "./office-rituals.js";
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
+import { OfficeSound, rallyHits } from "./office-sound.js";
 import { atJakartaTime, type DayPart, dayPart, jakartaHours, skyAt } from "./office-time.js";
 import { PlaceholderAvatar } from "./placeholder.js";
 import { CatBowl, OfficeCat } from "./scene/cat.js";
@@ -498,6 +500,15 @@ export class OfficeStage {
   private catLook: { point: Point; until: number } | null = null;
   private catPettedAt: number | null = null;
   private catBegged: number | null = null;
+  private readonly sound = new OfficeSound();
+  private soundOn = false;
+  private readonly soundRight = new Vector3();
+  /** Where the rally was last frame, to hear each paddle and bounce it passed since. */
+  private lastRallyLeg: number | null = null;
+  private doorWasOpen = false;
+  private lastBrewer: MemberId | null = null;
+  /** The start of the last line of Mochi's that was voiced, so each meow sounds once. */
+  private meowedFor: number | null = null;
   private readonly catGreetedBy = new Map<MemberId, number>();
   /** 0 just fed to 1 starving; she goes to the bowl from hungryFrom on. */
   private catHunger = 0.3;
@@ -590,6 +601,9 @@ export class OfficeStage {
     // Soft shadows ground the people and furniture; without them the room reads as floating props.
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
+    // Three redraws the shadow map on every render call, and the frame makes several (the
+    // ambient occlusion's normals, the close-up). Once per frame is enough: see frame().
+    this.renderer.shadowMap.autoUpdate = false;
 
     const sun = this.sun;
     sun.position.set(6, 11, 8);
@@ -818,7 +832,18 @@ export class OfficeStage {
       this.controls.enabled = true;
       this.resetView();
     }
+    // Inside the room the missing walls and ceiling would show as a void; from outside they hide it.
+    this.office.enclosure.root.visible = on;
     this.lastInputAt = Date.now();
+  }
+
+  setSound(settings: OfficeSoundSettings): void {
+    this.soundOn = settings.enabled && settings.volume > 0;
+    this.sound.configure(settings);
+  }
+
+  wakeSound(): void {
+    this.sound.wake();
   }
 
   firstPersonOn(): boolean {
@@ -1341,6 +1366,7 @@ export class OfficeStage {
       this.catSpeech = { text: catLine("begging", Math.random), startedAt: this.elapsed, until: this.elapsed + 2.5 };
     }
     this.greetCat();
+    this.voiceCat(petted);
     // Beside the ping-pong table her head follows the ball; otherwise whoever she looks at.
     const ball = this.office.pingpongBall;
     const watching = this.cat.spotId === "pingpong" && this.cat.arrivedAt !== null && ball.visible;
@@ -1358,6 +1384,20 @@ export class OfficeStage {
   }
 
   /** A teammate walking past says hello to Mochi, and she answers. */
+  /** A meow as each of Mochi's lines starts, and a purr instead while she is stroked. */
+  private voiceCat(petted: boolean): void {
+    const at = { x: this.cat.position.x, y: this.cat.height + 0.25, z: this.cat.position.z };
+    this.sound.setPurr(petted ? at : null);
+    const line = this.catSpeech;
+    if (line === null || this.elapsed < line.startedAt || this.meowedFor === line.startedAt) {
+      return;
+    }
+    this.meowedFor = line.startedAt;
+    if (!petted) {
+      this.sound.play("meow", at);
+    }
+  }
+
   private greetCat(): void {
     if (this.elapsed - this.catGreetedLast < catGreetCooldown.anyone) {
       return;
@@ -1616,6 +1656,13 @@ export class OfficeStage {
         hands.strike(handForKey(character), keyboard.keyTop(character, keyScratch));
       }
       rig.keystrokes += typed.length;
+      if (this.soundOn && typed.length > 0) {
+        // A fast burst can type a few characters in one frame; two clicks are enough to hear it.
+        const at = keyboard.root.getWorldPosition(keyScratch);
+        for (let stroke = 0; stroke < Math.min(2, typed.length); stroke++) {
+          this.sound.play("key", at);
+        }
+      }
       keyboard.update(delta);
       hands.update(delta);
       mouse.update(delta, mousing);
@@ -1986,6 +2033,11 @@ export class OfficeStage {
     }
     pairs.push(...this.updateStandup(settledAt));
     const brewing = settledAt("coffee", "brew");
+    if (brewing !== null && brewing !== this.lastBrewer) {
+      const machine = stations.coffee.spot;
+      this.sound.play("coffee", { x: machine.x, y: 1, z: machine.z });
+    }
+    this.lastBrewer = brewing;
     const snacking = settledAt("fridge", "snack");
     if (brewing !== null && snacking !== null) {
       pairs.push([brewing, snacking]);
@@ -2045,6 +2097,8 @@ export class OfficeStage {
     // few have gathered.
     if (this.standup.startedAt === null && ((lead !== null && present.length > 0) || present.length >= 3)) {
       this.standup.startedAt = this.elapsed;
+      const board = stations[leadSpot ?? "standup-1"].spot;
+      this.sound.play("gong", { x: board.x, y: 1.4, z: board.z });
     }
     if (this.standup.startedAt === null) {
       return [];
@@ -2450,13 +2504,15 @@ export class OfficeStage {
     );
     this.office.fridgeDoor.update(usingAt("fridge", "snack") || this.alyxOn.has("fridge"), delta);
     const door = stations.door.spot;
-    this.office.entryDoor.update(
-      memberIds.some((memberId) => {
-        const rig = this.rigs[memberId];
-        return rig.avatar.root.visible && distance(rig.actor.position, door) < doorOpenDistance;
-      }),
-      delta,
-    );
+    const doorOpen = memberIds.some((memberId) => {
+      const rig = this.rigs[memberId];
+      return rig.avatar.root.visible && distance(rig.actor.position, door) < doorOpenDistance;
+    });
+    this.office.entryDoor.update(doorOpen, delta);
+    if (doorOpen !== this.doorWasOpen) {
+      this.doorWasOpen = doorOpen;
+      this.sound.play(doorOpen ? "door-open" : "door-close", { x: door.x, y: 1, z: door.z });
+    }
     this.office.barFood.update(this.food);
     this.office.sink.update(usingAt("sink", "wash"), this.elapsed);
     const cook = memberIds.find((memberId) => {
@@ -2502,11 +2558,18 @@ export class OfficeStage {
     // Same clock as pingpongBeat, so the ball and the swings stay in step.
     ball.visible = rally;
     if (!rally) {
+      this.lastRallyLeg = null;
       return;
     }
     const west = stations["pingpong-west"].spot;
     const east = stations["pingpong-east"].spot;
     const leg = rallyLeg(this.elapsed);
+    if (this.lastRallyLeg !== null) {
+      for (const hit of rallyHits(this.lastRallyLeg, leg)) {
+        this.sound.play(hit, ball.position);
+      }
+    }
+    this.lastRallyLeg = leg;
     // 0..1 west to east, 1..2 back again; the ends stay just inside the paddles.
     const t = leg < 1 ? leg : 2 - leg;
     const fromX = west.x + 0.3;
@@ -2691,6 +2754,8 @@ export class OfficeStage {
     const emptied = (away.length / memberIds.length) * night;
     this.hemisphere.intensity *= 1 - 0.45 * emptied;
     this.windowFill.intensity *= 1 - 0.3 * emptied;
+    // The ceiling panels are the room lights Alyx looks up at, so they go down with them.
+    this.office.enclosure.setLight(1 - 0.6 * emptied);
     this.night = night;
   }
 
@@ -2712,6 +2777,14 @@ export class OfficeStage {
     this.elapsed += delta;
     const now = Date.now();
     this.onFrame();
+    if (this.soundOn) {
+      // Last frame's camera: a frame behind is nothing to the ear.
+      this.soundRight.setFromMatrixColumn(this.camera.matrixWorld, 0);
+      this.sound.setListener({
+        position: this.camera.position,
+        right: { x: this.soundRight.x, z: this.soundRight.z },
+      });
+    }
 
     this.updateChatter(delta);
     this.handoffs.update(now);
@@ -2744,7 +2817,10 @@ export class OfficeStage {
 
     this.renderer.setScissorTest(false);
     this.renderer.setViewport(0, 0, width, height);
-    if (this.composer !== null) {
+    this.renderer.shadowMap.needsUpdate = true;
+    // Ambient occlusion costs a second pass over the whole scene. At eye height in first person
+    // that pass is most of the frame and the shading it adds is hard to see, so Alyx goes without.
+    if (this.composer !== null && !this.firstPerson.active) {
       this.composer.render(delta);
     } else {
       this.renderer.setClearColor(0x000000, 0);
@@ -2791,7 +2867,12 @@ export class OfficeStage {
       this.renderer.setViewport(rect.x, bottom, rect.width, rect.height);
       this.renderer.setClearColor(closeupBackground, 1);
       this.renderer.clear();
+      // Close-up shots are framed for the open room and some start outside where a wall would be.
+      const enclosure = this.office.enclosure.root;
+      const enclosed = enclosure.visible;
+      enclosure.visible = false;
       this.renderer.render(this.scene, this.closeupCamera);
+      enclosure.visible = enclosed;
       this.renderer.setScissorTest(false);
     }
     this.lastDrawCalls = this.renderer.info.render.calls;

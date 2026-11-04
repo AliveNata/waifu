@@ -16,6 +16,7 @@ import {
   resolveHookPort,
 } from "../shared/protocol.js";
 import type { CompanionSignal } from "../shared/reaction.js";
+import { normalizeSoundSettings, type OfficeSoundSettings } from "../shared/sound-settings.js";
 import { isMemberId, type MemberId, memberIds, roster } from "../shared/team.js";
 import { findBaseModel, repoRootFrom } from "../tools/base-model.js";
 import { findMemberModel } from "../tools/member-models.js";
@@ -354,6 +355,22 @@ function showMenu(window: BrowserWindow): void {
       click: (item) => setFpsVisible(item.checked),
     },
     {
+      label: "Efek suara kantor",
+      type: "checkbox",
+      checked: settings.officeSound.enabled,
+      click: (item) => setOfficeSound({ ...settings.officeSound, enabled: item.checked }),
+    },
+    {
+      label: "Volume efek suara",
+      // A native menu has no slider, so a few fixed steps; the office page has the fine one.
+      submenu: soundVolumeSteps.map((volume) => ({
+        label: `${volume}%`,
+        type: "radio" as const,
+        checked: settings.officeSound.volume === volume,
+        click: () => setOfficeSound({ enabled: true, volume }),
+      })),
+    },
+    {
       label: "Grafis kantor tinggi",
       type: "checkbox",
       checked: settings.officeQuality === "high",
@@ -413,6 +430,16 @@ function setCloseupEnabled(enabled: boolean): void {
 function setFpsVisible(visible: boolean): void {
   updateSettings({ fpsVisible: visible })
     .then(() => broadcast(ipcChannels.fpsVisible, visible))
+    .catch((error: unknown) => console.error("[main] failed to save settings", error));
+}
+
+/** The volumes the native menu offers for the office's sound effects. */
+const soundVolumeSteps = [25, 50, 75, 100] as const;
+
+function setOfficeSound(sound: OfficeSoundSettings): void {
+  const next = normalizeSoundSettings(sound);
+  updateSettings({ officeSound: next })
+    .then(() => broadcast(ipcChannels.officeSound, next))
     .catch((error: unknown) => console.error("[main] failed to save settings", error));
 }
 
@@ -663,6 +690,14 @@ function registerIpc(): void {
       return;
     }
     setFpsVisible(visible);
+  });
+  ipcMain.handle(ipcChannels.getOfficeSound, () => settings.officeSound);
+  ipcMain.on(ipcChannels.setOfficeSound, (_event, sound: unknown) => {
+    if (typeof sound !== "object" || sound === null) {
+      console.error(`[main] ignoring malformed sound setting: ${String(sound)}`);
+      return;
+    }
+    setOfficeSound(normalizeSoundSettings(sound));
   });
   ipcMain.on(ipcChannels.setConversationMode, (_event, mode: unknown) => {
     if (!isConversationMode(mode)) {

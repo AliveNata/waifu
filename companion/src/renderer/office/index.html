@@ -197,6 +197,15 @@
           <input type="checkbox" id="fps-setting" />
           Tampilkan FPS (tombol F)
         </label>
+        <label class="setting-row">
+          <input type="checkbox" id="sound-setting" />
+          Efek suara kantor
+        </label>
+        <div class="setting-volume">
+          <label for="sound-volume">Volume efek</label>
+          <input id="sound-volume" type="range" min="0" max="100" step="5" />
+          <output id="sound-volume-value" for="sound-volume"></output>
+        </div>
         <form method="dialog">
           <button class="button" type="submit">Tutup</button>
         </form>

@@ -1,5 +1,6 @@
 import type { ChatEvent, ChatSessionList, ChatStatus } from "./office-chat.js";
 import type { CompanionSignal } from "./reaction.js";
+import type { OfficeSoundSettings } from "./sound-settings.js";
 import type { MemberId } from "./team.js";
 import type { CompanionCommand, TwobReply, TwobStatus } from "./twob-chat.js";
 
@@ -63,6 +64,10 @@ export interface CompanionApi {
   getFpsVisible(): Promise<boolean>;
   setFpsVisible(visible: boolean): void;
   onFpsVisible(listener: (visible: boolean) => void): () => void;
+  /** The office's sound effects: on or off, and how loud. */
+  getOfficeSound(): Promise<OfficeSoundSettings>;
+  setOfficeSound(settings: OfficeSoundSettings): void;
+  onOfficeSound(listener: (settings: OfficeSoundSettings) => void): () => void;
   /** Graphics quality of the office, read once when the office page loads. */
   getOfficeQuality(): Promise<OfficeQuality>;
   /** Whether 2B's desktop companion window is shown. */
@@ -133,6 +138,9 @@ export const ipcChannels = {
   getFpsVisible: "companion:get-fps-visible",
   setFpsVisible: "companion:set-fps-visible",
   fpsVisible: "companion:fps-visible",
+  getOfficeSound: "companion:get-office-sound",
+  setOfficeSound: "companion:set-office-sound",
+  officeSound: "companion:office-sound",
   getOfficeQuality: "companion:get-office-quality",
   getCompanionVisible: "companion:get-companion-visible",
   setCompanionVisible: "companion:set-companion-visible",

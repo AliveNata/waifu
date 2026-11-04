@@ -7,6 +7,7 @@ import type {
 } from "../../shared/protocol.js";
 import { isConversationMode, isOfficeQuality, type OfficeQuality } from "../../shared/protocol.js";
 import type { CompanionSignal } from "../../shared/reaction.js";
+import { normalizeSoundSettings, type OfficeSoundSettings } from "../../shared/sound-settings.js";
 import type { MemberId } from "../../shared/team.js";
 
 declare global {
@@ -120,6 +121,26 @@ function storeFps(visible: boolean): void {
   }
 }
 
+const officeSoundKey = "waifu.officeSound";
+
+function readStoredSound(): OfficeSoundSettings {
+  try {
+    const stored = window.localStorage.getItem(officeSoundKey);
+    return normalizeSoundSettings(stored === null ? undefined : JSON.parse(stored));
+  } catch (error) {
+    console.warn("[bridge] could not read the sound setting, the office starts silent", error);
+    return normalizeSoundSettings(undefined);
+  }
+}
+
+function storeSound(settings: OfficeSoundSettings): void {
+  try {
+    window.localStorage.setItem(officeSoundKey, JSON.stringify(settings));
+  } catch (error) {
+    console.warn("[bridge] could not persist the sound setting", error);
+  }
+}
+
 /** Browser preview: ?quality=low on the office URL, for checking how slower machines see it. */
 function webOfficeQuality(): OfficeQuality {
   const asked = new URLSearchParams(window.location.search).get("quality");
@@ -134,6 +155,8 @@ function createWebBridge(): RendererBridge {
   const closeupListeners = new Set<(enabled: boolean) => void>();
   let fpsVisible = readStoredFps();
   const fpsListeners = new Set<(visible: boolean) => void>();
+  let officeSound = readStoredSound();
+  const soundListeners = new Set<(settings: OfficeSoundSettings) => void>();
   const signalListeners = new Set<(signal: CompanionSignal) => void>();
 
   const ensureEventStream = (): void => {
@@ -205,6 +228,20 @@ function createWebBridge(): RendererBridge {
     onFpsVisible(listener) {
       fpsListeners.add(listener);
       return () => fpsListeners.delete(listener);
+    },
+    async getOfficeSound() {
+      return officeSound;
+    },
+    setOfficeSound(settings) {
+      officeSound = normalizeSoundSettings(settings);
+      storeSound(officeSound);
+      for (const listener of soundListeners) {
+        listener(officeSound);
+      }
+    },
+    onOfficeSound(listener) {
+      soundListeners.add(listener);
+      return () => soundListeners.delete(listener);
     },
     // The browser page is itself the companion; there is no separate window to show or hide.
     async getCompanionVisible() {
