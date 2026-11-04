@@ -492,12 +492,12 @@ function monitor(map: Texture, width: number, height: number, x: number, z: numb
 }
 
 /** Desktop tower beside the desk with a glass side and RGB fans: the gaming half of the setup. */
-function pcTower(x: number, z: number, glowColor: string = palette.accent): Group {
+function pcTower(x: number, z: number, glowColor: string = palette.accent, brightness = 1): Group {
   const group = new Group();
   group.add(
     box(0.16, 0.36, 0.34, standard(palette.inkDeep, 0.35, 0.3), 0, 0, 0),
-    box(0.005, 0.3, 0.28, glow(glowColor, 1.4), 0.082, 0.03, 0),
-    box(0.1, 0.012, 0.012, glow(glowColor, 1.8), 0, 0.33, 0.171),
+    box(0.005, 0.3, 0.28, glow(glowColor, 1.4 * brightness), 0.082, 0.03, 0),
+    box(0.1, 0.012, 0.012, glow(glowColor, 1.8 * brightness), 0, 0.33, 0.171),
   );
   group.position.set(x, 0, z);
   return group;
@@ -583,7 +583,6 @@ function asunaDesk(piece: Furniture): DeskBuild {
     monitor(screen.texture, landscape.width, landscape.height, 0, back),
     monitor(pipelineTexture(), landscape.width, landscape.height, -0.46, back + 0.06, 0.35),
     monitor(jobRunsTexture(), portrait.width, portrait.height, 0.38, back + 0.05, -0.35),
-    pcTower(width / 2 - 0.14, 0, "#5fa8d3"),
   );
   const keyboard = keyboardFor("asuna", keyboardZ(depth));
   const mouse = mouseBeside(keyboard, palette.accent, palette.inkDeep);
@@ -643,7 +642,6 @@ function erzaDesk(piece: Furniture): DeskBuild {
   inner.add(
     monitor(screen.texture, landscape.width, landscape.height, -0.12, back),
     monitor(checklistTexture(), portrait.width, portrait.height, 0.28, back + 0.03, -0.25),
-    pcTower(width / 2 - 0.14, 0, "#e35d5d"),
   );
   const keyboard = keyboardFor("erza", keyboardZ(depth));
   const mouse = mouseBeside(keyboard, palette.accent, palette.inkDeep);
@@ -742,7 +740,8 @@ function laptop(screen: ScreenSurface, depth: number, shell: string, keys: strin
   keyboard.root.position.set(0, deskTop, keyboardZ(depth));
   const mouse = mouseBeside(keyboard, palette.accent, keys);
   const lid = new Group();
-  lid.position.set(0, deskTop + 0.01, keyboardZ(depth) - 0.11);
+  // Hinged above the keys, so the shut lid lies on them instead of the keys poking through it.
+  lid.position.set(0, deskTop + 0.03, keyboardZ(depth) - 0.11);
   lid.rotation.x = 0.25;
   lid.userData.openAngle = 0.25;
   lid.add(box(0.38, 0.24, 0.012, standard(shell, 0.5), 0, 0, -0.006));
@@ -1204,6 +1203,19 @@ const lampX: Record<DeskMember, number> = {
  * `returnSide` is the side of the desk its L-desk return is on, in the desk's frame (+1 the
  * sitter's right), or null for a desk without one.
  */
+/**
+ * The fan glow in each L-desk member's tower, picked for their work: cyan for data, red for
+ * review, teal for planning, violet for the tech lead, green for security, pink for design.
+ */
+const towerGlow: Partial<Record<DeskMember, string>> = {
+  asuna: "#3fd4ff",
+  erza: "#ff4d5e",
+  arisu: "#2ee6c0",
+  komachi: "#9b6bff",
+  miruku: "#3dff7a",
+  huagua: "#ff5fc8",
+};
+
 export function buildDesk(
   member: DeskMember,
   piece: Furniture,
@@ -1211,7 +1223,18 @@ export function buildDesk(
   returnSide: -1 | 1 | null = null,
 ): BuiltDesk {
   const built = deskParts(member, piece, kanban);
-  const { depth } = deskSize(piece);
+  const { width, depth } = deskSize(piece);
+  // The L-desks' towers stand at the open end, away from the return, where they can be seen.
+  const glowColor = towerGlow[member];
+  if (glowColor !== undefined) {
+    const side = returnSide === null ? 1 : -returnSide;
+    // Under the desk at the back, its glass side turned to the sitter and the aisle behind them,
+    // and brighter than the open-desk towers, since the desk shades it.
+    const tower = pcTower(side * (width / 2 - 0.16), -depth / 2 + 0.22, glowColor, 1.8);
+    tower.scale.setScalar(0.88);
+    tower.rotation.y = -Math.PI / 2;
+    built.root.add(tower);
+  }
   const lamp = deskLamp(member, lampX[member], -depth / 2 + 0.1, depth);
   // The desk's root holds the desk frame, so the lamp goes in at desk coordinates.
   built.root.add(lamp.root);

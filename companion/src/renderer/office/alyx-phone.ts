@@ -89,6 +89,17 @@ export class AlyxPhone {
       return lens;
     });
     this.root.add(body, screen, bump, ...lenses);
+    // Held from behind, the fingers wrap its back; drawn over the hand so none shows through it.
+    this.root.traverse((part) => {
+      if (part instanceof Mesh) {
+        part.renderOrder = 10;
+        const materials = Array.isArray(part.material) ? part.material : [part.material];
+        for (const material of materials) {
+          material.depthTest = false;
+        }
+      }
+    });
+    screen.renderOrder = 11;
   }
 
   /** Draws the order app: the list on its two tabs, or how far along the order is. */

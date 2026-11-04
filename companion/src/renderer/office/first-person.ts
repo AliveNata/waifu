@@ -143,13 +143,16 @@ export class FirstPerson {
     private readonly canvas: HTMLCanvasElement,
     private readonly free: (point: Point) => boolean,
     private readonly interact: () => void,
+    /** True while something else (the phone) uses the arrow keys. */
+    private readonly arrowsTaken: () => boolean = () => false,
   ) {
     window.addEventListener("keydown", (event) => {
       if (!this.on || typingIn(event.target) || document.querySelector("dialog[open]") !== null) {
         return;
       }
       this.fast = event.shiftKey;
-      if (event.code in keyAxes) {
+      // With the phone out the arrows work its list, so only WASD walks.
+      if (event.code in keyAxes && !(this.arrowsTaken() && event.code.startsWith("Arrow"))) {
         this.held.add(event.code);
         event.preventDefault();
       } else if (event.code === "KeyE" && !event.repeat && this.locked) {

@@ -126,6 +126,7 @@ export type HandPropKind =
   | "carton"
   | "food-box"
   | "food-bag"
+  | "trash-bag"
   | "clipboard"
   | "hourglass"
   | "pen"

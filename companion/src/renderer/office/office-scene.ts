@@ -31,6 +31,7 @@ import { buildContactShadows } from "./scene/contact-shadows.js";
 import { buildDesk, type DeskMember, deskTop, memberPropLooks, type Workstation } from "./scene/desks.js";
 import { buildEnclosure, type Enclosure } from "./scene/enclosure.js";
 import {
+  Bookshelf,
   buildArcade,
   buildBackdrop,
   buildBarCounter,
@@ -128,6 +129,8 @@ export interface OfficeProps {
   wallClock: WallClock;
   /** Who is working on what, on the back wall. */
   statusBoard: StatusBoard;
+  /** The shelves of books by the front wall, for taking one down to read. */
+  bookshelf: Bookshelf | null;
   /** The shared food on the end of the bar. */
   barFood: BarFoodDisplay;
   /** The way out, at the right edge of the room, which opens for whoever goes through. */
@@ -342,6 +345,7 @@ export function buildOffice(): OfficeProps {
   let rackCups: Object3D[] = [];
   let wallClock: WallClock | null = null;
   let statusBoard: StatusBoard | null = null;
+  let bookshelf: Bookshelf | null = null;
   let fridgeDoor: FridgeDoor | null = null;
   let sink: SinkTap | null = null;
   let pantryReach: OfficeProps["pantryReach"] | null = null;
@@ -472,6 +476,10 @@ export function buildOffice(): OfficeProps {
       case "coffee-table":
         root.add(buildCoffeeTable(piece));
         break;
+      case "bookshelf":
+        bookshelf = new Bookshelf(piece);
+        root.add(bookshelf.root);
+        break;
       case "plant":
         root.add(buildPlant(piece));
         break;
@@ -530,7 +538,7 @@ export function buildOffice(): OfficeProps {
         root.add(buildTrashBin(piece));
         break;
       case "entry-door": {
-        const built = buildEntryDoor(piece);
+        const built = buildEntryDoor(piece, logo);
         entryDoor = built.door;
         root.add(built.root);
         break;
@@ -633,6 +641,7 @@ export function buildOffice(): OfficeProps {
     },
     wallClock,
     statusBoard,
+    bookshelf,
     barFood,
     entryDoor,
     enclosure: buildEnclosure(),

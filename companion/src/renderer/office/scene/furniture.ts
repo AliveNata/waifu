@@ -174,7 +174,7 @@ function extrudedAcross(shape: Shape, width: number, round: number): ExtrudeGeom
 }
 
 /** The chair's back cover, close to the logo's purple. */
-const chairPurple = "#8e3fd6";
+const chairPurple = "#a33ccc";
 
 /** Built once per seat height and shared, since all the chairs at that height are alike. */
 const chairParts = new Map<number, { shell: ExtrudeGeometry; cover: ExtrudeGeometry; arm: TubeGeometry }>();
@@ -641,9 +641,9 @@ export class EntryDoor {
  * when shut. Each door slides out over its own side bay, so the whole opening clears.
  */
 /** How tall the glass doors are; the header over them takes another 10 cm. */
-export const entryDoorHeight = 1.45;
+export const entryDoorHeight = 1.6;
 
-export function buildEntryDoor(piece: Furniture): { root: Group; door: EntryDoor } {
+export function buildEntryDoor(piece: Furniture, logo: Texture | null = null): { root: Group; door: EntryDoor } {
   const root = placed(piece);
   const { width } = localSize(piece);
   // Half the footprint is the opening, a quarter on each side is where a door slides to.
@@ -684,6 +684,28 @@ export function buildEntryDoor(piece: Furniture): { root: Group; door: EntryDoor
     return plane;
   };
   const panelWidth = opening / 2;
+  /**
+   * The logo above the name, centered on the seam: each door carries its own half, so the mark
+   * splits down the middle as the doors slide apart.
+   */
+  const logoSize = 0.16;
+  const logoHalf = (side: -1 | 1): Object3D | null => {
+    if (logo === null) {
+      return null;
+    }
+    const half = logo.clone();
+    half.repeat.set(0.5, 1);
+    half.offset.set(side === -1 ? 0 : 0.5, 0);
+    half.needsUpdate = true;
+    const plane = mesh(
+      new PlaneGeometry(logoSize / 2, logoSize),
+      new MeshBasicMaterial({ map: half, transparent: true, depthWrite: false, toneMapped: false }),
+      false,
+    );
+    // At the inner edge of this door, on the room side of the glass, above the lettering.
+    plane.position.set((-side * panelWidth) / 2 + (side * logoSize) / 4, 1.17, 0.008);
+    return plane;
+  };
   const door = (side: -1 | 1, word: "Alyx" | "Labs"): Group => {
     const panel = new Group();
     const inner = new Group();
@@ -698,6 +720,10 @@ export function buildEntryDoor(piece: Furniture): { root: Group; door: EntryDoor
       box(panelWidth - 0.01, 0.03, 0.02, steel, 0, height - 0.05, 0),
       lettering(word),
     );
+    const mark = logoHalf(side);
+    if (mark !== null) {
+      inner.add(mark);
+    }
     // Both halves run in one plane, so the name stays joined from any angle; the panes stop
     // short of the seam, so they never overlap.
     panel.add(inner);
@@ -1119,4 +1145,88 @@ export function buildPrinterCabinet(piece: Furniture): Group {
     box(0.012, 0.012, 0.01, glow(), width / 2 - 0.09, cabinetHeight + 0.1, (depth - 0.14) / 2 + 0.005),
   );
   return root;
+}
+
+/** Spine colors for the books: muted cloth and paper tones with the odd bright paperback. */
+const spineColors = ["#7a2e3a", "#2f4b6e", "#3e5e3a", "#c9a46a", "#5b3f78", "#d9d4cc", "#a8573a", "#22313f", "#e2b33c"];
+
+/**
+ * Chest-high open shelves against a wall: an oak frame, a dark back, three tiers of books with
+ * the odd gap and a leaning one, so it reads as used rather than staged. Any book can be taken
+ * off and put back; a taken one leaves its gap.
+ */
+export class Bookshelf {
+  readonly root: Group;
+  readonly books: Object3D[] = [];
+
+  constructor(piece: Furniture) {
+    this.root = placed(piece);
+    const { width, depth } = localSize(piece);
+    const height = 0.95;
+    const oak = standard(palette.oak, 0.65);
+    const back = standard(palette.inkDeep, 0.8);
+    const side = 0.03;
+    const tiers = [0.04, 0.34, 0.64];
+    this.root.add(
+      box(width, height, 0.02, back, 0, 0, -depth / 2 + 0.01),
+      box(side, height, depth, oak, -width / 2 + side / 2, 0, 0),
+      box(side, height, depth, oak, width / 2 - side / 2, 0, 0),
+      box(width, 0.03, depth, oak, 0, height - 0.03, 0),
+      box(width - 2 * side, 0.04, depth, oak, 0, 0, 0),
+      ...tiers.slice(1).map((y) => box(width - 2 * side, 0.025, depth, oak, 0, y - 0.025, 0)),
+    );
+    // A fixed pattern, so every visit shows the same shelves.
+    let seed = 7;
+    const next = (): number => {
+      seed = (seed * 9301 + 49297) % 233280;
+      return seed / 233280;
+    };
+    for (const floor of tiers) {
+      let x = -width / 2 + side + 0.02;
+      const end = width / 2 - side - 0.02;
+      while (x < end - 0.05) {
+        if (next() < 0.08) {
+          // A gap, as on any real shelf.
+          x += 0.06 + next() * 0.08;
+          continue;
+        }
+        const thick = 0.022 + next() * 0.026;
+        const tall = 0.19 + next() * 0.07;
+        const book = box(
+          thick,
+          tall,
+          0.19 + next() * 0.04,
+          standard(spineColors[Math.floor(next() * spineColors.length)] ?? "#7a2e3a", 0.85),
+          0,
+          0,
+          0,
+        );
+        const holder = new Group();
+        holder.position.set(x + thick / 2, floor, depth / 2 - 0.13);
+        if (next() < 0.06 && x + thick + 0.05 < end) {
+          // Leaning on its neighbor.
+          holder.rotation.z = -0.25;
+          x += 0.05;
+        }
+        holder.add(book);
+        this.root.add(holder);
+        this.books.push(holder);
+        x += thick + 0.002;
+      }
+    }
+  }
+
+  /** Off the shelf or back on it. */
+  setTaken(index: number, taken: boolean): void {
+    const book = this.books[index];
+    if (book !== undefined) {
+      book.visible = !taken;
+    }
+  }
+
+  /** Where a hand takes hold of a book: the middle of its spine, in the room. */
+  spineOf(index: number): Vector3 | null {
+    const book = this.books[index];
+    return book === undefined ? null : book.localToWorld(new Vector3(0, 0.11, 0.1));
+  }
 }

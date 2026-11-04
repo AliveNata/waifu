@@ -260,6 +260,7 @@ export type Errand =
   | "unpack"
   | "set-food"
   | "take-box"
+  | "take-book"
   | "bin-box";
 
 export interface LifeChoice {
@@ -299,6 +300,7 @@ const errandMs = {
   "set-food": 2000,
   "take-box": 1400,
   "bin-box": 1600,
+  "take-book": 1800,
 } as const;
 type TimedErrand = keyof typeof errandMs;
 
@@ -857,6 +859,10 @@ export class OfficeLife {
         break;
       case "buy-food":
         steps = [{ ...main, errand: "go-out" }, errand("bar-food", "fetch", "set-food")];
+        break;
+      case "read":
+        // A book off the shelf first, then off to a seat to read it.
+        steps = [errand("bookshelf", "pick", "take-book"), main];
         break;
       default:
         steps = [main];
