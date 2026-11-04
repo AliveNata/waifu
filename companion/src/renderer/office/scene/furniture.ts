@@ -9,6 +9,8 @@ import {
   CylinderGeometry,
   ExtrudeGeometry,
   Group,
+  type Material,
+  Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
   type Object3D,
@@ -22,6 +24,7 @@ import {
 } from "three";
 import { type Furniture, people, surface } from "../office-plan.js";
 import { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./animated.js";
+import { furnitureModel } from "./furniture-models.js";
 import { handPropModel, type PropLook } from "./hand-props.js";
 import { box, glow, mesh, palette, standard, unlit } from "./palette.js";
 import { leafyCrown } from "./plant.js";
@@ -1150,19 +1153,133 @@ export function buildPrinterCabinet(piece: Furniture): Group {
 /** Spine colors for the books: muted cloth and paper tones with the odd bright paperback. */
 const spineColors = ["#7a2e3a", "#2f4b6e", "#3e5e3a", "#c9a46a", "#5b3f78", "#d9d4cc", "#a8573a", "#22313f", "#e2b33c"];
 
+/** Shelf height in the room: chest high on the members. */
+const bookshelfHeight = 0.95;
+/** The Furniture Kit's wide bookcase in its own units: 0.8 wide, 0.79 tall, 0.25 deep, front at +Z. */
+const kitBookcase = {
+  width: 0.8,
+  height: 0.79,
+  depth: 0.25,
+  shelves: [0.07, 0.31, 0.55],
+  inner: [0.04, 0.76],
+} as const;
+/** The kit's cluster of books in its own units, spines toward +Z. */
+const kitBooks = { width: 0.15, height: 0.104, depth: 0.095 };
+
+/** One material per cover color, shared by every cluster that uses it. */
+const coverMaterials = new Map<string, MeshStandardMaterial>();
+
+/** The kit's maroon and green covers swapped for two of the spine colors, picked by the cluster's place. */
+function recolorBooks(cluster: Object3D, index: number): void {
+  const covers: Record<string, string | undefined> = {
+    carpetDarker: spineColors[(index * 4) % spineColors.length],
+    plant: spineColors[(index * 7 + 2) % spineColors.length],
+  };
+  cluster.traverse((part) => {
+    if (!(part instanceof Mesh)) {
+      return;
+    }
+    const materials: Material[] = Array.isArray(part.material) ? part.material : [part.material];
+    const swapped = materials.map((material) => {
+      const color = covers[material.name];
+      if (color === undefined) {
+        return material;
+      }
+      let cover = coverMaterials.get(color);
+      if (cover === undefined) {
+        cover = standard(color, 0.85);
+        coverMaterials.set(color, cover);
+      }
+      return cover;
+    });
+    part.material = Array.isArray(part.material) ? swapped : (swapped[0] ?? part.material);
+  });
+}
+
 /**
- * Chest-high open shelves against a wall: an oak frame, a dark back, three tiers of books with
- * the odd gap and a leaning one, so it reads as used rather than staged. Any book can be taken
- * off and put back; a taken one leaves its gap.
+ * Chest-high shelves against a wall, from two of the Furniture Kit's wide bookcases side by side,
+ * three tiers of books with the odd gap. Each cluster of books can be taken off and put back; a
+ * taken one leaves its gap. Without the kit's models, a plain oak frame with single books stands in.
  */
 export class Bookshelf {
   readonly root: Group;
   readonly books: Object3D[] = [];
+  /** Where a hand takes hold of each book, in that book's own frame. */
+  private readonly grips: Vector3[] = [];
 
   constructor(piece: Furniture) {
     this.root = placed(piece);
     const { width, depth } = localSize(piece);
-    const height = 0.95;
+    const bookcase = furnitureModel("bookcase");
+    const books = furnitureModel("books");
+    if (bookcase !== null && books !== null) {
+      this.fromKit(width, depth, bookcase);
+    } else {
+      this.fromBoxes(width, depth);
+    }
+  }
+
+  private fromKit(width: number, depth: number, first: Object3D): void {
+    const units = 2;
+    const sx = width / units / kitBookcase.width;
+    const sy = bookshelfHeight / kitBookcase.height;
+    const sz = depth / kitBookcase.depth;
+    for (let unit = 0; unit < units; unit++) {
+      const bookcase = unit === 0 ? first : furnitureModel("bookcase");
+      if (bookcase === null) {
+        continue;
+      }
+      bookcase.scale.set(sx, sy, sz);
+      // The kit's origin is the back left corner on the floor; the front lands on the room side.
+      bookcase.position.set(-width / 2 + (unit * width) / units, 0, depth / 2);
+      this.root.add(bookcase);
+    }
+    // Books a little taller than the kit's, to fill a tier the way real ones do.
+    const bookScale = 0.2 / kitBooks.height;
+    const clusterWidth = kitBooks.width * bookScale;
+    // A fixed layout per tier and unit: where each cluster starts across the inner width, 0..1,
+    // with a skipped slot here and there for the gaps.
+    const layout: readonly (readonly number[])[] = [[0.02, 0.5], [0.1], [0, 0.46], [0.04, 0.55], [0.3], [0.02, 0.52]];
+    const innerFrom = kitBookcase.inner[0] * sx;
+    const innerWidth = (kitBookcase.inner[1] - kitBookcase.inner[0]) * sx - clusterWidth;
+    let slot = 0;
+    for (const shelf of kitBookcase.shelves) {
+      for (let unit = 0; unit < units; unit++) {
+        const unitLeft = -width / 2 + (unit * width) / units;
+        for (const along of layout[slot % layout.length] ?? []) {
+          const cluster = furnitureModel("books");
+          if (cluster === null) {
+            continue;
+          }
+          cluster.scale.setScalar(bookScale);
+          // The kit has one cluster; other covers and every other one turned round keep the
+          // shelves from looking stamped.
+          const index = this.books.length;
+          recolorBooks(cluster, index);
+          if (index % 2 === 1) {
+            cluster.scale.x = -bookScale;
+          }
+          const holder = new Group();
+          // The holder sits at the cluster's front bottom middle, so the grip is easy to name.
+          holder.position.set(
+            unitLeft + innerFrom + along * innerWidth + clusterWidth / 2,
+            shelf * sy,
+            depth / 2 - 0.03,
+          );
+          cluster.position.set(index % 2 === 1 ? clusterWidth / 2 : -clusterWidth / 2, 0, 0);
+          holder.add(cluster);
+          this.root.add(holder);
+          this.books.push(holder);
+          this.grips.push(new Vector3(0, kitBooks.height * bookScale * 0.55, 0));
+        }
+        slot++;
+      }
+    }
+  }
+
+  /** The stand-in: an oak frame, a dark back and single books with the odd gap and a leaning one. */
+  private fromBoxes(width: number, depth: number): void {
+    const height = bookshelfHeight;
     const oak = standard(palette.oak, 0.65);
     const back = standard(palette.inkDeep, 0.8);
     const side = 0.03;
@@ -1211,6 +1328,7 @@ export class Bookshelf {
         holder.add(book);
         this.root.add(holder);
         this.books.push(holder);
+        this.grips.push(new Vector3(0, 0.11, 0.1));
         x += thick + 0.002;
       }
     }
@@ -1227,6 +1345,7 @@ export class Bookshelf {
   /** Where a hand takes hold of a book: the middle of its spine, in the room. */
   spineOf(index: number): Vector3 | null {
     const book = this.books[index];
-    return book === undefined ? null : book.localToWorld(new Vector3(0, 0.11, 0.1));
+    const grip = this.grips[index];
+    return book === undefined || grip === undefined ? null : book.localToWorld(grip.clone());
   }
 }

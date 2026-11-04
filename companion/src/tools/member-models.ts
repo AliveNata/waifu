@@ -26,3 +26,12 @@ export function findMemberModel(
   }
   return null;
 }
+
+/**
+ * The delivery courier's model, dropped into models/ as courier.vrm. Optional: without it the
+ * order just appears on the mat inside the door.
+ */
+export function findCourierModel(repoRoot: string, exists: (path: string) => boolean = existsSync): string | null {
+  const path = join(repoRoot, "models", "courier.vrm");
+  return exists(path) ? path : null;
+}

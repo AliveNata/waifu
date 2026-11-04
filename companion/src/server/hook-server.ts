@@ -30,6 +30,8 @@ export interface WebModeOptions {
   modelPaths: Partial<Record<MemberId, string>>;
   /** Anime base model for members without their own .vrm, served at GET /model/base. */
   baseModelPath: string | null;
+  /** The delivery courier's model, served at GET /model/courier. Absent or null when there is none. */
+  courierModelPath?: string | null;
 }
 
 export interface HookServerOptions {
@@ -140,6 +142,10 @@ export class HookServer extends EventEmitter<HookServerEvents> {
       }
       if (url.pathname === "/model/base") {
         await serveModel(web.baseModelPath, response);
+        return;
+      }
+      if (url.pathname === "/model/courier") {
+        await serveModel(web.courierModelPath ?? null, response);
         return;
       }
       const modelMatch = /^\/model\/([a-z]+)$/.exec(url.pathname);

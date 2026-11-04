@@ -55,6 +55,7 @@ import {
 import { type AlyxTarget, pickableItems, pickTarget } from "./alyx-targets.js";
 import type { ArmSide, ArmTip, OfficeAvatar } from "./avatar.js";
 import { bossLine } from "./boss-greetings.js";
+import { type CourierVisit, courierHolding, courierWaiting, stepCourier } from "./courier-visit.js";
 import {
   type ActiveDeskBit,
   chessCarry,
@@ -91,6 +92,7 @@ import {
   refillLines,
 } from "./office-cat.js";
 import { ChatterDirector } from "./office-chatter.js";
+import { Courier } from "./office-courier.js";
 import {
   type HandPropKind,
   type MemberPlan,
@@ -692,6 +694,9 @@ export class OfficeStage {
   private readonly deliveryBag = new Group();
   /** Which order the mat shows, so the package is built once per drop. */
   private deliveryShown: FoodKind | null = null;
+  /** The courier's model, once models/courier.vrm has loaded; without one the order just appears on the mat. */
+  private courier: Courier | null = null;
+  private courierVisit: CourierVisit | null = null;
   private readonly life = new OfficeLife(
     Math.random,
     (station) => this.stationCrowded(station),
@@ -871,6 +876,12 @@ export class OfficeStage {
   }
 
   /** Swaps a member's avatar, for example from placeholder to their real VRM. */
+  /** The delivery courier's model: from now on orders are walked in and handed over. */
+  setCourier(avatar: OfficeAvatar): void {
+    this.courier?.dispose();
+    this.courier = new Courier(avatar, this.scene);
+  }
+
   setAvatar(memberId: MemberId, avatar: OfficeAvatar): void {
     const rig = this.rigs[memberId];
     // A new model is a new face for the lock screen.
@@ -1223,6 +1234,12 @@ export class OfficeStage {
     return targets;
   }
 
+  /** The courier close enough to the glass door for it to open for them. */
+  private courierNear(door: { x: number; z: number }): boolean {
+    const at = this.courier?.position() ?? null;
+    return at !== null && distance(at, door) < doorOpenDistance;
+  }
+
   /** The courier's bag at the door, the bar to set it down on, and the box to open there. */
   private orderTargets(): AlyxTarget[] {
     const order = this.foodOrder;
@@ -1230,10 +1247,14 @@ export class OfficeStage {
     const barPoint = { x: bar.x, y: bar.y + 0.08, z: bar.z };
     const targets: AlyxTarget[] = [];
     if (order?.phase === "at-door") {
+      const fromCourier = this.courier !== null && courierWaiting(this.courierVisit, Date.now());
       targets.push({
         id: "order-bag",
-        label: `Ambil ${foodNames[order.kind]}`,
-        point: { x: deliveryBagSpot.x, y: 0.1, z: deliveryBagSpot.z },
+        label: fromCourier ? `Ambil ${foodNames[order.kind]} dari kurir` : `Ambil ${foodNames[order.kind]}`,
+        point:
+          fromCourier && this.courier !== null
+            ? this.courier.parcelPoint()
+            : { x: deliveryBagSpot.x, y: 0.1, z: deliveryBagSpot.z },
         reach: handReach,
       });
     }
@@ -3190,9 +3211,13 @@ export class OfficeStage {
     this.office.fridgeDoor.update(usingAt("fridge", "snack") || this.alyxOn.has("fridge"), delta);
     const door = stations.door.spot;
     this.foodOrder = stepOrder(this.foodOrder, Date.now());
+    this.courierVisit = this.courier === null ? null : stepCourier(this.courierVisit, this.foodOrder, Date.now());
+    this.courier?.update(this.courierVisit, Date.now(), this.elapsed, delta);
     this.updateAlyxMeal();
     this.clearForgottenBox();
-    const atDoor = this.foodOrder?.phase === "at-door" ? this.foodOrder.kind : null;
+    // On the mat only once the courier is not holding it: left there, or set down by Alyx.
+    const atDoor =
+      this.foodOrder?.phase === "at-door" && !courierHolding(this.courierVisit) ? this.foodOrder.kind : null;
     if (atDoor !== this.deliveryShown) {
       this.deliveryShown = atDoor;
       this.deliveryBag.clear();
@@ -3203,6 +3228,7 @@ export class OfficeStage {
     this.deliveryBag.visible = atDoor !== null;
     const doorOpen =
       courierAtDoor(this.foodOrder, Date.now()) ||
+      this.courierNear(door) ||
       memberIds.some((memberId) => {
         const rig = this.rigs[memberId];
         return rig.avatar.root.visible && distance(rig.actor.position, door) < doorOpenDistance;
