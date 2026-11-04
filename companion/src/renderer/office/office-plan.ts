@@ -1109,7 +1109,8 @@ const placeStations: Record<Exclude<StationId, VisitStationId>, Station> = {
     approach: { x: westStoolX - 0.5, z: westStools[1].z },
     seatHeight: stoolSeatHeight,
   },
-  "bar-food": standing("bar-food", { x: barCounter.x, z: barCounter.z + barCounter.depth / 2 + 0.33 }, facing.backWall),
+  // Close up to the bar's end, where the food box is within an arm's reach.
+  "bar-food": standing("bar-food", { x: barCounter.x, z: barCounter.z + barCounter.depth / 2 + 0.22 }, facing.backWall),
   trash: standing("trash", { x: -6.36, z: -3.36 }, facing.leftWall),
   door: standing("door", { x: 10.0, z: -0.45 }, facing.right),
   "sofa-1": {

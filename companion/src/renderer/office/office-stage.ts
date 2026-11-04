@@ -55,7 +55,7 @@ import { eyeHeight, FirstPerson, firstPersonFov } from "./first-person.js";
 import { gpuLabel, paceFrame } from "./frame-rate.js";
 import { FreeCamera } from "./free-camera.js";
 import { Handoffs, type Teammate } from "./handoffs.js";
-import { aimHand, solveCcd } from "./ik.js";
+import { aimHand, solveCcd, withinReach } from "./ik.js";
 import { type ActorState, angleDelta, initialActor, isWalking, stepActor } from "./office-actor.js";
 import {
   afterMeal,
@@ -1938,14 +1938,14 @@ export class OfficeStage {
         aim.lerp(target, blend);
       }
       if (hand === null) {
-        solveCcd(arm, aim);
+        solveCcd(arm, withinReach(arm, aim));
         continue;
       }
       const length =
         hand.tip.getWorldPosition(new Vector3()).distanceTo(hand.pivot.getWorldPosition(new Vector3())) +
         fingertipBeyondBone;
       const wrist = aim.clone().addScaledVector(rig.reachApproach[side], -length);
-      solveCcd(arm, wrist);
+      solveCcd(arm, withinReach(arm, wrist));
       aimHand(hand, aim);
     }
   }
