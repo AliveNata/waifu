@@ -173,6 +173,9 @@ function extrudedAcross(shape: Shape, width: number, round: number): ExtrudeGeom
   return geometry;
 }
 
+/** The chair's back cover, close to the logo's purple. */
+const chairPurple = "#8e3fd6";
+
 /** Built once per seat height and shared, since all the chairs at that height are alike. */
 const chairParts = new Map<number, { shell: ExtrudeGeometry; cover: ExtrudeGeometry; arm: TubeGeometry }>();
 
@@ -213,7 +216,8 @@ function chairGeometry(seatHeight: number): { shell: ExtrudeGeometry; cover: Ext
 export function buildChair(piece: Furniture, seatHeight: number): BuiltPiece {
   const root = placed(piece);
   const leather = standard(palette.leather, 0.45);
-  const trim = standard(palette.accentDeep, 0.5);
+  // A warmer purple than the trim elsewhere: the deep one reads as navy under the room's lights.
+  const trim = standard(chairPurple, 0.5);
   const chrome = standard(palette.steel, 0.2, 0.9);
   const dark = standard(palette.inkDeep, 0.6);
   const { shell, cover, arm } = chairGeometry(seatHeight);
