@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { type ConversationMode, isConversationMode, isOfficeQuality, type OfficeQuality } from "../shared/protocol.js";
+import { normalizeSoundSettings, type OfficeSoundSettings } from "../shared/sound-settings.js";
 import { isMemberId, type MemberId } from "../shared/team.js";
 
 export interface CompanionSettings {
@@ -11,6 +12,8 @@ export interface CompanionSettings {
   closeupEnabled: boolean;
   /** Shows the frame rate meter in the office, for judging how smooth it runs on this machine. */
   fpsVisible: boolean;
+  /** The office's sound effects, off by default. */
+  officeSound: OfficeSoundSettings;
   officeQuality: OfficeQuality;
   /** Shows 2B's desktop companion window. */
   companionVisible: boolean;
@@ -31,6 +34,7 @@ export const defaultSettings: CompanionSettings = {
   conversationMode: "simulated",
   closeupEnabled: true,
   fpsVisible: false,
+  officeSound: normalizeSoundSettings(undefined),
   officeQuality: "high",
   companionVisible: true,
   chatEnabled: true,
@@ -66,6 +70,7 @@ export function normalizeSettings(input: unknown): CompanionSettings {
       : defaultSettings.conversationMode,
     closeupEnabled: typeof record.closeupEnabled === "boolean" ? record.closeupEnabled : defaultSettings.closeupEnabled,
     fpsVisible: typeof record.fpsVisible === "boolean" ? record.fpsVisible : defaultSettings.fpsVisible,
+    officeSound: normalizeSoundSettings(record.officeSound),
     officeQuality: isOfficeQuality(record.officeQuality) ? record.officeQuality : defaultSettings.officeQuality,
     companionVisible:
       typeof record.companionVisible === "boolean" ? record.companionVisible : defaultSettings.companionVisible,

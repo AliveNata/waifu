@@ -169,6 +169,35 @@
   outline-offset: 2px;
 }
 
+/* Same row height and gap as the checkboxes above it; the slider takes whatever width is left. */
+.setting-volume {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.setting-volume input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  margin: 0;
+  accent-color: var(--button-bg);
+}
+
+.setting-volume input:focus-visible {
+  outline: 2px solid var(--panel-ink);
+  outline-offset: 2px;
+}
+
+.setting-volume output {
+  min-width: 4ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 /* The canvas takes arrow keys for the camera, so it shows focus like any other control. */
 .office canvas:focus-visible {
   outline: 2px solid var(--focus-halo);

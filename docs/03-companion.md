@@ -148,6 +148,18 @@ Tiap zona punya bentuk yang kebaca jelas dari kamera, dan meja meeting, meja 2B,
 
 Keluar dari mode Alyx, semuanya balik kayak semula: barang yang dipegang balik ke meja, dan TV, arcade, kulkas, laptop, sama lampu balik ke keadaan otomatisnya. Esc pertama ngelepas mouse (kantor berhenti, klik lagi buat lanjut), Esc kedua keluar dari mode Alyx dan balik ke tampilan biasa. Mode ini dan Kamera bebas saling gantian, jadi nyalain satu bakal matiin yang lain.
 - **FPS**: tekan F (atau centang **Tampilkan FPS kantor** di menu) buat nampilin chip di kiri atas: frame per detik, waktu per frame, dan jumlah draw call. Tekan F lagi buat nyembunyiin. Pilihannya tersimpan.
+- **Efek suara**: default mati. Nyalain lewat **Menu > Efek suara kantor**, volumenya di **Menu > Volume efek suara** (25, 50, 75, 100%). Di mode browser, checkbox sama slider volumenya ada di dialog **Model**. Semua suara dibikin langsung pakai WebAudio, nggak ada file rekaman:
+
+  | Suara | Kapan bunyi |
+  |---|---|
+  | Klik keyboard | Tiap huruf yang diketik anggota di mejanya |
+  | Pintu otomatis | Pintu kaca kebuka dan ketutup |
+  | Mesin kopi | Anggota mulai bikin kopi: gilingan dulu, terus desis uap |
+  | Bola pingpong | Kena raket dan mantul di meja |
+  | Mochi | Ngeong tiap dia "ngomong", dengkur pas dielus Alyx |
+  | Gong | Standup pagi dimulai |
+
+  Suaranya makin pelan makin jauh dari kamera (atau dari mata Alyx di mode Alyx), dan kedengeran dari kiri atau kanan sesuai posisinya. Klik keyboard cuma kedengeran dari meja terdekat, gong kedengeran sekantor. Di browser, suaranya baru mulai setelah lo klik atau pencet tombol di halaman (aturan autoplay browser).
 
 **Kalau kantornya patah-patah**: yang paling berat jumlah draw call, bayangan matahari yang bikin semua objek digambar dua kali, fisika rambut 12 karakter, dan close-up yang ngegambar adegan sekali lagi. Yang bisa langsung dicoba: matiin **Grafis kantor tinggi** di menu (nonaktifin efek ambient occlusion), atau matiin close-up otomatis. Angka di chip FPS bisa dipakai buat bandingin sebelum dan sesudah.
 

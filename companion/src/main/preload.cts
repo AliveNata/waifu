@@ -12,6 +12,7 @@ import type {
   OfficeQuality,
 } from "../shared/protocol.js";
 import type { CompanionSignal } from "../shared/reaction.js";
+import type { OfficeSoundSettings } from "../shared/sound-settings.js";
 import type { MemberId } from "../shared/team.js";
 import type { CompanionCommand, TwobReply, TwobStatus } from "../shared/twob-chat.js";
 
@@ -28,6 +29,9 @@ const channels = {
   getFpsVisible: "companion:get-fps-visible",
   setFpsVisible: "companion:set-fps-visible",
   fpsVisible: "companion:fps-visible",
+  getOfficeSound: "companion:get-office-sound",
+  setOfficeSound: "companion:set-office-sound",
+  officeSound: "companion:office-sound",
   getOfficeQuality: "companion:get-office-quality",
   getCompanionVisible: "companion:get-companion-visible",
   setCompanionVisible: "companion:set-companion-visible",
@@ -89,6 +93,9 @@ const api: CompanionApi = {
   getFpsVisible: () => ipcRenderer.invoke(channels.getFpsVisible) as Promise<boolean>,
   setFpsVisible: (visible) => ipcRenderer.send(channels.setFpsVisible, visible),
   onFpsVisible: (listener) => subscribe<boolean>(channels.fpsVisible, listener),
+  getOfficeSound: () => ipcRenderer.invoke(channels.getOfficeSound) as Promise<OfficeSoundSettings>,
+  setOfficeSound: (settings) => ipcRenderer.send(channels.setOfficeSound, settings),
+  onOfficeSound: (listener) => subscribe<OfficeSoundSettings>(channels.officeSound, listener),
   getOfficeQuality: () => ipcRenderer.invoke(channels.getOfficeQuality) as Promise<OfficeQuality>,
   getCompanionVisible: () => ipcRenderer.invoke(channels.getCompanionVisible) as Promise<boolean>,
   setCompanionVisible: (visible) => ipcRenderer.send(channels.setCompanionVisible, visible),

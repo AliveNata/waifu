@@ -26,6 +26,7 @@ describe("settings store", () => {
       conversationMode: "real" as const,
       closeupEnabled: false,
       fpsVisible: true,
+      officeSound: { enabled: true, volume: 75 },
       officeQuality: "low" as const,
       companionVisible: false,
       chatEnabled: false,

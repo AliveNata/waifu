@@ -2,6 +2,7 @@ import "../common/base.css";
 import "./office.css";
 import type { ConversationMode } from "../../shared/protocol.js";
 import { idleReaction } from "../../shared/reaction.js";
+import { normalizeSoundSettings, type OfficeSoundSettings } from "../../shared/sound-settings.js";
 import type { MemberId } from "../../shared/team.js";
 import { memberIds, roster } from "../../shared/team.js";
 import { getBridge, type RendererBridge } from "../common/bridge.js";
@@ -37,6 +38,10 @@ class OfficePage {
   private readonly statusDialog: StatusDialog;
   private readonly fpsMeter = requireElement("fps-meter", HTMLElement);
   private readonly fpsSetting = requireElement("fps-setting", HTMLInputElement);
+  private readonly soundSetting = requireElement("sound-setting", HTMLInputElement);
+  private readonly soundVolume = requireElement("sound-volume", HTMLInputElement);
+  private readonly soundVolumeValue = requireElement("sound-volume-value", HTMLOutputElement);
+  private officeSound: OfficeSoundSettings = normalizeSoundSettings(undefined);
   private readonly freeCameraButton = requireElement("free-camera", HTMLButtonElement);
   private readonly cameraHint = requireElement("camera-hint", HTMLElement);
   private readonly firstPersonButton = requireElement("first-person", HTMLButtonElement);
@@ -104,6 +109,25 @@ class OfficePage {
       .catch((error: unknown) => console.error("[office] could not read the fps setting", error));
     this.bridge.onFpsVisible((visible) => this.applyFpsVisible(visible));
     this.fpsSetting.addEventListener("change", () => this.bridge.setFpsVisible(this.fpsSetting.checked));
+    this.bridge
+      .getOfficeSound()
+      .then((settings) => this.applyOfficeSound(settings))
+      .catch((error: unknown) => console.error("[office] could not read the sound setting", error));
+    this.bridge.onOfficeSound((settings) => this.applyOfficeSound(settings));
+    this.soundSetting.addEventListener("change", () =>
+      this.bridge.setOfficeSound({ ...this.officeSound, enabled: this.soundSetting.checked }),
+    );
+    // The number follows the thumb while dragging; the setting is saved once it is let go.
+    this.soundVolume.addEventListener("input", () => {
+      this.soundVolumeValue.textContent = `${this.soundVolume.value}%`;
+    });
+    this.soundVolume.addEventListener("change", () =>
+      this.bridge.setOfficeSound({ ...this.officeSound, volume: Number(this.soundVolume.value) }),
+    );
+    // Browsers hold audio back until the page has been used, so any click or key may start it.
+    for (const type of ["pointerdown", "keydown"] as const) {
+      window.addEventListener(type, () => this.stage.wakeSound(), { capture: true });
+    }
     this.freeCameraButton.addEventListener("click", () => this.setFreeCamera(!this.stage.freeCameraOn()));
     this.firstPersonButton.addEventListener("click", () => this.setFirstPerson(!this.stage.firstPersonOn()));
     window.addEventListener("keydown", (event) => this.handleShortcut(event));
@@ -345,6 +369,14 @@ class OfficePage {
     this.fpsMeter.hidden = !visible;
     this.fpsSetting.checked = visible;
     this.fpsShownAt = 0;
+  }
+
+  private applyOfficeSound(settings: OfficeSoundSettings): void {
+    this.officeSound = settings;
+    this.soundSetting.checked = settings.enabled;
+    this.soundVolume.value = String(settings.volume);
+    this.soundVolumeValue.textContent = `${settings.volume}%`;
+    this.stage.setSound(settings);
   }
 
   private setFreeCamera(on: boolean): void {
