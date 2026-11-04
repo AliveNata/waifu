@@ -133,6 +133,10 @@ export class FirstPerson {
   private speed = 0;
   private lockedAt = 0;
   private anchor: Anchor | null = null;
+  /** How far below standing eye height he is, crouched down to the cat. */
+  private crouch = 0;
+  /** Kept in place, as while crouched: the walking keys do nothing. */
+  private still = false;
 
   constructor(
     private readonly camera: PerspectiveCamera,
@@ -216,6 +220,35 @@ export class FirstPerson {
     anchor.onLeave();
   }
 
+  /** Down on his heels by `depth` meters, held in place while `still`. */
+  crouchTo(depth: number, still: boolean): void {
+    this.crouch = depth;
+    this.still = still;
+  }
+
+  /** Moves him to a spot on the floor, when he fits there. */
+  stepTo(point: Point): void {
+    if (this.free(point)) {
+      this.view = { ...this.view, x: point.x, z: point.z };
+    }
+  }
+
+  /** Turns his eyes part of the way (`amount`, 0..1) toward a point in the room. */
+  lookToward(point: { x: number; y: number; z: number }, amount: number): void {
+    const eye = this.camera.position;
+    const dx = point.x - eye.x;
+    const dz = point.z - eye.z;
+    // The camera looks down -z at yaw 0 and up at a positive pitch.
+    const yaw = Math.atan2(-dx, -dz);
+    const pitch = Math.atan2(point.y - eye.y, Math.hypot(dx, dz));
+    const turn = Math.atan2(Math.sin(yaw - this.view.yaw), Math.cos(yaw - this.view.yaw));
+    this.view = {
+      ...this.view,
+      yaw: this.view.yaw + turn * amount,
+      pitch: this.view.pitch + (pitch - this.view.pitch) * amount,
+    };
+  }
+
   get anchored(): boolean {
     return this.anchor !== null;
   }
@@ -255,7 +288,7 @@ export class FirstPerson {
       return;
     }
     const input: WalkInput = { forward: 0, right: 0, fast: this.fast };
-    if (this.locked) {
+    if (this.locked && !this.still) {
       for (const code of this.held) {
         const axis = keyAxes[code];
         input.forward += axis?.forward ?? 0;
@@ -277,7 +310,7 @@ export class FirstPerson {
     const moved = Math.hypot(this.view.x - before.x, this.view.z - before.z);
     this.walked += moved;
     this.speed = delta > 0 ? moved / delta : 0;
-    this.camera.position.set(this.view.x, eyeHeight, this.view.z);
+    this.camera.position.set(this.view.x, eyeHeight - this.crouch, this.view.z);
     this.camera.rotation.set(this.view.pitch, this.view.yaw, 0, "YXZ");
   }
 }

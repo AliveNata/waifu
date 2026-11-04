@@ -34,6 +34,7 @@ import {
 } from "../common/expressions.js";
 import { memberLooks } from "../common/looks.js";
 import { PoseApplier } from "../common/pose.js";
+import { crouchAmount, crouchDepth, crouchSeconds, petDistance, petStandSpot } from "./alyx-crouch.js";
 import { AlyxHands, waveSeconds } from "./alyx-hands.js";
 import {
   courierAtDoor,
@@ -492,6 +493,8 @@ const hungryFrom = 0.6;
 const mealSeconds = 5;
 /** How long a stroke lasts, from his hand going down to her purring stopping. */
 const catPetSeconds = 3;
+/** Her back, off whatever she lies or sits on: where a stroking hand lands. */
+const catBackHeight = 0.17;
 /** A teammate walking this close to Mochi says hello to her. */
 const catGreetDistance = 1;
 /** Seconds before the same teammate greets her again, and before anyone does. */
@@ -565,6 +568,8 @@ export class OfficeStage {
   /** Someone she turns her head to for a moment: whoever greeted or is stroking her. */
   private catLook: { point: Point; until: number } | null = null;
   private catPettedAt: number | null = null;
+  /** Where Alyx stood when he went to stroke her, and where he crouches beside her. */
+  private petWalk: { from: Point; to: Point } | null = null;
   private catBegged: number | null = null;
   private readonly sound = new OfficeSound();
   /** Code bits off the keyboards and sparks over finished work. */
@@ -1346,12 +1351,59 @@ export class OfficeStage {
   /** Alyx strokes Mochi: she stays put, turns to him, shuts her eyes and purrs. */
   private petCat(): void {
     this.catPettedAt = this.elapsed;
+    // A step in close enough to reach her back, or as close as there is room for.
+    const from = this.firstPerson.position;
+    const to =
+      [petDistance, 0.55, 0.7]
+        .map((distance) => petStandSpot(this.cat.position, from, distance))
+        .find((spot) => this.alyxCanStand(spot)) ?? from;
+    this.petWalk = { from, to };
     this.catLook = { point: this.firstPerson.position, until: this.elapsed + catPetSeconds };
     this.catSpeech = {
       text: catLine("petted", Math.random),
       startedAt: this.elapsed + 0.5,
       until: this.elapsed + catPetSeconds,
     };
+  }
+
+  /**
+   * While he strokes her: a step in, down on his heels with his eyes on her, and back up at the
+   * end. Standing and free to walk the rest of the time.
+   */
+  private crouchToCat(): void {
+    const since = this.catPettedAt === null ? null : this.elapsed - this.catPettedAt;
+    if (since === null || since > catPetSeconds || this.petWalk === null) {
+      this.firstPerson.crouchTo(0, false);
+      this.petWalk = null;
+      return;
+    }
+    const step = Math.min(1, since / crouchSeconds);
+    const eased = step * step * (3 - 2 * step);
+    const { from, to } = this.petWalk;
+    this.firstPerson.stepTo({ x: from.x + (to.x - from.x) * eased, z: from.z + (to.z - from.z) * eased });
+    const down = crouchAmount(since, catPetSeconds);
+    this.firstPerson.crouchTo(crouchDepth(eyeHeight, this.cat.height + catBackHeight) * down, true);
+    // Eyes on her while getting down; once there the mouse is his again.
+    if (since < crouchSeconds) {
+      this.firstPerson.lookToward(this.catBack(), 0.2);
+    }
+  }
+
+  /** Her back and the way down, in the view's own frame, for the hand that strokes her. */
+  private catInView(): { back: Vector3; down: Vector3 } | null {
+    if (this.catPettedAt === null || this.elapsed - this.catPettedAt >= catPetSeconds) {
+      return null;
+    }
+    this.camera.updateMatrixWorld();
+    const { x, y, z } = this.catBack();
+    const back = this.camera.worldToLocal(new Vector3(x, y, z));
+    const toView = this.camera.quaternion.clone().invert();
+    return { back, down: new Vector3(0, -1, 0).applyQuaternion(toView) };
+  }
+
+  /** The middle of Mochi's back, where a hand strokes her. */
+  private catBack(): { x: number; y: number; z: number } {
+    return { x: this.cat.position.x, y: this.cat.height + catBackHeight, z: this.cat.position.z };
   }
 
   /** Where Mochi goes next, from the hour and what the team is doing. */
@@ -3156,6 +3208,7 @@ export class OfficeStage {
     );
     this.focus = this.chooseFocus(now);
     if (this.firstPerson.active) {
+      this.crouchToCat();
       // The real time step, so walking keeps its pace even when frames are slow.
       this.firstPerson.update(Math.min(rawDelta, 0.25));
     } else if (this.freeCamera.active) {
@@ -3201,6 +3254,7 @@ export class OfficeStage {
             this.catPettedAt !== null && this.elapsed - this.catPettedAt < catPetSeconds
               ? this.elapsed - this.catPettedAt
               : null,
+          petAt: this.catInView(),
         },
         this.night,
         Math.min(rawDelta, 0.25),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { afterMeal, Cat, type CatSpotId, catSpots, nextCatPlan } from "../src/renderer/office/office-cat.js";
+import { afterMeal, Cat, type CatSpotId, catSpots, hopHeight, nextCatPlan } from "../src/renderer/office/office-cat.js";
 import { navGrid } from "../src/renderer/office/office-nav.js";
 
 function seeded(seed: number): () => number {
@@ -107,19 +107,58 @@ describe("Mochi moving about", () => {
   });
 
   it("stays put while held, as while being stroked", () => {
-    // Arrange: on her way somewhere.
+    // Arrange: down off the beanbag and walking the floor on her way somewhere.
     const cat = new Cat("beanbag");
     cat.update(0.05, 0, toAquarium, false, null);
-    cat.update(0.05, 46_000, toAquarium, false, null);
-    cat.update(0.5, 46_500, toAquarium, false, null);
+    let now = 46_000;
+    for (let frame = 0; frame < 40; frame++) {
+      now += 50;
+      cat.update(0.05, now, toAquarium, false, null);
+    }
     const before = { ...cat.position };
 
     // Act
-    const pose = cat.update(0.5, 47_000, toAquarium, true, 0);
+    const pose = cat.update(0.5, now + 500, toAquarium, true, 0);
 
     // Assert
+    expect(cat.height).toBe(0);
     expect(cat.position).toEqual(before);
     expect(pose).toBe("sit");
+  });
+
+  it("finishes a hop before stopping to be stroked, never stuck inside the cushion", () => {
+    // Arrange: just off the beanbag, mid-hop down.
+    const cat = new Cat("beanbag");
+    cat.update(0.05, 0, toAquarium, false, null);
+    cat.update(0.05, 46_000, toAquarium, false, null);
+    cat.update(0.1, 46_100, toAquarium, false, null);
+    const midHop = cat.height;
+
+    // Act: held from here on.
+    let now = 46_100;
+    for (let frame = 0; frame < 40; frame++) {
+      now += 50;
+      cat.update(0.05, now, toAquarium, true, 0);
+    }
+
+    // Assert
+    expect(midHop).toBeGreaterThan(0);
+    expect(cat.height).toBe(0);
+  });
+
+  it("jumps clear of the cushion onto the beanbag instead of ramping through it", () => {
+    // Arrange: from the floor at the edge to the spot on the cushion.
+    const edge = catSpots.beanbag.perch?.[0];
+    const spot = catSpots.beanbag.spot;
+    const across = edge === undefined ? 0 : Math.hypot(edge.x - spot.x, edge.z - spot.z);
+
+    // Act + Assert: at each point along the hop she is above the cushion's rounded top.
+    expect(edge?.height).toBe(0);
+    for (const done of [0.2, 0.4, 0.6, 0.8]) {
+      const fromCenter = 0.12 + across * (1 - done);
+      const cushion = fromCenter >= 0.34 ? 0 : 0.17 * (0.5 + 0.5 * Math.sqrt(1 - (fromCenter / 0.34) ** 2));
+      expect(hopHeight(0, catSpots.beanbag.height, done), `at ${done}`).toBeGreaterThan(cushion);
+    }
   });
 });
 
