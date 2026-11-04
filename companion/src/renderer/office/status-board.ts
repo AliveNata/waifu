@@ -5,6 +5,15 @@ import { type MemberRuntime, memberBehavior, type TeamRuntime } from "./team-sta
 /** What the team status board says about one member, from the real hook events only. */
 export type BoardStatus = "working" | "waiting" | "done" | "idle";
 
+/** Whether a member is in the room: out for food, or gone home for the night. */
+export type Presence = "in" | "out" | "home";
+
+export const presenceLabels: Record<Presence, string> = {
+  in: "di kantor",
+  out: "keluar",
+  home: "pulang",
+};
+
 export interface StatusRow {
   memberId: MemberId;
   name: string;
@@ -14,6 +23,8 @@ export interface StatusRow {
   tool: string | null;
   /** When the current status began: the run's start while working, the finish while done. */
   since: number | null;
+  /** In the room or not. A run can go on while its member is out: the work is not in the room. */
+  presence: Presence;
 }
 
 /**
@@ -31,13 +42,14 @@ export const statusLabels: Record<BoardStatus, string> = {
 
 export function memberRow(memberId: Exclude<MemberId, "twob">, runtime: MemberRuntime, now: number): StatusRow {
   const { displayName: name, role } = roster[memberId];
+  const base = { memberId, name, role, presence: "in" as const };
   if (memberBehavior(runtime, now) === "working") {
-    return { memberId, name, role, status: "working", tool: runtime.lastTool, since: runtime.startedAt };
+    return { ...base, status: "working", tool: runtime.lastTool, since: runtime.startedAt };
   }
   if (runtime.finishedAt !== null && now - runtime.finishedAt < boardDoneMs) {
-    return { memberId, name, role, status: "done", tool: null, since: runtime.finishedAt };
+    return { ...base, status: "done", tool: null, since: runtime.finishedAt };
   }
-  return { memberId, name, role, status: "idle", tool: null, since: null };
+  return { ...base, status: "idle", tool: null, since: null };
 }
 
 /**
@@ -67,7 +79,7 @@ export class TwobStatus {
 
   row(now: number): StatusRow {
     const { displayName: name, role } = roster.twob;
-    const base = { memberId: "twob" as const, name, role };
+    const base = { memberId: "twob" as const, name, role, presence: "in" as const };
     const reaction = this.latest;
     if (reaction !== null && this.busySince !== null) {
       // While busy the detail is a tool name or one of the fixed labels in reactionForHook.
@@ -84,9 +96,17 @@ export class TwobStatus {
   }
 }
 
-/** Every member in roster order, 2B first. */
-export function statusRows(team: TeamRuntime, twob: TwobStatus, now: number): StatusRow[] {
-  return memberIds.map((memberId) => (memberId === "twob" ? twob.row(now) : memberRow(memberId, team[memberId], now)));
+/** Every member in roster order, 2B first, each with whether they are in the room. */
+export function statusRows(
+  team: TeamRuntime,
+  twob: TwobStatus,
+  now: number,
+  presenceOf: (memberId: MemberId) => Presence = () => "in",
+): StatusRow[] {
+  return memberIds.map((memberId) => {
+    const row = memberId === "twob" ? twob.row(now) : memberRow(memberId, team[memberId], now);
+    return { ...row, presence: presenceOf(memberId) };
+  });
 }
 
 /** Short elapsed time for a small wall display: "baru", "40 dtk", "12 mnt", "2 jam". */
@@ -124,8 +144,13 @@ function shortTool(tool: string): string {
   return tool.length <= toolNameLimit ? tool : `${tool.slice(0, toolNameLimit - 1)}…`;
 }
 
-/** "2 kerja · 1 nunggu kamu", or that everyone is idle. */
+/** "10 di kantor · 2 kerja · 1 nunggu kamu", or that everyone is idle. */
 export function statusSummary(rows: readonly StatusRow[]): string {
+  const inRoom = rows.filter((row) => row.presence === "in").length;
+  return `${inRoom} ${presenceLabels.in} · ${statusCounts(rows)}`;
+}
+
+function statusCounts(rows: readonly StatusRow[]): string {
   const counts = (["working", "waiting", "done"] as const)
     .map((status) => ({ status, count: rows.filter((row) => row.status === status).length }))
     .filter(({ count }) => count > 0)
