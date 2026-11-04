@@ -94,33 +94,62 @@ function sphereCollider(root: Group, x: number, y: number, z: number, radius: nu
   return collider;
 }
 
-/** Gaming chair with a deliberately low back, so long hair falls over it rather than through it. */
+/**
+ * Executive office chair: cream leather seat and a tall back with a headrest, a chrome five-star
+ * base on casters, short armrests kept low so typing elbows clear them, and the brand's purple
+ * as matte panels down both sides of the back.
+ */
 export function buildChair(piece: Furniture, seatHeight: number): BuiltPiece {
   const root = placed(piece);
-  const ink = standard(palette.ink, 0.6);
-  const seatThickness = 0.06;
-  const backTop = seatHeight + 0.24;
+  const leather = standard(palette.leather, 0.45);
+  const trim = standard(palette.accentDeep, 0.5);
+  const chrome = standard(palette.steel, 0.25, 0.85);
+  const dark = standard(palette.inkDeep, 0.6);
+  const seatThickness = 0.07;
+  const backBottom = seatHeight + 0.03;
+  const backTop = seatHeight + 0.42;
+  const backZ = -0.2;
+  const backDepth = 0.07;
+  const headrestBottom = backTop + 0.035;
+  const headrestTop = headrestBottom + 0.11;
+
   for (let spoke = 0; spoke < 5; spoke++) {
     const angle = (spoke / 5) * Math.PI * 2;
-    const leg = box(0.03, 0.03, 0.22, ink, Math.sin(angle) * 0.09, 0.02, Math.cos(angle) * 0.09);
+    const leg = box(0.028, 0.025, 0.22, chrome, Math.sin(angle) * 0.1, 0.03, Math.cos(angle) * 0.1);
     leg.rotation.y = angle;
-    root.add(leg);
+    const caster = mesh(new SphereGeometry(0.022, 10, 8), dark);
+    caster.position.set(Math.sin(angle) * 0.205, 0.022, Math.cos(angle) * 0.205);
+    root.add(leg, caster);
   }
   const columnHeight = seatHeight - seatThickness - 0.05;
-  const column = mesh(new CylinderGeometry(0.022, 0.022, columnHeight, 8), ink);
+  const column = mesh(new CylinderGeometry(0.02, 0.026, columnHeight, 12), chrome);
   column.position.y = 0.05 + columnHeight / 2;
   root.add(
     column,
-    box(0.4, seatThickness, 0.38, ink, 0, seatHeight - seatThickness, 0),
-    box(0.36, backTop - seatHeight, 0.05, ink, 0, seatHeight, -0.2),
-    // Accent piping on the backrest: the one gaming cue on furniture people sit in all day.
-    box(0.37, 0.018, 0.055, glow(palette.accent, 1.1), 0, backTop - 0.03, -0.2),
+    // The tilt mechanism under the seat.
+    box(0.16, 0.035, 0.18, dark, 0, seatHeight - seatThickness - 0.035, 0),
+    box(0.42, seatThickness, 0.4, leather, 0, seatHeight - seatThickness, 0.01),
+    // The back, with the purple side panels standing a little proud of the leather.
+    box(0.36, backTop - backBottom, backDepth, leather, 0, backBottom, backZ),
+    box(0.035, backTop - backBottom + 0.02, backDepth + 0.012, trim, -0.195, backBottom - 0.01, backZ),
+    box(0.035, backTop - backBottom + 0.02, backDepth + 0.012, trim, 0.195, backBottom - 0.01, backZ),
+    // The headrest on its purple stem.
+    box(0.05, headrestBottom - backTop + 0.02, 0.03, trim, 0, backTop - 0.01, backZ - 0.01),
+    box(0.26, headrestTop - headrestBottom, 0.065, leather, 0, headrestBottom, backZ + 0.005),
   );
+  for (const side of [-1, 1]) {
+    // A short armrest: post from the seat, pad on top, well back from the desk edge.
+    root.add(
+      box(0.025, 0.12, 0.025, chrome, side * 0.235, seatHeight - 0.02, -0.06),
+      box(0.05, 0.022, 0.2, dark, side * 0.235, seatHeight + 0.1, -0.05),
+    );
+  }
   return {
     root,
     hairColliders: [
-      ...panelColliders(root, 0.36, -0.2, seatHeight + 0.02, backTop, 0.04),
-      ...seatColliders(root, 0.36, seatHeight - 0.03, 0.14, -0.14, 0.035),
+      ...panelColliders(root, 0.38, backZ, backBottom, backTop, 0.04),
+      capsuleCollider(root, 0.26, (headrestBottom + headrestTop) / 2, backZ, 0.05),
+      ...seatColliders(root, 0.4, seatHeight - 0.03, 0.15, -0.15, 0.035),
     ],
   };
 }

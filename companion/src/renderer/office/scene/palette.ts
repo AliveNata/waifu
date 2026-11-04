@@ -40,6 +40,10 @@ export const palette = {
   cushion: "#e9e1d4",
   rug: "#d9d1c4",
   accent: "#b45cff",
+  /** Matte purple for upholstery trim: the accent's hue without its glow. */
+  accentDeep: "#6a3cc2",
+  /** Cream leather on the office chairs, smooth, with no cloth weave. */
+  leather: "#f1ece4",
   accentSoft: "#cfa0ff",
   frame: "#9aa0aa",
   glass: "#dfe9f2",
@@ -76,6 +80,8 @@ const surfaceByColor: Readonly<Record<string, SurfaceKind>> = {
   [palette.ink]: "satin",
   [palette.inkDeep]: "satin",
   [palette.laminate]: "satin",
+  [palette.leather]: "satin",
+  [palette.accentDeep]: "satin",
 };
 
 export function standard(color: string, roughness = 0.8, metalness = 0): MeshStandardMaterial {

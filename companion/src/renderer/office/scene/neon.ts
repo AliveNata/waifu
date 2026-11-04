@@ -16,6 +16,8 @@ export interface NeonRun {
   y: number;
   /** -1 runs the pulse from `to` back to `from`. */
   direction?: 1 | -1;
+  /** The two colors the strip drifts between; the brand's purple and periwinkle by default. */
+  colors?: readonly [string, string];
 }
 
 /**
@@ -28,11 +30,25 @@ export class NeonStrips {
   /** Distance along its strip for every segment, and which way its pulse runs. */
   private readonly along: Float32Array;
   private readonly directions: Int8Array;
+  /** Which of `palettes` each segment uses: one pair per strip. */
+  private readonly runOf: Uint16Array;
+  private readonly palettes: [Color, Color][];
   private readonly color = new Color();
 
   constructor(runs: readonly NeonRun[]) {
-    const placements: { x: number; y: number; z: number; yaw: number; along: number; direction: number }[] = [];
-    for (const run of runs) {
+    const placements: {
+      x: number;
+      y: number;
+      z: number;
+      yaw: number;
+      along: number;
+      direction: number;
+      run: number;
+    }[] = [];
+    this.palettes = runs.map((run) =>
+      run.colors === undefined ? [neonPurple, neonPeriwinkle] : [new Color(run.colors[0]), new Color(run.colors[1])],
+    );
+    runs.forEach((run, runIndex) => {
       const dx = run.to.x - run.from.x;
       const dz = run.to.z - run.from.z;
       const length = Math.hypot(dx, dz);
@@ -47,15 +63,17 @@ export class NeonStrips {
           yaw,
           along: t * length,
           direction: run.direction ?? 1,
+          run: runIndex,
         });
       }
-    }
+    });
     // A small gap between segments makes the strip read as individual LEDs chasing each other.
     const geometry = new BoxGeometry(0.03, 0.025, segmentLength * 0.86);
     const material = new MeshBasicMaterial({ toneMapped: false });
     this.mesh = new InstancedMesh(geometry, material, placements.length);
     this.along = new Float32Array(placements.length);
     this.directions = new Int8Array(placements.length);
+    this.runOf = new Uint16Array(placements.length);
     const dummy = new Object3D();
     placements.forEach((placement, index) => {
       dummy.position.set(placement.x, placement.y, placement.z);
@@ -64,6 +82,7 @@ export class NeonStrips {
       this.mesh.setMatrixAt(index, dummy.matrix);
       this.along[index] = placement.along;
       this.directions[index] = placement.direction;
+      this.runOf[index] = placement.run;
       this.mesh.setColorAt(index, neonPurple);
     });
     this.mesh.castShadow = false;
@@ -79,9 +98,10 @@ export class NeonStrips {
       // Sharp head with a short fading tail behind it.
       const pulse = phase < 0.18 ? (1 - phase / 0.18) ** 2 : 0;
       const hue = 0.5 + 0.5 * Math.sin(along * 0.35 + time * 0.25);
+      const [from, to] = this.palettes[this.runOf[index] as number] ?? [neonPurple, neonPeriwinkle];
       this.color
-        .copy(neonPurple)
-        .lerp(neonPeriwinkle, hue)
+        .copy(from)
+        .lerp(to, hue)
         .multiplyScalar(base + 1.1 * pulse);
       this.mesh.setColorAt(index, this.color);
     }
