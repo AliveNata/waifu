@@ -48,12 +48,12 @@ describe("FrameRate", () => {
 describe("frameLabel", () => {
   it("rounds to whole numbers and puts the graphics chip on its own line", () => {
     // Act
-    const withGpu = frameLabel(23.6, 41.2, 1480, 11.6, "Intel(R) UHD Graphics 620");
-    const without = frameLabel(23.6, 41.2, 1480, 11.6, null);
+    const withGpu = frameLabel(23.6, 41.2, 1480, 11.6, 4.4, "Intel(R) UHD Graphics 620");
+    const without = frameLabel(23.6, 41.2, 1480, 11.6, 4.4, null);
 
     // Assert
-    expect(withGpu).toBe("24 fps · 41 ms · cpu 12 ms · 1480 draw\nIntel(R) UHD Graphics 620");
-    expect(without).toBe("24 fps · 41 ms · cpu 12 ms · 1480 draw");
+    expect(withGpu).toBe("24 fps · 41 ms · cpu 12 ms (tim 4) · 1480 draw\nIntel(R) UHD Graphics 620");
+    expect(without).toBe("24 fps · 41 ms · cpu 12 ms (tim 4) · 1480 draw");
   });
 });
 

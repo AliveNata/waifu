@@ -55,8 +55,11 @@ const aquarium = stations.aquarium;
 
 const pingpong = stations["pingpong-west"];
 
-/** Her food bowl on the floor by the fridge, where she can see who opens it. */
-export const bowlSpot = floor(fridge.spot.x + 0.75, fridge.spot.z + 0.25);
+/**
+ * Her food bowl on the floor in the pocket between the bar's far end and Kobayashi's desk,
+ * against the back wall: a few steps from the fridge, and nobody walks through it.
+ */
+export const bowlSpot = floor(-3.38, -4.82);
 
 /**
  * The fixed places she likes. "visit" and "keyboard" are worked out at the time, next to (or on

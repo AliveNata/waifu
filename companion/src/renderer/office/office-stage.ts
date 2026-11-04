@@ -418,8 +418,8 @@ const alyxSeats: readonly StationId[] = [
   "collab-3",
   ...meetingStationIds,
 ];
-/** Seated, his eyes are this far above the seat. */
-const seatedEye = 0.62;
+/** Seated, his eyes are this far above the seat: the team's 0.54 plus his few extra centimeters. */
+const seatedEye = 0.58;
 /** Lifting Mochi off a keyboard: reaching for her, then carrying her down to the floor, in seconds. */
 const catLift = { reach: 0.9, carry: 1.4 } as const;
 /** She is hungry again from here on, 0 just fed to 1 starving. */
@@ -508,6 +508,8 @@ export class OfficeStage {
   private frameDueAt = 0;
   /** Smoothed milliseconds of script per frame: updates, animation, physics and issuing draws. */
   private cpuMs = 0;
+  /** The part of it spent moving the team: poses, hands, expressions and hair physics. */
+  private teamMs = 0;
   /** The graphics chip the office draws on, as the browser names it, once known. */
   private gpu: string | null = null;
   private soundOn = false;
@@ -857,6 +859,10 @@ export class OfficeStage {
 
   frameCpuMs(): number {
     return this.cpuMs;
+  }
+
+  frameTeamMs(): number {
+    return this.teamMs;
   }
 
   /** The graphics chip's name, for telling a built-in chip or software drawing from a real card. */
@@ -2827,9 +2833,11 @@ export class OfficeStage {
 
     this.updateChatter(delta);
     this.handoffs.update(now);
+    const membersFrom = performance.now();
     for (const memberId of memberIds) {
       this.updateMember(memberId, delta, now);
     }
+    this.teamMs += (performance.now() - membersFrom - this.teamMs) * 0.1;
     this.updateProps(delta);
     this.updateCat(delta, now);
     if (now - this.lastDaylightAt > 1000) {
@@ -2837,6 +2845,9 @@ export class OfficeStage {
       this.applyDaylight();
     }
     this.office.neon.update(this.elapsed, this.night);
+    if (this.office.enclosure.root.visible) {
+      this.office.enclosure.neon.update(this.elapsed, this.night);
+    }
     this.office.wallClock.update(this.clock());
     this.office.statusBoard.update(statusRows(this.team, this.twobStatus, now), now);
     this.focus = this.chooseFocus(now);

@@ -1,14 +1,17 @@
 import { requireElement } from "../common/status-chip.js";
 import {
   addSong,
+  afterSongEnds,
   clampVolume,
   embedUrl,
   type MusicState,
+  nextRepeat,
   nextSong,
   oembedUrl,
   parseMusicState,
   parseTitles,
   removeSong,
+  repeatLabels,
   titleFrom,
   volumeCommand,
 } from "./music.js";
@@ -18,7 +21,7 @@ const titlesKey = "alyxlabs-office-music-titles";
 const embedOrigin = "https://www.youtube-nocookie.com";
 
 /**
- * The office music: on/off, next, the song list with titles, and a field to add a link. Only the
+ * The office music: on/off, pause, next, repeat, the song list with titles, and a field to add a link. Only the
  * sound plays: YouTube's player sits out of sight, outside the panel, so closing the panel leaves
  * the music on. Songs, the current one and whether it was on are remembered in this browser
  * profile, which the office window keeps.
@@ -31,6 +34,12 @@ export class MusicPanel {
   private readonly now = requireElement("music-now", HTMLElement);
   private readonly power = requireElement("music-power", HTMLButtonElement);
   private readonly next = requireElement("music-next", HTMLButtonElement);
+  private readonly pause = requireElement("music-pause", HTMLButtonElement);
+  private readonly repeat = requireElement("music-repeat", HTMLButtonElement);
+  /** Paused where it was, for this session only: music that was on comes back playing. */
+  private paused = false;
+  /** The player's last reported state (YouTube's numbers; 0 is ended), to act once per ending. */
+  private playerState: number | null = null;
   private readonly volume = requireElement("music-volume", HTMLInputElement);
   private readonly volumeValue = requireElement("music-volume-value", HTMLOutputElement);
   private readonly list = requireElement("music-list", HTMLOListElement);
@@ -59,6 +68,12 @@ export class MusicPanel {
     this.closeButton.addEventListener("click", () => this.setOpen(false));
     this.power.addEventListener("click", () => this.update({ ...this.state, on: !this.state.on }));
     this.next.addEventListener("click", () => this.update(nextSong(this.state)));
+    this.pause.addEventListener("click", () => {
+      this.paused = !this.paused;
+      this.command(this.paused ? "pauseVideo" : "playVideo");
+      this.render();
+    });
+    this.repeat.addEventListener("click", () => this.update({ ...this.state, repeat: nextRepeat(this.state.repeat) }));
     this.volume.addEventListener("input", () => {
       this.update({ ...this.state, volume: clampVolume(Number(this.volume.value)) });
       this.sendVolume();
@@ -110,6 +125,10 @@ export class MusicPanel {
     this.power.setAttribute("aria-pressed", String(on));
     this.power.disabled = song === null;
     this.next.disabled = songs.length < 2;
+    this.pause.hidden = !on || song === null;
+    this.pause.textContent = this.paused ? "Lanjutin" : "Jeda";
+    this.pause.setAttribute("aria-pressed", String(this.paused));
+    this.repeat.textContent = repeatLabels[this.state.repeat];
     this.volume.value = String(this.state.volume);
     this.volumeValue.textContent = `${this.state.volume}%`;
     this.renderPlayer(on ? song : null);
@@ -118,7 +137,8 @@ export class MusicPanel {
     } else if (!on) {
       this.now.textContent = `Musik mati. Berikutnya: ${this.titleOf(song)}`;
     } else {
-      this.now.textContent = `${this.loading ? "Memuat" : "Lagi diputer"}: ${this.titleOf(song)}`;
+      const doing = this.loading ? "Memuat" : this.paused ? "Dijeda" : "Lagi diputer";
+      this.now.textContent = `${doing}: ${this.titleOf(song)}`;
     }
     this.renderList();
     // Titles are only needed once someone looks or listens; opening the office alone asks nothing.
@@ -135,6 +155,8 @@ export class MusicPanel {
       return;
     }
     this.playing = song;
+    this.paused = false;
+    this.playerState = null;
     this.frame?.remove();
     this.frame = null;
     this.loading = song !== null;
@@ -196,6 +218,22 @@ export class MusicPanel {
     );
   }
 
+  /** Sends one of the embedded player's commands (playVideo, pauseVideo, seekTo, ...). */
+  private command(func: string, args: unknown[] = []): void {
+    this.frame?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args }), embedOrigin);
+  }
+
+  /** A song played to its end: again, the next one, or stop, as the repeat mode says. */
+  private onSongEnded(): void {
+    const { action, state } = afterSongEnds(this.state);
+    if (action === "replay") {
+      this.command("seekTo", [0, true]);
+      this.command("playVideo");
+      return;
+    }
+    this.update(state);
+  }
+
   /** Sets the player's volume; with no player yet, the next one gets it when it loads. */
   private sendVolume(): void {
     this.frame?.contentWindow?.postMessage(volumeCommand(this.state.volume), embedOrigin);
@@ -223,7 +261,10 @@ export class MusicPanel {
       });
   }
 
-  /** YouTube's player says when a video cannot be played embedded; then the next song plays. */
+  /**
+   * YouTube's player reports its state (a song that ended goes by the repeat mode) and says when
+   * a video cannot be played embedded; then the next song plays.
+   */
   private onPlayerMessage(event: MessageEvent): void {
     if (event.origin !== embedOrigin || event.source !== this.frame?.contentWindow || typeof event.data !== "string") {
       return;
@@ -235,7 +276,26 @@ export class MusicPanel {
       // Not one of the player's JSON messages.
       return;
     }
-    if (typeof message !== "object" || message === null || (message as { event?: unknown }).event !== "onError") {
+    if (typeof message !== "object" || message === null) {
+      return;
+    }
+    const { event: kind, info } = message as { event?: unknown; info?: unknown };
+    // The player reports its state both as state changes and inside its regular info updates.
+    const state =
+      kind === "onStateChange" && typeof info === "number"
+        ? info
+        : kind === "infoDelivery" && typeof info === "object" && info !== null
+          ? (info as { playerState?: unknown }).playerState
+          : undefined;
+    if (typeof state === "number") {
+      const ended = state === 0 && this.playerState !== 0;
+      this.playerState = state;
+      if (ended) {
+        this.onSongEnded();
+      }
+      return;
+    }
+    if (kind !== "onError") {
       return;
     }
     const failed = this.state.songs[this.state.current];

@@ -1,7 +1,19 @@
-import { BoxGeometry, Group, InstancedMesh, Matrix4, type Mesh, MeshStandardMaterial, PlaneGeometry } from "three";
+import {
+  BoxGeometry,
+  Group,
+  InstancedMesh,
+  Matrix4,
+  type Mesh,
+  MeshBasicMaterial,
+  MeshStandardMaterial,
+  PlaneGeometry,
+  type Texture,
+} from "three";
 import { furniture, room } from "../office-plan.js";
 import { entryDoorHeight } from "./furniture.js";
+import { NeonStrips } from "./neon.js";
 import { mesh, palette, standard } from "./palette.js";
+import { quoteTexture } from "./textures.js";
 
 /**
  * The parts of the room the overview leaves off so it can look in: the right and front walls and
@@ -24,15 +36,26 @@ function slab(width: number, height: number, depth: number, color: string, x: nu
 
 export interface Enclosure {
   root: Group;
+  /** Running light along the new walls and across the ceiling, like the room's own strips. */
+  neon: NeonStrips;
   /** How bright the room's lights are, 1 by day, lower as the office empties out at night. */
   setLight(level: number): void;
 }
+
+/** The lines on the walls, in neon lettering: two on the front wall, two on the right. */
+export const wallQuotes = [
+  "Ship it. Then make it better.",
+  "GG. Next sprint.",
+  "No bugs, only side quests.",
+  "Respawn. Retry. Release.",
+] as const;
 
 /** The ceiling only gets light bounced off the floor, which reads brown; this keeps it a lit white. */
 const ceilingGlow = 0.45;
 const panelGlow = 0.9;
 
-export function buildEnclosure(): Enclosure {
+/** `lettering` draws a quote; it paints on a canvas, so tests without a DOM pass their own. */
+export function buildEnclosure(lettering: (text: string) => Texture = quoteTexture): Enclosure {
   const root = new Group();
   root.name = "enclosure";
   const { minX, maxX, minZ, maxZ, wallHeight } = room;
@@ -150,8 +173,59 @@ export function buildEnclosure(): Enclosure {
   panels.setMatrixAt(index, place.makeTranslation(hallX, wallHeight - 0.005, hallZ).multiply(faceDown));
   panels.castShadow = false;
   root.add(panels);
+
+  // Neon: along the top and the skirting of the two new walls (the skirting stops at the door),
+  // a frame round the ceiling's edge, and two lines down its length between the light panels.
+  const top = wallHeight - 0.1;
+  const low = 0.12;
+  const front = maxZ - 0.03;
+  const right = maxX - 0.03;
+  const ceilingY = wallHeight - 0.02;
+  const inset = 0.25;
+  const neon = new NeonStrips([
+    { from: { x: minX, z: front }, to: { x: maxX, z: front }, y: top },
+    { from: { x: right, z: maxZ }, to: { x: right, z: minZ }, y: top },
+    { from: { x: minX, z: front }, to: { x: maxX, z: front }, y: low, direction: -1 },
+    { from: { x: right, z: maxZ }, to: { x: right, z: doorTo }, y: low, direction: -1 },
+    { from: { x: right, z: doorFrom }, to: { x: right, z: minZ }, y: low, direction: -1 },
+    { from: { x: minX + inset, z: minZ + inset }, to: { x: maxX - inset, z: minZ + inset }, y: ceilingY },
+    { from: { x: maxX - inset, z: minZ + inset }, to: { x: maxX - inset, z: maxZ - inset }, y: ceilingY },
+    { from: { x: maxX - inset, z: maxZ - inset }, to: { x: minX + inset, z: maxZ - inset }, y: ceilingY },
+    { from: { x: minX + inset, z: maxZ - inset }, to: { x: minX + inset, z: minZ + inset }, y: ceilingY },
+    { from: { x: minX + 1, z: -1.9 }, to: { x: maxX - 1, z: -1.9 }, y: ceilingY, direction: -1 },
+    { from: { x: maxX - 1, z: 1.1 }, to: { x: minX + 1, z: 1.1 }, y: ceilingY, direction: -1 },
+  ]);
+  root.add(neon.mesh);
+
+  // The quotes, above head height so desks and screens never cover them.
+  const quoteSpots: [number, number, number][] = [
+    // x, z, turn about y so the lettering faces into the room
+    [-2.6, maxZ - 0.012, Math.PI],
+    [4.6, maxZ - 0.012, Math.PI],
+    [maxX - 0.012, -3.2, -Math.PI / 2],
+    [maxX - 0.012, 2.3, -Math.PI / 2],
+  ];
+  wallQuotes.forEach((text, index) => {
+    const spot = quoteSpots[index];
+    if (spot === undefined) {
+      return;
+    }
+    const [x, z, yaw] = spot;
+    const material = new MeshBasicMaterial({
+      map: lettering(text),
+      transparent: true,
+      depthWrite: false,
+      toneMapped: false,
+    });
+    const plane = mesh(new PlaneGeometry(2, 0.39), material, false);
+    plane.position.set(x, 1.62, z);
+    plane.rotation.y = yaw;
+    root.add(plane);
+  });
+
   return {
     root,
+    neon,
     setLight(level) {
       const clamped = Math.max(0, Math.min(1, level));
       ceilingMaterial.emissiveIntensity = ceilingGlow * clamped;

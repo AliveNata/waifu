@@ -132,6 +132,38 @@ export function signTextTexture(alyxColor: string = palette.inkDeep, labsColor =
 }
 
 /**
+ * A line of wall lettering lit like a neon tube: a near-white core in the brand purple's glow,
+ * on a transparent ground. The size shrinks to fit long lines into the same width.
+ */
+export function quoteTexture(text: string): CanvasTexture {
+  const width = 1024;
+  const height = 200;
+  const { canvas: element, ctx } = canvas(width, height);
+  ctx.clearRect(0, 0, width, height);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  let size = 96;
+  ctx.font = `700 ${size}px ${uiFont}`;
+  const room = width - 80;
+  const measured = ctx.measureText(text).width;
+  if (measured > room) {
+    size = Math.floor((size * room) / measured);
+    ctx.font = `700 ${size}px ${uiFont}`;
+  }
+  // Two glow passes, wide and faint then tight and bright, then the tube itself.
+  ctx.shadowColor = "#b45cff";
+  ctx.fillStyle = "#c98bff";
+  ctx.shadowBlur = 36;
+  ctx.fillText(text, width / 2, height / 2);
+  ctx.shadowBlur = 12;
+  ctx.fillText(text, width / 2, height / 2);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#f7efff";
+  ctx.fillText(text, width / 2, height / 2);
+  return texture(element);
+}
+
+/**
  * One half of the name on the entry doors, in the sign's lettering: "Alyx" set against the right
  * edge of the left door and "Labs" against the left edge of the right one, so the closed doors
  * read as one word that splits as they slide apart. Transparent around the letters, for glass.

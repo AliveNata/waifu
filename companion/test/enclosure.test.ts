@@ -1,7 +1,7 @@
-import { Box3, type Mesh, type MeshStandardMaterial, Vector3 } from "three";
+import { Box3, type Mesh, type MeshStandardMaterial, Texture, Vector3 } from "three";
 import { beforeAll, describe, expect, it } from "vitest";
 import { furniture, room } from "../src/renderer/office/office-plan.js";
-import { buildEnclosure } from "../src/renderer/office/scene/enclosure.js";
+import { buildEnclosure, wallQuotes } from "../src/renderer/office/scene/enclosure.js";
 import { entryDoorHeight } from "../src/renderer/office/scene/furniture.js";
 import { setSceneQuality } from "../src/renderer/office/scene/palette.js";
 
@@ -9,7 +9,7 @@ import { setSceneQuality } from "../src/renderer/office/scene/palette.js";
 beforeAll(() => setSceneQuality("low"));
 
 function solidParts(): Box3[] {
-  const { root } = buildEnclosure();
+  const { root } = buildEnclosure(() => new Texture());
   root.updateMatrixWorld(true);
   const boxes: Box3[] = [];
   root.traverse((node) => {
@@ -59,7 +59,7 @@ describe("the room seen from inside", () => {
 
   it("dims the ceiling lights with the room and never below off", () => {
     // Arrange
-    const enclosure = buildEnclosure();
+    const enclosure = buildEnclosure(() => new Texture());
     const glows = (): number[] => {
       const levels: number[] = [];
       enclosure.root.traverse((node) => {
@@ -83,5 +83,19 @@ describe("the room seen from inside", () => {
     expect(day.length).toBeGreaterThan(0);
     expect(evening.every((level, index) => level < (day[index] ?? 0))).toBe(true);
     expect(off).toEqual([]);
+  });
+
+  it("letters every quote once on the walls", () => {
+    // Arrange
+    const lettered: string[] = [];
+
+    // Act
+    buildEnclosure((text) => {
+      lettered.push(text);
+      return new Texture();
+    });
+
+    // Assert
+    expect(lettered).toEqual([...wallQuotes]);
   });
 });

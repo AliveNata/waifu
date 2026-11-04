@@ -17,12 +17,51 @@ export interface MusicState {
   on: boolean;
   /** Player volume, 0 to 100. */
   volume: number;
+  /** What happens when a song ends. */
+  repeat: RepeatMode;
+}
+
+/** Play the same song again, go on through the list and round again, or stop after the last. */
+export type RepeatMode = "one" | "all" | "off";
+
+const repeatModes: readonly RepeatMode[] = ["one", "all", "off"];
+
+/** The repeat button's next mode, in a cycle. */
+export function nextRepeat(mode: RepeatMode): RepeatMode {
+  return repeatModes[(repeatModes.indexOf(mode) + 1) % repeatModes.length] ?? "one";
+}
+
+export const repeatLabels: Record<RepeatMode, string> = {
+  one: "Ulang: lagu ini",
+  all: "Ulang: semua",
+  off: "Ulang: mati",
+};
+
+/**
+ * What to do when the song playing ends: play it again from the start, move to the next one (the
+ * first again after the last, when repeating all), or stop after the last one.
+ */
+export function afterSongEnds(state: MusicState): { action: "replay" | "next" | "stop"; state: MusicState } {
+  if (state.repeat === "one") {
+    return { action: "replay", state };
+  }
+  if (state.repeat === "off" && state.current >= state.songs.length - 1) {
+    return { action: "stop", state: { ...state, current: 0, on: false } };
+  }
+  // Repeating a list of one is repeating that song.
+  return state.songs.length === 1 ? { action: "replay", state } : { action: "next", state: nextSong(state) };
 }
 
 /** Quiet enough to talk over while working, until the person moves the slider. */
 export const defaultVolume = 60;
 
-export const initialMusic: MusicState = { songs: [...defaultSongs], current: 0, on: false, volume: defaultVolume };
+export const initialMusic: MusicState = {
+  songs: [...defaultSongs],
+  current: 0,
+  on: false,
+  volume: defaultVolume,
+  repeat: "one",
+};
 
 /** A volume the player accepts: a whole number from 0 to 100. */
 export function clampVolume(value: number): number {
@@ -69,14 +108,12 @@ export function youtubeIdFrom(link: string): string | null {
 }
 
 /**
- * The privacy-enhanced embed for one song, playing straight away and looping that same song
- * (YouTube loops a single video only when it is also given as its own playlist).
+ * The privacy-enhanced embed for one song, playing straight away. It does not loop by itself:
+ * when the song ends the panel decides, from the repeat mode, whether it plays again.
  */
 export function embedUrl(id: string, pageOrigin: string | null): string {
   const params = new URLSearchParams({
     autoplay: "1",
-    loop: "1",
-    playlist: id,
     playsinline: "1",
     rel: "0",
     enablejsapi: "1",
@@ -118,10 +155,10 @@ export function removeSong(state: MusicState, index: number): MusicState {
     current = Math.max(0, current - 1);
   }
   return {
+    ...state,
     songs,
     current: songs.length === 0 ? 0 : current,
     on: songs.length === 0 ? false : state.on,
-    volume: state.volume,
   };
 }
 
@@ -149,7 +186,8 @@ export function parseMusicState(saved: string | null): MusicState {
       ? Math.min(record.current, Math.max(0, songs.length - 1))
       : 0;
   const volume = typeof record.volume === "number" ? clampVolume(record.volume) : defaultVolume;
-  return { songs, current, on: record.on === true && songs.length > 0, volume };
+  const repeat = repeatModes.includes(record.repeat as RepeatMode) ? (record.repeat as RepeatMode) : "one";
+  return { songs, current, on: record.on === true && songs.length > 0, volume, repeat };
 }
 
 /** YouTube's public oEmbed address for a video, which answers with its title. */
