@@ -34,7 +34,45 @@ export class FrameRate {
   }
 }
 
-/** "24 fps · 41 ms · 1480 draw", short enough for a corner chip. */
-export function frameLabel(fps: number, frameMs: number, drawCalls: number): string {
-  return `${Math.round(fps)} fps · ${Math.round(frameMs)} ms · ${drawCalls} draw`;
+/**
+ * "24 fps · 41 ms · cpu 12 ms · 1480 draw", short enough for a corner chip, with the graphics
+ * chip on a second line when known. Frame time far above the CPU's share means the GPU is what
+ * holds the frame back; close to it, the scripts (animation, hair physics) are.
+ */
+export function frameLabel(fps: number, frameMs: number, drawCalls: number, cpuMs: number, gpu: string | null): string {
+  const numbers = `${Math.round(fps)} fps · ${Math.round(frameMs)} ms · cpu ${Math.round(cpuMs)} ms · ${drawCalls} draw`;
+  return gpu === null ? numbers : `${numbers}\n${gpu}`;
+}
+
+/**
+ * The graphics chip's name without the browser's wrapping: "ANGLE (Intel, Intel(R) UHD Graphics
+ * 620 Direct3D11 vs_5_0 ps_5_0, D3D11)" reads as "Intel(R) UHD Graphics 620".
+ */
+export function gpuLabel(renderer: string): string {
+  const angle = /^ANGLE \((.*)\)$/.exec(renderer.trim());
+  const inner = angle?.[1] ?? renderer.trim();
+  const parts = inner.split(", ");
+  const model = (angle !== null && parts.length >= 2 ? parts[1] : inner) ?? inner;
+  const trimmed = model.replace(/\s+(Direct3D|vs_|ps_|OpenGL|\(0x).*$/, "").trim();
+  // Cutting off a "(0x...)" device id can leave its enclosing bracket open.
+  const opened = (trimmed.match(/\(/g) ?? []).length - (trimmed.match(/\)/g) ?? []).length;
+  return opened > 0 ? `${trimmed}${")".repeat(opened)}` : trimmed;
+}
+
+/**
+ * Frame pacing for a cap: whether to draw at `now` (ms) and when the next frame is due. Due times
+ * step by the interval so a 144 Hz screen still averages the cap; after a slow frame they restart
+ * from `now` instead of trying to catch up in a burst. A cap of 0 draws every frame.
+ */
+export function paceFrame(now: number, dueAt: number, cap: number): { draw: boolean; dueAt: number } {
+  if (cap <= 0) {
+    return { draw: true, dueAt: now };
+  }
+  // A couple of milliseconds early still counts: display ticks jitter around the interval.
+  if (now < dueAt - 2) {
+    return { draw: false, dueAt };
+  }
+  const interval = 1000 / cap;
+  // Measured from this frame too, less a little for display jitter, so a late frame is not followed at once by another.
+  return { draw: true, dueAt: Math.max(dueAt + interval, now + interval - 4) };
 }

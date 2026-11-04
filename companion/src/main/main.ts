@@ -5,6 +5,12 @@ import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { app, BrowserWindow, dialog, ipcMain, Menu, screen, session, shell } from "electron";
 import { HookServer, permissionPath } from "../server/hook-server.js";
+import {
+  fpsCaps,
+  normalizeDisplaySettings,
+  type OfficeDisplaySettings,
+  renderScales,
+} from "../shared/display-settings.js";
 import type { ChatEvent, ChatSessionList } from "../shared/office-chat.js";
 import {
   type CursorOffset,
@@ -59,6 +65,10 @@ let twob: TwobService | null = null;
 /** The visible conversation, replayed when the office window opens again. */
 let chatHistory: ChatEvent[] = [];
 const maxChatHistory = 400;
+
+// On a machine with a separate graphics card, Chromium may draw on the slower built-in one; the
+// office is a 3D scene, so ask for the stronger one. Has to be set before the app is ready.
+app.commandLine.appendSwitch("force_high_performance_gpu");
 
 function rendererWindows(): BrowserWindow[] {
   return [overlayWindow, officeWindow, teamOverlayWindow].filter(
@@ -371,6 +381,25 @@ function showMenu(window: BrowserWindow): void {
       })),
     },
     {
+      label: "Resolusi kantor",
+      // Below 100% the office draws fewer pixels and the page scales them up: softer, much lighter on the GPU.
+      submenu: renderScales.map((renderScale) => ({
+        label: `${renderScale}%`,
+        type: "radio" as const,
+        checked: settings.officeDisplay.renderScale === renderScale,
+        click: () => setOfficeDisplay({ ...settings.officeDisplay, renderScale }),
+      })),
+    },
+    {
+      label: "Batas FPS kantor",
+      submenu: fpsCaps.map((fpsCap) => ({
+        label: fpsCap === 0 ? "Tanpa batas" : `${fpsCap} fps`,
+        type: "radio" as const,
+        checked: settings.officeDisplay.fpsCap === fpsCap,
+        click: () => setOfficeDisplay({ ...settings.officeDisplay, fpsCap }),
+      })),
+    },
+    {
       label: "Grafis kantor tinggi",
       type: "checkbox",
       checked: settings.officeQuality === "high",
@@ -430,6 +459,13 @@ function setCloseupEnabled(enabled: boolean): void {
 function setFpsVisible(visible: boolean): void {
   updateSettings({ fpsVisible: visible })
     .then(() => broadcast(ipcChannels.fpsVisible, visible))
+    .catch((error: unknown) => console.error("[main] failed to save settings", error));
+}
+
+function setOfficeDisplay(display: OfficeDisplaySettings): void {
+  const next = normalizeDisplaySettings(display);
+  updateSettings({ officeDisplay: next })
+    .then(() => broadcast(ipcChannels.officeDisplay, next))
     .catch((error: unknown) => console.error("[main] failed to save settings", error));
 }
 
@@ -690,6 +726,14 @@ function registerIpc(): void {
       return;
     }
     setFpsVisible(visible);
+  });
+  ipcMain.handle(ipcChannels.getOfficeDisplay, () => settings.officeDisplay);
+  ipcMain.on(ipcChannels.setOfficeDisplay, (_event, display: unknown) => {
+    if (typeof display !== "object" || display === null) {
+      console.error(`[main] ignoring malformed display setting: ${String(display)}`);
+      return;
+    }
+    setOfficeDisplay(normalizeDisplaySettings(display));
   });
   ipcMain.handle(ipcChannels.getOfficeSound, () => settings.officeSound);
   ipcMain.on(ipcChannels.setOfficeSound, (_event, sound: unknown) => {

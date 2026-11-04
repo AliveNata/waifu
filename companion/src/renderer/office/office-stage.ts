@@ -22,6 +22,7 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { defaultDisplaySettings, type OfficeDisplaySettings } from "../../shared/display-settings.js";
 import { idleReaction, type MemberSignal, type Reaction } from "../../shared/reaction.js";
 import type { OfficeSoundSettings } from "../../shared/sound-settings.js";
 import { type MemberId, memberIds, roster } from "../../shared/team.js";
@@ -51,6 +52,7 @@ import {
   reachSeconds,
 } from "./desk-habits.js";
 import { eyeHeight, FirstPerson, firstPersonFov } from "./first-person.js";
+import { gpuLabel, paceFrame } from "./frame-rate.js";
 import { FreeCamera } from "./free-camera.js";
 import { Handoffs, type Teammate } from "./handoffs.js";
 import { aimHand, solveCcd } from "./ik.js";
@@ -501,6 +503,13 @@ export class OfficeStage {
   private catPettedAt: number | null = null;
   private catBegged: number | null = null;
   private readonly sound = new OfficeSound();
+  private display: OfficeDisplaySettings = { ...defaultDisplaySettings };
+  /** When the next frame may be drawn under the frame rate cap, in animation-frame milliseconds. */
+  private frameDueAt = 0;
+  /** Smoothed milliseconds of script per frame: updates, animation, physics and issuing draws. */
+  private cpuMs = 0;
+  /** The graphics chip the office draws on, as the browser names it, once known. */
+  private gpu: string | null = null;
   private soundOn = false;
   private readonly soundRight = new Vector3();
   /** Where the rally was last frame, to hear each paddle and bounce it passed since. */
@@ -591,7 +600,7 @@ export class OfficeStage {
     private readonly canvas: HTMLCanvasElement,
     private readonly onFrame: () => void,
   ) {
-    this.renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true });
+    this.renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: "high-performance" });
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.autoClear = false;
@@ -835,6 +844,30 @@ export class OfficeStage {
     // Inside the room the missing walls and ceiling would show as a void; from outside they hide it.
     this.office.enclosure.root.visible = on;
     this.lastInputAt = Date.now();
+  }
+
+  /** Render resolution (a share of the screen's pixel density) and the frame rate cap. */
+  setDisplay(settings: OfficeDisplaySettings): void {
+    this.display = settings;
+    const ratio = (Math.min(window.devicePixelRatio, 2) * settings.renderScale) / 100;
+    this.renderer.setPixelRatio(ratio);
+    this.composer?.setPixelRatio(ratio);
+    this.resize();
+  }
+
+  frameCpuMs(): number {
+    return this.cpuMs;
+  }
+
+  /** The graphics chip's name, for telling a built-in chip or software drawing from a real card. */
+  gpuName(): string | null {
+    if (this.gpu === null) {
+      const gl = this.renderer.getContext();
+      const info = gl.getExtension("WEBGL_debug_renderer_info");
+      const raw: unknown = gl.getParameter(info === null ? gl.RENDERER : info.UNMASKED_RENDERER_WEBGL);
+      this.gpu = typeof raw === "string" && raw !== "" ? gpuLabel(raw) : null;
+    }
+    return this.gpu;
   }
 
   setSound(settings: OfficeSoundSettings): void {
@@ -2770,6 +2803,12 @@ export class OfficeStage {
   }
 
   private frame(timestamp: number): void {
+    const pace = paceFrame(timestamp, this.frameDueAt, this.display.fpsCap);
+    this.frameDueAt = pace.dueAt;
+    if (!pace.draw) {
+      return;
+    }
+    const started = performance.now();
     this.timer.update(timestamp);
     const rawDelta = this.timer.getDelta();
     const delta = Math.min(rawDelta, 0.1);
@@ -2849,6 +2888,7 @@ export class OfficeStage {
               : null,
         },
         this.night,
+        Math.min(rawDelta, 0.25),
       );
       this.alyxHands.render(this.renderer);
     }
@@ -2876,5 +2916,6 @@ export class OfficeStage {
       this.renderer.setScissorTest(false);
     }
     this.lastDrawCalls = this.renderer.info.render.calls;
+    this.cpuMs += (performance.now() - started - this.cpuMs) * 0.1;
   }
 }

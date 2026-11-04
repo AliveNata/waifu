@@ -1,3 +1,4 @@
+import type { OfficeDisplaySettings } from "./display-settings.js";
 import type { ChatEvent, ChatSessionList, ChatStatus } from "./office-chat.js";
 import type { CompanionSignal } from "./reaction.js";
 import type { OfficeSoundSettings } from "./sound-settings.js";
@@ -68,6 +69,10 @@ export interface CompanionApi {
   getOfficeSound(): Promise<OfficeSoundSettings>;
   setOfficeSound(settings: OfficeSoundSettings): void;
   onOfficeSound(listener: (settings: OfficeSoundSettings) => void): () => void;
+  /** How the office is drawn: render resolution and a frame rate cap. */
+  getOfficeDisplay(): Promise<OfficeDisplaySettings>;
+  setOfficeDisplay(settings: OfficeDisplaySettings): void;
+  onOfficeDisplay(listener: (settings: OfficeDisplaySettings) => void): () => void;
   /** Graphics quality of the office, read once when the office page loads. */
   getOfficeQuality(): Promise<OfficeQuality>;
   /** Whether 2B's desktop companion window is shown. */
@@ -141,6 +146,9 @@ export const ipcChannels = {
   getOfficeSound: "companion:get-office-sound",
   setOfficeSound: "companion:set-office-sound",
   officeSound: "companion:office-sound",
+  getOfficeDisplay: "companion:get-office-display",
+  setOfficeDisplay: "companion:set-office-display",
+  officeDisplay: "companion:office-display",
   getOfficeQuality: "companion:get-office-quality",
   getCompanionVisible: "companion:get-companion-visible",
   setCompanionVisible: "companion:set-companion-visible",

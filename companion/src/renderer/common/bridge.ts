@@ -1,3 +1,4 @@
+import { normalizeDisplaySettings, type OfficeDisplaySettings } from "../../shared/display-settings.js";
 import type {
   CompanionApi,
   ConversationMode,
@@ -141,6 +142,26 @@ function storeSound(settings: OfficeSoundSettings): void {
   }
 }
 
+const officeDisplayKey = "waifu.officeDisplay";
+
+function readStoredDisplay(): OfficeDisplaySettings {
+  try {
+    const stored = window.localStorage.getItem(officeDisplayKey);
+    return normalizeDisplaySettings(stored === null ? undefined : JSON.parse(stored));
+  } catch (error) {
+    console.warn("[bridge] could not read the display setting, the office draws at full resolution", error);
+    return normalizeDisplaySettings(undefined);
+  }
+}
+
+function storeDisplay(settings: OfficeDisplaySettings): void {
+  try {
+    window.localStorage.setItem(officeDisplayKey, JSON.stringify(settings));
+  } catch (error) {
+    console.warn("[bridge] could not persist the display setting", error);
+  }
+}
+
 /** Browser preview: ?quality=low on the office URL, for checking how slower machines see it. */
 function webOfficeQuality(): OfficeQuality {
   const asked = new URLSearchParams(window.location.search).get("quality");
@@ -157,6 +178,8 @@ function createWebBridge(): RendererBridge {
   const fpsListeners = new Set<(visible: boolean) => void>();
   let officeSound = readStoredSound();
   const soundListeners = new Set<(settings: OfficeSoundSettings) => void>();
+  let officeDisplay = readStoredDisplay();
+  const displayListeners = new Set<(settings: OfficeDisplaySettings) => void>();
   const signalListeners = new Set<(signal: CompanionSignal) => void>();
 
   const ensureEventStream = (): void => {
@@ -242,6 +265,20 @@ function createWebBridge(): RendererBridge {
     onOfficeSound(listener) {
       soundListeners.add(listener);
       return () => soundListeners.delete(listener);
+    },
+    async getOfficeDisplay() {
+      return officeDisplay;
+    },
+    setOfficeDisplay(settings) {
+      officeDisplay = normalizeDisplaySettings(settings);
+      storeDisplay(officeDisplay);
+      for (const listener of displayListeners) {
+        listener(officeDisplay);
+      }
+    },
+    onOfficeDisplay(listener) {
+      displayListeners.add(listener);
+      return () => displayListeners.delete(listener);
     },
     // The browser page is itself the companion; there is no separate window to show or hide.
     async getCompanionVisible() {

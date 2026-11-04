@@ -27,6 +27,7 @@ describe("settings store", () => {
       closeupEnabled: false,
       fpsVisible: true,
       officeSound: { enabled: true, volume: 75 },
+      officeDisplay: { renderScale: 75 as const, fpsCap: 30 as const },
       officeQuality: "low" as const,
       companionVisible: false,
       chatEnabled: false,

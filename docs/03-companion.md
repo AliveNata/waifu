@@ -149,7 +149,12 @@ Tiap zona punya bentuk yang kebaca jelas dari kamera, dan meja meeting, meja 2B,
 Keluar dari mode Alyx, semuanya balik kayak semula: barang yang dipegang balik ke meja, dan TV, arcade, kulkas, laptop, sama lampu balik ke keadaan otomatisnya. Esc pertama ngelepas mouse (kantor berhenti, klik lagi buat lanjut), Esc kedua keluar dari mode Alyx dan balik ke tampilan biasa. Mode ini dan Kamera bebas saling gantian, jadi nyalain satu bakal matiin yang lain.
 
 Dari tampilan biasa kantornya kebuka kayak rumah boneka, cuma ada dinding belakang dan kiri biar bisa diintip dari depan atas. Di mode Alyx ruangannya ditutup: dinding kanan (bolong di pintu kaca, dengan lorong pendek di baliknya), dinding depan, dan langit-langit dengan panel lampu yang ikut redup pas kantor mulai kosong malam hari. Biar tetap enteng, mode Alyx jalan tanpa ambient occlusion.
-- **FPS**: tekan F (atau centang **Tampilkan FPS kantor** di menu) buat nampilin chip di kiri atas: frame per detik, waktu per frame, dan jumlah draw call. Tekan F lagi buat nyembunyiin. Pilihannya tersimpan.
+
+Tekan **H** di mode Alyx buat nyembunyiin chip FPS, baris petunjuk kontrol, dan tombol-tombol di bawah. Titik bidik dan label E tetap ada. Tekan H lagi buat munculin, atau keluar dari mode Alyx.
+
+Pas Alyx diem, tangannya gerak sendiri tiap beberapa detik, dipilih acak dan nggak pernah sama dua kali berturut-turut: lihat jam tangan di pergelangan kiri, benerin manset, jari ngetuk-ngetuk, gosok tangan, kepal-buka, sama lihat telapak tangan. Begitu jalan, megang barang, main pingpong, ngelus Mochi, atau nyapa, tangannya langsung balik ke pose biasa.
+- **FPS**: tekan F (atau centang **Tampilkan FPS kantor** di menu) buat nampilin chip di kiri atas: frame per detik, waktu per frame, waktu skrip per frame (`cpu`), jumlah draw call, dan di baris kedua nama GPU yang dipakai. Tekan F lagi buat nyembunyiin. Pilihannya tersimpan.
+- **Resolusi dan batas FPS**: **Menu > Resolusi kantor** (100, 75, 50%) sama **Menu > Batas FPS kantor** (tanpa batas, 30, 60). Di mode browser, dua-duanya ada di dialog **Model**.
 - **Efek suara**: default mati. Nyalain lewat **Menu > Efek suara kantor**, volumenya di **Menu > Volume efek suara** (25, 50, 75, 100%). Di mode browser, checkbox sama slider volumenya ada di dialog **Model**. Semua suara dibikin langsung pakai WebAudio, nggak ada file rekaman:
 
   | Suara | Kapan bunyi |
@@ -164,6 +169,8 @@ Dari tampilan biasa kantornya kebuka kayak rumah boneka, cuma ada dinding belaka
   Suaranya makin pelan makin jauh dari kamera (atau dari mata Alyx di mode Alyx), dan kedengeran dari kiri atau kanan sesuai posisinya. Klik keyboard cuma kedengeran dari meja terdekat, gong kedengeran sekantor. Di browser, suaranya baru mulai setelah lo klik atau pencet tombol di halaman (aturan autoplay browser).
 
 **Kalau kantornya patah-patah**: yang paling berat jumlah draw call, bayangan matahari (shadow map-nya digambar sekali per frame, dan props di bawah 6 cm nggak ngelempar bayangan), fisika rambut 12 karakter, dan close-up yang ngegambar adegan sekali lagi. Yang bisa langsung dicoba: matiin **Grafis kantor tinggi** di menu (nonaktifin efek ambient occlusion), atau matiin close-up otomatis. Angka di chip FPS bisa dipakai buat bandingin sebelum dan sesudah.
+
+Cara baca chip-nya: kalau `ms` (waktu per frame) jauh di atas `cpu`, yang nahan frame itu GPU. Turunin **Resolusi kantor** ke 75 atau 50% (jumlah piksel turun jadi sekitar 56 atau 25%). Kalau `cpu` hampir sama dengan `ms`, yang berat itu skripnya (animasi, fisika rambut), dan resolusi nggak banyak ngaruh. **Batas FPS** cuma ngebatesin ke atas, nggak bisa naikin FPS. Gunanya buat frame yang lebih stabil dan laptop yang lebih adem, kalau FPS-nya udah di atas batas itu. Di laptop yang punya dua GPU, app minta GPU yang lebih kuat. Kalau GPU-nya cuma integrated, nama di chip bakal nunjukin itu.
 
 **Yang udah dioptimasi**: furnitur yang nggak pernah gerak digabung jadi satu mesh per jenis material pas kantor selesai dibangun. Barang yang masih hidup (layar, lampu, pintu, mug, laptop, keyboard, apa pun yang dipegang atau berubah warna) tetap terpisah. Tuts keyboard sekarang satu `InstancedMesh` per keyboard, bukan satu mesh per tuts. Diukur di kamera default: mesh yang kelihatan turun dari 1.759 jadi 718, dan draw call per frame (termasuk bayangan) dari sekitar 2.900 jadi sekitar 1.370. Log `[office] merged ... static meshes into ...` di console nunjukin berapa yang digabung.
 

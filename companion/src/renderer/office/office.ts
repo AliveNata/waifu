@@ -1,5 +1,6 @@
 import "../common/base.css";
 import "./office.css";
+import { normalizeDisplaySettings, type OfficeDisplaySettings } from "../../shared/display-settings.js";
 import type { ConversationMode } from "../../shared/protocol.js";
 import { idleReaction } from "../../shared/reaction.js";
 import { normalizeSoundSettings, type OfficeSoundSettings } from "../../shared/sound-settings.js";
@@ -29,7 +30,8 @@ const portraitFraming: SpeakerFraming = { height: 0.55, drop: 0.06 };
 /** Keep the portrait loaded briefly after a line, so back-to-back lines do not flicker. */
 const portraitHoldMs = 1500;
 
-const firstPersonControls = "WASD jalan · Shift lari · mouse buat noleh · E buat interaksi · Esc buat berhenti";
+const firstPersonControls =
+  "WASD jalan · Shift lari · mouse buat noleh · E buat interaksi · H sembunyiin tampilan · Esc buat berhenti";
 const firstPersonPaused = "Klik kantornya buat lanjut jalan · Esc buat keluar dari mode Alyx";
 
 class OfficePage {
@@ -42,6 +44,9 @@ class OfficePage {
   private readonly soundVolume = requireElement("sound-volume", HTMLInputElement);
   private readonly soundVolumeValue = requireElement("sound-volume-value", HTMLOutputElement);
   private officeSound: OfficeSoundSettings = normalizeSoundSettings(undefined);
+  private readonly renderScaleSetting = requireElement("render-scale", HTMLSelectElement);
+  private readonly fpsCapSetting = requireElement("fps-cap", HTMLSelectElement);
+  private officeDisplay: OfficeDisplaySettings = normalizeDisplaySettings(undefined);
   private readonly freeCameraButton = requireElement("free-camera", HTMLButtonElement);
   private readonly cameraHint = requireElement("camera-hint", HTMLElement);
   private readonly firstPersonButton = requireElement("first-person", HTMLButtonElement);
@@ -53,6 +58,7 @@ class OfficePage {
   private readonly frameRate = new FrameRate();
   private fpsVisible = false;
   private fpsShownAt = 0;
+  private hudHidden = false;
   private readonly pointer: OfficePointer;
   private readonly speechBubbles = new SpeechBubbles(requireElement("speech-layer", HTMLElement));
   private readonly chatPanel = requireElement("chat", HTMLElement);
@@ -123,6 +129,22 @@ class OfficePage {
     });
     this.soundVolume.addEventListener("change", () =>
       this.bridge.setOfficeSound({ ...this.officeSound, volume: Number(this.soundVolume.value) }),
+    );
+    this.bridge
+      .getOfficeDisplay()
+      .then((settings) => this.applyOfficeDisplay(settings))
+      .catch((error: unknown) => console.error("[office] could not read the display setting", error));
+    this.bridge.onOfficeDisplay((settings) => this.applyOfficeDisplay(settings));
+    // The selects only offer valid steps; normalizing keeps a hand-edited page from slipping through.
+    this.renderScaleSetting.addEventListener("change", () =>
+      this.bridge.setOfficeDisplay(
+        normalizeDisplaySettings({ ...this.officeDisplay, renderScale: Number(this.renderScaleSetting.value) }),
+      ),
+    );
+    this.fpsCapSetting.addEventListener("change", () =>
+      this.bridge.setOfficeDisplay(
+        normalizeDisplaySettings({ ...this.officeDisplay, fpsCap: Number(this.fpsCapSetting.value) }),
+      ),
     );
     // Browsers hold audio back until the page has been used, so any click or key may start it.
     for (const type of ["pointerdown", "keydown"] as const) {
@@ -345,7 +367,19 @@ class OfficePage {
     this.interactPrompt.hidden = label === null;
   }
 
+  /**
+   * H in Alyx mode hides the frame rate, the controls line and the buttons, leaving the aim dot
+   * and the E prompt so he can still use things. Leaving Alyx mode brings them all back.
+   */
+  private setHudHidden(hidden: boolean): void {
+    this.hudHidden = hidden;
+    document.documentElement.dataset.hud = hidden ? "hidden" : "shown";
+  }
+
   private setFirstPerson(on: boolean): void {
+    if (!on) {
+      this.setHudHidden(false);
+    }
     this.stage.setFirstPerson(on);
     if (on) {
       this.setFreeCamera(false);
@@ -361,7 +395,13 @@ class OfficePage {
       return;
     }
     this.fpsShownAt = at;
-    this.fpsMeter.textContent = frameLabel(this.frameRate.fps(), this.frameRate.frameMs(), this.stage.drawCalls());
+    this.fpsMeter.textContent = frameLabel(
+      this.frameRate.fps(),
+      this.frameRate.frameMs(),
+      this.stage.drawCalls(),
+      this.stage.frameCpuMs(),
+      this.stage.gpuName(),
+    );
   }
 
   private applyFpsVisible(visible: boolean): void {
@@ -369,6 +409,13 @@ class OfficePage {
     this.fpsMeter.hidden = !visible;
     this.fpsSetting.checked = visible;
     this.fpsShownAt = 0;
+  }
+
+  private applyOfficeDisplay(settings: OfficeDisplaySettings): void {
+    this.officeDisplay = settings;
+    this.renderScaleSetting.value = String(settings.renderScale);
+    this.fpsCapSetting.value = String(settings.fpsCap);
+    this.stage.setDisplay(settings);
   }
 
   private applyOfficeSound(settings: OfficeSoundSettings): void {
@@ -389,7 +436,10 @@ class OfficePage {
     this.cameraHint.hidden = !on;
   }
 
-  /** F shows or hides the frame rate; Escape leaves the free camera. Never while typing or in a dialog. */
+  /**
+   * F shows or hides the frame rate, H the interface in Alyx mode; Escape leaves the free camera.
+   * Never while typing or in a dialog.
+   */
   private handleShortcut(event: KeyboardEvent): void {
     const target = event.target;
     const typing =
@@ -403,6 +453,9 @@ class OfficePage {
     if (event.code === "KeyF") {
       event.preventDefault();
       this.bridge.setFpsVisible(!this.fpsVisible);
+    } else if (event.code === "KeyH" && this.stage.firstPersonOn()) {
+      event.preventDefault();
+      this.setHudHidden(!this.hudHidden);
     } else if (event.key === "Escape" && this.stage.freeCameraOn()) {
       this.setFreeCamera(false);
     } else if (event.key === "Escape" && this.stage.firstPersonOn() && !this.stage.firstPersonWalking()) {
