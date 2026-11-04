@@ -318,7 +318,8 @@ export function buildPantryCounter(
     root.add(glass);
   }
   const kettle = mesh(new CylinderGeometry(0.05, 0.065, 0.14, 14), standard(palette.steel, 0.25, 0.7));
-  kettle.position.set(width / 2 - 0.12, top + 0.07, -0.05);
+  // Clear of the bar's overhanging top, which covers this end of the counter.
+  kettle.position.set(width / 2 - 0.3, top + 0.07, -0.05);
   root.add(kettle);
   const sink = buildSink(at.sink - piece.x, top);
   const oven = buildOven(ovenX, front);
