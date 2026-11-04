@@ -29,6 +29,7 @@ import type { ArcadeScreen, RackLights, TvScreen } from "./scene/animated.js";
 import { BarFoodDisplay } from "./scene/bar-food.js";
 import { buildContactShadows } from "./scene/contact-shadows.js";
 import { buildDesk, type DeskMember, deskTop, memberPropLooks, type Workstation } from "./scene/desks.js";
+import { buildEnclosure, type Enclosure } from "./scene/enclosure.js";
 import {
   buildArcade,
   buildBackdrop,
@@ -127,6 +128,8 @@ export interface OfficeProps {
   barFood: BarFoodDisplay;
   /** The way out, at the right edge of the room, which opens for whoever goes through. */
   entryDoor: EntryDoor;
+  /** The right and front walls and the ceiling, hidden until someone looks from inside. */
+  enclosure: Enclosure;
 }
 
 interface BoardSpec {
@@ -609,12 +612,43 @@ export function buildOffice(): OfficeProps {
     statusBoard,
     barFood,
     entryDoor,
+    enclosure: buildEnclosure(),
   };
   // Everything left untouched by the running office goes into a few big meshes: one draw call per
   // material look instead of one per box, which is most of what makes the room slow to draw.
   const { merged, into } = mergeStaticMeshes(root, collectLiveParts({ ...props }, [root]));
   console.info(`[office] merged ${merged} static meshes into ${into}`);
+  const shadowless = dropTinyShadows(root);
+  console.info(`[office] ${shadowless} small props no longer cast shadows`);
+  props.enclosure.root.visible = false;
+  root.add(props.enclosure.root);
   return props;
+}
+
+/**
+ * Below this radius a prop's shadow is a few texels of the sun's map: invisible from the overview
+ * and blotchy up close, yet each one is a draw in the shadow pass every frame.
+ */
+const smallestShadowCaster = 0.06;
+
+/** Stops the small props that are left as their own meshes from casting shadows; returns how many. */
+function dropTinyShadows(root: Group): number {
+  root.updateMatrixWorld(true);
+  let count = 0;
+  root.traverse((node) => {
+    const part = node as Mesh;
+    // Merged meshes span the room, so their size says nothing about any one piece in them.
+    if (part.isMesh !== true || !part.castShadow || part.name === "merged-static") {
+      return;
+    }
+    part.geometry.computeBoundingSphere();
+    const radius = (part.geometry.boundingSphere?.radius ?? 0) * part.matrixWorld.getMaxScaleOnAxis();
+    if (radius < smallestShadowCaster) {
+      part.castShadow = false;
+      count += 1;
+    }
+  });
+  return count;
 }
 
 function buildCloseups(whiteboard: BoardSpec, idea: BoardSpec): Record<MemberId, CloseupShot> {

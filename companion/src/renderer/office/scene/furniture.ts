@@ -463,12 +463,15 @@ export class EntryDoor {
  * strip, a track, and two clear glass doors lettered "Alyx" and "Labs" that read as one name
  * when shut. Each door slides out over its own side bay, so the whole opening clears.
  */
+/** How tall the glass doors are; the header over them takes another 10 cm. */
+export const entryDoorHeight = 1.45;
+
 export function buildEntryDoor(piece: Furniture): { root: Group; door: EntryDoor } {
   const root = placed(piece);
   const { width } = localSize(piece);
   // Half the footprint is the opening, a quarter on each side is where a door slides to.
   const opening = width / 2;
-  const height = 1.45;
+  const height = entryDoorHeight;
   const frame = standard(palette.inkDeep, 0.5);
   const steel = standard(palette.steel, 0.3, 0.6);
   root.add(

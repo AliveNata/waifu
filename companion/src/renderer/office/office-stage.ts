@@ -601,6 +601,9 @@ export class OfficeStage {
     // Soft shadows ground the people and furniture; without them the room reads as floating props.
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
+    // Three redraws the shadow map on every render call, and the frame makes several (the
+    // ambient occlusion's normals, the close-up). Once per frame is enough: see frame().
+    this.renderer.shadowMap.autoUpdate = false;
 
     const sun = this.sun;
     sun.position.set(6, 11, 8);
@@ -829,6 +832,8 @@ export class OfficeStage {
       this.controls.enabled = true;
       this.resetView();
     }
+    // Inside the room the missing walls and ceiling would show as a void; from outside they hide it.
+    this.office.enclosure.root.visible = on;
     this.lastInputAt = Date.now();
   }
 
@@ -2749,6 +2754,8 @@ export class OfficeStage {
     const emptied = (away.length / memberIds.length) * night;
     this.hemisphere.intensity *= 1 - 0.45 * emptied;
     this.windowFill.intensity *= 1 - 0.3 * emptied;
+    // The ceiling panels are the room lights Alyx looks up at, so they go down with them.
+    this.office.enclosure.setLight(1 - 0.6 * emptied);
     this.night = night;
   }
 
@@ -2810,7 +2817,10 @@ export class OfficeStage {
 
     this.renderer.setScissorTest(false);
     this.renderer.setViewport(0, 0, width, height);
-    if (this.composer !== null) {
+    this.renderer.shadowMap.needsUpdate = true;
+    // Ambient occlusion costs a second pass over the whole scene. At eye height in first person
+    // that pass is most of the frame and the shading it adds is hard to see, so Alyx goes without.
+    if (this.composer !== null && !this.firstPerson.active) {
       this.composer.render(delta);
     } else {
       this.renderer.setClearColor(0x000000, 0);
@@ -2857,7 +2867,12 @@ export class OfficeStage {
       this.renderer.setViewport(rect.x, bottom, rect.width, rect.height);
       this.renderer.setClearColor(closeupBackground, 1);
       this.renderer.clear();
+      // Close-up shots are framed for the open room and some start outside where a wall would be.
+      const enclosure = this.office.enclosure.root;
+      const enclosed = enclosure.visible;
+      enclosure.visible = false;
       this.renderer.render(this.scene, this.closeupCamera);
+      enclosure.visible = enclosed;
       this.renderer.setScissorTest(false);
     }
     this.lastDrawCalls = this.renderer.info.render.calls;
