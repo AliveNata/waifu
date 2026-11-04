@@ -1246,3 +1246,39 @@ export const meetingStationIds: readonly MeetingStationId[] = meetingIds;
 export function distance(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.z - b.z);
 }
+
+/** How thick the walls are that close the room for Alyx, and the hall's walls with them. */
+export const enclosureWall = 0.12;
+
+/**
+ * The hall behind the glass door: as wide as the door's footprint plus a margin, and at its far
+ * end a turn to the north, out of sight from the room, where whoever leaves walks off.
+ */
+export const entryHall = ((): {
+  from: number;
+  to: number;
+  z: number;
+  width: number;
+  turn: { from: number; to: number; zFrom: number; zTo: number };
+} => {
+  const door = furniture.find((piece) => piece.id === "entry-door");
+  const doorFrom = door === undefined ? -0.9 : door.z - door.depth / 2;
+  const doorTo = door === undefined ? 0.9 : door.z + door.depth / 2;
+  const from = room.maxX + enclosureWall;
+  const to = from + 1.8;
+  const width = doorTo - doorFrom + 0.4;
+  const z = (doorFrom + doorTo) / 2;
+  const turnWidth = 0.9;
+  const north = z + width / 2;
+  return { from, to, z, width, turn: { from: to - turnWidth, to, zFrom: north, zTo: north + 1.4 } };
+})();
+
+/**
+ * The walk out of the office, from the door spot: through the door to the end of the hall, then
+ * north round the turn. Walked back the other way on the return.
+ */
+export const doorwayPath: readonly Point[] = [
+  { x: 10.0, z: -0.45 },
+  { x: (entryHall.turn.from + entryHall.turn.to) / 2, z: entryHall.z },
+  { x: (entryHall.turn.from + entryHall.turn.to) / 2, z: entryHall.turn.zTo - 0.35 },
+];

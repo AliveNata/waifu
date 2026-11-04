@@ -20,7 +20,7 @@ export const walkSpeed = 1.0;
 const turnSpeed = 7;
 const arrivalTolerance = 0.02;
 /** Radians of leg cycle per meter walked: short, quick steps, the way small legs actually move. */
-const strideRadiansPerMeter = 9.5;
+export const strideRadiansPerMeter = 9.5;
 /** Two people closer than this, center to center, are about to bump shoulders. */
 const personalSpace = 0.55;
 /**

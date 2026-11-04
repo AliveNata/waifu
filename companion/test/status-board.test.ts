@@ -5,6 +5,7 @@ import {
   memberRow,
   rowDetail,
   statusRows,
+  statusSummary,
   TwobStatus,
 } from "../src/renderer/office/status-board.js";
 import { applyMemberSignal, emptyRuntime, emptyTeamRuntime, staleRunMs } from "../src/renderer/office/team-state.js";
@@ -138,5 +139,31 @@ describe("elapsedLabel", () => {
   ])("labels %d ms as %s", (milliseconds, expected) => {
     // Act + Assert
     expect(elapsedLabel(milliseconds)).toBe(expected);
+  });
+});
+
+describe("who is in the office", () => {
+  it("marks each member in, out for food or gone home, and counts who is in", () => {
+    // Arrange
+    const away = { yor: "out", rias: "home" } as const;
+
+    // Act
+    const rows = statusRows(emptyTeamRuntime(), new TwobStatus(), 0, (memberId) =>
+      memberId === "yor" || memberId === "rias" ? away[memberId] : "in",
+    );
+
+    // Assert
+    expect(rows.find((row) => row.memberId === "yor")?.presence).toBe("out");
+    expect(rows.find((row) => row.memberId === "rias")?.presence).toBe("home");
+    expect(rows.find((row) => row.memberId === "asuna")?.presence).toBe("in");
+    expect(statusSummary(rows)).toBe(`${memberIds.length - 2} di kantor · semua idle`);
+  });
+
+  it("counts everyone in when nobody says otherwise", () => {
+    // Act
+    const rows = statusRows(emptyTeamRuntime(), new TwobStatus(), 0);
+
+    // Assert
+    expect(rows.every((row) => row.presence === "in")).toBe(true);
   });
 });

@@ -1,4 +1,4 @@
-import { rowDetail, type StatusRow, statusLabels, statusSummary } from "./status-board.js";
+import { presenceLabels, rowDetail, type StatusRow, statusLabels, statusSummary } from "./status-board.js";
 
 /**
  * The team status board, opened large: the same rows as the screen on the back wall, as a page
@@ -46,7 +46,9 @@ export class StatusDialog {
     }
     const { rows, now } = this.source();
     const details = rows.map((row) => rowDetail(row, now));
-    const signature = rows.map((row, index) => `${row.memberId}:${row.status}:${details[index]}`).join("|");
+    const signature = rows
+      .map((row, index) => `${row.memberId}:${row.status}:${row.presence}:${details[index]}`)
+      .join("|");
     if (signature === this.shown) {
       return;
     }
@@ -56,6 +58,7 @@ export class StatusDialog {
       ...rows.map((row, index) => {
         const tr = document.createElement("tr");
         tr.dataset.status = row.status;
+        tr.dataset.presence = row.presence;
         const name = document.createElement("th");
         name.scope = "row";
         name.textContent = row.name;
@@ -65,7 +68,10 @@ export class StatusDialog {
         const dot = document.createElement("span");
         dot.className = "status-dot";
         dot.setAttribute("aria-hidden", "true");
-        status.append(dot, statusLabels[row.status]);
+        const presence = document.createElement("span");
+        presence.className = "status-presence";
+        presence.textContent = presenceLabels[row.presence];
+        status.append(presence, dot, statusLabels[row.status]);
         const detail = document.createElement("td");
         detail.textContent = details[index] === "" ? "" : (details[index] ?? "");
         tr.append(name, role, status, detail);

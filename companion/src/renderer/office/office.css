@@ -882,6 +882,19 @@
   background: #8a49c9;
 }
 
+/* Where someone is, before their status; the row fades while they are out of the room. */
+.status-presence {
+  display: inline-block;
+  min-width: 64px;
+  margin-right: 10px;
+  color: var(--panel-muted);
+}
+
+.status-table tr[data-presence="out"] > :not(:nth-child(3)),
+.status-table tr[data-presence="home"] > :not(:nth-child(3)) {
+  opacity: 0.55;
+}
+
 .status-dialog-note {
   font-size: 12px;
 }

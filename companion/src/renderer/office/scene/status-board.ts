@@ -1,7 +1,14 @@
 import { CanvasTexture, Group, type Mesh, PlaneGeometry, SRGBColorSpace } from "three";
 import { speakerColors } from "../../common/dialog-box.js";
 import type { Furniture } from "../office-plan.js";
-import { type BoardStatus, rowDetail, type StatusRow, statusLabels, statusSummary } from "../status-board.js";
+import {
+  type BoardStatus,
+  presenceLabels,
+  rowDetail,
+  type StatusRow,
+  statusLabels,
+  statusSummary,
+} from "../status-board.js";
 import { box, glow, mesh, palette, standard, unlit } from "./palette.js";
 
 const faceWidth = 2048;
@@ -68,7 +75,9 @@ export class StatusBoard {
 
   update(rows: readonly StatusRow[], now: number): void {
     const details = rows.map((row) => rowDetail(row, now));
-    const signature = rows.map((row, index) => `${row.memberId}:${row.status}:${details[index]}`).join("|");
+    const signature = rows
+      .map((row, index) => `${row.memberId}:${row.status}:${row.presence}:${details[index]}`)
+      .join("|");
     if (signature === this.shown) {
       return;
     }
@@ -99,6 +108,9 @@ export class StatusBoard {
       const right = left + faceWidth / 2 - 88;
       const middle = header + 6 + (index % rowsPerColumn) * rowHeight + rowHeight / 2;
       const color = statusColors[row.status];
+      // Someone out of the room is dimmed, so the people who are here stand out at a glance.
+      const away = row.presence !== "in";
+      ctx.globalAlpha = away ? 0.45 : 1;
 
       ctx.beginPath();
       ctx.arc(left + 14, middle, 12, 0, Math.PI * 2);
@@ -123,13 +135,22 @@ export class StatusBoard {
       ctx.textAlign = "right";
       ctx.fillStyle = color;
       ctx.font = `600 36px ${uiFont}`;
-      ctx.fillText(statusLabels[row.status], right, middle - 14);
+      const label = statusLabels[row.status];
+      ctx.fillText(label, right, middle - 14);
+      const labelWidth = ctx.measureText(label).width;
+      // Where they are, beside the status: full strength even on a dimmed row, since it says why.
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = away ? "#f4f1ec" : mutedText;
+      ctx.font = `500 28px ${uiFont}`;
+      ctx.fillText(presenceLabels[row.presence], right - labelWidth - 30, middle - 13);
+      ctx.globalAlpha = away ? 0.45 : 1;
       const detail = details[index] ?? "";
       if (detail !== "") {
         ctx.fillStyle = mutedText;
         ctx.font = `400 26px ${uiFont}`;
         ctx.fillText(fitText(ctx, detail, 420), right, middle + 22);
       }
+      ctx.globalAlpha = 1;
     });
     this.texture.needsUpdate = true;
   }

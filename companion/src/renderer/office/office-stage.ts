@@ -83,6 +83,7 @@ import {
   twobPlan,
   usesHandIk,
 } from "./office-director.js";
+import { doorwayReturnSeconds, doorwayWalk } from "./office-doorway.js";
 import { type BarFood, binBox, canBuy, deliver, type FoodKind, initialFood, takePiece } from "./office-food.js";
 import { type LaptopView, laptopPutSeconds, laptopTakeSeconds, laptopView } from "./office-laptop.js";
 import { type Errand, type LifeChoice, OfficeLife } from "./office-life.js";
@@ -116,7 +117,7 @@ import { HandProps, handPropModel, setCupFill } from "./scene/hand-props.js";
 import { sceneQuality } from "./scene/palette.js";
 import { type BadgeKind, StatusBadge, toolKind } from "./scene/status-badge.js";
 import { fitSeat } from "./seating.js";
-import { rowDetail, type StatusRow, statusLabels, statusRows, TwobStatus } from "./status-board.js";
+import { type Presence, rowDetail, type StatusRow, statusLabels, statusRows, TwobStatus } from "./status-board.js";
 import type { PenState } from "./surfaces/board-pen.js";
 import { widgetFor } from "./surfaces/work-widget.js";
 import {
@@ -260,8 +261,6 @@ interface FoodHands {
 const pieceTakeSeconds = 0.8;
 /** Seconds into an errand at the bar or the bin when the box or the bag is set down or picked up. */
 const foodHandoverSeconds = 0.7;
-/** Seconds through the door: gone from sight after this, back in sight this long before the end. */
-const doorwaySeconds = 0.8;
 /** The door stands open while someone is this close to it. */
 const doorOpenDistance = 1.1;
 /** Held props for a piece of each food. */
@@ -2018,7 +2017,10 @@ export class OfficeStage {
     const rig = this.rigs[memberId];
     const plan = this.planFor(memberId, now, rig);
     rig.plan = plan;
-    const otherRigs = memberIds.filter((other) => other !== memberId).map((other) => this.rigs[other].actor);
+    // Whoever has gone out through the door is no longer standing at it, so the next one can leave.
+    const otherRigs = memberIds
+      .filter((other) => other !== memberId && !this.outThroughDoor(other))
+      .map((other) => this.rigs[other].actor);
     // Alyx, walking the office in first person, is someone to go around too.
     const alyx = this.firstPerson.active ? [this.firstPerson.position] : [];
     const others = [...otherRigs.map((actor) => actor.position), ...alyx];
@@ -2091,14 +2093,16 @@ export class OfficeStage {
     // Up onto a board step and down again over a moment, not in one jump.
     rig.lift += (floorHeightAt(actor.position) - rig.lift) * (1 - Math.exp(-stepUpRate * delta));
     avatar.root.position.set(actor.position.x, rig.lift, actor.position.z);
-    // Out through the door for food, or home for the night: gone from the room until the walk back in.
-    avatar.root.visible = !(
-      (errand === "go-out" || errand === "go-home") &&
-      arrived &&
-      stepElapsed > doorwaySeconds &&
-      remaining > doorwaySeconds
-    );
-    avatar.root.rotation.y = actor.yaw;
+    // Out through the door for food, or home for the night: along the hall and round the corner,
+    // gone until the walk back in.
+    const doorway = this.outThroughDoor(memberId) ? doorwayWalk(stepElapsed, remaining) : null;
+    if (doorway !== null) {
+      avatar.root.position.set(doorway.position.x, 0, doorway.position.z);
+      // The actor turns from where the walk left off once the next step starts, instead of snapping.
+      rig.actor = { ...actor, yaw: doorway.yaw };
+    }
+    avatar.root.visible = doorway === null || !doorway.gone;
+    avatar.root.rotation.y = rig.actor.yaw;
     const seatHeight = stations[plan.station].seatHeight;
     const board = this.boardFocus(rig, handTargets, delta);
     // Something in the right hand while walking: the mug, the laptop on the way to a meeting, or food.
@@ -2116,8 +2120,8 @@ export class OfficeStage {
       ((foodHeld !== null || folder !== null) && action === null);
     const gimmick = rig.walkHabits.update(this.elapsed, action === null, carrying);
     const pose = officePose({
-      action,
-      walkPhase: actor.walkPhase,
+      action: doorway?.walking === true ? null : action,
+      walkPhase: doorway?.walking === true ? doorway.walkPhase : actor.walkPhase,
       time: this.elapsed + phaseOffset,
       actionElapsed: this.elapsed - rig.actionStartedAt,
       seat: action === null || seatHeight === null ? null : fitSeat(avatar.legs, seatHeight),
@@ -2202,7 +2206,7 @@ export class OfficeStage {
           : this.errandSide(memberId, errand);
     rig.props.show(held, side);
     rig.props.setFill(this.mugs[memberId].level);
-    rig.props.follow(rig.hands, actor.yaw);
+    rig.props.follow(rig.hands, rig.actor.yaw);
   }
 
   /**
@@ -2467,7 +2471,7 @@ export class OfficeStage {
     if (hands.box && ((errand !== "take-box" && errand !== "bin-box") || binned)) {
       hands.box = false;
     }
-    if (errand === "go-out" && arrived && remaining <= doorwaySeconds) {
+    if (errand === "go-out" && arrived && remaining <= doorwayReturnSeconds) {
       hands.bag = true;
     }
     const setDown = errand === "set-food" ? arrived && stepElapsed >= foodHandoverSeconds : errand !== "go-out";
@@ -2795,7 +2799,9 @@ export class OfficeStage {
   private chooseFocus(now: number): CloseupFocus | null {
     if (this.pinned !== null) {
       const memberId = this.pinned;
-      const row = statusRows(this.team, this.twobStatus, now).find((candidate) => candidate.memberId === memberId);
+      const row = statusRows(this.team, this.twobStatus, now, (memberId) => this.presenceOf(memberId)).find(
+        (candidate) => candidate.memberId === memberId,
+      );
       const detail = row === undefined ? "" : rowDetail(row, now);
       const status = row === undefined ? "" : ` · ${statusLabels[row.status]}${detail === "" ? "" : ` (${detail})`}`;
       return { memberId, label: `${this.focusLabel(memberId, null)}${status}` };
@@ -2825,6 +2831,22 @@ export class OfficeStage {
     const focus = { memberId: best.memberId, label: this.focusLabel(best.memberId, tool) };
     this.heldFocus = { focus, shot: this.liveShot(best.memberId), until: now + closeupHoldMs };
     return focus;
+  }
+
+  /** At the door on the way out for food or home: walking the hall, round the corner, or back in. */
+  private outThroughDoor(memberId: MemberId): boolean {
+    const errand = this.lifeSteps[memberId]?.errand;
+    const actor = this.rigs[memberId].actor;
+    return (errand === "go-out" || errand === "go-home") && actor.target === "door" && !isWalking(actor);
+  }
+
+  /** In the room, out for food, or gone home: only once they have walked out of sight. */
+  private presenceOf(memberId: MemberId): Presence {
+    if (this.rigs[memberId].avatar.root.visible) {
+      return "in";
+    }
+    const errand = this.lifeSteps[memberId]?.errand;
+    return errand === "go-home" ? "home" : errand === "go-out" ? "out" : "in";
   }
 
   /** "Name · Role · what they are doing", with the tool when there is one. */
@@ -2896,7 +2918,7 @@ export class OfficeStage {
   /** The status board's rows right now, for showing them large on the page. */
   statusNow(): { rows: StatusRow[]; now: number } {
     const now = Date.now();
-    return { rows: statusRows(this.team, this.twobStatus, now), now };
+    return { rows: statusRows(this.team, this.twobStatus, now, (memberId) => this.presenceOf(memberId)), now };
   }
 
   /** The held shot while the hold runs, otherwise the member's live shot. */
@@ -3024,7 +3046,10 @@ export class OfficeStage {
       this.office.enclosure.neon.update(this.elapsed, this.night);
     }
     this.office.wallClock.update(this.clock());
-    this.office.statusBoard.update(statusRows(this.team, this.twobStatus, now), now);
+    this.office.statusBoard.update(
+      statusRows(this.team, this.twobStatus, now, (memberId) => this.presenceOf(memberId)),
+      now,
+    );
     this.focus = this.chooseFocus(now);
     if (this.firstPerson.active) {
       // The real time step, so walking keeps its pace even when frames are slow.

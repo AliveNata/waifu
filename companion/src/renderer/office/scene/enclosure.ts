@@ -11,7 +11,7 @@ import {
   PlaneGeometry,
   type Texture,
 } from "three";
-import { furniture, room } from "../office-plan.js";
+import { enclosureWall, entryHall, furniture, room } from "../office-plan.js";
 import { entryDoorHeight } from "./furniture.js";
 import { NeonStrips } from "./neon.js";
 import { mesh, palette, standard } from "./palette.js";
@@ -22,9 +22,7 @@ import { paintWallArt, type WallArt, wallArtSize } from "./textures.js";
  * the ceiling, with a short hall behind the glass door. Only Alyx, inside the room at eye height,
  * sees them; from anywhere else they would only block the view.
  */
-const thickness = 0.12;
-/** Past the door: a hall this deep, so the glass shows a corridor instead of the void. */
-const hallDepth = 1.8;
+const thickness = enclosureWall;
 
 /** A box by its center, without casting a shadow: the sun has to keep reaching the floor. */
 function slab(width: number, height: number, depth: number, color: string, x: number, y: number, z: number): Mesh {
@@ -127,22 +125,20 @@ export function buildEnclosure(paint: (art: WallArt) => Texture = paintWallArt):
   );
 
   // The hall behind the door: floor, end wall, two side walls and a low ceiling, a shade darker
-  // than the office so the room stays the brighter place.
-  const hallFrom = maxX + thickness;
-  const hallX = hallFrom + hallDepth / 2;
-  const hallZ = (doorFrom + doorTo) / 2;
-  const hallWidth = doorTo - doorFrom + 0.4;
+  // than the office so the room stays the brighter place. At its far end the north wall opens on
+  // a short turn, round which whoever leaves walks out of sight; the room's own wall hides it.
+  const { from: hallFrom, to: hallTo, z: hallZ, width: hallWidth, turn: hallTurn } = entryHall;
+  const hallDepth = hallTo - hallFrom;
+  const hallX = (hallFrom + hallTo) / 2;
+  const north = hallZ + hallWidth / 2;
+  const northWall = hallTurn.from - hallFrom;
+  const turnWidth = hallTurn.to - hallTurn.from;
+  const turnLength = hallTurn.zTo - hallTurn.zFrom;
+  const turnX = (hallTurn.from + hallTurn.to) / 2;
+  const turnZ = (hallTurn.zFrom + hallTurn.zTo) / 2;
   root.add(
     slab(hallDepth, 0.02, hallWidth, palette.inkSoft, hallX, -0.01, hallZ),
-    slab(
-      thickness,
-      wallHeight,
-      hallWidth,
-      palette.skirting,
-      hallFrom + hallDepth + thickness / 2,
-      wallHeight / 2,
-      hallZ,
-    ),
+    slab(thickness, wallHeight, hallWidth, palette.skirting, hallTo + thickness / 2, wallHeight / 2, hallZ),
     slab(
       hallDepth,
       wallHeight,
@@ -153,15 +149,37 @@ export function buildEnclosure(paint: (art: WallArt) => Texture = paintWallArt):
       hallZ - hallWidth / 2 - thickness / 2,
     ),
     slab(
-      hallDepth,
+      northWall,
       wallHeight,
       thickness,
       palette.skirting,
-      hallX,
+      hallFrom + northWall / 2,
       wallHeight / 2,
-      hallZ + hallWidth / 2 + thickness / 2,
+      north + thickness / 2,
     ),
     slab(hallDepth, thickness, hallWidth, palette.sideWall, hallX, wallHeight + thickness / 2, hallZ),
+    // The turn: floor, its two side walls, the end and a ceiling.
+    slab(turnWidth, 0.02, turnLength, palette.inkSoft, turnX, -0.01, turnZ),
+    slab(
+      thickness,
+      wallHeight,
+      turnLength + thickness,
+      palette.skirting,
+      hallTurn.from - thickness / 2,
+      wallHeight / 2,
+      turnZ + thickness / 2,
+    ),
+    slab(
+      thickness,
+      wallHeight,
+      turnLength + thickness,
+      palette.skirting,
+      hallTurn.to + thickness / 2,
+      wallHeight / 2,
+      turnZ + thickness / 2,
+    ),
+    slab(turnWidth, wallHeight, thickness, palette.skirting, turnX, wallHeight / 2, hallTurn.zTo + thickness / 2),
+    slab(turnWidth, thickness, turnLength, palette.sideWall, turnX, wallHeight + thickness / 2, turnZ),
   );
 
   // The ceiling over the walls' tops, dark like an open services ceiling, so the discs read. Hardly
