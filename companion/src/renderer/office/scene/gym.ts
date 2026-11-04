@@ -49,7 +49,7 @@ export function buildDeskReturn(piece: Furniture): Group {
 export function buildBench(piece: Furniture): Group {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
-  const seat = 0.26;
+  const seat = 0.31;
   const frame = standard(palette.ink, 0.6);
   root.add(
     box(width, 0.05, depth, standard(palette.oak, 0.7), 0, seat - 0.05, 0),
@@ -151,8 +151,9 @@ export class PunchingBag {
     this.root = placed(piece);
     const { depth } = localSize(piece);
     const frame = standard(palette.ink, 0.5, 0.2);
-    // A full-size stand and bag at the room's 0.73 scale: the bag hangs from about knee to head.
-    const top = 1.45;
+    // A full-size stand and bag at the room's 0.73 scale: the bag hangs from about the hip to
+    // above the head, its bottom near 0.7 m like a real one hung at about 1 m.
+    const top = 1.65;
     const post = -depth / 2 + 0.05;
     this.root.add(
       box(0.42, 0.05, depth, frame, 0, 0, 0),

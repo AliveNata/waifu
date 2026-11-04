@@ -1,6 +1,6 @@
 import { Group, type Object3D } from "three";
 import type { BarFood, FoodKind } from "../office-food.js";
-import { foodModel, kitScale, partsNamed } from "./food-models.js";
+import { foodModel, kitScale, partsNamed, roomScale } from "./food-models.js";
 import { box, palette, standard } from "./palette.js";
 
 /**
@@ -323,6 +323,7 @@ export class BarFoodDisplay {
   private showing: FoodKind | null = null;
 
   constructor() {
+    this.root.scale.setScalar(roomScale);
     this.sets = Object.fromEntries(
       (Object.entries(builders) as [FoodKind, () => FoodSet][]).map(([kind, build]) => [kind, build()]),
     ) as Record<FoodKind, FoodSet>;
@@ -364,5 +365,6 @@ export class BarFoodDisplay {
 export function shutPackage(kind: FoodKind): Group {
   const set = builders[kind]();
   set.open(0);
+  set.container.scale.setScalar(roomScale);
   return set.container;
 }

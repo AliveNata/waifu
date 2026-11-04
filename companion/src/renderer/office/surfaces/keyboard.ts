@@ -1,9 +1,15 @@
 import { BoxGeometry, Color, Group, InstancedMesh, Mesh, MeshStandardMaterial, Object3D, Vector3 } from "three";
 
 const rows = ["1234567890", "qwertyuiop", "asdfghjkl;", "zxcvbnm,./"];
-const keySize = 0.032;
-const keyGap = 0.006;
-const pressDepth = 0.006;
+/**
+ * Keys are wider than deep so ten columns make a keyboard about 0.32 by 0.12 m, a real one at the
+ * room's 0.73 scale, without dropping keys the typing reads from.
+ */
+const keyWidth = 0.024;
+const keyDepth = 0.016;
+const pitchX = 0.029;
+const pitchZ = 0.02;
+const pressDepth = 0.005;
 const pressSeconds = 0.12;
 /** Key caps sit at y 0.02 and are 0.01 tall. */
 const restY = 0.02;
@@ -37,10 +43,9 @@ export class Keyboard {
   constructor(accent: string, base = "#1d2540", keyColor = "#3a4466") {
     this.glow = new Color(accent);
     this.keyColor = new Color(keyColor);
-    const pitch = keySize + keyGap;
     const widthKeys = rows[0]?.length ?? 10;
-    const totalWidth = widthKeys * pitch + 0.03;
-    const totalDepth = (rows.length + 1) * pitch + 0.02;
+    const totalWidth = widthKeys * pitchX + 0.03;
+    const totalDepth = (rows.length + 1) * pitchZ + 0.02;
 
     const plate = new Mesh(
       new BoxGeometry(totalWidth, 0.015, totalDepth),
@@ -52,18 +57,18 @@ export class Keyboard {
 
     const layout: { character: string | null; x: number; z: number; scaleX: number }[] = [];
     rows.forEach((row, rowIndex) => {
-      const z = -totalDepth / 2 + 0.01 + pitch / 2 + rowIndex * pitch;
-      const offset = rowIndex * 0.008;
+      const z = -totalDepth / 2 + 0.01 + pitchZ / 2 + rowIndex * pitchZ;
+      const offset = rowIndex * 0.006;
       [...row].forEach((character, column) => {
-        layout.push({ character, x: -totalWidth / 2 + 0.015 + pitch / 2 + column * pitch + offset, z, scaleX: 1 });
+        layout.push({ character, x: -totalWidth / 2 + 0.012 + pitchX / 2 + column * pitchX + offset, z, scaleX: 1 });
       });
     });
-    const bottomZ = -totalDepth / 2 + 0.01 + pitch / 2 + rows.length * pitch;
+    const bottomZ = -totalDepth / 2 + 0.01 + pitchZ / 2 + rows.length * pitchZ;
     layout.push({ character: " ", x: 0, z: bottomZ, scaleX: 5.5 });
-    layout.push({ character: "\n", x: totalWidth / 2 - 0.04, z: -totalDepth / 2 + 0.01 + pitch * 2.5, scaleX: 1.6 });
+    layout.push({ character: "\n", x: totalWidth / 2 - 0.022, z: -totalDepth / 2 + 0.01 + pitchZ * 2.5, scaleX: 1.2 });
 
     this.caps = new InstancedMesh(
-      new BoxGeometry(keySize, 0.01, keySize),
+      new BoxGeometry(keyWidth, 0.01, keyDepth),
       new MeshStandardMaterial({ color: "#ffffff", roughness: 0.6 }),
       layout.length,
     );

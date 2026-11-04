@@ -54,8 +54,8 @@ function wrap(model: Object3D, x: number, y: number, z: number): Group {
 
 // The calendar: a tent of two leaves hanging from a ringed ridge, plus the page that flips.
 const calendarSlope = 0.35;
-const leafWidth = 0.11;
-const leafHeight = 0.09;
+const leafWidth = 0.15;
+const leafHeight = 0.115;
 
 class DeskCalendar implements DeskGadget {
   readonly bit = "calendar";
@@ -147,7 +147,8 @@ function stampSetup(side: -1 | 1): ReturnSetup {
   const paperTop = 0.01;
   const paper = new Group();
   // Nearest the hand, so the press lands on the sheet rather than its edge.
-  paper.position.set(-towardDesk * 0.005, paperTop, 0.02);
+  // A sheet at the room's scale, about A4, lying beside the pad rather than under it.
+  paper.position.set(-towardDesk * 0.045, paperTop, 0.02);
   paper.rotation.y = 0.12;
   const mark = box(0.05, 0.0008, 0.022, printed(approvedTexture()), 0, 0, 0.012);
   mark.rotation.y = -0.08;
@@ -156,7 +157,7 @@ function stampSetup(side: -1 | 1): ReturnSetup {
   root.add(
     box(0.06, padTop, 0.045, standard(palette.ink, 0.6), pad.position.x, 0, pad.position.z),
     box(0.05, 0.002, 0.035, standard("#8e2a2a", 0.9), pad.position.x, padTop - 0.0015, pad.position.z),
-    box(0.07, paperTop, 0.09, standard("#f7f3ea", 0.9), paper.position.x, 0, paper.position.z),
+    box(0.15, paperTop, 0.2, standard("#f7f3ea", 0.9), paper.position.x, 0, paper.position.z),
     pad,
     paper,
   );
@@ -234,16 +235,16 @@ function phoneStandSetup(): ReturnSetup {
   const root = new Group();
   const lean = -0.3;
   const back = new Group();
-  back.position.set(0, 0.006, -0.008);
+  back.position.set(0, 0.006, -0.013);
   back.rotation.x = lean;
-  back.add(box(0.044, 0.07, 0.004, standard(palette.inkSoft, 0.5), 0, 0, -0.004));
+  back.add(box(0.07, 0.112, 0.004, standard(palette.inkSoft, 0.5), 0, 0, -0.004));
   root.add(
-    box(0.05, 0.006, 0.045, standard(palette.ink, 0.5), 0, 0, 0),
-    box(0.044, 0.008, 0.005, standard(palette.ink, 0.5), 0, 0.006, 0.013),
+    box(0.08, 0.006, 0.072, standard(palette.ink, 0.5), 0, 0, 0),
+    box(0.07, 0.01, 0.006, standard(palette.ink, 0.5), 0, 0.006, 0.021),
     back,
   );
   // The build under test, propped up with its screen on: the same phone model as in the hand.
-  const phone = wrap(handPropModel("phone"), 0, 0.042, 0.002);
+  const phone = wrap(handPropModel("phone"), 0, 0.067, 0.003);
   phone.rotation.x = lean;
   root.add(phone);
   return { root, items: { "test-phone": phone }, gadget: null };
@@ -315,9 +316,9 @@ function easelSetup(): ReturnSetup {
 function printoutSetup(): ReturnSetup {
   const root = new Group();
   const sheet = standard("#f7f3ea", 0.9);
-  const under = box(0.06, 0.0015, 0.085, sheet, 0.004, 0, -0.003);
+  const under = box(0.138, 0.0015, 0.196, sheet, 0.008, 0, -0.006);
   under.rotation.y = -0.15;
-  root.add(under, box(0.06, 0.0015, 0.085, sheet, -0.003, 0.0015, 0.002));
+  root.add(under, box(0.138, 0.0015, 0.196, sheet, -0.006, 0.0015, 0.004));
   const printout = wrap(handPropModel("printout"), 0, 0.0035, 0);
   printout.rotation.y = 0.1;
   root.add(printout);
@@ -411,6 +412,12 @@ function piClusterSetup(side: -1 | 1): ReturnSetup {
   return { root, items: {}, gadget: new PiCluster(leds, plug, plugRestZ) };
 }
 
+/** The whole setup grown or shrunk about its base, moving parts and hand targets with it. */
+function scaled(setup: ReturnSetup, factor: number): ReturnSetup {
+  setup.root.scale.multiplyScalar(factor);
+  return setup;
+}
+
 function setupFor(member: MemberId, side: -1 | 1): ReturnSetup | null {
   switch (member) {
     case "twob":
@@ -418,7 +425,8 @@ function setupFor(member: MemberId, side: -1 | 1): ReturnSetup | null {
     case "erza":
       return stampSetup(side);
     case "miruku":
-      return safeSetup();
+      // A real small safe is about 0.2 m a side; 0.15 at the room's scale.
+      return scaled(safeSetup(), 1.5);
     case "kobayashi":
       return phoneStandSetup();
     case "huagua":
@@ -426,7 +434,8 @@ function setupFor(member: MemberId, side: -1 | 1): ReturnSetup | null {
     case "asuna":
       return printoutSetup();
     case "yor":
-      return piClusterSetup(side);
+      // Drawn at a real Pi's size, which is a size too big at the room's 0.73 scale.
+      return scaled(piClusterSetup(side), 0.75);
     default:
       return null;
   }

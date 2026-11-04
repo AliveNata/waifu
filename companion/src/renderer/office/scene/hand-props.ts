@@ -11,7 +11,7 @@ import {
 } from "three";
 import type { ArmSide } from "../avatar.js";
 import type { HandPropKind } from "../office-director.js";
-import { type FoodModelName, foodModel, kitScale } from "./food-models.js";
+import { type FoodModelName, foodModel, kitScale, roomScale } from "./food-models.js";
 import { box, glow, mesh, palette, standard } from "./palette.js";
 
 /**
@@ -41,6 +41,39 @@ const heldFood: Record<
   "frappe-cup": { model: "frappe", scale: kitScale, lift: -0.08 },
   "coffee-cup": { model: "coffee", scale: kitScale, lift: -0.025 },
   carton: { model: "carton", scale: kitScale, lift: -0.065 },
+};
+
+/**
+ * Props first built for the chibi team, brought up to the room's 0.73 scale. Each grows about its
+ * grip point, so it stays in the same place in the hand. The paddle stays small on purpose.
+ */
+const propScale: Partial<Record<HandPropKind, number>> = {
+  mug: 1.15,
+  "pizza-slice": 1.8,
+  clipboard: 2.2,
+  hourglass: 1.4,
+  printout: 2.3,
+  chopsticks: 2.1,
+  folder: 2.2,
+  phone: 1.6,
+  book: 2.0,
+  can: 2.2,
+  plate: 1.8,
+  rose: 1.5,
+  teacup: 1.4,
+  controller: 1.6,
+  "food-bag": 1.5,
+  // The kit's food is real size; the room is 0.73 of that.
+  taco: roomScale,
+  sandwich: roomScale,
+  burger: roomScale,
+  dumpling: roomScale,
+  waffle: roomScale,
+  cookie: roomScale,
+  "soda-can": roomScale,
+  "frappe-cup": roomScale,
+  "coffee-cup": roomScale,
+  carton: roomScale,
 };
 
 /**
@@ -361,6 +394,7 @@ export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook):
       break;
     }
   }
+  group.scale.multiplyScalar(propScale[kind] ?? 1);
   return group;
 }
 

@@ -51,6 +51,12 @@ export type FoodModelName = keyof typeof urls;
  */
 export const kitScale = 0.35;
 
+/**
+ * The office is built at 0.73 of life size; food at its real size looks a size too big in it, so
+ * the bar, the parcels and food in a hand are shrunk by this much.
+ */
+export const roomScale = 0.73;
+
 const templates = new Map<FoodModelName, Object3D>();
 
 /** Loads each GLB into `into` by name. One that fails is logged and left out, for a stand-in to take its place. */
