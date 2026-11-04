@@ -49,6 +49,7 @@ export const wallArts: readonly WallArt[] = ["block", "script", "manifesto"];
 
 /** The open ceiling is dark; the hanging discs carry the light, a soft glow plus their downlights. */
 const discGlow = 0.35;
+const ceilingGlow = 0.6;
 const downlightGlow = 1.4;
 
 /**
@@ -163,18 +164,21 @@ export function buildEnclosure(paint: (art: WallArt) => Texture = paintWallArt):
     slab(hallDepth, thickness, hallWidth, palette.sideWall, hallX, wallHeight + thickness / 2, hallZ),
   );
 
-  // The ceiling over the walls' tops, dark like an open services ceiling, so the discs read.
-  root.add(
-    slab(
-      width + 2 * thickness,
-      thickness,
-      depth + 2 * thickness,
-      "#3a3644",
-      centerX,
-      wallHeight + thickness / 2,
-      centerZ,
-    ),
+  // The ceiling over the walls' tops, dark like an open services ceiling, so the discs read. Hardly
+  // any light reaches its underside, so a faint glow of its own keeps it a dark grey, not a void.
+  const ceiling = slab(
+    width + 2 * thickness,
+    thickness,
+    depth + 2 * thickness,
+    "#3a3644",
+    centerX,
+    wallHeight + thickness / 2,
+    centerZ,
   );
+  const ceilingMaterial = ceiling.material as MeshStandardMaterial;
+  ceilingMaterial.emissive.set("#3a3644");
+  ceilingMaterial.emissiveIntensity = ceilingGlow;
+  root.add(ceiling);
 
   // The discs, their hanging rods, downlights round their underside and trailing plants round the
   // rim: one instanced mesh each, so the whole ceiling is a handful of draws.
@@ -332,6 +336,7 @@ export function buildEnclosure(paint: (art: WallArt) => Texture = paintWallArt):
     setLight(level) {
       const clamped = Math.max(0, Math.min(1, level));
       discMaterial.emissiveIntensity = discGlow * clamped;
+      ceilingMaterial.emissiveIntensity = ceilingGlow * clamped;
       downlightMaterial.emissiveIntensity = downlightGlow * clamped;
     },
   };
