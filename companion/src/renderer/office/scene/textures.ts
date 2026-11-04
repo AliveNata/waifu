@@ -241,11 +241,12 @@ function paintScript(ctx: CanvasRenderingContext2D, width: number, height: numbe
   ctx.textBaseline = "middle";
   ctx.textAlign = "center";
   ctx.font = `700 230px ${uiFont}`;
-  ctx.fillText("\u201c", 90, 120);
-  ctx.fillText("\u201d", width - 90, height - 70);
-  ctx.font = `700 104px ${scriptFont}`;
+  ctx.fillText("\u201c", 70, 120);
+  ctx.fillText("\u201d", width - 55, height - 40);
+  ctx.font = `700 100px ${scriptFont}`;
   ctx.fillText("Respawn. Retry.", width / 2, height / 2 - 52);
-  ctx.fillText("Release.", width / 2 + 120, height / 2 + 72);
+  // The second line sits short of the closing mark, so the two never touch.
+  ctx.fillText("Release.", width / 2 + 40, height / 2 + 72);
 }
 
 /** Painted lettering for one wall, dark ink on a transparent ground so the wall's plaster shows. */

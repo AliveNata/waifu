@@ -69,7 +69,10 @@ const discs: readonly [number, number, number][] = [
 /** How far below the ceiling the discs hang. */
 const discDrop = 0.2;
 const downlightsPerDisc = 7;
-const leavesPerDisc = 30;
+/** Vines per disc, and the most leaves one vine carries from the rim downward. */
+const vinesPerDisc = 22;
+const leavesPerVine = 6;
+const leavesPerDisc = vinesPerDisc * leavesPerVine;
 
 /** A small seeded random, so the plants hang the same way every time the office opens. */
 function seeded(seed: number): () => number {
@@ -166,7 +169,7 @@ export function buildEnclosure(paint: (art: WallArt) => Texture = paintWallArt):
       width + 2 * thickness,
       thickness,
       depth + 2 * thickness,
-      "#1d1a26",
+      "#3a3644",
       centerX,
       wallHeight + thickness / 2,
       centerZ,
@@ -194,13 +197,14 @@ export function buildEnclosure(paint: (art: WallArt) => Texture = paintWallArt):
     downlightMaterial,
     spots.length * downlightsPerDisc,
   );
+  // Small flattened leaves, so a vine reads as foliage rather than a string of stones.
   const leaves = new InstancedMesh(
-    new IcosahedronGeometry(0.045, 0),
+    new IcosahedronGeometry(0.022, 0),
     standard(palette.leaf, 0.8),
     discs.length * leavesPerDisc,
   );
   const darkLeaves = new InstancedMesh(
-    new IcosahedronGeometry(0.04, 0),
+    new IcosahedronGeometry(0.02, 0),
     standard(palette.leafDark, 0.8),
     discs.length * leavesPerDisc,
   );
@@ -232,24 +236,36 @@ export function buildEnclosure(paint: (art: WallArt) => Texture = paintWallArt):
       );
     }
   });
+  // Vines round each rim: a leaf every few centimeters down a strand, strands of different
+  // lengths, alternating the two greens; unused slots stay folded away to nothing.
+  const hidden = new Matrix4().makeScale(0, 0, 0);
   discs.forEach(([x, z, radius], index) => {
-    // Vines round the rim: clumps on the edge, strands hanging down to a quarter metre.
-    for (let leaf = 0; leaf < leavesPerDisc; leaf++) {
-      const angle = (leaf / leavesPerDisc) * Math.PI * 2 + random() * 0.2;
-      const hang = random() ** 1.6 * 0.26;
-      const out = radius + 0.02 + random() * 0.05;
-      const stretch = 1 + hang * 4;
-      const at = (strand: InstancedMesh, dy: number): void => {
+    for (let vine = 0; vine < vinesPerDisc; vine++) {
+      const angle = (vine / vinesPerDisc) * Math.PI * 2 + random() * 0.15;
+      const length = 1 + Math.floor(random() ** 1.3 * leavesPerVine);
+      const out = radius + 0.01 + random() * 0.03;
+      for (let leaf = 0; leaf < leavesPerVine; leaf++) {
+        const slot = index * leavesPerDisc + vine * leavesPerVine + leaf;
+        const strand = leaf % 2 === 0 ? leaves : darkLeaves;
+        const other = strand === leaves ? darkLeaves : leaves;
+        other.setMatrixAt(slot, hidden);
+        if (leaf >= length) {
+          strand.setMatrixAt(slot, hidden);
+          continue;
+        }
+        const sway = (random() - 0.5) * 0.03;
         strand.setMatrixAt(
-          index * leavesPerDisc + leaf,
+          slot,
           place
-            .makeTranslation(x + Math.sin(angle) * out, discY + 0.03 - hang - dy, z + Math.cos(angle) * out)
+            .makeTranslation(
+              x + Math.sin(angle) * (out + sway),
+              discY + 0.02 - leaf * 0.045,
+              z + Math.cos(angle) * (out + sway),
+            )
             .multiply(turn.makeRotationY(random() * Math.PI))
-            .multiply(size.makeScale(1, stretch, 1)),
+            .multiply(size.makeScale(1.4, 0.5, 0.9)),
         );
-      };
-      at(leaves, 0);
-      at(darkLeaves, 0.04);
+      }
     }
   });
   for (const part of [discMesh, rods, downlights, leaves, darkLeaves]) {
@@ -290,7 +306,8 @@ export function buildEnclosure(paint: (art: WallArt) => Texture = paintWallArt):
   // The lettering, painted on above the furniture: [art, x, z, turn about y, plane width, center height].
   const artSpots: Record<WallArt, [number, number, number, number, number]> = {
     block: [maxX - 0.012, (minZ + doorFrom) / 2, -Math.PI / 2, 2.0, 1.42],
-    script: [maxX - 0.012, (doorTo + maxZ) / 2, -Math.PI / 2, 2.4, 1.5],
+    // High enough to clear the cabinet standing against this stretch of wall.
+    script: [maxX - 0.012, (doorTo + maxZ) / 2 + 0.2, -Math.PI / 2, 2.0, 1.68],
     manifesto: [1.75, maxZ - 0.012, Math.PI, 6.4, 1.5],
   };
   for (const art of wallArts) {
