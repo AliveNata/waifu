@@ -15,6 +15,7 @@ import { type OfficeAction, ovenStep } from "./office-director.js";
 import { people } from "./office-plan.js";
 import type { SeatFit } from "./seating.js";
 import type { ActiveGimmick, WalkStyle } from "./walk-life.js";
+import { type ActiveWorkBeat, beatEnvelope } from "./work-beats.js";
 
 /** Seconds into waving back at Alyx: the right hand goes up for this long. */
 export const bossWaveWindow = { from: 0.3, to: 2.6 } as const;
@@ -55,6 +56,8 @@ export interface OfficePoseInput {
   deskBit?: ActiveDeskBit | null;
   /** While fetching or putting something down: the side it is on, which the body leans toward. */
   fetchSide?: "left" | "right";
+  /** A moment in the middle of typing: hand on the chin, leaning in, a glance, a stretch, a fist pump. */
+  workBeat?: ActiveWorkBeat | null;
 }
 
 const plainWalk: WalkStyle = { stride: 1, armSwing: 1, bounce: 1, sway: 1, lean: 0.04 };
@@ -372,22 +375,90 @@ function chatGestureBones(gesture: ChatGesture, time: number): PoseBones {
   return bones;
 }
 
+/** Every rotation in `to` blended in from `from` by `t`; bones `to` leaves out stay as they were. */
+function blendBones(from: PoseBones, to: PoseBones, t: number): PoseBones {
+  const result: PoseBones = { ...from };
+  for (const [name, target] of Object.entries(to) as [keyof PoseBones, BoneRotation | undefined][]) {
+    if (target === undefined) {
+      continue;
+    }
+    const base = from[name] ?? { x: 0, y: 0, z: 0 };
+    result[name] = {
+      x: base.x + (target.x - base.x) * t,
+      y: base.y + (target.y - base.y) * t,
+      z: base.z + (target.z - base.z) * t,
+    };
+  }
+  return result;
+}
+
+/** The bones a work beat moves, at full strength. The hands it frees are let go by the stage. */
+function workBeatBones(beat: ActiveWorkBeat): PoseBones {
+  const bones: PoseBones = {};
+  const t = beat.elapsed;
+  switch (beat.kind) {
+    case "think":
+      // Back from the keys, chin on the right hand, a slow nod as the idea lands.
+      bones.spine = { x: 0.1, y: 0, z: 0 };
+      bones.head = { x: 0.08 + 0.05 * Math.max(0, Math.sin(t * 2.4)), y: -0.12, z: 0.05 };
+      setArm(bones, "right", { x: -0.95, y: 0, z: 0.85 }, { x: 0, y: 2.25, z: 0 });
+      break;
+    case "lean":
+      // Right up to the screen to read a line, the head tipped back up to it.
+      bones.spine = { x: 0.5, y: 0, z: 0 };
+      bones.chest = { x: 0.12, y: 0, z: 0 };
+      bones.head = { x: -0.12, y: 0.03 * Math.sin(t * 1.5), z: 0 };
+      break;
+    case "glance":
+      // A look across at the side screen, shoulders turning a little with it.
+      bones.head = { x: 0.04, y: 0.6 * beat.side, z: 0 };
+      bones.chest = { x: 0.08, y: 0.15 * beat.side, z: 0 };
+      break;
+    case "stretch":
+      // Arms straight up, back arched, head back.
+      bones.spine = { x: -0.14, y: 0, z: 0 };
+      bones.head = { x: -0.18, y: 0, z: 0 };
+      bones.leftUpperArm = { x: 0, y: 0, z: 1.2 + 0.05 * Math.sin(t * 3) };
+      bones.rightUpperArm = { x: 0, y: 0, z: -1.2 - 0.05 * Math.sin(t * 3) };
+      bones.leftLowerArm = { x: 0, y: -0.15, z: 0 };
+      bones.rightLowerArm = { x: 0, y: 0.15, z: 0 };
+      break;
+    case "fist": {
+      // Done: the right fist pumps twice, head up.
+      const pump = Math.max(0, Math.sin(t * 7));
+      bones.spine = { x: -0.05, y: 0, z: 0 };
+      bones.head = { x: -0.1, y: 0, z: 0 };
+      setArm(bones, "right", { x: -0.3, y: 0, z: -0.35 - 0.35 * pump }, { x: 0, y: 1.9, z: 0 });
+      Object.assign(bones, curledFingers(1.1));
+      break;
+    }
+  }
+  return bones;
+}
+
 function typeBody(input: OfficePoseInput): UpperBody {
+  const typing = typingBones(input);
+  const beat = input.workBeat ?? null;
+  if (beat === null) {
+    return { bones: typing };
+  }
+  return { bones: blendBones(typing, workBeatBones(beat), beatEnvelope(beat)) };
+}
+
+function typingBones(input: OfficePoseInput): PoseBones {
   // The hand that "pressed" the last key dips; the other lifts a little.
   const leftHandActive = input.keystrokes % 2 === 0;
   const dip = 0.12;
   return {
-    bones: {
-      // Leaning in brings the shoulders over the keyboard; the head tips back up to the screen.
-      spine: { x: 0.3, y: 0, z: 0 },
-      chest: { x: 0.08, y: 0, z: 0 },
-      head: { x: 0.02, y: 0.04 * Math.sin(input.time * 0.6), z: 0 },
-      leftUpperArm: { x: -0.75, y: 0, z: -1.15 },
-      rightUpperArm: { x: -0.75, y: 0, z: 1.15 },
-      leftLowerArm: { x: 0, y: -1.1, z: leftHandActive ? dip : -0.04 },
-      rightLowerArm: { x: 0, y: 1.1, z: leftHandActive ? 0.04 : -dip },
-      ...curledFingers(0.32),
-    },
+    // Leaning in brings the shoulders over the keyboard; the head tips back up to the screen.
+    spine: { x: 0.3, y: 0, z: 0 },
+    chest: { x: 0.08, y: 0, z: 0 },
+    head: { x: 0.02, y: 0.04 * Math.sin(input.time * 0.6), z: 0 },
+    leftUpperArm: { x: -0.75, y: 0, z: -1.15 },
+    rightUpperArm: { x: -0.75, y: 0, z: 1.15 },
+    leftLowerArm: { x: 0, y: -1.1, z: leftHandActive ? dip : -0.04 },
+    rightLowerArm: { x: 0, y: 1.1, z: leftHandActive ? 0.04 : -dip },
+    ...curledFingers(0.32),
   };
 }
 
@@ -1378,6 +1449,12 @@ export function officePose(input: OfficePoseInput): Pose {
     }
   } else {
     const body = upperBody(input.action, input);
+    // Typing blends its own beats in; any other action at the desk (the stretch or cheer after
+    // finished work) takes the fist pump over the top of it.
+    const beat = input.workBeat ?? null;
+    if (beat !== null && input.action !== "type") {
+      body.bones = blendBones(body.bones, workBeatBones(beat), beatEnvelope(beat));
+    }
     pose =
       input.seat === null
         ? { bones: body.bones, hipsOffsetY: body.standingHipsY ?? 0 }
