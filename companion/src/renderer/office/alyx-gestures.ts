@@ -91,8 +91,9 @@ export function gesturePlacements(
       };
     case "cuff": {
       // Left arm across, palm down; the right hand pinches its cuff and tugs it down the wrist.
-      const leftFingers = new Vector3(0.9, 0.2, -0.5).normalize();
-      const leftPalm = new Vector3(-0.08, -0.23, -0.37);
+      // Both forearms still run back toward the bottom corners, so neither sleeve crosses the view.
+      const leftFingers = new Vector3(0.85, 0.15, -0.5).normalize();
+      const leftPalm = new Vector3(-0.04, -0.19, -0.45);
       const wrist = leftPalm.clone().addScaledVector(leftFingers, -0.09);
       const tug = 0.012 * Math.sin(seconds * 9);
       return {
@@ -100,10 +101,10 @@ export function gesturePlacements(
         Right: {
           palm: wrist
             .clone()
-            .add(new Vector3(0.03, 0.05, 0.02))
+            .add(new Vector3(0.01, 0.04, 0))
             .addScaledVector(leftFingers, -tug),
-          fingers: new Vector3(-0.7, -0.45, -0.55),
-          facing: new Vector3(-0.3, -1, 0),
+          fingers: new Vector3(-0.8, 0.1, -0.6),
+          facing: new Vector3(-0.2, -1, 0),
           curl: pinch,
           roll: 0,
         },

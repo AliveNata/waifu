@@ -68,7 +68,7 @@ describe("gpuLabel", () => {
 
     // Assert
     expect(intel).toBe("Intel(R) UHD Graphics 620");
-    expect(software).toContain("SwiftShader");
+    expect(software).toBe("Vulkan 1.3.0 (SwiftShader Device (Subzero))");
     expect(plain).toBe("Apple M2");
   });
 });

@@ -53,7 +53,10 @@ export function gpuLabel(renderer: string): string {
   const inner = angle?.[1] ?? renderer.trim();
   const parts = inner.split(", ");
   const model = (angle !== null && parts.length >= 2 ? parts[1] : inner) ?? inner;
-  return model.replace(/\s+(Direct3D|vs_|ps_|OpenGL|\(0x).*$/, "").trim();
+  const trimmed = model.replace(/\s+(Direct3D|vs_|ps_|OpenGL|\(0x).*$/, "").trim();
+  // Cutting off a "(0x...)" device id can leave its enclosing bracket open.
+  const opened = (trimmed.match(/\(/g) ?? []).length - (trimmed.match(/\)/g) ?? []).length;
+  return opened > 0 ? `${trimmed}${")".repeat(opened)}` : trimmed;
 }
 
 /**
