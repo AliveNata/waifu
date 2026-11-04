@@ -28,6 +28,7 @@ import { type ScreenSize, ScreenSurface } from "../surfaces/screen.js";
 import { screenScripts } from "../surfaces/screen-scripts.js";
 import { type DeskGadget, returnSetup } from "./desk-returns.js";
 import { handPropModel, type PropLook } from "./hand-props.js";
+import { kitPiece } from "./kit.js";
 import { box, glow, mesh, palette, standard, unlit } from "./palette.js";
 import { leafyCrown } from "./plant.js";
 import {
@@ -1006,11 +1007,18 @@ function chizuruDesk(piece: Furniture): DeskBuild {
   cup.position.set(-0.46, 0, back + 0.06);
 
   const plant = new Group();
-  const pot = mesh(new CylinderGeometry(0.035, 0.028, 0.06, 14), standard("#f4efe6", 0.6));
-  pot.position.y = deskTop + 0.03;
-  const crown = leafyCrown(0.035, palette.leaf, palette.leafDark);
-  crown.position.y = deskTop + 0.055;
-  plant.add(pot, crown);
+  // Kenney's small desk plant, about 0.17 m tall: a 0.23 m desk plant at the room's scale.
+  const kitPlant = kitPiece("plantSmall1", { height: 0.17 }, { wood: "#f4efe6", plant: palette.leaf });
+  if (kitPlant !== null) {
+    kitPlant.position.y = deskTop;
+    plant.add(kitPlant);
+  } else {
+    const pot = mesh(new CylinderGeometry(0.035, 0.028, 0.06, 14), standard("#f4efe6", 0.6));
+    pot.position.y = deskTop + 0.03;
+    const crown = leafyCrown(0.035, palette.leaf, palette.leafDark);
+    crown.position.y = deskTop + 0.055;
+    plant.add(pot, crown);
+  }
   plant.position.set(0.5, 0, back + 0.04);
 
   const mug = mugAt("chizuru", -0.33, nearEdge(depth));

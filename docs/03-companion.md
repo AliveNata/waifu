@@ -64,7 +64,14 @@ Model tangannya "Free Pack - VR Hands (Rigged)" karya [PolyOne Studio](https://s
 
 Makanan dan minuman di meja bar pakai model dari [Food Kit 2.0](https://kenney.nl/assets/food-kit) karya [Kenney](https://www.kenney.nl), lisensi [CC0](http://creativecommons.org/publicdomain/zero/1.0/). Yang dipakai cuma model yang muncul di kantor, ada di `companion/src/renderer/office/assets/food/`, dan tekstur colormap kit-nya udah ditanam ke tiap GLB.
 
-Rak buku dan bukunya pakai model dari [Furniture Kit 2.0](https://kenney.nl/assets/furniture-kit) karya [Kenney](https://www.kenney.nl), lisensi [CC0](http://creativecommons.org/publicdomain/zero/1.0/): `bookcaseClosedWide` dua unit dijejerin, diisi `books` dengan warna sampul yang diganti per kumpulan. File-nya ada di `companion/src/renderer/office/assets/furniture/`. Kalau gagal dimuat, rak buatan kode yang lama dipakai.
+Furnitur dari [Furniture Kit 2.0](https://kenney.nl/assets/furniture-kit) karya [Kenney](https://www.kenney.nl), lisensi [CC0](http://creativecommons.org/publicdomain/zero/1.0/), warnanya diganti ke palet kantor:
+
+- Rak buku: `bookcaseClosedWide` dua unit, diisi `books` dengan warna sampul per kumpulan.
+- Lounge: sofa `loungeSofa`, meja `tableCoffee`, kabinet TV `cabinetTelevision`, standing lamp `lampRoundFloor`, kipas `ceilingFan`.
+- Dapur: kulkas `kitchenFridgeLarge` (pintu kirinya yang kebuka), lemari `kitchenCabinet`, mesin kopi `kitchenCoffeeMachine`, `kitchenMicrowave`, `toaster`.
+- Lain-lain: kursi bar `stoolBar`, tanaman `pottedPlant` dan `plantSmall1`, tempat sampah `trashcan`, keset `rugDoormat`, gantungan jaket `coatRackStanding`.
+
+File-nya ada di `companion/src/renderer/office/assets/furniture/`. Kalau ada yang gagal dimuat, versi buatan kode dipakai.
 
 Kurir pesanan opsional. Simpan model kurir sebagai `models/courier.vrm`, nanti tiap pesanan diantar sama kurirnya: jalan masuk lewat lorong bawa bungkus sesuai pesanan, nunggu di depan pintu sampai Alyx ambil paketnya, terus balik keluar. Kalau 45 detik nggak diambil, paketnya ditaruh di keset dan kurirnya pergi. Tanpa file itu, pesanan langsung muncul di keset kayak sebelumnya.
 

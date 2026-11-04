@@ -43,6 +43,7 @@ import {
   buildCoffeeTable,
   buildEntryDoor,
   buildFridge,
+  buildKitDecor,
   buildMeetingTable,
   buildPantryCounter,
   buildPingpongTable,
@@ -507,6 +508,11 @@ export function buildOffice(): OfficeProps {
         break;
       case "plant":
         root.add(buildPlant(piece));
+        break;
+      case "ceiling-fan":
+      case "floor-lamp":
+      case "coat-rack":
+        root.add(buildKitDecor(piece));
         break;
       case "desk-return":
         root.add(buildDeskReturn(piece));
