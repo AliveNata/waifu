@@ -327,7 +327,8 @@ export function buildEnclosure(paint: (art: WallArt) => Texture = paintWallArt):
 
   // The lettering, painted on above the furniture: [art, x, z, turn about y, plane width, center height].
   const artSpots: Record<WallArt, [number, number, number, number, number]> = {
-    block: [maxX - 0.012, (minZ + doorFrom) / 2, -Math.PI / 2, 2.0, 1.42],
+    // Toward the back corner, clear of the punching bag that stands in front of this wall.
+    block: [maxX - 0.012, minZ + 1.15, -Math.PI / 2, 1.5, 1.6],
     // High enough to clear the cabinet standing against this stretch of wall.
     script: [maxX - 0.012, (doorTo + maxZ) / 2 + 0.2, -Math.PI / 2, 2.0, 1.68],
     manifesto: [1.75, maxZ - 0.012, Math.PI, 6.4, 1.5],

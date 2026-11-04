@@ -111,9 +111,13 @@ export class TvScreen extends CanvasScreen<TvMode> {
 export type ArcadeMode = "attract" | "playing";
 
 /** Arcade cabinet: a starfield shooter in attract mode, busier while someone plays. */
+/** Which game a cabinet runs, so the pair in the corner never shows the same screen. */
+export type ArcadeGame = "shooter" | "breakout";
+
 export class ArcadeScreen extends CanvasScreen<ArcadeMode> {
-  constructor() {
-    super(160, 200);
+  /** Landscape, the same shape as the glass it is shown on, so nothing is squashed. */
+  constructor(private readonly game: ArcadeGame = "shooter") {
+    super(240, 200);
   }
 
   protected isStatic(): boolean {
@@ -121,35 +125,82 @@ export class ArcadeScreen extends CanvasScreen<ArcadeMode> {
   }
 
   protected draw(mode: ArcadeMode): void {
-    const { ctx, width, height, time } = this;
-    const speed = mode === "playing" ? 160 : 60;
+    const { ctx, width, height } = this;
     ctx.fillStyle = "#0d0818";
     ctx.fillRect(0, 0, width, height);
+    if (this.game === "breakout") {
+      this.drawBreakout(mode);
+    } else {
+      this.drawShooter(mode);
+    }
+    // A score line along the top, like any cabinet in attract or play.
+    ctx.fillStyle = "#f4f1ec";
+    ctx.font = "700 14px monospace";
+    ctx.textBaseline = "top";
+    ctx.textAlign = "left";
+    ctx.fillText(
+      mode === "playing" ? `1UP ${String(Math.floor(this.time * 37) % 100000).padStart(5, "0")}` : "INSERT COIN",
+      10,
+      8,
+    );
+  }
+
+  private drawShooter(mode: ArcadeMode): void {
+    const { ctx, width, height, time } = this;
+    const speed = mode === "playing" ? 160 : 60;
     ctx.fillStyle = "#ffffff";
-    for (let star = 0; star < 28; star++) {
+    for (let star = 0; star < 36; star++) {
       const x = (star * 53) % width;
       const y = (star * 37 + time * speed * (0.5 + (star % 3) * 0.25)) % height;
       ctx.fillRect(x, y, 2, 2);
     }
-    const shipX = width / 2 + Math.sin(time * (mode === "playing" ? 2.6 : 1.1)) * 40;
+    const shipX = width / 2 + Math.sin(time * (mode === "playing" ? 2.6 : 1.1)) * 70;
     ctx.fillStyle = palette.accentSoft;
     ctx.beginPath();
     ctx.moveTo(shipX, height - 40);
-    ctx.lineTo(shipX - 12, height - 18);
-    ctx.lineTo(shipX + 12, height - 18);
+    ctx.lineTo(shipX - 14, height - 16);
+    ctx.lineTo(shipX + 14, height - 16);
     ctx.fill();
     if (mode === "playing") {
       ctx.fillStyle = "#ffd36b";
       for (let shot = 0; shot < 4; shot++) {
-        const y = height - 50 - ((time * 260 + shot * 45) % (height - 60));
+        const y = height - 50 - ((time * 260 + shot * 45) % (height - 70));
         ctx.fillRect(shipX - 1, y, 3, 8);
       }
     }
     ctx.fillStyle = "#7cf2c8";
-    for (let enemy = 0; enemy < 5; enemy++) {
-      const x = 20 + enemy * 28 + Math.sin(time * 1.5 + enemy) * 6;
-      ctx.fillRect(x, 30 + Math.cos(time + enemy) * 4, 14, 10);
+    for (let row = 0; row < 2; row++) {
+      for (let enemy = 0; enemy < 7; enemy++) {
+        const x = 22 + enemy * 30 + Math.sin(time * 1.5 + enemy) * 8;
+        ctx.fillRect(x, 34 + row * 22 + Math.cos(time + enemy) * 4, 16, 10);
+      }
     }
+  }
+
+  private drawBreakout(mode: ArcadeMode): void {
+    const { ctx, width, height, time } = this;
+    const colors = ["#ff6b8b", "#ffb36b", "#ffd36b", "#7cf2c8", "#8fb8ff"];
+    // Bricks clear one by one as the game goes on, then the wall comes back.
+    const cleared = Math.floor(time * (mode === "playing" ? 1.6 : 0.6)) % 30;
+    colors.forEach((color, row) => {
+      for (let column = 0; column < 8; column++) {
+        if (((row * 8 + column) * 7) % 40 < cleared) {
+          continue;
+        }
+        ctx.fillStyle = color;
+        ctx.fillRect(10 + column * 28, 30 + row * 12, 24, 9);
+      }
+    });
+    const rate = mode === "playing" ? 1.4 : 0.6;
+    // The ball bounces wall to wall in a triangle wave, the paddle follows it.
+    const bounce = (value: number): number => Math.abs((((value % 2) + 2) % 2) - 1);
+    const ballX = 8 + bounce(time * rate * 0.9) * (width - 16);
+    const ballY = 96 + bounce(time * rate * 1.3) * (height - 130);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(ballX - 3, ballY - 3, 6, 6);
+    ctx.fillStyle = palette.accentSoft;
+    const paddleX = Math.min(width - 40, Math.max(0, ballX - 20));
+    ctx.fillRect(paddleX, height - 18, 40, 6);
   }
 }
 

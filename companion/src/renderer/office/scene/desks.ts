@@ -786,6 +786,17 @@ interface Laptop {
 function laptop(screen: ScreenSurface, depth: number, shell: string, keys: string): Laptop {
   const keyboard = new Keyboard(palette.accent, shell, keys);
   keyboard.root.position.set(0, deskTop, keyboardZ(depth));
+  // The laptop's own base around the keys: a palm rest in front and a rim up to the hinge, so the
+  // shut lid rests on a closed body instead of floating over bare keys.
+  const body = standard(shell, 0.5);
+  const rim = 0.03;
+  keyboard.root.add(
+    // The keys sit a little below the deck, as on a real laptop.
+    box(0.34, rim, 0.075, body, 0, 0, 0.095),
+    box(0.01, rim, 0.2, body, -0.165, 0, 0.03),
+    box(0.01, rim, 0.2, body, 0.165, 0, 0.03),
+    box(0.34, rim, 0.01, body, 0, 0, -0.065),
+  );
   const mouse = mouseBeside(keyboard, palette.accent, keys);
   const lid = new Group();
   // Hinged above the keys, so the shut lid lies on them instead of the keys poking through it.

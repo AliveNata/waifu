@@ -423,7 +423,7 @@ export function buildPantryCounter(
   const sink = buildSink(at.sink - piece.x, top);
   const oven = buildOven(ovenX, front);
   // Right beside the basin, so a washed mug goes straight onto it.
-  const rack = buildDryingRack(at.sink - piece.x - 0.27, top, cups);
+  const rack = buildDryingRack(at.sink - piece.x - 0.31, top, cups);
   root.add(sink.root, oven.root, rack.root);
   return {
     root,
@@ -485,26 +485,28 @@ function buildSink(x: number, top: number): { root: Group; tap: SinkTap } {
   const steel = standard(palette.steel, 0.25, 0.7);
   // A basin set into the top: a steel rim around a dark bowl.
   root.add(
-    box(0.34, 0.006, 0.26, steel, 0, top, 0),
-    box(0.3, 0.004, 0.22, standard("#2c3036", 0.35, 0.6), 0, top + 0.003, 0),
+    box(0.42, 0.006, 0.3, steel, 0, top, 0),
+    box(0.38, 0.004, 0.26, standard("#2c3036", 0.35, 0.6), 0, top + 0.003, 0),
   );
-  const riser = mesh(new CylinderGeometry(0.01, 0.012, 0.2, 10), steel);
-  riser.position.set(0, top + 0.1, -0.15);
-  const spout = mesh(new CylinderGeometry(0.009, 0.009, 0.1, 10), steel);
+  // A tap a real one's size at the room's scale: about 0.25 m tall with a reach over the bowl.
+  const riser = mesh(new CylinderGeometry(0.012, 0.015, 0.25, 10), steel);
+  riser.position.set(0, top + 0.125, -0.17);
+  const spout = mesh(new CylinderGeometry(0.01, 0.01, 0.13, 10), steel);
   spout.rotation.x = Math.PI / 2;
-  spout.position.set(0, top + 0.195, -0.105);
-  const stream = mesh(new CylinderGeometry(0.006, 0.008, 0.18, 8), standard("#cfe8f7", 0.05, 0.1), false);
+  spout.position.set(0, top + 0.245, -0.11);
+  const stream = mesh(new CylinderGeometry(0.006, 0.008, 0.23, 8), standard("#cfe8f7", 0.05, 0.1), false);
   const material = stream.material as MeshStandardMaterial;
   material.transparent = true;
   material.opacity = 0.65;
-  stream.position.set(0, top + 0.095, -0.06);
+  stream.position.set(0, top + 0.12, -0.05);
   stream.visible = false;
   root.add(riser, spout, stream);
   return { root, tap: new SinkTap(stream) };
 }
 
-const ovenWidth = 0.36;
-const ovenHeight = 0.3;
+/** A built-in oven at the room's 0.73 scale: about 0.44 m wide and 0.4 tall (0.6 by 0.55 real). */
+const ovenWidth = 0.44;
+const ovenHeight = 0.4;
 /** Radians the door falls open on its bottom hinge. */
 const ovenOpenAngle = 1.35;
 
@@ -826,7 +828,8 @@ export function buildArcade(piece: Furniture): { root: Group; screen: ArcadeScre
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const body = standard(palette.ink, 0.55);
-  const screen = new ArcadeScreen();
+  // The pair runs two different games, so they never show the same frame side by side.
+  const screen = new ArcadeScreen(piece.id === "arcade" ? "shooter" : "breakout");
   const cabinetWidth = width - 0.16;
   // Controls at a standing player's hands and the top at about 1.3 m, at the room's 0.73 scale.
   const panelTop = 0.68;
@@ -840,9 +843,25 @@ export function buildArcade(piece: Furniture): { root: Group; screen: ArcadeScre
     box(cabinetWidth, 0.04, depth * 0.36, standard(palette.inkSoft, 0.5), 0, panelTop - 0.02, depth * 0.24),
   );
   const display = mesh(new PlaneGeometry(cabinetWidth - 0.1, 0.38), unlit(screen.texture), false);
-  display.position.set(0, panelTop + 0.26, depth * 0.05);
-  display.rotation.x = -0.18;
-  root.add(display);
+  // Tilted back like a real cabinet's glass, and stood far enough out from the screen box that
+  // its top edge stays in front of the box instead of sinking into it.
+  const tilt = 0.18;
+  const screenBoxFront = -depth * 0.18 + (depth * 0.45) / 2;
+  display.position.set(0, panelTop + 0.26, screenBoxFront + 0.19 * Math.sin(tilt) + 0.006);
+  display.rotation.x = -tilt;
+  // A thin lit bezel around the glass, so the screen reads as a screen in a dark cabinet.
+  const bezel = new Group();
+  const lit = glow(palette.accent, 0.9);
+  const glassWidth = cabinetWidth - 0.1;
+  bezel.add(
+    box(glassWidth + 0.02, 0.008, 0.004, lit, 0, 0.19, -0.002),
+    box(glassWidth + 0.02, 0.008, 0.004, lit, 0, -0.198, -0.002),
+    box(0.008, 0.38, 0.004, lit, -glassWidth / 2 - 0.006, -0.19, -0.002),
+    box(0.008, 0.38, 0.004, lit, glassWidth / 2 + 0.006, -0.19, -0.002),
+  );
+  bezel.position.copy(display.position);
+  bezel.rotation.copy(display.rotation);
+  root.add(display, bezel);
   const stick = mesh(new CylinderGeometry(0.008, 0.008, 0.05, 6), standard(palette.ink, 0.4));
   stick.position.set(-0.1, panelTop + 0.045, depth * 0.27);
   const knob = mesh(new SphereGeometry(0.018, 10, 8), glow(palette.accent, 0.8));
