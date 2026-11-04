@@ -31,7 +31,7 @@ function simulatedTag(ctx: CanvasRenderingContext2D, width: number, color: strin
   ctx.textAlign = "left";
 }
 
-/** Light oak planks. The seams give the floor scale, so the chibis read as small people in a real room. */
+/** Light oak planks. The seams give the floor scale, so the people read as people in a real room. */
 export function floorTexture(): CanvasTexture {
   const { canvas: element, ctx } = canvas(512, 512);
   ctx.fillStyle = palette.floor;

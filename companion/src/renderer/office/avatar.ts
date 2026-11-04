@@ -4,14 +4,14 @@ import type { ExpressionWeights } from "../common/expressions.js";
 import { type PoseTarget, vrmPoseTarget } from "../common/pose.js";
 import { disposeVrm } from "../common/vrm-loader.js";
 import { updateVrmStable } from "../common/vrm-update.js";
-import { applyChibi } from "./chibi.js";
+import { applyBodyProportions } from "./body-proportions.js";
 import type { HandAim, IkChain } from "./ik.js";
 import type { LegMetrics } from "./seating.js";
 
 export type ArmSide = "left" | "right";
 export type ArmTip = "wrist" | "fingertip";
 
-/** A character in the office: either a chibi VRM or a low-poly placeholder. */
+/** A character in the office: either a VRM or a low-poly placeholder. */
 export interface OfficeAvatar {
   readonly kind: "vrm" | "placeholder";
   /** Positioned and turned by the stage. Faces +Z at yaw 0. */
@@ -42,7 +42,7 @@ export class VrmOfficeAvatar implements OfficeAvatar {
   readonly poseTarget: PoseTarget;
 
   constructor(private readonly vrm: VRM) {
-    const metrics = applyChibi(vrm);
+    const metrics = applyBodyProportions(vrm);
     this.legs = metrics.legs;
     this.poseTarget = vrmPoseTarget(vrm);
     // The inner scene keeps the VRM's own base yaw (VRM 0.x is rotated) and the floor offset.

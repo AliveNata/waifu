@@ -1,6 +1,6 @@
 /**
  * Leg measurements of one avatar in world meters, taken in its standing rest
- * pose. Seated poses are fitted per seat from these, so a chibi with short legs
+ * pose. Seated poses are fitted per seat from these, so someone with short legs
  * dangles its feet from a stool instead of pushing them through the floor, and
  * one with long legs raises its knees on a low beanbag instead of sinking into it.
  */
@@ -18,13 +18,13 @@ export interface LegMetrics {
 }
 
 export interface SeatFit {
-  /** How far to lower the hips, in pose units. Negative raises them, for seats above the chibi's hips. */
+  /** How far to lower the hips, in pose units. Negative raises them, for seats above the sitter's hips. */
   hipsDrop: number;
   /** Extra thigh pitch above horizontal, in radians, raising the knees on low seats. */
   thighLift: number;
 }
 
-/** Half the thickness of a chibi thigh: the thigh joint rests this far above the cushion. */
+/** Half the thickness of a thigh: the thigh joint rests this far above the cushion. */
 export const thighRadius = 0.035;
 /** Knees higher than this look like folding in half; feet can lift a little off the floor instead. */
 const maxThighLift = 0.7;

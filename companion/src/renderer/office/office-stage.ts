@@ -563,7 +563,7 @@ export class OfficeStage {
     // Filmic tone mapping keeps the bright room from washing out and lets the accent glow read as light.
     this.renderer.toneMapping = ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
-    // Soft shadows ground the chibis and furniture; without them the room reads as floating props.
+    // Soft shadows ground the people and furniture; without them the room reads as floating props.
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
 
@@ -1340,7 +1340,7 @@ export class OfficeStage {
     composer.addPass(new RenderPass(this.scene, this.camera));
     const ao = new GTAOPass(this.scene, this.camera, 512, 512);
     ao.blendIntensity = 0.85;
-    // Room-sized radius: a chibi desk is under a meter, so a wide radius would gray whole walls.
+    // Room-sized radius: a desk is small next to the room, so a wide radius would gray whole walls.
     ao.updateGtaoMaterial({ radius: 0.35, distanceExponent: 1.5, thickness: 1, scale: 1 });
     composer.addPass(ao);
     composer.addPass(new OutputPass());
@@ -2403,7 +2403,7 @@ export class OfficeStage {
       }
       const { x, z } = rig.actor.position;
       const feet = toScreen(new Vector3(x, rig.lift, z));
-      // A seated chibi's head is lower, but the standing height still covers them comfortably.
+      // A seated person's head is lower, but the standing height still covers them comfortably.
       const head = toScreen(new Vector3(x, rig.lift + 1.05, z));
       const halfWidth = Math.max(8, (feet.y - head.y) * 0.22);
       const inside = clientY >= head.y && clientY <= feet.y && Math.abs(clientX - (feet.x + head.x) / 2) <= halfWidth;

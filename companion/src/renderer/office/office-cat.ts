@@ -151,7 +151,7 @@ export function catLine(kind: keyof typeof catLines, random: () => number): stri
 /** What teammates say to her as they walk past. */
 export const greetingsForCat = ["Halo, Mochi.", "Mochi!", "Eh, Mochi.", "Pus, pus."] as const;
 
-/** Her pace: an unhurried trot, a little slower than the chibis walk. */
+/** Her pace: an unhurried trot, a little slower than the team walks. */
 export const catSpeed = 0.45;
 /** Stride radians per meter, for the legs. */
 const catStride = 26;

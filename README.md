@@ -2,7 +2,7 @@
 
 2B (NieR:Automata) dan timnya sebagai avatar 3D. Isinya:
 
-1. **Desktop companion** di Windows: close-up 2B di kanan bawah, overlay **AlyxLabs Team** yang ngobrol di kanan atas, dan **AlyxLabs Office**, kantor 3D berisi tim chibi yang kerja dan istirahat sendiri. Semuanya bereaksi ke hooks Claude Code.
+1. **Desktop companion** di Windows: close-up 2B di kanan bawah, overlay **AlyxLabs Team** yang ngobrol di kanan atas, dan **AlyxLabs Office**, kantor 3D berisi tim yang kerja dan istirahat sendiri. Semuanya bereaksi ke hooks Claude Code.
 2. **Tim agent Claude Code**: 2B sebagai PA + PM, dibantu tujuh subagent dengan karakter masing-masing.
 3. **Avatar VRChat** buat upload private. Ini masih rencana, lihat fase 6.
 

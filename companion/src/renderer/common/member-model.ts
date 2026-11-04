@@ -96,7 +96,7 @@ function addGlasses(vrm: VRM): void {
 
   // Raw head bones can have arbitrary local axes, so place the glasses in model
   // space (facing the model's front) and convert into the head's frame. As a
-  // child of the head they still follow it and scale with the chibi head.
+  // child of the head they still follow it and scale with the head.
   vrm.scene.updateMatrixWorld(true);
   const modelRotation = vrm.scene.getWorldQuaternion(new Quaternion());
   const eyeWorld = lookAt

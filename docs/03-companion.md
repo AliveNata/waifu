@@ -4,7 +4,7 @@ Companion ini nampilin 2B dan timnya di tiga tempat:
 
 - **Overlay 2B**: close-up 3D transparan di pojok kanan bawah layar, selalu di atas window lain. Kepala dan matanya ngikutin cursor lo.
 - **Overlay tim**: close-up transparan di pojok kanan atas. Muncul cuma pas ada yang ngomong: 2B ngoper tugas, atau anggota tim mulai kerja, pakai tool, dan selesai. Ada gerak mulut, ekspresi, gesture, dan kotak dialog.
-- **AlyxLabs Office** (kantor): window terpisah berisi kantor 3D dengan 2B dan tujuh anggota tim versi chibi (lihat [04-tim.md](04-tim.md)). Tiap anggota punya meja sesuai role-nya, mulai kerja pas subagent-nya dipanggil, dan pas lagi nggak ada tugas mereka istirahat dengan kegiatan masing-masing.
+- **AlyxLabs Office** (kantor): window terpisah berisi kantor 3D dengan 2B dan anggota tim berproporsi orang biasa (lihat [04-tim.md](04-tim.md)). Tiap anggota punya meja sesuai role-nya, mulai kerja pas subagent-nya dipanggil, dan pas lagi nggak ada tugas mereka istirahat dengan kegiatan masing-masing.
 
 Ketiganya bereaksi ke event yang sama dari hooks Claude Code.
 
@@ -13,7 +13,7 @@ Ketiganya bereaksi ke event yang sama dari hooks Claude Code.
 Urutan model yang dipakai buat tiap anggota:
 1. `.vrm` asli yang lo pasang lewat **Menu > Pilih model .vrm**.
 2. Kalau belum ada: **model anime cadangan**, yaitu sample resmi VRM 1.0 yang diwarnai ulang pakai warna rambut, mata, dan baju tiap karakter, plus kacamata buat Kobayashi. Wajah dan model rambutnya sama buat semua anggota.
-3. Kalau model cadangan belum didownload: chibi kotak-kotak di kantor, dan tulisan "Belum ada model" di overlay 2B.
+3. Kalau model cadangan belum didownload: figur kotak-kotak di kantor, dan tulisan "Belum ada model" di overlay 2B.
 
 Model cadangan didownload sekali (sekitar 10 MB, versi di-pin dan dicek hash-nya):
 
@@ -110,7 +110,7 @@ Event yang terjadi di dalam subagent (misalnya Asuna ngejalanin `Edit`) cuma nge
 
 ## AlyxLabs Office (kantor)
 
-Ruangannya terang dengan aksen ungu dari logo AlyxLabs: LED neon yang "lari" di atas dinding dan di sepanjang lis bawah, lampu di bawah meja, dan papan nama di dinding belakang. Semua furnitur diukur pakai tinggi chibi (sekitar 1,05 m), jadi meja setinggi pinggang, monitor sejajar mata pas duduk, dan papan tulis masih kejangkau tangan.
+Ruangannya terang dengan aksen ungu dari logo AlyxLabs: LED neon yang "lari" di atas dinding dan di sepanjang lis bawah, lampu di bawah meja, dan papan nama di dinding belakang. Anggota tim pakai proporsi badan model aslinya (kepala, kaki, tangan nggak diubah), terus seluruh model dikecilin ke tinggi 1,2 m, dan kantornya diukur ke tinggi itu: meja di bawah pinggang, kursi setinggi lutut, monitor sejajar mata pas duduk, dan papan tulis kejangkau tangan. Jadi kelihatannya kayak kantor beneran, cuma skalanya disamain.
 
 Tiap zona punya bentuk yang kebaca jelas dari kamera, dan meja meeting, meja 2B, serta logo ada di satu garis tengah. Zonanya:
 

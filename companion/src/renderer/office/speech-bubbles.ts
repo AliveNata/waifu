@@ -5,7 +5,7 @@ const fadeSeconds = 0.15;
 /** Space between bubbles stacked over two people standing close. */
 const stackGap = 4;
 
-/** Small talk drawn as bubbles over the chibis' heads, positioned from the stage each frame. */
+/** Small talk drawn as bubbles over the team's heads, positioned from the stage each frame. */
 export class SpeechBubbles {
   private readonly bubbles = new Map<Speaker, HTMLParagraphElement>();
 

@@ -80,8 +80,8 @@ function beltTexture(): CanvasTexture {
 }
 
 /**
- * A treadmill sized for chibi legs: a low deck with a moving belt, side rails, and the console on
- * two uprights at the front, at a chibi's waist height. The belt runs and the console lights up
+ * A treadmill sized for the team: a low deck with a moving belt, side rails, and the console on
+ * two uprights at the front, at waist height. The belt runs and the console lights up
  * while someone is jogging on it.
  */
 export class Treadmill {
@@ -115,7 +115,7 @@ export class Treadmill {
       belt,
       box(0.04, consoleY, 0.04, frame, -width / 2 + 0.04, 0, front),
       box(0.04, consoleY, 0.04, frame, width / 2 - 0.04, 0, front),
-      // Hand rails reaching back along the sides at a chibi's hip height.
+      // Hand rails reaching back along the sides at hip height.
       box(0.03, 0.03, 0.32, frame, -width / 2 + 0.04, consoleY - 0.14, front - 0.16),
       box(0.03, 0.03, 0.32, frame, width / 2 - 0.04, consoleY - 0.14, front - 0.16),
       box(width, 0.1, 0.12, standard(palette.ink, 0.5), 0, consoleY, front),
@@ -136,7 +136,7 @@ export class Treadmill {
 
 /**
  * A heavy bag on a freestanding stand: a weighted base, a post at the back and an arm over the
- * top with the bag on a short chain, its middle at a standing chibi's chest. It swings back each
+ * top with the bag on a short chain, its middle at a standing person's chest. It swings back each
  * time a punch lands, on the same clock as the puncher's fists.
  */
 export class PunchingBag {
@@ -312,7 +312,7 @@ export function buildHighTable(piece: Furniture): Group {
 }
 
 /**
- * A glass board on two legs, the writing band at a standing chibi's reach, with a few sticky notes
+ * A glass board on two legs, the writing band at a standing person's reach, with a few sticky notes
  * and a rough flow already on it.
  */
 export function buildGlassBoard(piece: Furniture): Group {

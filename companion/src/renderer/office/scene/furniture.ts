@@ -16,7 +16,7 @@ import {
   TorusGeometry,
   Vector3,
 } from "three";
-import { chibi, type Furniture, surface } from "../office-plan.js";
+import { type Furniture, people, surface } from "../office-plan.js";
 import { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./animated.js";
 import { handPropModel, type PropLook } from "./hand-props.js";
 import { box, glow, mesh, palette, standard, unlit } from "./palette.js";
@@ -94,7 +94,7 @@ function sphereCollider(root: Group, x: number, y: number, z: number, radius: nu
   return collider;
 }
 
-/** Gaming chair with a deliberately low back, so long chibi hair falls over it rather than through it. */
+/** Gaming chair with a deliberately low back, so long hair falls over it rather than through it. */
 export function buildChair(piece: Furniture, seatHeight: number): BuiltPiece {
   const root = placed(piece);
   const ink = standard(palette.ink, 0.6);
@@ -191,7 +191,7 @@ export function buildStool(piece: Furniture, seatHeight: number): BuiltPiece {
   };
 }
 
-/** Pantry counter at chibi working height, with the coffee machine where the "coffee" station stands. */
+/** Pantry counter at working height, with the coffee machine where the "coffee" station stands. */
 /** The pantry counter's working parts, which the stage switches on while someone uses them. */
 export interface PantryCounter {
   root: Group;
@@ -226,7 +226,7 @@ export function buildPantryCounter(
     box(width, top - 0.03, depth - 0.04, ink, 0, 0, 0),
     box(width + 0.02, 0.03, depth, standard(palette.laminate, 0.4), 0, top - 0.03, 0),
     box(width, 0.36, 0.02, standard(palette.backWall, 0.9), 0, top, -depth / 2 + 0.01),
-    // Open shelf above the counter with mugs and jars, within a chibi's reach.
+    // Open shelf above the counter with mugs and jars, within reach.
     box(width * 0.8, 0.025, 0.18, standard(palette.oak, 0.6), 0, top + 0.42, -depth / 2 + 0.1),
   );
   for (let door = 0; door < 4; door++) {
@@ -499,7 +499,7 @@ export function buildEntryDoor(piece: Furniture): { root: Group; door: EntryDoor
     });
     // As wide as the door, so the word on each half reaches the seam.
     const plane = mesh(new PlaneGeometry(opening / 2, (opening / 2) * (180 / 512)), material, false);
-    // At a chibi's eye level, just on the room side of the glass.
+    // At eye level, just on the room side of the glass.
     plane.position.set(0, 0.95, 0.008);
     return plane;
   };
@@ -587,7 +587,7 @@ export function buildFridge(piece: Furniture): { root: Group; door: FridgeDoor }
   return { root, door: new FridgeDoor(hinge) };
 }
 
-/** A compact rack, chest-to-head height for a chibi: Yor checks the lights at eye level. */
+/** A compact rack, chest-to-head height for the team: Yor checks the lights at eye level. */
 export function buildServerRack(piece: Furniture): { root: Group; lights: RackLights } {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
@@ -609,7 +609,7 @@ export function buildServerRack(piece: Furniture): { root: Group; lights: RackLi
   return { root, lights: new RackLights(lights) };
 }
 
-/** Arcade cabinet at chibi scale: controls at hand height, screen at eye height. */
+/** Arcade cabinet at the office's scale: controls at hand height, screen at eye height. */
 export function buildArcade(piece: Furniture): { root: Group; screen: ArcadeScreen } {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
@@ -651,7 +651,7 @@ export function buildTvWall(piece: Furniture): { root: Group; screen: TvScreen }
   const screen = new TvScreen();
   const width = 1.15;
   const height = width * (9 / 16);
-  const centerY = chibi.seatedEye + 0.08;
+  const centerY = people.seatedEye + 0.08;
   root.add(
     box(width + 0.05, height + 0.05, 0.04, standard(palette.inkDeep, 0.3, 0.2), 0, centerY - height / 2 - 0.025, 0),
   );
@@ -721,11 +721,11 @@ export function buildPlant(piece: Furniture): Group {
   return root;
 }
 
-/** Ring light with the ring at a chibi's eye height, where it would actually light a face. */
+/** Ring light with the ring at eye height, where it would actually light a face. */
 export function buildRingLight(piece: Furniture): Group {
   const root = placed(piece);
   const ink = standard(palette.ink, 0.5);
-  const ringY = chibi.eye;
+  const ringY = people.eye;
   root.add(box(0.2, 0.02, 0.2, ink, 0, 0, 0), box(0.02, ringY - 0.12, 0.02, ink, 0, 0, 0));
   // Warm white, not the accent: a ring light's job is lighting faces.
   const ring = mesh(new TorusGeometry(0.12, 0.016, 8, 32), glow("#fff3e6", 1.2));
@@ -734,11 +734,11 @@ export function buildRingLight(piece: Furniture): Group {
   return root;
 }
 
-/** Camera on a tripod with the lens at a seated chibi's eye height, framing Ruby at her desk. */
+/** Camera on a tripod with the lens at seated eye height, framing Ruby at her desk. */
 export function buildCameraTripod(piece: Furniture): Group {
   const root = placed(piece);
   const ink = standard(palette.ink, 0.5);
-  const headY = chibi.seatedEye - 0.04;
+  const headY = people.seatedEye - 0.04;
   const head = new Vector3(0, headY, 0);
   const up = new Vector3(0, 1, 0);
   for (let leg = 0; leg < 3; leg++) {
@@ -769,7 +769,7 @@ export function buildBackdrop(piece: Furniture, logo: Texture, lettering: SignLe
   const ink = standard(palette.inkDeep, 0.7);
   const height = 1.25;
   root.add(box(width, height, 0.05, ink, 0, 0, 0), box(width, 0.018, 0.06, glow(), 0, height - 0.02, 0));
-  const bandY = chibi.eye + 0.13;
+  const bandY = people.eye + 0.13;
   const markSize = 0.32;
   const gap = 0.06;
   const planeWidth = 0.8;
@@ -900,7 +900,7 @@ export function buildBoardStep(piece: Furniture, height: number): Group {
   return root;
 }
 
-/** Chibi-scale ping-pong table: ink top with white lines and a net, accent paddles at each end. */
+/** Ping-pong table at the office's scale: ink top with white lines and a net, accent paddles at each end. */
 export function buildPingpongTable(piece: Furniture): Group {
   const root = placed(piece);
   const { width, depth } = localSize(piece);

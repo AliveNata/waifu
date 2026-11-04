@@ -3,7 +3,7 @@ import { type Object3D, Quaternion, Vector3 } from "three";
 export interface IkJoint {
   /** Node whose rotation the solver changes. For a VRM this is the normalized bone. */
   rotate: Object3D;
-  /** Node whose world position is the pivot. For a VRM this is the raw bone, which carries the chibi scaling. */
+  /** Node whose world position is the pivot. For a VRM this is the raw bone, which carries the body proportions. */
   measure: Object3D;
 }
 

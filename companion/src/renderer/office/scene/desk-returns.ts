@@ -38,7 +38,7 @@ export interface ReturnSetup {
 
 /**
  * Where the things on the return stand, in the desk's frame (the sitter at +z): next to the
- * sitter's hip, near the return's inner edge, so a chibi arm reaches them by leaning over.
+ * sitter's hip, near the return's inner edge, so an arm reaches them by leaning over.
  */
 const spotFromCenter = 0.47;
 const spotPastFrontEdge = 0.12;
