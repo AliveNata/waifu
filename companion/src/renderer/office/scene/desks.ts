@@ -1,9 +1,11 @@
 import {
   AdditiveBlending,
+  CatmullRomCurve3,
   Color,
   CylinderGeometry,
   DataTexture,
   Group,
+  type Material,
   MeshBasicMaterial,
   MeshStandardMaterial,
   NearestFilter,
@@ -13,6 +15,7 @@ import {
   SRGBColorSpace,
   type Texture,
   TorusGeometry,
+  TubeGeometry,
   Vector3,
 } from "three";
 import type { MemberId } from "../../../shared/team.js";
@@ -127,6 +130,14 @@ function at(object: Object3D, x: number, y: number, z: number): Object3D {
   return object;
 }
 
+/** A round bar from one point to another, for arms that have to meet at their joints. */
+function rod(from: Vector3, to: Vector3, radius: number, material: Material): Object3D {
+  const bar = mesh(new CylinderGeometry(radius, radius, from.distanceTo(to), 8), material);
+  bar.position.copy(from).add(to).multiplyScalar(0.5);
+  bar.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), to.clone().sub(from).normalize());
+  return bar;
+}
+
 /**
  * Each member's lamp, picked for who they are: 2B's black architect lamp, Chizuru's mushroom,
  * Rias's brass lamp with a crimson shade, Asuna's LED bar, Kobayashi's dragon-green gooseneck,
@@ -139,18 +150,21 @@ function lampLook(member: DeskMember): LampLook {
       // Two straight arms at an angle and a cone head: a drafting lamp, precise and dark.
       const black = standard("#16161a", 0.35, 0.2);
       const bulb = glow("#e8f0ff", 0);
-      const lower = mesh(new CylinderGeometry(0.006, 0.006, 0.2, 8), black);
-      lower.rotation.x = 0.35;
-      const upper = mesh(new CylinderGeometry(0.006, 0.006, 0.18, 8), black);
-      upper.rotation.x = 1.9;
+      // The arms are drawn joint to joint, so the elbow and the head always meet them.
+      const shoulder = new Vector3(0, y + 0.014, 0);
+      const elbow = new Vector3(0, y + 0.2, 0.07);
       const head = mesh(new CylinderGeometry(0.018, 0.045, 0.07, 16, 1, true), black);
-      head.rotation.x = 0.3;
+      // The narrow end tips back toward the arm, the open end down over the desk.
+      head.rotation.x = -0.3;
+      const headAt = new Vector3(0, y + 0.17, 0.23);
+      const neck = headAt.clone().add(new Vector3(0, Math.cos(0.3) * 0.035, -Math.sin(0.3) * 0.035));
       return {
         parts: [
           box(0.08, 0.014, 0.08, black, 0, y, 0),
-          at(lower, 0, y + 0.1, 0.035),
-          at(upper, 0, y + 0.2 + 0.0, 0.14),
-          at(head, 0, y + 0.17, 0.23),
+          rod(shoulder, elbow, 0.006, black),
+          at(mesh(new SphereGeometry(0.01, 10, 8), black), elbow.x, elbow.y, elbow.z),
+          rod(elbow, neck, 0.006, black),
+          at(head, headAt.x, headAt.y, headAt.z),
           at(mesh(new SphereGeometry(0.014, 10, 8), bulb, false), 0, y + 0.155, 0.235),
         ],
         bulb,
@@ -210,16 +224,23 @@ function lampLook(member: DeskMember): LampLook {
       // A bendy gooseneck in dragon green, the head bent down over the keyboard.
       const green = standard("#4fae6f", 0.5);
       const bulb = glow("#eaffef", 0);
-      const neck = mesh(new TorusGeometry(0.12, 0.007, 8, 20, Math.PI * 0.75), green);
-      neck.rotation.y = -Math.PI / 2;
+      // Up out of the base, over the top and down toward the keys, ending where the head hangs.
+      const curve = new CatmullRomCurve3([
+        new Vector3(0, y + 0.02, 0),
+        new Vector3(0, y + 0.15, 0.01),
+        new Vector3(0, y + 0.22, 0.08),
+        new Vector3(0, y + 0.19, 0.185),
+      ]);
+      const neck = mesh(new TubeGeometry(curve, 20, 0.007, 8, false), green);
       const head = mesh(new CylinderGeometry(0.016, 0.04, 0.06, 14, 1, true), green);
-      head.rotation.x = -0.4;
+      // The narrow end toward the neck, the open end down at the keys.
+      head.rotation.x = -0.6;
       return {
         parts: [
           at(mesh(new CylinderGeometry(0.045, 0.05, 0.02, 18), standard("#2b2b30", 0.5)), 0, y + 0.01, 0),
-          at(neck, 0, y + 0.02, 0.12),
-          at(head, 0, y + 0.115, 0.215),
-          at(mesh(new SphereGeometry(0.013, 10, 8), bulb, false), 0, y + 0.1, 0.22),
+          neck,
+          at(head, 0, y + 0.165, 0.205),
+          at(mesh(new SphereGeometry(0.013, 10, 8), bulb, false), 0, y + 0.145, 0.215),
         ],
         bulb,
         poolAhead: 0.24,
@@ -744,8 +765,9 @@ function laptop(screen: ScreenSurface, depth: number, shell: string, keys: strin
   lid.position.set(0, deskTop + 0.03, keyboardZ(depth) - 0.11);
   lid.rotation.x = 0.25;
   lid.userData.openAngle = 0.25;
-  lid.add(box(0.38, 0.24, 0.012, standard(shell, 0.5), 0, 0, -0.006));
-  const panel = mesh(new PlaneGeometry(0.36, 0.225), unlit(screen.texture), false);
+  // A touch wider than the keyboard (0.41), so the shut lid covers every key.
+  lid.add(box(0.43, 0.24, 0.012, standard(shell, 0.5), 0, 0, -0.006));
+  const panel = mesh(new PlaneGeometry(0.41, 0.225), unlit(screen.texture), false);
   panel.position.set(0, 0.12, 0.001);
   lid.add(panel);
   return { keyboard, mouse, lid };
