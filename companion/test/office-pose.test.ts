@@ -107,3 +107,24 @@ describe("punchReach", () => {
     expect(nextRound.left).toBeCloseTo(now.left, 6);
   });
 });
+
+describe("hands in every pose", () => {
+  it("names both hands, straight, so a turn left by IK is always put back", () => {
+    for (const action of ["type", "watch", "read", "brew", "snack", null] as const) {
+      // Act
+      const pose = officePose({
+        action,
+        walkPhase: 0,
+        time: 1,
+        actionElapsed: 1,
+        seat: null,
+        keystrokes: 0,
+        carrying: false,
+      });
+
+      // Assert
+      expect(pose.bones.leftHand, String(action)).toBeDefined();
+      expect(pose.bones.rightHand, String(action)).toBeDefined();
+    }
+  });
+});

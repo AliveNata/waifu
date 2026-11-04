@@ -1078,7 +1078,8 @@ const placeStations: Record<Exclude<StationId, VisitStationId>, Station> = {
   ),
   // Right up at the counter edge: the team is 1.2 m tall, and the machine is an arm away.
   coffee: standing("coffee", { x: -5.35, z: -4.1 }, facing.backWall),
-  fridge: standing("fridge", { x: -6.55, z: -3.85 }, facing.backWall),
+  // An arm's length from the shelves inside; the door swings open on the other side.
+  fridge: standing("fridge", { x: -6.55, z: -4.0 }, facing.backWall),
   sink: standing("sink", { x: sinkX, z: -4.1 }, facing.backWall),
   oven: standing("oven", { x: ovenX, z: -3.85 }, facing.backWall),
   "bar-left": {

@@ -317,6 +317,15 @@ export function pingpongBeat(elapsed: number, side: "west" | "east"): number {
   return ((((rallyLeg(elapsed) - contact) / 2) % 1) + 1) % 1;
 }
 
+/** The middle shelf just inside the fridge's door, for a hand reaching in for a snack. */
+const fridgeShelf = (() => {
+  const fridge = furniture.find((piece) => piece.id === "fridge");
+  // The fridge faces into the room (+z); the shelf is a little inside its front.
+  return fridge === undefined
+    ? { x: -6.6, y: 0.5, z: -4.4 }
+    : { x: fridge.x + 0.05, y: 0.5, z: fridge.z + fridge.depth / 2 - 0.12 };
+})();
+
 /** Above the head bone: clear of the hair and of the speech bubbles, which sit lower. */
 const badgeAboveHead = 0.42;
 
@@ -1754,43 +1763,55 @@ export class OfficeStage {
    * IK on the counter's own points, so they land there whatever the arms' length.
    */
   private counterTargets(rig: MemberRig, action: OfficeAction | null, arrived: boolean): HandTargets | null {
-    if (!arrived || (action !== "brew" && action !== "wash")) {
+    if (!arrived) {
       return null;
     }
-    const { button, tray, basin } = this.office.pantryReach;
     const { position } = rig.actor;
-    // Pulled back toward the member from each point by `back`, raised by `up`.
-    const near = (point: Vector3, back: number, up: number, side = 0): Vector3 => {
-      const dx = position.x - point.x;
-      const dz = position.z - point.z;
+    // The way from the member to a point, level, with the fingers tipped down onto it.
+    const onto = (point: Vector3, down: number): Vector3 => {
+      const dx = point.x - position.x;
+      const dz = point.z - position.z;
       const length = Math.hypot(dx, dz) || 1;
-      // Sideways is along the counter, at right angles to the way back toward the member.
-      return new Vector3(
-        point.x + (dx / length) * back + (dz / length) * side,
-        point.y + up,
-        point.z + (dz / length) * back - (dx / length) * side,
-      );
+      return new Vector3(dx / length, -down, dz / length).normalize();
+    };
+    // Along the counter, at right angles to the way to the point.
+    const along = (point: Vector3, side: number): Vector3 => {
+      const dx = point.x - position.x;
+      const dz = point.z - position.z;
+      const length = Math.hypot(dx, dz) || 1;
+      return point.clone().add(new Vector3((-dz / length) * side, 0, (dx / length) * side));
     };
     if (action === "brew") {
+      const { button, tray } = this.office.pantryReach;
+      const press = button.getWorldPosition(new Vector3());
+      const cup = tray.getWorldPosition(new Vector3()).add(new Vector3(0, 0.02, 0));
       return {
-        left: near(tray.getWorldPosition(new Vector3()), 0.07, 0.03),
-        right: near(button.getWorldPosition(new Vector3()), 0.08, -0.01, 0.02),
-        tip: "wrist",
-        approach: null,
+        left: cup,
+        right: press,
+        tip: "fingertip",
+        approach: onto(press, 0.25),
         board: null,
         rate: 4,
       };
     }
-    const scrub = 0.03 * Math.sin(this.elapsed * 9);
-    const bowl = basin.getWorldPosition(new Vector3());
-    return {
-      left: near(bowl, 0.08, 0.06, -0.07 + scrub),
-      right: near(bowl, 0.08, 0.06, 0.07 - scrub),
-      tip: "wrist",
-      approach: null,
-      board: null,
-      rate: 6,
-    };
+    if (action === "wash") {
+      const bowl = this.office.pantryReach.basin.getWorldPosition(new Vector3());
+      const scrub = 0.03 * Math.sin(this.elapsed * 9);
+      return {
+        left: along(bowl, -0.07 + scrub),
+        right: along(bowl, 0.07 - scrub),
+        tip: "fingertip",
+        approach: onto(bowl, 0.9),
+        board: null,
+        rate: 6,
+      };
+    }
+    if (action === "snack" && (this.elapsed - rig.actionStartedAt) % 4 < 1.4) {
+      // Into the fridge for something off the middle shelf; the bites in between are the pose's.
+      const shelf = new Vector3(fridgeShelf.x, fridgeShelf.y, fridgeShelf.z);
+      return { left: null, right: shelf, tip: "fingertip", approach: onto(shelf, 0.2), board: null, rate: 5 };
+    }
+    return null;
   }
 
   /** Advances the member's work surface and returns where the hand should be, if anywhere. */
