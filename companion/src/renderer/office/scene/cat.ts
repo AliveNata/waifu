@@ -152,6 +152,7 @@ export class OfficeCat {
       case "beg":
       case "stare":
       case "groom":
+      case "eat":
         // Haunches down, front legs straight: the body tips up at the front.
         bodyPitch = -0.55;
         bodyY = hipHeight - 0.02;
@@ -166,6 +167,10 @@ export class OfficeCat {
           neckYaw = 0.35 * Math.sin(time * 0.9);
           neckPitch = -0.05;
           tailSway = 0.12 * Math.sin(time * 6);
+        } else if (pose === "eat") {
+          // Head down in the bowl, chewing.
+          neckPitch = 0.75 + 0.08 * Math.sin(time * 9);
+          tailSway = 0.18 * Math.sin(time * 1.6);
         } else if (pose === "groom") {
           // Head down to the side, licking.
           neckYaw = 0.6;
@@ -208,7 +213,10 @@ export class OfficeCat {
         // Diagonal pairs move together, as cats walk.
         const phase = (front ? 1 : -1) * side;
         pivot.rotation.x = 0.45 * swing * phase;
-      } else if (!front && (pose === "sit" || pose === "beg" || pose === "stare" || pose === "groom")) {
+      } else if (
+        !front &&
+        (pose === "sit" || pose === "beg" || pose === "stare" || pose === "groom" || pose === "eat")
+      ) {
         // Hind legs folded under the haunches.
         pivot.rotation.x = 1.2;
         pivot.scale.y = 0.6;
@@ -224,5 +232,27 @@ export class OfficeCat {
       joint.rotation.x = index === 0 ? tailLift : tailCurl;
       joint.rotation.y = tailWrap + tailSway * (0.4 + index * 0.25);
     });
+  }
+}
+
+/** Mochi's food bowl: a shallow dish with kibble in it, more or less full. */
+export class CatBowl {
+  readonly root = new Group();
+  private readonly food: Mesh;
+
+  constructor() {
+    const dish = mesh(new CylinderGeometry(0.065, 0.05, 0.03, 20), standard("#b45cff", 0.5));
+    dish.position.y = 0.015;
+    this.food = mesh(new CylinderGeometry(0.052, 0.052, 0.014, 18), standard("#9a5b2e", 0.9), false);
+    this.root.add(dish, this.food);
+    this.setFood(1);
+  }
+
+  /** 0 empty to 1 full. */
+  setFood(level: number): void {
+    const clamped = Math.max(0, Math.min(1, level));
+    this.food.visible = clamped > 0.01;
+    this.food.scale.y = Math.max(0.05, clamped);
+    this.food.position.y = 0.012 + 0.007 * clamped;
   }
 }
