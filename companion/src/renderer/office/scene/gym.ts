@@ -109,7 +109,8 @@ export class Treadmill {
     belt.position.set(0, deck + 0.002, 0);
     this.display = glow(palette.accentSoft, 0.2);
     const front = depth / 2 - 0.08;
-    const consoleY = 0.62;
+    // Console and hand rails at the room's 0.73 scale: about 1.35 m and 1 m in life.
+    const consoleY = 0.98;
     this.root.add(
       box(width, deck, depth, frame, 0, 0, 0),
       box(0.06, deck + 0.015, depth - 0.04, standard(palette.ink, 0.6), -width / 2 + 0.03, 0, 0),
@@ -118,8 +119,8 @@ export class Treadmill {
       box(0.04, consoleY, 0.04, frame, -width / 2 + 0.04, 0, front),
       box(0.04, consoleY, 0.04, frame, width / 2 - 0.04, 0, front),
       // Hand rails reaching back along the sides at hip height.
-      box(0.03, 0.03, 0.32, frame, -width / 2 + 0.04, consoleY - 0.14, front - 0.16),
-      box(0.03, 0.03, 0.32, frame, width / 2 - 0.04, consoleY - 0.14, front - 0.16),
+      box(0.03, 0.03, 0.32, frame, -width / 2 + 0.04, consoleY - 0.26, front - 0.16),
+      box(0.03, 0.03, 0.32, frame, width / 2 - 0.04, consoleY - 0.26, front - 0.16),
       box(width, 0.1, 0.12, standard(palette.ink, 0.5), 0, consoleY, front),
       box(width - 0.16, 0.05, 0.01, this.display, 0, consoleY + 0.03, front - 0.061),
     );
@@ -150,7 +151,8 @@ export class PunchingBag {
     this.root = placed(piece);
     const { depth } = localSize(piece);
     const frame = standard(palette.ink, 0.5, 0.2);
-    const top = 1.15;
+    // A full-size stand and bag at the room's 0.73 scale: the bag hangs from about knee to head.
+    const top = 1.45;
     const post = -depth / 2 + 0.05;
     this.root.add(
       box(0.42, 0.05, depth, frame, 0, 0, 0),
@@ -161,7 +163,7 @@ export class PunchingBag {
     this.swing.position.set(0, top - 0.05, 0.02);
     const chain = mesh(new CylinderGeometry(0.006, 0.006, 0.12, 6), standard(palette.steel, 0.4, 0.8));
     chain.position.y = -0.06;
-    const bagHeight = 0.5;
+    const bagHeight = 0.78;
     const bag = mesh(new CylinderGeometry(0.13, 0.13, bagHeight, 20), standard("#b5473f", 0.75));
     bag.position.y = -0.12 - bagHeight / 2;
     const band = mesh(new CylinderGeometry(0.133, 0.133, 0.04, 20), standard(palette.ink, 0.6));
@@ -202,8 +204,9 @@ export class Aquarium {
   constructor(piece: Furniture) {
     this.root = placed(piece);
     const { width, depth } = localSize(piece);
-    const cabinet = 0.42;
-    const tank = 0.4;
+    // A cabinet at the room's 0.73 scale, so the fish swim at a standing person's chest.
+    const cabinet = 0.55;
+    const tank = 0.38;
     this.tankWidth = width - 0.06;
     const water = new MeshStandardMaterial({
       color: "#6fc3e0",

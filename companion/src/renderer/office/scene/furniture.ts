@@ -773,12 +773,13 @@ export function buildFridge(piece: Furniture): { root: Group; door: FridgeDoor }
 export function buildServerRack(piece: Furniture): { root: Group; lights: RackLights } {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
-  const height = 1.15;
+  // A full-height rack at the room's scale, about 0.73 of life size like everything else here.
+  const height = 1.4;
   root.add(box(width - 0.1, height, depth - 0.1, standard(palette.inkDeep, 0.5, 0.2), 0, 0, 0));
   const lights: { mesh: ReturnType<typeof box>; material: MeshStandardMaterial }[] = [];
   const front = (depth - 0.1) / 2;
-  for (let unit = 0; unit < 5; unit++) {
-    const y = 0.14 + unit * 0.19;
+  for (let unit = 0; unit < 6; unit++) {
+    const y = 0.14 + unit * 0.2;
     root.add(box(width - 0.16, 0.14, 0.02, standard(palette.ink, 0.4, 0.3), 0, y, front));
     for (let led = 0; led < 3; led++) {
       // Status lights: the accent for activity, white for link, the colors gear actually uses.
@@ -798,17 +799,19 @@ export function buildArcade(piece: Furniture): { root: Group; screen: ArcadeScre
   const body = standard(palette.ink, 0.55);
   const screen = new ArcadeScreen();
   const cabinetWidth = width - 0.16;
-  const panelTop = 0.56;
+  // Controls at a standing player's hands and the top at about 1.3 m, at the room's 0.73 scale.
+  const panelTop = 0.68;
+  const screenBox = 0.5;
   root.add(
     box(cabinetWidth, panelTop, depth * 0.7, body, 0, 0, -depth * 0.05),
-    box(cabinetWidth, 0.44, depth * 0.45, body, 0, panelTop, -depth * 0.18),
-    box(cabinetWidth, 0.14, depth * 0.5, body, 0, panelTop + 0.44, -depth * 0.15),
+    box(cabinetWidth, screenBox, depth * 0.45, body, 0, panelTop, -depth * 0.18),
+    box(cabinetWidth, 0.14, depth * 0.5, body, 0, panelTop + screenBox, -depth * 0.15),
     // Marquee: the brightest accent in the room, the arcade's whole reason to exist is to call you over.
-    box(cabinetWidth - 0.04, 0.09, 0.02, glow(palette.accent, 2), 0, panelTop + 0.465, depth * 0.1),
+    box(cabinetWidth - 0.04, 0.09, 0.02, glow(palette.accent, 2), 0, panelTop + screenBox + 0.025, depth * 0.1),
     box(cabinetWidth, 0.04, depth * 0.36, standard(palette.inkSoft, 0.5), 0, panelTop - 0.02, depth * 0.24),
   );
-  const display = mesh(new PlaneGeometry(cabinetWidth - 0.1, 0.34), unlit(screen.texture), false);
-  display.position.set(0, panelTop + 0.23, depth * 0.05);
+  const display = mesh(new PlaneGeometry(cabinetWidth - 0.1, 0.38), unlit(screen.texture), false);
+  display.position.set(0, panelTop + 0.26, depth * 0.05);
   display.rotation.x = -0.18;
   root.add(display);
   const stick = mesh(new CylinderGeometry(0.008, 0.008, 0.05, 6), standard(palette.ink, 0.4));
