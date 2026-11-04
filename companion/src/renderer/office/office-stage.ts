@@ -150,6 +150,7 @@ import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from ".
 import { OfficeSound, rallyHits } from "./office-sound.js";
 import { atJakartaTime, clockFace, type DayPart, dayPart, jakartaHours, jakartaTime, skyAt } from "./office-time.js";
 import { PlaceholderAvatar } from "./placeholder.js";
+import { shutPackage } from "./scene/bar-food.js";
 import { CatBowl, OfficeCat } from "./scene/cat.js";
 import { DeskEffects } from "./scene/desk-effects.js";
 import { drawerTravel, memberPropLooks } from "./scene/desks.js";
@@ -687,7 +688,10 @@ export class OfficeStage {
   /** Food Alyx ordered in, from the courier's drop at the door to the bar. */
   private foodOrder: FoodOrder | null = null;
   /** The courier's bag on the mat inside the door, waiting for Alyx. */
-  private readonly deliveryBag = handPropModel("food-bag");
+  /** The order on the mat, in the packaging it comes in; filled when the courier drops it. */
+  private readonly deliveryBag = new Group();
+  /** Which order the mat shows, so the package is built once per drop. */
+  private deliveryShown: FoodKind | null = null;
   private readonly life = new OfficeLife(
     Math.random,
     (station) => this.stationCrowded(station),
@@ -766,7 +770,7 @@ export class OfficeStage {
     this.bowl.root.position.set(bowlSpot.x, 0, bowlSpot.z);
     // On the mat just inside the door, off to the side of the way in. The bag hangs from its grip,
     // so the grip sits a bag's height up.
-    this.deliveryBag.position.set(deliveryBagSpot.x, 0.23, deliveryBagSpot.z);
+    this.deliveryBag.position.set(deliveryBagSpot.x, 0.012, deliveryBagSpot.z);
     this.deliveryBag.visible = false;
     this.scene.add(
       this.deliveryBag,
@@ -1044,6 +1048,14 @@ export class OfficeStage {
   /** Orders food in as Alyx; an order already on its way stands. */
   orderFoodAsAlyx(kind: FoodKind): void {
     this.foodOrder = orderFood(this.foodOrder, kind, Date.now());
+  }
+
+  /**
+   * Whether the phone can be brought out to order: not while food is still on the bar, unless an
+   * order is already out (then it shows how far along it is).
+   */
+  canOpenFoodApp(): boolean {
+    return this.foodOrder !== null || !this.food.boxOnBar;
   }
 
   /** What Alyx's order is doing, or null when there is none. */
@@ -1404,7 +1416,12 @@ export class OfficeStage {
         return;
       case "order-bag":
         this.foodOrder = pickUpOrder(this.foodOrder);
-        this.alyxHands.hold(handPropModel("food-bag"));
+        if (this.foodOrder !== null) {
+          // Carried in front, a little smaller than it is so it does not fill the view.
+          const parcel = shutPackage(this.foodOrder.kind);
+          parcel.scale.setScalar(0.7);
+          this.alyxHands.hold(parcel);
+        }
         return;
       case "bar-food": {
         // Only onto an empty bar: with food still there the bag stays in hand.
@@ -3175,7 +3192,15 @@ export class OfficeStage {
     this.foodOrder = stepOrder(this.foodOrder, Date.now());
     this.updateAlyxMeal();
     this.clearForgottenBox();
-    this.deliveryBag.visible = this.foodOrder?.phase === "at-door";
+    const atDoor = this.foodOrder?.phase === "at-door" ? this.foodOrder.kind : null;
+    if (atDoor !== this.deliveryShown) {
+      this.deliveryShown = atDoor;
+      this.deliveryBag.clear();
+      if (atDoor !== null) {
+        this.deliveryBag.add(shutPackage(atDoor));
+      }
+    }
+    this.deliveryBag.visible = atDoor !== null;
     const doorOpen =
       courierAtDoor(this.foodOrder, Date.now()) ||
       memberIds.some((memberId) => {

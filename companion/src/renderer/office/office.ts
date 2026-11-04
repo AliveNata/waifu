@@ -57,6 +57,9 @@ class OfficePage {
   private readonly interactPrompt = requireElement("interact-prompt", HTMLElement);
   /** The label the prompt shows now, to rebuild it only when it changes. */
   private interactLabel: string | null = null;
+  /** A note shown in place of the E prompt for a moment, and until when. */
+  private flashText: string | null = null;
+  private flashUntil = 0;
   private readonly frameRate = new FrameRate();
   private fpsVisible = false;
   private fpsShownAt = 0;
@@ -370,16 +373,26 @@ class OfficePage {
     } else {
       this.foodPicker.close();
     }
-    const label = walking ? (this.stage.firstPersonTarget()?.label ?? null) : null;
-    if (label !== this.interactLabel) {
-      this.interactLabel = label;
-      if (label !== null) {
+    const flashing = this.flashText !== null && performance.now() < this.flashUntil;
+    const label = flashing ? null : walking ? (this.stage.firstPersonTarget()?.label ?? null) : null;
+    const shown = flashing ? `!${this.flashText}` : label;
+    if (shown !== this.interactLabel) {
+      this.interactLabel = shown;
+      if (flashing) {
+        this.interactPrompt.replaceChildren(this.flashText ?? "");
+      } else if (label !== null) {
         const key = document.createElement("kbd");
         key.textContent = "E";
         this.interactPrompt.replaceChildren(key, ` ${label}`);
       }
     }
-    this.interactPrompt.hidden = label === null;
+    this.interactPrompt.hidden = shown === null;
+  }
+
+  /** A short note in the prompt under the aim dot, for a key that does nothing right now. */
+  private flashPrompt(text: string): void {
+    this.flashText = text;
+    this.flashUntil = performance.now() + 2200;
   }
 
   /**
@@ -470,7 +483,12 @@ class OfficePage {
       event.preventDefault();
     } else if (event.code === "KeyI" && this.stage.firstPersonOn()) {
       event.preventDefault();
-      this.foodPicker.toggle();
+      if (this.stage.canOpenFoodApp()) {
+        this.foodPicker.toggle();
+      } else {
+        // The phone stays away while there is still food on the bar.
+        this.flashPrompt("Masih ada makanan di bar");
+      }
     } else if (event.code === "KeyF") {
       event.preventDefault();
       this.bridge.setFpsVisible(!this.fpsVisible);

@@ -356,3 +356,13 @@ export class BarFoodDisplay {
     }
   }
 }
+
+/**
+ * What the courier brings: the same box, steamer, board or bagged drinks the bar shows, shut, so
+ * a pizza arrives in its pizza box and drinks in their bag.
+ */
+export function shutPackage(kind: FoodKind): Group {
+  const set = builders[kind]();
+  set.open(0);
+  return set.container;
+}
