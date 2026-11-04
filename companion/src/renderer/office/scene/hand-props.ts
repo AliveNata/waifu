@@ -110,6 +110,16 @@ export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook):
       );
       break;
     }
+    case "trash-bag": {
+      // A black bin bag with the empty box inside, held by its tied neck.
+      const body = mesh(new SphereGeometry(0.09, 14, 10), standard("#16141a", 0.45));
+      body.scale.set(1.15, 1.25, 0.9);
+      body.position.y = -0.14;
+      const neck = mesh(new CylinderGeometry(0.012, 0.03, 0.05, 10), standard("#16141a", 0.45));
+      neck.position.y = -0.03;
+      group.add(body, neck, box(0.05, 0.012, 0.012, standard("#16141a", 0.45), 0, -0.005, 0));
+      break;
+    }
     case "clipboard": {
       // Arisu's clipboard: a board, the clip at the top and a printed checklist.
       group.add(
@@ -424,6 +434,7 @@ const gripOffset: Record<HandPropKind, { x: number; y: number; z: number; tilt: 
   "food-box": { x: 0.04, y: -0.01, z: 0.08, tilt: 0, turn: 0 },
   // Hanging from the hand at the side.
   "food-bag": { x: 0, y: 0, z: 0, tilt: 0, turn: 0 },
+  "trash-bag": { x: 0, y: 0, z: 0, tilt: 0, turn: 0 },
   // Held up in front of the chest, tipped back toward the eyes.
   clipboard: { x: 0.03, y: 0.01, z: 0.04, tilt: -1.0, turn: 0 },
   hourglass: { x: 0, y: 0.005, z: 0.02, tilt: 0, turn: 0 },

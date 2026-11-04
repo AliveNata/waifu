@@ -38,6 +38,7 @@ import { memberLooks } from "../common/looks.js";
 import { PoseApplier } from "../common/pose.js";
 import { crouchAmount, crouchDepth, crouchSeconds, petDistance, petStandSpot } from "./alyx-crouch.js";
 import { AlyxHands, waveSeconds } from "./alyx-hands.js";
+import { type AlyxMeal, eatLift, pieceLeft, stepMeal } from "./alyx-meal.js";
 import {
   courierAtDoor,
   dropOrder,
@@ -102,6 +103,7 @@ import {
   binBox,
   canBuy,
   deliver,
+  drinkKinds,
   type FoodKind,
   foodNames,
   initialFood,
@@ -647,6 +649,12 @@ export class OfficeStage {
   private food: BarFood = initialFood(Date.now());
   /** What the order app on Alyx's phone shows; until the page sets it, the phone stays away. */
   private phoneView: () => PickerView | null = () => null;
+  /** Alyx eating a piece from the bar, or carrying the empty box out in a bin bag. */
+  private alyxMeal: AlyxMeal = null;
+  /** The piece in Alyx's hand while he eats it, shrinking with each bite. */
+  private alyxPiece: Object3D | null = null;
+  /** When the box on the bar was found empty with nobody clearing it, to clear it after a while. */
+  private emptyBoxSince: number | null = null;
   /** Food Alyx ordered in, from the courier's drop at the door to the bar. */
   private foodOrder: FoodOrder | null = null;
   /** The courier's bag on the mat inside the door, waiting for Alyx. */
@@ -779,6 +787,7 @@ export class OfficeStage {
       canvas,
       (point) => this.alyxCanStand(point),
       () => this.interactAsAlyx(),
+      () => this.phoneView()?.open === true,
     );
     this.renderer.info.autoReset = false;
 
@@ -1033,8 +1042,11 @@ export class OfficeStage {
     const height = this.canvas.clientHeight;
     // With the bag in hand there is nothing else to pick up, only the bar to take it to.
     const carrying = this.foodOrder?.phase === "in-hand";
+    const bagged = this.alyxMeal?.kind === "bag";
     const targets = this.alyxTargets().filter(
-      (target) => !carrying || target.id === "bar-food" || target.id.startsWith("member:"),
+      (target) =>
+        (!carrying || target.id === "bar-food" || target.id.startsWith("member:")) &&
+        (!bagged || target.id === "bin-bag" || target.id.startsWith("member:")),
     );
     return pickTarget(targets, this.camera.position, (point) => {
       const projected = new Vector3(point.x, point.y, point.z).project(this.camera);
@@ -1192,7 +1204,73 @@ export class OfficeStage {
     if (this.food.boxOnBar && !this.food.open && this.food.kind !== null) {
       targets.push({ id: "open-food", label: `Buka ${foodNames[this.food.kind]}`, point: barPoint, reach: handReach });
     }
+    // With both hands free: a piece from the open box, or the empty box folded into a bin bag.
+    const handsFree = this.alyxHeld === null && order?.phase !== "in-hand" && this.alyxMeal === null;
+    if (handsFree && this.food.boxOnBar && this.food.open && this.food.kind !== null) {
+      const kind = this.food.kind;
+      if (piecesOnOffer(this.food) > 0) {
+        const verb = drinkKinds.includes(kind) ? "Minum" : "Makan";
+        targets.push({ id: "eat-food", label: `${verb} ${foodNames[kind]}`, point: barPoint, reach: handReach });
+      } else if (!this.someoneClearingBox()) {
+        targets.push({ id: "wrap-box", label: "Bungkus jadi sampah", point: barPoint, reach: handReach });
+      }
+    }
+    if (this.alyxMeal?.kind === "bag" && trashBin !== undefined) {
+      targets.push({
+        id: "bin-bag",
+        label: "Buang ke tempat sampah",
+        point: { x: trashBin.x, y: 0.45, z: trashBin.z },
+        reach: handReach,
+      });
+    }
     return targets;
+  }
+
+  /**
+   * An empty box Alyx ate the last of and left: once he is out of first person and a minute has
+   * gone by with nobody clearing it, it is binned, so the team can order the next food.
+   */
+  private clearForgottenBox(): void {
+    const forgotten = this.food.boxOnBar && this.food.left === 0 && !this.someoneClearingBox();
+    if (!forgotten) {
+      this.emptyBoxSince = null;
+      return;
+    }
+    const now = Date.now();
+    this.emptyBoxSince ??= now;
+    if (!this.firstPerson.active && now - this.emptyBoxSince > 60_000) {
+      this.food = binBox(this.food, now);
+      this.emptyBoxSince = null;
+    }
+  }
+
+  /** A teammate is already on the way to bin the empty box, or carrying it there. */
+  private someoneClearingBox(): boolean {
+    return memberIds.some((memberId) => {
+      const errand = this.lifeSteps[memberId]?.errand;
+      return errand === "take-box" || errand === "bin-box";
+    });
+  }
+
+  /** Alyx's bite of the food: the piece shrinks as it is eaten, and the hand goes down after. */
+  private updateAlyxMeal(): void {
+    const meal = this.alyxMeal;
+    const next = stepMeal(meal, Date.now());
+    if (meal?.kind === "eating" && next === null) {
+      this.alyxHands.hold(null);
+      this.alyxPiece = null;
+    }
+    this.alyxMeal = next;
+    if (next?.kind === "eating" && this.alyxPiece !== null) {
+      const left = pieceLeft((Date.now() - next.startedAt) / 1000);
+      this.alyxPiece.scale.setScalar(Math.max(0.001, left));
+    }
+  }
+
+  /** Seconds into Alyx's current bite, for the hand at the mouth, or 0 when not eating. */
+  private alyxEating(): number {
+    const meal = this.alyxMeal;
+    return meal?.kind === "eating" ? eatLift((Date.now() - meal.startedAt) / 1000) : 0;
   }
 
   /** E in first person: does whatever the target under the aim dot offers. */
@@ -1230,6 +1308,30 @@ export class OfficeStage {
       }
       case "open-food":
         this.food = openBox(this.food);
+        return;
+      case "eat-food": {
+        const kind = this.food.kind;
+        const taken = takePiece(this.food);
+        if (kind !== null && taken.took) {
+          this.food = taken.food;
+          this.alyxMeal = { kind: "eating", food: kind, startedAt: Date.now() };
+          this.alyxPiece = handPropModel(pieceProps[kind]);
+          this.alyxHands.hold(this.alyxPiece);
+        }
+        return;
+      }
+      case "wrap-box":
+        // The empty box goes into a bin bag in his hand; the bar is clear for the next order.
+        this.food = binBox(this.food, Date.now());
+        this.alyxMeal = { kind: "bag" };
+        this.alyxHands.hold(handPropModel("trash-bag"));
+        return;
+      case "bin-bag":
+        this.alyxMeal = null;
+        this.alyxHands.hold(null);
+        if (trashBin !== undefined) {
+          this.sound.play("door-close", { x: trashBin.x, y: 0.4, z: trashBin.z });
+        }
         return;
       case "stand":
       case "stop-game":
@@ -1315,7 +1417,10 @@ export class OfficeStage {
   private playAsAlyx(station: StationId): void {
     const { spot, facing } = stations[station];
     this.alyxGame = { station, partner: null, askedAt: Number.NEGATIVE_INFINITY };
-    this.alyxHands.hold(handPropModel("paddle"));
+    // His hands are drawn close to the eye, so the paddle shrinks to sit in the hand at its size.
+    const paddle = handPropModel("paddle");
+    paddle.scale.setScalar(0.62);
+    this.alyxHands.hold(paddle);
     this.firstPerson.anchorAt(
       { spot, eye: eyeHeight, standAt: spot, onLeave: () => this.endAlyxGame() },
       facing + Math.PI,
@@ -1699,6 +1804,8 @@ export class OfficeStage {
   /** Leaving first person puts back what he carried and switched, so nothing is left stuck. */
   private resetAlyx(): void {
     this.alyxHeld = null;
+    this.alyxMeal = null;
+    this.alyxPiece = null;
     this.alyxHands.hold(null);
     this.foodOrder = dropOrder(this.foodOrder);
     this.alyxOn.clear();
@@ -2932,6 +3039,8 @@ export class OfficeStage {
     this.office.fridgeDoor.update(usingAt("fridge", "snack") || this.alyxOn.has("fridge"), delta);
     const door = stations.door.spot;
     this.foodOrder = stepOrder(this.foodOrder, Date.now());
+    this.updateAlyxMeal();
+    this.clearForgottenBox();
     this.deliveryBag.visible = this.foodOrder?.phase === "at-door";
     const doorOpen =
       courierAtDoor(this.foodOrder, Date.now()) ||
@@ -3177,12 +3286,13 @@ export class OfficeStage {
       screen.setLock(null);
       return;
     }
-    screen.setLock({
+    const lock = {
       name: roster[memberId].displayName,
       photo: this.memberPhoto(memberId),
       clock: clockFace(jakartaTime(this.clock()), false),
       typed: state.kind === "signing-in" ? state.typed : null,
-    });
+    };
+    screen.setLock(lock);
   }
 
   /**
@@ -3395,7 +3505,8 @@ export class OfficeStage {
         speed,
         {
           wave: wave !== null && wave <= waveSeconds ? wave : null,
-          holding: this.alyxHeld !== null || game !== null,
+          holding:
+            this.alyxHeld !== null || game !== null || this.foodOrder?.phase === "in-hand" || this.alyxMeal !== null,
           swing,
           pet:
             this.catPettedAt !== null && this.elapsed - this.catPettedAt < catPetSeconds
@@ -3403,6 +3514,7 @@ export class OfficeStage {
               : null,
           petAt: this.catInView(),
           phone: this.phoneShown(),
+          eating: this.alyxEating(),
           // The same time as the wall clock: the computer's clock, in the office's time zone.
           time: jakartaTime(this.clock()),
         },

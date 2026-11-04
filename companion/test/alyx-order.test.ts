@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { eatLift, eatSeconds, pieceLeft, stepMeal } from "../src/renderer/office/alyx-meal.js";
 import {
   courierAtDoor,
   courierMs,
@@ -147,5 +148,34 @@ describe("the order app on Alyx's phone", () => {
     expect(choosing).toContain(`${mealKinds.length} ${foodNames[mealKinds[mealKinds.length - 1] ?? "pizza"]}`);
     expect(waiting).toContain("Kurir lagi di jalan, 5 dtk lagi");
     expect(waiting.some((line) => line.startsWith("1 "))).toBe(false);
+  });
+});
+
+describe("Alyx eating at the bar", () => {
+  it("lifts the piece, eats it in bites, and puts the hand down after", () => {
+    // Act
+    const whole = pieceLeft(0.3);
+    const half = pieceLeft(eatSeconds * 0.6);
+    const gone = pieceLeft(eatSeconds);
+
+    // Assert
+    expect(whole).toBe(1);
+    expect(half).toBeLessThan(1);
+    expect(half).toBeGreaterThan(0);
+    expect(gone).toBe(0);
+    expect(eatLift(0)).toBe(0);
+    expect(eatLift(eatSeconds / 2)).toBe(1);
+    expect(eatLift(eatSeconds)).toBe(0);
+  });
+
+  it("is done once the last bite is gone, and keeps carrying the bin bag until it is binned", () => {
+    // Arrange
+    const eating = { kind: "eating" as const, food: "pizza" as const, startedAt: 1000 };
+
+    // Act + Assert
+    expect(stepMeal(eating, 1000 + eatSeconds * 500)).toBe(eating);
+    expect(stepMeal(eating, 1000 + eatSeconds * 1000)).toBeNull();
+    expect(stepMeal({ kind: "bag" }, 1e12)).toEqual({ kind: "bag" });
+    expect(stepMeal(null, 0)).toBeNull();
   });
 });

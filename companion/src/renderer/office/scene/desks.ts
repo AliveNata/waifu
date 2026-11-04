@@ -742,7 +742,8 @@ function laptop(screen: ScreenSurface, depth: number, shell: string, keys: strin
   keyboard.root.position.set(0, deskTop, keyboardZ(depth));
   const mouse = mouseBeside(keyboard, palette.accent, keys);
   const lid = new Group();
-  lid.position.set(0, deskTop + 0.01, keyboardZ(depth) - 0.11);
+  // Hinged above the keys, so the shut lid lies on them instead of the keys poking through it.
+  lid.position.set(0, deskTop + 0.03, keyboardZ(depth) - 0.11);
   lid.rotation.x = 0.25;
   lid.userData.openAngle = 0.25;
   lid.add(box(0.38, 0.24, 0.012, standard(shell, 0.5), 0, 0, -0.006));

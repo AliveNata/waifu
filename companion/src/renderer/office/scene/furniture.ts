@@ -174,7 +174,7 @@ function extrudedAcross(shape: Shape, width: number, round: number): ExtrudeGeom
 }
 
 /** The chair's back cover, close to the logo's purple. */
-const chairPurple = "#8e3fd6";
+const chairPurple = "#a33ccc";
 
 /** Built once per seat height and shared, since all the chairs at that height are alike. */
 const chairParts = new Map<number, { shell: ExtrudeGeometry; cover: ExtrudeGeometry; arm: TubeGeometry }>();
@@ -643,7 +643,7 @@ export class EntryDoor {
 /** How tall the glass doors are; the header over them takes another 10 cm. */
 export const entryDoorHeight = 1.45;
 
-export function buildEntryDoor(piece: Furniture): { root: Group; door: EntryDoor } {
+export function buildEntryDoor(piece: Furniture, logo: Texture | null = null): { root: Group; door: EntryDoor } {
   const root = placed(piece);
   const { width } = localSize(piece);
   // Half the footprint is the opening, a quarter on each side is where a door slides to.
@@ -684,6 +684,28 @@ export function buildEntryDoor(piece: Furniture): { root: Group; door: EntryDoor
     return plane;
   };
   const panelWidth = opening / 2;
+  /**
+   * The logo above the name, centered on the seam: each door carries its own half, so the mark
+   * splits down the middle as the doors slide apart.
+   */
+  const logoSize = 0.16;
+  const logoHalf = (side: -1 | 1): Object3D | null => {
+    if (logo === null) {
+      return null;
+    }
+    const half = logo.clone();
+    half.repeat.set(0.5, 1);
+    half.offset.set(side === -1 ? 0 : 0.5, 0);
+    half.needsUpdate = true;
+    const plane = mesh(
+      new PlaneGeometry(logoSize / 2, logoSize),
+      new MeshBasicMaterial({ map: half, transparent: true, depthWrite: false, toneMapped: false }),
+      false,
+    );
+    // At the inner edge of this door, on the room side of the glass, above the lettering.
+    plane.position.set((-side * panelWidth) / 2 + (side * logoSize) / 4, 1.17, 0.008);
+    return plane;
+  };
   const door = (side: -1 | 1, word: "Alyx" | "Labs"): Group => {
     const panel = new Group();
     const inner = new Group();
@@ -698,6 +720,10 @@ export function buildEntryDoor(piece: Furniture): { root: Group; door: EntryDoor
       box(panelWidth - 0.01, 0.03, 0.02, steel, 0, height - 0.05, 0),
       lettering(word),
     );
+    const mark = logoHalf(side);
+    if (mark !== null) {
+      inner.add(mark);
+    }
     // Both halves run in one plane, so the name stays joined from any angle; the panes stop
     // short of the seam, so they never overlap.
     panel.add(inner);

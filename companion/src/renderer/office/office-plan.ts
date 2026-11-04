@@ -24,7 +24,7 @@ export interface Point {
  * at the front right, the lounge at the front left behind a long aquarium, and a collaboration
  * corner between the meeting table and the game corner.
  */
-export const room = { minX: -7, maxX: 10.5, minZ: -5, maxZ: 4, wallHeight: 2.2 } as const;
+export const room = { minX: -7, maxX: 10.5, minZ: -5, maxZ: 4, wallHeight: 2.6 } as const;
 
 /**
  * The whole office is scaled to its people: at ordinary proportions they stand 1.2 m with their

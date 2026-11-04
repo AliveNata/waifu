@@ -79,14 +79,25 @@ export interface HandsPose {
   phone?: { view: PickerView; clock: string } | null;
   /** The office's time of day, for the watch on his wrist. */
   time?: { hours: number; minutes: number; seconds: number };
+  /** 0 to 1: the right hand raised to the mouth with a piece of food. */
+  eating?: number;
 }
+
+/** The right hand up at the mouth, the piece it holds just below the eyes. */
+const atMouth: Placement = {
+  palm: new Vector3(0.03, -0.1, -0.2),
+  fingers: new Vector3(-0.35, 0.55, -0.75),
+  facing: new Vector3(-0.4, 0.2, 0.9),
+  curl: { thumb: 0.45, index: 0.55, middle: 0.6, ring: 0.62, pinky: 0.65 },
+  roll: 0,
+};
 
 /**
  * The left hand holding the phone up in front, a little below and left of the eyes: palm behind
  * it, fingers straight up its back so none of them crosses the screen.
  */
 const phoneHold: Placement = {
-  palm: new Vector3(-0.04, -0.11, -0.26),
+  palm: new Vector3(-0.05, -0.12, -0.31),
   fingers: new Vector3(0.1, 1, 0.05),
   facing: new Vector3(0.1, 0.15, 1),
   curl: { thumb: 0.02, index: 0.12, middle: 0.12, ring: 0.16, pinky: 0.2 },
@@ -350,6 +361,9 @@ export class AlyxHands {
         // Forehand: back and out for the wind-up, forward and across through contact.
         const stroke = new Vector3(0.05 - 0.12 * pose.swing, 0.02 * pose.swing, -0.1 * Math.max(0, pose.swing));
         placement = { ...placement, palm: placement.palm.clone().add(stroke), roll: -0.3 * pose.swing };
+      }
+      if (side === "Right" && pose.eating !== undefined && pose.eating > 0) {
+        placement = mix(placement, atMouth, pose.eating);
       }
       if (side === "Right" && pose.pet !== null && pose.pet <= petSeconds) {
         // Down onto her, then long strokes from head to tail.

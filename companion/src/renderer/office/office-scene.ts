@@ -530,7 +530,7 @@ export function buildOffice(): OfficeProps {
         root.add(buildTrashBin(piece));
         break;
       case "entry-door": {
-        const built = buildEntryDoor(piece);
+        const built = buildEntryDoor(piece, logo);
         entryDoor = built.door;
         root.add(built.root);
         break;
