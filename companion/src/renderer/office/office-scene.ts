@@ -1,5 +1,6 @@
 import { VRMSpringBoneCollider, VRMSpringBoneColliderShapePlane } from "@pixiv/three-vrm";
 import {
+  CylinderGeometry,
   Group,
   Mesh,
   MeshBasicMaterial,
@@ -163,6 +164,30 @@ function leftWallPoint(spec: BoardSpec, u: number, v: number): Vector3 {
   return new Vector3(wallSurfaceX + 0.02, y, z);
 }
 
+/** The aluminium tray under a whiteboard, with three markers and an eraser lying in it. */
+function markerTray(spec: BoardSpec): Group {
+  const group = new Group();
+  const alu = standard(palette.steel, 0.35, 0.6);
+  const trayX = room.minX + 0.07;
+  const trayY = spec.bottom - 0.06;
+  group.add(
+    box(0.06, 0.012, spec.width * 0.8, alu, trayX, trayY, spec.centerZ),
+    box(0.008, 0.025, spec.width * 0.8, alu, trayX + 0.03, trayY, spec.centerZ),
+  );
+  const colors = ["#2f4fa8", "#c0392b", "#1f1f24"];
+  colors.forEach((color, index) => {
+    const marker = mesh(new CylinderGeometry(0.008, 0.008, 0.1, 10), standard(color, 0.5));
+    marker.rotation.x = Math.PI / 2;
+    marker.position.set(trayX, trayY + 0.02, spec.centerZ + 0.25 + index * 0.05);
+    group.add(marker);
+  });
+  group.add(
+    box(0.04, 0.025, 0.11, standard("#3b3346", 0.6), trayX, trayY + 0.012, spec.centerZ - 0.3),
+    box(0.04, 0.008, 0.11, standard("#c9c3b5", 0.9), trayX, trayY + 0.012, spec.centerZ - 0.3),
+  );
+  return group;
+}
+
 function leftWallPlane(map: Texture, spec: BoardSpec, frameColor: string): Group {
   const group = new Group();
   group.add(
@@ -237,9 +262,9 @@ function buildRoomShell(root: Group, logo: Texture): SkyGlass {
 
   // Two windows over the desks with the sign between them, so the brand sits at the room's focal point,
   // and a third over the treadmills, so the runners look out at the city.
-  // The sills clear the monitors and the tops stay under the 2.6 m wall.
+  // The sills clear the monitors; with the ceiling at 2.6 m the glass runs up to 2.25, tall loft windows.
   const sill = 1.0;
-  const windowHeight = 0.85;
+  const windowHeight = 1.25;
   const sky: SkyGlass = { night: [], twilight: [] };
   for (const [index, [left, right]] of (
     [
@@ -571,9 +596,9 @@ export function buildOffice(): OfficeProps {
   const whiteboardSpec: BoardSpec = {
     centerZ: whiteboardPiece.z,
     width: whiteboardPiece.depth,
-    // A normal board's proportions. Standing on the step in front, shoulders are about 1.15 m up
-    // and the hand reaches well past the top of the writing band, so every line is within reach.
-    bottom: 0.45,
+    // Hung like a real board at the room's 0.73 scale (about 0.8 to 1.95 m real), with no step in
+    // front: the top of the writing band is still within a member's reach from the floor.
+    bottom: 0.58,
     height: 0.85,
   };
   // Left half (+z side) for 2B's planning, right half for Rias's architecture sketches.
@@ -581,10 +606,10 @@ export function buildOffice(): OfficeProps {
     { u0: 0, u1: 0.5, color: "#2f4fa8", diagrams: twobDiagrams },
     { u0: 0.5, u1: 1, color: "#3b3b46", diagrams: riasDiagrams },
   ]);
-  root.add(leftWallPlane(whiteboard.texture, whiteboardSpec, palette.frame));
+  root.add(leftWallPlane(whiteboard.texture, whiteboardSpec, palette.frame), markerTray(whiteboardSpec));
 
   const ideaPiece = pieceById("idea-board");
-  const ideaSpec: BoardSpec = { centerZ: ideaPiece.z, width: ideaPiece.depth, bottom: 0.45, height: 0.85 };
+  const ideaSpec: BoardSpec = { centerZ: ideaPiece.z, width: ideaPiece.depth, bottom: 0.58, height: 0.85 };
   const ideaBoard = new IdeaBoard();
   root.add(leftWallPlane(ideaBoard.texture, ideaSpec, palette.skirting));
 

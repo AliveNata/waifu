@@ -836,27 +836,6 @@ export const furniture: readonly Furniture[] = [
     yaw: facing.right,
     blocksWalking: true,
   },
-  // A low step along each board, so the top of the writing is in reach. Walked onto, not around.
-  {
-    id: "step-whiteboard",
-    kind: "board-step",
-    x: -6.7,
-    z: -2.0,
-    width: 0.6,
-    depth: 2.4,
-    yaw: facing.right,
-    blocksWalking: false,
-  },
-  {
-    id: "step-idea-board",
-    kind: "board-step",
-    x: -6.7,
-    z: 0.55,
-    width: 0.6,
-    depth: 1.5,
-    yaw: facing.right,
-    blocksWalking: false,
-  },
   // A big digital clock on the pantry wall, above the open shelf.
   {
     id: "wall-clock",
