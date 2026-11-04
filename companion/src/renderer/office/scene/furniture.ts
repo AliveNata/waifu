@@ -637,7 +637,9 @@ export function buildFridge(piece: Furniture): { root: Group; door: FridgeDoor }
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const body = standard(palette.steel, 0.35, 0.4);
-  const height = 1.1;
+  // A tall fridge at the team's scale (they stand 1.2 m): a little over head height, as a real
+  // one stands over an adult.
+  const height = 1.32;
   const split = height * 0.66;
   const front = (depth - 0.06) / 2;
   root.add(

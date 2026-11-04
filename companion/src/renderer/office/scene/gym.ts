@@ -36,8 +36,10 @@ export function buildDeskReturn(piece: Furniture): Group {
   const legs = standard(palette.ink, 0.6);
   root.add(
     box(width, 0.04, depth, standard(palette.laminate, 0.45), 0, deskTop - 0.04, 0),
-    // One leg panel at the free end: the other end rests on the main desk.
+    // A leg panel at each end. Returns sit on either side of their desk, so either end can be the
+    // free one; the panel against the desk just reads as part of its support.
     box(width - 0.08, deskTop - 0.04, 0.04, legs, 0, 0, depth / 2 - 0.04),
+    box(width - 0.08, deskTop - 0.04, 0.04, legs, 0, 0, -depth / 2 + 0.04),
     box(0.012, 0.012, depth - 0.1, glow(), width / 2 - 0.02, deskTop - 0.05, 0),
   );
   return root;
