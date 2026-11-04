@@ -65,6 +65,51 @@ export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook):
       );
       break;
     }
+    case "martabak-slice": {
+      // A thick square of sweet martabak: golden crust, chocolate and cheese showing at the cut.
+      group.add(
+        box(0.045, 0.022, 0.045, standard("#d99a4e", 0.8), 0, 0.011, 0.01),
+        box(0.046, 0.005, 0.046, standard("#4a2c1c", 0.6), 0, 0.011, 0.01),
+        box(0.03, 0.004, 0.03, standard("#f3d26b", 0.7), 0, 0.024, 0.01),
+      );
+      break;
+    }
+    case "drumstick": {
+      // Held by the bone, the crisp end toward the mouth.
+      const meat = mesh(new SphereGeometry(0.026, 12, 10), standard("#b8742e", 0.85));
+      meat.scale.set(1, 1, 1.4);
+      meat.position.set(0, 0.01, 0.035);
+      const bone = mesh(new CylinderGeometry(0.006, 0.007, 0.05, 8), standard("#f1e7d6", 0.6), false);
+      bone.rotation.x = Math.PI / 2;
+      bone.position.set(0, 0.01, -0.01);
+      group.add(meat, bone);
+      break;
+    }
+    case "dumpling": {
+      // A siomay on chopsticks: the open top shows the filling.
+      const wrap = mesh(new CylinderGeometry(0.018, 0.016, 0.024, 12), standard("#f1dfb0", 0.8));
+      wrap.position.set(0, 0.012, 0.03);
+      const top = mesh(new CylinderGeometry(0.014, 0.014, 0.004, 12), standard("#e07a52", 0.6), false);
+      top.position.set(0, 0.025, 0.03);
+      group.add(
+        wrap,
+        top,
+        box(0.003, 0.003, 0.09, standard("#2a2228", 0.5), -0.004, 0.012, -0.01),
+        box(0.003, 0.003, 0.09, standard("#2a2228", 0.5), 0.004, 0.012, -0.01),
+      );
+      break;
+    }
+    case "boba-cup": {
+      // A clear cup of milk tea, pearls at the bottom, a fat straw out of the sealed lid.
+      const tea = mesh(new CylinderGeometry(0.024, 0.02, 0.07, 14), standard("#c9a27e", 0.5));
+      tea.position.y = 0.02;
+      const pearls = mesh(new CylinderGeometry(0.0205, 0.02, 0.014, 14), standard("#2b1d16", 0.4), false);
+      pearls.position.y = -0.008;
+      const straw = mesh(new CylinderGeometry(0.004, 0.004, 0.06, 8), standard("#d9468c", 0.5), false);
+      straw.position.set(0.006, 0.075, 0);
+      group.add(tea, pearls, straw);
+      break;
+    }
     case "food-box": {
       // The empty box, folded shut and carried flat.
       group.add(box(0.2, 0.03, 0.2, standard("#c8a57a", 0.9), 0, -0.015, 0));
@@ -381,6 +426,10 @@ const gripOffset: Record<HandPropKind, { x: number; y: number; z: number; tilt: 
   "platter-bite": { x: 0, y: 0.01, z: 0.01, tilt: 0, turn: 0 },
   donut: { x: 0, y: 0, z: 0.015, tilt: 0, turn: 0 },
   sushi: { x: 0, y: 0.005, z: 0.015, tilt: 0, turn: 0 },
+  "martabak-slice": { x: 0, y: 0, z: 0.01, tilt: -0.3, turn: 0 },
+  drumstick: { x: 0, y: 0, z: 0.01, tilt: -0.2, turn: 0 },
+  dumpling: { x: 0, y: 0, z: 0.01, tilt: -0.2, turn: 0 },
+  "boba-cup": { x: 0, y: -0.01, z: 0.015, tilt: 0, turn: 0 },
   "food-box": { x: 0.04, y: -0.01, z: 0.08, tilt: 0, turn: 0 },
   // Hanging from the hand at the side.
   "food-bag": { x: 0, y: 0, z: 0, tilt: 0, turn: 0 },

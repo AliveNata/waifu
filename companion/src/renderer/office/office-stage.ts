@@ -35,6 +35,15 @@ import {
 import { memberLooks } from "../common/looks.js";
 import { PoseApplier } from "../common/pose.js";
 import { AlyxHands, waveSeconds } from "./alyx-hands.js";
+import {
+  courierAtDoor,
+  dropOrder,
+  type FoodOrder,
+  orderFood,
+  orderStatus,
+  pickUpOrder,
+  stepOrder,
+} from "./alyx-order.js";
 import { type AlyxTarget, pickableItems, pickTarget } from "./alyx-targets.js";
 import type { ArmSide, ArmTip, OfficeAvatar } from "./avatar.js";
 import { bossLine } from "./boss-greetings.js";
@@ -84,7 +93,19 @@ import {
   usesHandIk,
 } from "./office-director.js";
 import { doorwayReturnSeconds, doorwayWalk } from "./office-doorway.js";
-import { type BarFood, binBox, canBuy, deliver, type FoodKind, initialFood, takePiece } from "./office-food.js";
+import {
+  type BarFood,
+  binBox,
+  canBuy,
+  deliver,
+  type FoodKind,
+  foodNames,
+  initialFood,
+  openBox,
+  piecesOnOffer,
+  setDownOrder,
+  takePiece,
+} from "./office-food.js";
 import { type LaptopView, laptopPutSeconds, laptopTakeSeconds, laptopView } from "./office-laptop.js";
 import { type Errand, type LifeChoice, OfficeLife } from "./office-life.js";
 import { afterSip, initialMug, type MugState, mugPickSeconds, stepMug } from "./office-mug.js";
@@ -263,12 +284,18 @@ const pieceTakeSeconds = 0.8;
 const foodHandoverSeconds = 0.7;
 /** The door stands open while someone is this close to it. */
 const doorOpenDistance = 1.1;
+/** Where the courier leaves Alyx's order: on the mat inside the door, beside the way in. */
+const deliveryBagSpot = { x: 10.15, z: -0.15 };
 /** Held props for a piece of each food. */
 const pieceProps: Record<FoodKind, HandPropKind> = {
   pizza: "pizza-slice",
   platter: "platter-bite",
   donuts: "donut",
   sushi: "sushi",
+  martabak: "martabak-slice",
+  chicken: "drumstick",
+  dimsum: "dumpling",
+  boba: "boba-cup",
 };
 
 const trashBin = furniture.find((piece) => piece.kind === "trash-bin");
@@ -595,12 +622,17 @@ export class OfficeStage {
   ) as Record<MemberId, MugState>;
   /** The food on the bar, shared by everyone. */
   private food: BarFood = initialFood(Date.now());
+  /** Food Alyx ordered in, from the courier's drop at the door to the bar. */
+  private foodOrder: FoodOrder | null = null;
+  /** The courier's bag on the mat inside the door, waiting for Alyx. */
+  private readonly deliveryBag = handPropModel("food-bag");
   private readonly life = new OfficeLife(
     Math.random,
     (station) => this.stationCrowded(station),
     (memberId) => this.mugs[memberId],
     () => this.dayPart(),
-    () => ({ pieces: this.food.boxOnBar ? this.food.left : 0, canBuy: canBuy(this.food, Date.now()) }),
+    // Nobody goes out for food while Alyx has some on the way.
+    () => ({ pieces: piecesOnOffer(this.food), canBuy: canBuy(this.food, Date.now()) && this.foodOrder === null }),
     (memberId) => ritualFor(memberId, this.clock()),
   );
   /** This morning's standup: when the round of updates began and who joined, in the order they came. */
@@ -670,7 +702,12 @@ export class OfficeStage {
     backGlow.position.set(0, 1.6, -4.3);
     sideGlow.position.set(-6.3, 1.6, 0);
     this.bowl.root.position.set(bowlSpot.x, 0, bowlSpot.z);
+    // On the mat just inside the door, off to the side of the way in. The bag hangs from its grip,
+    // so the grip sits a bag's height up.
+    this.deliveryBag.position.set(deliveryBagSpot.x, 0.23, deliveryBagSpot.z);
+    this.deliveryBag.visible = false;
     this.scene.add(
+      this.deliveryBag,
       this.hemisphere,
       sun,
       this.windowFill,
@@ -934,6 +971,16 @@ export class OfficeStage {
     return this.firstPerson.active && this.firstPerson.locked;
   }
 
+  /** Orders food in as Alyx; an order already on its way stands. */
+  orderFoodAsAlyx(kind: FoodKind): void {
+    this.foodOrder = orderFood(this.foodOrder, kind, Date.now());
+  }
+
+  /** What Alyx's order is doing, or null when there is none. */
+  foodOrderStatus(): string | null {
+    return orderStatus(this.foodOrder, Date.now());
+  }
+
   /** What E does right now in first person: the target under the aim dot, or ending what he is in. */
   firstPersonTarget(): AlyxTarget | null {
     if (!this.firstPerson.active) {
@@ -952,7 +999,12 @@ export class OfficeStage {
     }
     const width = this.canvas.clientWidth;
     const height = this.canvas.clientHeight;
-    return pickTarget(this.alyxTargets(), this.camera.position, (point) => {
+    // With the bag in hand there is nothing else to pick up, only the bar to take it to.
+    const carrying = this.foodOrder?.phase === "in-hand";
+    const targets = this.alyxTargets().filter(
+      (target) => !carrying || target.id === "bar-food" || target.id.startsWith("member:"),
+    );
+    return pickTarget(targets, this.camera.position, (point) => {
       const projected = new Vector3(point.x, point.y, point.z).project(this.camera);
       return {
         dx: (projected.x * width) / 2,
@@ -1020,6 +1072,7 @@ export class OfficeStage {
           reach: handReach,
         });
       });
+    targets.push(...this.orderTargets());
     const fridge = furniture.find((piece) => piece.kind === "fridge");
     if (fridge !== undefined) {
       targets.push({
@@ -1082,6 +1135,34 @@ export class OfficeStage {
     return targets;
   }
 
+  /** The courier's bag at the door, the bar to set it down on, and the box to open there. */
+  private orderTargets(): AlyxTarget[] {
+    const order = this.foodOrder;
+    const bar = this.office.barFood.root.getWorldPosition(new Vector3());
+    const barPoint = { x: bar.x, y: bar.y + 0.08, z: bar.z };
+    const targets: AlyxTarget[] = [];
+    if (order?.phase === "at-door") {
+      targets.push({
+        id: "order-bag",
+        label: `Ambil ${foodNames[order.kind]}`,
+        point: { x: deliveryBagSpot.x, y: 0.1, z: deliveryBagSpot.z },
+        reach: handReach,
+      });
+    }
+    if (order?.phase === "in-hand") {
+      targets.push({
+        id: "bar-food",
+        label: this.food.boxOnBar ? "Bar masih ada makanan" : `Taruh ${foodNames[order.kind]} di bar`,
+        point: barPoint,
+        reach: handReach,
+      });
+    }
+    if (this.food.boxOnBar && !this.food.open && this.food.kind !== null) {
+      targets.push({ id: "open-food", label: `Buka ${foodNames[this.food.kind]}`, point: barPoint, reach: handReach });
+    }
+    return targets;
+  }
+
   /** E in first person: does whatever the target under the aim dot offers. */
   private interactAsAlyx(): void {
     const target = this.firstPersonTarget();
@@ -1099,6 +1180,24 @@ export class OfficeStage {
       case "put-back":
         this.alyxHeld = null;
         this.alyxHands.hold(null);
+        return;
+      case "order-bag":
+        this.foodOrder = pickUpOrder(this.foodOrder);
+        this.alyxHands.hold(handPropModel("food-bag"));
+        return;
+      case "bar-food": {
+        // Only onto an empty bar: with food still there the bag stays in hand.
+        const kind = this.foodOrder?.kind;
+        const placed = kind === undefined ? null : setDownOrder(this.food, kind);
+        if (placed !== null) {
+          this.food = placed;
+          this.foodOrder = null;
+          this.alyxHands.hold(null);
+        }
+        return;
+      }
+      case "open-food":
+        this.food = openBox(this.food);
         return;
       case "stand":
       case "stop-game":
@@ -1512,6 +1611,7 @@ export class OfficeStage {
   private resetAlyx(): void {
     this.alyxHeld = null;
     this.alyxHands.hold(null);
+    this.foodOrder = dropOrder(this.foodOrder);
     this.alyxOn.clear();
     this.alyxLamps.clear();
     this.applyDaylight();
@@ -2721,16 +2821,20 @@ export class OfficeStage {
     );
     this.office.fridgeDoor.update(usingAt("fridge", "snack") || this.alyxOn.has("fridge"), delta);
     const door = stations.door.spot;
-    const doorOpen = memberIds.some((memberId) => {
-      const rig = this.rigs[memberId];
-      return rig.avatar.root.visible && distance(rig.actor.position, door) < doorOpenDistance;
-    });
+    this.foodOrder = stepOrder(this.foodOrder, Date.now());
+    this.deliveryBag.visible = this.foodOrder?.phase === "at-door";
+    const doorOpen =
+      courierAtDoor(this.foodOrder, Date.now()) ||
+      memberIds.some((memberId) => {
+        const rig = this.rigs[memberId];
+        return rig.avatar.root.visible && distance(rig.actor.position, door) < doorOpenDistance;
+      });
     this.office.entryDoor.update(doorOpen, delta);
     if (doorOpen !== this.doorWasOpen) {
       this.doorWasOpen = doorOpen;
       this.sound.play(doorOpen ? "door-open" : "door-close", { x: door.x, y: 1, z: door.z });
     }
-    this.office.barFood.update(this.food);
+    this.office.barFood.update(this.food, delta);
     this.office.sink.update(usingAt("sink", "wash"), this.elapsed);
     const cook = memberIds.find((memberId) => {
       const rig = this.rigs[memberId];
