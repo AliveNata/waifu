@@ -2,6 +2,7 @@
 // duplicated from src/shared/protocol.ts. test/protocol.test.ts keeps
 // the two lists in sync.
 import { contextBridge, type IpcRendererEvent, ipcRenderer } from "electron";
+import type { OfficeDisplaySettings } from "../shared/display-settings.js";
 import type { ChatEvent, ChatSessionList, ChatStatus } from "../shared/office-chat.js";
 import type {
   CompanionApi,
@@ -32,6 +33,9 @@ const channels = {
   getOfficeSound: "companion:get-office-sound",
   setOfficeSound: "companion:set-office-sound",
   officeSound: "companion:office-sound",
+  getOfficeDisplay: "companion:get-office-display",
+  setOfficeDisplay: "companion:set-office-display",
+  officeDisplay: "companion:office-display",
   getOfficeQuality: "companion:get-office-quality",
   getCompanionVisible: "companion:get-companion-visible",
   setCompanionVisible: "companion:set-companion-visible",
@@ -96,6 +100,9 @@ const api: CompanionApi = {
   getOfficeSound: () => ipcRenderer.invoke(channels.getOfficeSound) as Promise<OfficeSoundSettings>,
   setOfficeSound: (settings) => ipcRenderer.send(channels.setOfficeSound, settings),
   onOfficeSound: (listener) => subscribe<OfficeSoundSettings>(channels.officeSound, listener),
+  getOfficeDisplay: () => ipcRenderer.invoke(channels.getOfficeDisplay) as Promise<OfficeDisplaySettings>,
+  setOfficeDisplay: (settings) => ipcRenderer.send(channels.setOfficeDisplay, settings),
+  onOfficeDisplay: (listener) => subscribe<OfficeDisplaySettings>(channels.officeDisplay, listener),
   getOfficeQuality: () => ipcRenderer.invoke(channels.getOfficeQuality) as Promise<OfficeQuality>,
   getCompanionVisible: () => ipcRenderer.invoke(channels.getCompanionVisible) as Promise<boolean>,
   setCompanionVisible: (visible) => ipcRenderer.send(channels.setCompanionVisible, visible),

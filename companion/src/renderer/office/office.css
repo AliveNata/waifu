@@ -198,6 +198,32 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* A label and a select on one row, at the same height as the checkboxes. */
+.setting-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.setting-choice select {
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--panel-ink);
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.setting-choice select:focus-visible {
+  outline: 2px solid var(--panel-ink);
+  outline-offset: 2px;
+}
+
 /* The canvas takes arrow keys for the camera, so it shows focus like any other control. */
 .office canvas:focus-visible {
   outline: 2px solid var(--focus-halo);
@@ -873,6 +899,8 @@
   color: var(--chip-ink);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+  /* The graphics chip's name goes on a second line. */
+  white-space: pre-line;
   pointer-events: none;
 }
 
@@ -951,4 +979,11 @@
 #free-camera[aria-pressed="true"] {
   outline: 2px solid var(--chip-ink);
   outline-offset: -4px;
+}
+
+/* Alyx mode with the interface put away (H): only the aim dot and the E prompt stay. */
+:root[data-hud="hidden"] .hud,
+:root[data-hud="hidden"] .fps-meter,
+:root[data-hud="hidden"] #first-person-hint {
+  display: none;
 }
