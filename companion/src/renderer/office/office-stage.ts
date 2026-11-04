@@ -1579,9 +1579,10 @@ export class OfficeStage {
   private playAsAlyx(station: StationId): void {
     const { spot, facing } = stations[station];
     this.alyxGame = { station, partner: null, askedAt: Number.NEGATIVE_INFINITY };
-    // His hands are drawn close to the eye, so the paddle shrinks to sit in the hand at its size.
+    // His hands are drawn close to the eye, so the paddle shrinks a little to sit in the hand at
+    // its size: 0.62 read as a toy, the full size filled the view.
     const paddle = handPropModel("paddle");
-    paddle.scale.setScalar(0.62);
+    paddle.scale.setScalar(0.85);
     this.alyxHands.hold(paddle);
     this.firstPerson.anchorAt(
       { spot, eye: eyeHeight, standAt: spot, onLeave: () => this.endAlyxGame() },

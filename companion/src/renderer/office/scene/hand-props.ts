@@ -269,10 +269,11 @@ export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook):
       break;
     }
     case "paddle": {
+      // A real paddle's proportions: the handle about two thirds of the blade's width.
       const blade = mesh(new CylinderGeometry(0.045, 0.045, 0.008, 20), standard("#c8323c", 0.6));
       blade.rotation.x = Math.PI / 2;
-      blade.position.y = 0.07;
-      group.add(blade, box(0.016, 0.05, 0.012, standard(palette.oak, 0.7), 0, -0.01, 0));
+      blade.position.y = 0.08;
+      group.add(blade, box(0.017, 0.065, 0.013, standard(palette.oak, 0.7), 0, -0.02, 0));
       break;
     }
     case "phone": {
