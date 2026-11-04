@@ -74,29 +74,35 @@ export interface HandsPose {
   petAt?: { back: Vector3; down: Vector3 } | null;
 }
 
-/** As far from the eyes as the hand gets, an arm out. */
-const armReach = 0.62;
+/** His right shoulder in the view's frame: below and to the right of the eyes, a little back. */
+const rightShoulder = new Vector3(0.2, -0.3, 0.05);
+
+/** As far from the shoulder as the palm gets, an arm out. */
+const armReach = 0.6;
 
 /**
- * The stroking hand on her actual back: palm down onto her, fingers pointing on away from him,
- * sliding to and fro along her. Out of reach, the hand stops at arm's length toward her.
+ * The stroking hand on her actual back: the arm reaches out from his right shoulder, palm down onto
+ * her, sliding to and fro along the way it reaches. Out of reach, the hand stops at arm's length
+ * toward her, so the arm never runs straight out of the middle of the view.
  */
 export function strokeOnto(back: Vector3, down: Vector3, seconds: number): Placement {
   const up = down.clone().negate();
-  // Away from him along the floor: the view's forward with the vertical taken out.
-  const away = new Vector3(0, 0, -1).addScaledVector(up, -new Vector3(0, 0, -1).dot(up));
-  if (away.lengthSq() < 1e-6) {
-    away.set(0, 0, -1);
+  const target = back.clone().addScaledVector(up, 0.03);
+  const reach = target.clone().sub(rightShoulder);
+  if (reach.length() > armReach) {
+    reach.setLength(armReach);
   }
-  away.normalize();
-  const palm = back
+  // Fingers point on along the reach, kept level so the palm lies flat on her.
+  const along = reach.clone().addScaledVector(up, -reach.dot(up));
+  if (along.lengthSq() < 1e-6) {
+    along.set(0, 0, -1);
+  }
+  along.normalize();
+  const palm = rightShoulder
     .clone()
-    .addScaledVector(up, 0.03)
-    .addScaledVector(away, 0.05 * Math.sin(seconds * 4.5));
-  if (palm.length() > armReach) {
-    palm.setLength(armReach);
-  }
-  return { ...stroking, palm, fingers: away, facing: down.clone() };
+    .add(reach)
+    .addScaledVector(along, 0.04 * Math.sin(seconds * 4.5));
+  return { ...stroking, palm, fingers: along, facing: down.clone() };
 }
 
 /** How long a stroke of the cat lasts, from reaching down to taking the hand back. */
