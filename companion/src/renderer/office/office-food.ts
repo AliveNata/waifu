@@ -3,41 +3,67 @@
  * the last one bins the empty box. A while later someone goes out for more, never the same food
  * twice in a row. Alyx can order in too; what Alyx brings stays shut until Alyx opens it.
  */
-export type FoodKind = "pizza" | "platter" | "donuts" | "sushi" | "martabak" | "chicken" | "dimsum" | "boba";
+export type FoodKind =
+  | "pizza"
+  | "taco"
+  | "sandwich"
+  | "burger"
+  | "dimsum"
+  | "waffle"
+  | "cookies"
+  | "platter"
+  | "soda"
+  | "frappe"
+  | "coffee"
+  | "carton";
 
-export const foodKinds: readonly FoodKind[] = [
+/** Food to eat, in the order the order list shows it. */
+export const mealKinds: readonly FoodKind[] = [
   "pizza",
-  "sushi",
-  "martabak",
-  "chicken",
+  "taco",
+  "sandwich",
+  "burger",
   "dimsum",
-  "donuts",
+  "waffle",
+  "cookies",
   "platter",
-  "boba",
 ];
 
-/** Pieces in a full box: slices, pieces, buns, or one cup each for the drinks. */
+/** Drinks, one each, in the order the order list shows them. */
+export const drinkKinds: readonly FoodKind[] = ["soda", "frappe", "coffee", "carton"];
+
+export const foodKinds: readonly FoodKind[] = [...mealKinds, ...drinkKinds];
+
+/** Pieces in a full box: slices or one each, and one cup or can each for the drinks. */
 export const foodPieces: Record<FoodKind, number> = {
   pizza: 8,
-  platter: 6,
-  donuts: 6,
-  sushi: 8,
-  martabak: 8,
-  chicken: 6,
+  taco: 6,
+  sandwich: 4,
+  burger: 6,
   dimsum: 8,
-  boba: 6,
+  waffle: 6,
+  cookies: 8,
+  platter: 6,
+  soda: 6,
+  frappe: 4,
+  coffee: 4,
+  carton: 6,
 };
 
 /** What each one is called on screen. */
 export const foodNames: Record<FoodKind, string> = {
   pizza: "Pizza",
-  platter: "Platter keju",
-  donuts: "Donat",
-  sushi: "Sushi",
-  martabak: "Martabak manis",
-  chicken: "Ayam goreng",
+  taco: "Taco",
+  sandwich: "Sandwich",
+  burger: "Burger",
   dimsum: "Dimsum",
-  boba: "Boba",
+  waffle: "Waffle",
+  cookies: "Cookies",
+  platter: "Platter keju",
+  soda: "Soda kaleng",
+  frappe: "Es kopi",
+  coffee: "Kopi panas",
+  carton: "Susu kotak",
 };
 
 export interface BarFood {

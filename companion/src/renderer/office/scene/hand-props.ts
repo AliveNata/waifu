@@ -11,7 +11,37 @@ import {
 } from "three";
 import type { ArmSide } from "../avatar.js";
 import type { HandPropKind } from "../office-director.js";
+import { type FoodModelName, foodModel, kitScale } from "./food-models.js";
 import { box, glow, mesh, palette, standard } from "./palette.js";
+
+/**
+ * Pieces of food and drinks from the bar, held in the hand: which model, how big, and how far down
+ * it hangs so the grip is at its middle rather than its base.
+ */
+const heldFood: Record<
+  | "taco"
+  | "sandwich"
+  | "burger"
+  | "dumpling"
+  | "waffle"
+  | "cookie"
+  | "soda-can"
+  | "frappe-cup"
+  | "coffee-cup"
+  | "carton",
+  { model: FoodModelName; scale: number; lift: number }
+> = {
+  taco: { model: "taco", scale: kitScale * 0.8, lift: -0.035 },
+  sandwich: { model: "sandwich", scale: kitScale * 0.7, lift: -0.02 },
+  burger: { model: "burger", scale: kitScale * 0.7, lift: -0.025 },
+  dumpling: { model: "dim-sum", scale: kitScale, lift: -0.02 },
+  waffle: { model: "waffle", scale: kitScale * 0.8, lift: -0.005 },
+  cookie: { model: "cookie", scale: kitScale, lift: -0.008 },
+  "soda-can": { model: "soda", scale: kitScale, lift: -0.06 },
+  "frappe-cup": { model: "frappe", scale: kitScale, lift: -0.08 },
+  "coffee-cup": { model: "coffee", scale: kitScale, lift: -0.025 },
+  carton: { model: "carton", scale: kitScale, lift: -0.065 },
+};
 
 /**
  * Small objects a person holds in a hand. Each is built around its grip point (the origin), facing
@@ -50,64 +80,21 @@ export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook):
       );
       break;
     }
-    case "donut": {
-      const ring = mesh(new TorusGeometry(0.028, 0.013, 8, 16), standard("#d9a05b", 0.8));
-      ring.position.y = 0.02;
-      const top = mesh(new TorusGeometry(0.028, 0.01, 8, 16, Math.PI * 1.4), standard("#f4a6c4", 0.5), false);
-      top.position.set(0, 0.02, 0.006);
-      group.add(ring, top);
-      break;
-    }
-    case "sushi": {
-      group.add(
-        box(0.024, 0.016, 0.04, standard("#f7f4ec", 0.9), 0, 0, 0),
-        box(0.028, 0.006, 0.046, standard("#f08a5d", 0.5), 0, 0.016, 0),
-      );
-      break;
-    }
-    case "martabak-slice": {
-      // A thick square of sweet martabak: golden crust, chocolate and cheese showing at the cut.
-      group.add(
-        box(0.045, 0.022, 0.045, standard("#d99a4e", 0.8), 0, 0.011, 0.01),
-        box(0.046, 0.005, 0.046, standard("#4a2c1c", 0.6), 0, 0.011, 0.01),
-        box(0.03, 0.004, 0.03, standard("#f3d26b", 0.7), 0, 0.024, 0.01),
-      );
-      break;
-    }
-    case "drumstick": {
-      // Held by the bone, the crisp end toward the mouth.
-      const meat = mesh(new SphereGeometry(0.026, 12, 10), standard("#b8742e", 0.85));
-      meat.scale.set(1, 1, 1.4);
-      meat.position.set(0, 0.01, 0.035);
-      const bone = mesh(new CylinderGeometry(0.006, 0.007, 0.05, 8), standard("#f1e7d6", 0.6), false);
-      bone.rotation.x = Math.PI / 2;
-      bone.position.set(0, 0.01, -0.01);
-      group.add(meat, bone);
-      break;
-    }
-    case "dumpling": {
-      // A siomay on chopsticks: the open top shows the filling.
-      const wrap = mesh(new CylinderGeometry(0.018, 0.016, 0.024, 12), standard("#f1dfb0", 0.8));
-      wrap.position.set(0, 0.012, 0.03);
-      const top = mesh(new CylinderGeometry(0.014, 0.014, 0.004, 12), standard("#e07a52", 0.6), false);
-      top.position.set(0, 0.025, 0.03);
-      group.add(
-        wrap,
-        top,
-        box(0.003, 0.003, 0.09, standard("#2a2228", 0.5), -0.004, 0.012, -0.01),
-        box(0.003, 0.003, 0.09, standard("#2a2228", 0.5), 0.004, 0.012, -0.01),
-      );
-      break;
-    }
-    case "boba-cup": {
-      // A clear cup of milk tea, pearls at the bottom, a fat straw out of the sealed lid.
-      const tea = mesh(new CylinderGeometry(0.024, 0.02, 0.07, 14), standard("#c9a27e", 0.5));
-      tea.position.y = 0.02;
-      const pearls = mesh(new CylinderGeometry(0.0205, 0.02, 0.014, 14), standard("#2b1d16", 0.4), false);
-      pearls.position.y = -0.008;
-      const straw = mesh(new CylinderGeometry(0.004, 0.004, 0.06, 8), standard("#d9468c", 0.5), false);
-      straw.position.set(0.006, 0.075, 0);
-      group.add(tea, pearls, straw);
+    case "taco":
+    case "sandwich":
+    case "burger":
+    case "dumpling":
+    case "waffle":
+    case "cookie":
+    case "soda-can":
+    case "frappe-cup":
+    case "coffee-cup":
+    case "carton": {
+      const { model, scale, lift } = heldFood[kind];
+      const piece = foodModel(model, scale);
+      // The kit's models stand on their base; held, the grip is at their middle.
+      piece.position.y = lift;
+      group.add(piece);
       break;
     }
     case "food-box": {
@@ -424,12 +411,16 @@ const gripOffset: Record<HandPropKind, { x: number; y: number; z: number; tilt: 
   laptop: { x: 0.04, y: -0.015, z: 0.06, tilt: 0, turn: 0 },
   "pizza-slice": { x: 0, y: 0, z: 0.02, tilt: -0.3, turn: 0 },
   "platter-bite": { x: 0, y: 0.01, z: 0.01, tilt: 0, turn: 0 },
-  donut: { x: 0, y: 0, z: 0.015, tilt: 0, turn: 0 },
-  sushi: { x: 0, y: 0.005, z: 0.015, tilt: 0, turn: 0 },
-  "martabak-slice": { x: 0, y: 0, z: 0.01, tilt: -0.3, turn: 0 },
-  drumstick: { x: 0, y: 0, z: 0.01, tilt: -0.2, turn: 0 },
-  dumpling: { x: 0, y: 0, z: 0.01, tilt: -0.2, turn: 0 },
-  "boba-cup": { x: 0, y: -0.01, z: 0.015, tilt: 0, turn: 0 },
+  taco: { x: 0, y: 0, z: 0.015, tilt: -0.2, turn: Math.PI / 2 },
+  sandwich: { x: 0, y: 0, z: 0.02, tilt: -0.2, turn: 0 },
+  burger: { x: 0, y: 0, z: 0.02, tilt: -0.2, turn: 0 },
+  dumpling: { x: 0, y: 0, z: 0.01, tilt: 0, turn: 0 },
+  waffle: { x: 0, y: 0, z: 0.02, tilt: -0.4, turn: 0 },
+  cookie: { x: 0, y: 0, z: 0.015, tilt: -0.4, turn: 0 },
+  "soda-can": { x: 0, y: -0.01, z: 0.015, tilt: 0, turn: 0 },
+  "frappe-cup": { x: 0, y: -0.01, z: 0.015, tilt: 0, turn: 0 },
+  "coffee-cup": { x: 0, y: -0.005, z: 0.015, tilt: 0, turn: 0 },
+  carton: { x: 0, y: -0.01, z: 0.015, tilt: 0, turn: 0 },
   "food-box": { x: 0.04, y: -0.01, z: 0.08, tilt: 0, turn: 0 },
   // Hanging from the hand at the side.
   "food-bag": { x: 0, y: 0, z: 0, tilt: 0, turn: 0 },

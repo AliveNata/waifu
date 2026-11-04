@@ -22,6 +22,7 @@ import { FrameRate, frameLabel } from "./frame-rate.js";
 import { MusicPanel } from "./music-panel.js";
 import { OfficePointer } from "./office-pointer.js";
 import { type CloseupRect, closeupRect, OfficeStage, portraitSize, teamDialogDock } from "./office-stage.js";
+import { loadFoodModels } from "./scene/food-models.js";
 import { setSceneQuality } from "./scene/palette.js";
 import { SpeechBubbles } from "./speech-bubbles.js";
 import { StatusDialog } from "./status-dialog.js";
@@ -93,11 +94,10 @@ class OfficePage {
     this.stage = new OfficeStage(canvas, () => this.tick());
     this.foodPicker = new FoodPicker(
       requireElement("food-picker", HTMLElement),
-      requireElement("food-picker-list", HTMLOListElement),
-      requireElement("food-picker-status", HTMLElement),
       (kind) => this.stage.orderFoodAsAlyx(kind),
       () => this.stage.foodOrderStatus(),
     );
+    this.stage.setPhoneView(() => this.foodPicker.view());
     this.statusDialog = new StatusDialog(
       requireElement("status-dialog", HTMLDialogElement),
       requireElement("status-dialog-summary", HTMLElement),
@@ -470,7 +470,7 @@ class OfficePage {
       event.preventDefault();
     } else if (event.code === "KeyI" && this.stage.firstPersonOn()) {
       event.preventDefault();
-      this.foodPicker.open();
+      this.foodPicker.toggle();
     } else if (event.code === "KeyF") {
       event.preventDefault();
       this.bridge.setFpsVisible(!this.fpsVisible);
@@ -602,7 +602,9 @@ function afterPaint(): Promise<void> {
 
 // Building the room holds the page for a few seconds on slow graphics, so the chat shows its
 // saved state and gets painted first, instead of the window staying blank until the room is up.
-Promise.all([quality, chatShown])
+// The bar's food and drinks are small models; they load alongside, and one that fails is logged and left out.
+const foodModels = loadFoodModels();
+Promise.all([quality, chatShown, foodModels])
   .then(async ([chosen]) => {
     await afterPaint();
     setSceneQuality(chosen);

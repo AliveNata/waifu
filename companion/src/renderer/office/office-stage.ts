@@ -62,6 +62,7 @@ import {
   reachSeconds,
 } from "./desk-habits.js";
 import { eyeHeight, FirstPerson, firstPersonFov } from "./first-person.js";
+import type { PickerView } from "./food-picker.js";
 import { gpuLabel, paceFrame } from "./frame-rate.js";
 import { FreeCamera } from "./free-camera.js";
 import { Handoffs, type Teammate } from "./handoffs.js";
@@ -130,7 +131,7 @@ import { type BoardFocus, bossWaveWindow, officePose, pingpongSwing } from "./of
 import { officeDay, ritualFor, standupTurn, standupTurnSeconds } from "./office-rituals.js";
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
 import { OfficeSound, rallyHits } from "./office-sound.js";
-import { atJakartaTime, type DayPart, dayPart, jakartaHours, skyAt } from "./office-time.js";
+import { atJakartaTime, clockFace, type DayPart, dayPart, jakartaHours, jakartaTime, skyAt } from "./office-time.js";
 import { PlaceholderAvatar } from "./placeholder.js";
 import { CatBowl, OfficeCat } from "./scene/cat.js";
 import { DeskEffects } from "./scene/desk-effects.js";
@@ -290,13 +291,17 @@ const deliveryBagSpot = { x: 10.15, z: -0.15 };
 /** Held props for a piece of each food. */
 const pieceProps: Record<FoodKind, HandPropKind> = {
   pizza: "pizza-slice",
-  platter: "platter-bite",
-  donuts: "donut",
-  sushi: "sushi",
-  martabak: "martabak-slice",
-  chicken: "drumstick",
+  taco: "taco",
+  sandwich: "sandwich",
+  burger: "burger",
   dimsum: "dumpling",
-  boba: "boba-cup",
+  waffle: "waffle",
+  cookies: "cookie",
+  platter: "platter-bite",
+  soda: "soda-can",
+  frappe: "frappe-cup",
+  coffee: "coffee-cup",
+  carton: "carton",
 };
 
 const trashBin = furniture.find((piece) => piece.kind === "trash-bin");
@@ -627,6 +632,8 @@ export class OfficeStage {
   ) as Record<MemberId, MugState>;
   /** The food on the bar, shared by everyone. */
   private food: BarFood = initialFood(Date.now());
+  /** What the order app on Alyx's phone shows; until the page sets it, the phone stays away. */
+  private phoneView: () => PickerView | null = () => null;
   /** Food Alyx ordered in, from the courier's drop at the door to the bar. */
   private foodOrder: FoodOrder | null = null;
   /** The courier's bag on the mat inside the door, waiting for Alyx. */
@@ -974,6 +981,11 @@ export class OfficeStage {
   /** Walking with the mouse locked to the office, as opposed to paused until the next click. */
   firstPersonWalking(): boolean {
     return this.firstPerson.active && this.firstPerson.locked;
+  }
+
+  /** Where the phone in Alyx's hand gets what its order app shows; set by the page. */
+  setPhoneView(view: () => PickerView): void {
+    this.phoneView = view;
   }
 
   /** Orders food in as Alyx; an order already on its way stands. */
@@ -1387,6 +1399,16 @@ export class OfficeStage {
     if (since < crouchSeconds) {
       this.firstPerson.lookToward(this.catBack(), 0.2);
     }
+  }
+
+  /** The order app while the phone is out, with the office's time on its status bar. */
+  private phoneShown(): { view: PickerView; clock: string } | null {
+    const view = this.phoneView();
+    if (view === null || !view.open) {
+      return null;
+    }
+    // The office's own time, the same as the wall clock.
+    return { view, clock: clockFace(jakartaTime(this.clock()), false) };
   }
 
   /** Her back and the way down, in the view's own frame, for the hand that strokes her. */
@@ -3255,6 +3277,9 @@ export class OfficeStage {
               ? this.elapsed - this.catPettedAt
               : null,
           petAt: this.catInView(),
+          phone: this.phoneShown(),
+          // The same time as the wall clock: the computer's clock, in the office's time zone.
+          time: jakartaTime(this.clock()),
         },
         this.night,
         Math.min(rawDelta, 0.25),
