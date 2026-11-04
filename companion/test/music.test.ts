@@ -3,6 +3,7 @@ import { isYoutubeLink } from "../src/main/youtube-embeds.js";
 import {
   addSong,
   afterSongEnds,
+  clockLabel,
   defaultSongs,
   embedUrl,
   initialMusic,
@@ -11,6 +12,7 @@ import {
   oembedUrl,
   parseMusicState,
   parseTitles,
+  playbackFrom,
   removeSong,
   titleFrom,
   volumeCommand,
@@ -233,5 +235,28 @@ describe("repeat", () => {
     // Assert
     expect(saved.repeat).toBe("all");
     expect(odd.repeat).toBe("one");
+  });
+});
+
+describe("the song's place on the bar", () => {
+  it("reads the time the way YouTube shows it", () => {
+    // Act + Assert
+    expect(clockLabel(0)).toBe("0:00");
+    expect(clockLabel(7.9)).toBe("0:07");
+    expect(clockLabel(187)).toBe("3:07");
+    expect(clockLabel(3725)).toBe("1:02:05");
+    expect(clockLabel(-4)).toBe("0:00");
+    expect(clockLabel(Number.NaN)).toBe("0:00");
+  });
+
+  it("takes the position and length from the player's info updates, and only what they say", () => {
+    // Act + Assert
+    expect(playbackFrom({ currentTime: 61.5, duration: 245, playerState: 1 })).toEqual({
+      current: 61.5,
+      duration: 245,
+    });
+    expect(playbackFrom({ currentTime: 12 })).toEqual({ current: 12 });
+    expect(playbackFrom({ duration: 0, currentTime: "x" })).toEqual({});
+    expect(playbackFrom(null)).toEqual({});
   });
 });

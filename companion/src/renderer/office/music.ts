@@ -224,3 +224,24 @@ export function parseTitles(saved: string | null): Record<string, string> {
     return {};
   }
 }
+
+/** A song position the way YouTube shows it: "3:07", or "1:02:05" past an hour. */
+export function clockLabel(seconds: number): string {
+  const whole = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
+  const hours = Math.floor(whole / 3600);
+  const minutes = Math.floor((whole % 3600) / 60);
+  const rest = String(whole % 60).padStart(2, "0");
+  return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${rest}` : `${minutes}:${rest}`;
+}
+
+/** Where the song is and how long it runs, from the player's regular info updates, as far as they say. */
+export function playbackFrom(info: unknown): { current?: number; duration?: number } {
+  if (typeof info !== "object" || info === null) {
+    return {};
+  }
+  const { currentTime, duration } = info as { currentTime?: unknown; duration?: unknown };
+  return {
+    ...(typeof currentTime === "number" && Number.isFinite(currentTime) ? { current: currentTime } : {}),
+    ...(typeof duration === "number" && Number.isFinite(duration) && duration > 0 ? { duration } : {}),
+  };
+}

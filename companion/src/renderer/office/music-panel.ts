@@ -3,6 +3,7 @@ import {
   addSong,
   afterSongEnds,
   clampVolume,
+  clockLabel,
   embedUrl,
   type MusicState,
   nextRepeat,
@@ -10,6 +11,7 @@ import {
   oembedUrl,
   parseMusicState,
   parseTitles,
+  playbackFrom,
   removeSong,
   repeatLabels,
   titleFrom,
@@ -40,6 +42,16 @@ export class MusicPanel {
   private paused = false;
   /** The player's last reported state (YouTube's numbers; 0 is ended), to act once per ending. */
   private playerState: number | null = null;
+  private readonly seek = requireElement("music-seek", HTMLElement);
+  private readonly seekSlider = requireElement("music-seek-slider", HTMLInputElement);
+  private readonly time = requireElement("music-time", HTMLOutputElement);
+  /**
+   * The position the player last reported and when, to run the clock on between its updates, and
+   * the song's length. Null until the player has said.
+   */
+  private playback: { current: number; at: number; duration: number | null } | null = null;
+  /** The bar is being dragged: the player's updates must not pull it back meanwhile. */
+  private seeking = false;
   private readonly volume = requireElement("music-volume", HTMLInputElement);
   private readonly volumeValue = requireElement("music-volume-value", HTMLOutputElement);
   private readonly list = requireElement("music-list", HTMLOListElement);
@@ -95,6 +107,25 @@ export class MusicPanel {
         this.toggle.focus();
       }
     });
+    this.seekSlider.addEventListener("input", () => {
+      this.seeking = true;
+      this.renderTime(Number(this.seekSlider.value));
+    });
+    this.seekSlider.addEventListener("change", () => {
+      const to = Number(this.seekSlider.value);
+      this.seeking = false;
+      this.command("seekTo", [to, true]);
+      if (this.playback !== null) {
+        this.playback = { ...this.playback, current: to, at: performance.now() };
+      }
+      this.renderTime(to);
+    });
+    // The clock moves on its own between the player's updates; only worth it while it shows.
+    window.setInterval(() => {
+      if (!this.panel.hidden && !this.seeking) {
+        this.renderSeek();
+      }
+    }, 500);
     window.addEventListener("message", (event) => this.onPlayerMessage(event));
     // Music that was on when the office closed comes back on with it, with the panel closed.
     this.render();
@@ -132,6 +163,7 @@ export class MusicPanel {
     this.volume.value = String(this.state.volume);
     this.volumeValue.textContent = `${this.state.volume}%`;
     this.renderPlayer(on ? song : null);
+    this.renderSeek();
     if (song === null) {
       this.now.textContent = "Belum ada lagu. Tambahin link YouTube di bawah.";
     } else if (!on) {
@@ -157,6 +189,7 @@ export class MusicPanel {
     this.playing = song;
     this.paused = false;
     this.playerState = null;
+    this.playback = null;
     this.frame?.remove();
     this.frame = null;
     this.loading = song !== null;
@@ -216,6 +249,39 @@ export class MusicPanel {
         return item;
       }),
     );
+  }
+
+  /** Where the song is now: the last report, run on by the time since while it plays. */
+  private position(): number {
+    const playback = this.playback;
+    if (playback === null) {
+      return 0;
+    }
+    const running = this.playerState === 1 && !this.paused;
+    const current = playback.current + (running ? (performance.now() - playback.at) / 1000 : 0);
+    return playback.duration === null ? current : Math.min(current, playback.duration);
+  }
+
+  /** The bar and the time beside it, shown once the player has said how long the song is. */
+  private renderSeek(): void {
+    const duration = this.playback?.duration ?? null;
+    this.seek.hidden = !this.state.on || this.playing === null || duration === null;
+    if (duration === null || this.seeking) {
+      return;
+    }
+    const at = this.position();
+    this.seekSlider.max = String(Math.floor(duration));
+    this.seekSlider.value = String(Math.floor(at));
+    this.renderTime(at);
+  }
+
+  private renderTime(at: number): void {
+    const duration = this.playback?.duration ?? 0;
+    const text = `${clockLabel(at)} / ${clockLabel(duration)}`;
+    if (this.time.textContent !== text) {
+      this.time.textContent = text;
+      this.seekSlider.setAttribute("aria-valuetext", `${clockLabel(at)} dari ${clockLabel(duration)}`);
+    }
   }
 
   /** Sends one of the embedded player's commands (playVideo, pauseVideo, seekTo, ...). */
@@ -280,6 +346,19 @@ export class MusicPanel {
       return;
     }
     const { event: kind, info } = message as { event?: unknown; info?: unknown };
+    if (kind === "infoDelivery") {
+      const { current, duration } = playbackFrom(info);
+      if (current !== undefined || duration !== undefined) {
+        this.playback = {
+          current: current ?? this.position(),
+          at: performance.now(),
+          duration: duration ?? this.playback?.duration ?? null,
+        };
+        if (!this.seeking) {
+          this.renderSeek();
+        }
+      }
+    }
     // The player reports its state both as state changes and inside its regular info updates.
     const state =
       kind === "onStateChange" && typeof info === "number"

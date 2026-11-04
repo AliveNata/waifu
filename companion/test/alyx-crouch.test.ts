@@ -40,10 +40,11 @@ describe("Alyx crouching to stroke Mochi", () => {
     expect(near).toEqual({ x: 0.3, z: 0 });
   });
 
-  it("puts the palm down on her back, within an arm's reach", () => {
-    // Arrange: looking straight ahead, her back half a meter down and out.
+  it("reaches from his right shoulder down onto her back, within an arm's length", () => {
+    // Arrange: looking straight ahead, her back half a meter down and out, a little to the right.
     const down = new Vector3(0, -1, 0);
-    const close = new Vector3(0, -0.45, -0.3);
+    const shoulder = new Vector3(0.2, -0.3, 0.05);
+    const close = new Vector3(0.05, -0.55, -0.3);
     const far = new Vector3(0, -0.6, -1.5);
 
     // Act
@@ -53,7 +54,9 @@ describe("Alyx crouching to stroke Mochi", () => {
     // Assert
     expect(onHer.palm.distanceTo(close)).toBeLessThan(0.04);
     expect(onHer.facing.y).toBe(-1);
-    expect(onHer.fingers.z).toBeCloseTo(-1);
-    expect(reaching.palm.length()).toBeCloseTo(0.62);
+    // The arm comes in from the right, not straight out of the middle of the view.
+    expect(onHer.fingers.x).toBeLessThan(0);
+    expect(onHer.fingers.z).toBeLessThan(0);
+    expect(reaching.palm.distanceTo(shoulder)).toBeCloseTo(0.6);
   });
 });
