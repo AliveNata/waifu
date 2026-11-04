@@ -1748,6 +1748,51 @@ export class OfficeStage {
     rig.badge.update(kind, this.elapsed, pop);
   }
 
+  /**
+   * Hands on the pantry counter: at the coffee machine one hand on the button and the other
+   * holding the cup under the spout; at the sink both hands in the basin, scrubbing. Placed by
+   * IK on the counter's own points, so they land there whatever the arms' length.
+   */
+  private counterTargets(rig: MemberRig, action: OfficeAction | null, arrived: boolean): HandTargets | null {
+    if (!arrived || (action !== "brew" && action !== "wash")) {
+      return null;
+    }
+    const { button, tray, basin } = this.office.pantryReach;
+    const { position } = rig.actor;
+    // Pulled back toward the member from each point by `back`, raised by `up`.
+    const near = (point: Vector3, back: number, up: number, side = 0): Vector3 => {
+      const dx = position.x - point.x;
+      const dz = position.z - point.z;
+      const length = Math.hypot(dx, dz) || 1;
+      // Sideways is along the counter, at right angles to the way back toward the member.
+      return new Vector3(
+        point.x + (dx / length) * back + (dz / length) * side,
+        point.y + up,
+        point.z + (dz / length) * back - (dx / length) * side,
+      );
+    };
+    if (action === "brew") {
+      return {
+        left: near(tray.getWorldPosition(new Vector3()), 0.07, 0.03),
+        right: near(button.getWorldPosition(new Vector3()), 0.08, -0.01, 0.02),
+        tip: "wrist",
+        approach: null,
+        board: null,
+        rate: 4,
+      };
+    }
+    const scrub = 0.03 * Math.sin(this.elapsed * 9);
+    const bowl = basin.getWorldPosition(new Vector3());
+    return {
+      left: near(bowl, 0.08, 0.06, -0.07 + scrub),
+      right: near(bowl, 0.08, 0.06, 0.07 - scrub),
+      tip: "wrist",
+      approach: null,
+      board: null,
+      rate: 6,
+    };
+  }
+
   /** Advances the member's work surface and returns where the hand should be, if anywhere. */
   private updateSurface(memberId: MemberId, rig: MemberRig, delta: number): HandTargets {
     const action = rig.action;
@@ -1787,6 +1832,26 @@ export class OfficeStage {
       keyboard.update(delta);
       hands.update(delta);
       mouse.update(delta, mousing);
+      if (rig.workBeat?.kind === "think" && action === "type") {
+        // Chin in the right hand: the wrist just under and in front of the chin, the left hand
+        // resting at the front edge of the keyboard.
+        const head = rig.avatar.poseTarget.node("head");
+        if (head !== null) {
+          const chin = head.getWorldPosition(new Vector3());
+          const yaw = rig.actor.yaw;
+          chin.x += Math.sin(yaw) * 0.1;
+          chin.z += Math.cos(yaw) * 0.1;
+          chin.y -= 0.07;
+          return {
+            left: keyboard.root.localToWorld(new Vector3(-0.08, 0.03, 0.09)),
+            right: chin,
+            tip: "wrist",
+            approach: null,
+            board: null,
+            rate: 4,
+          };
+        }
+      }
       if (typing) {
         return {
           left: keyboard.root.localToWorld(hands.fingertip("left", new Vector3())),
@@ -1995,7 +2060,8 @@ export class OfficeStage {
         ? surfaceTargets
         : deskBit !== null
           ? this.deskBitTargets(memberId, rig, deskBit)
-          : (this.foodTargets(rig, action, errand, arrived, stepElapsed) ??
+          : (this.counterTargets(rig, action, arrived) ??
+            this.foodTargets(rig, action, errand, arrived, stepElapsed) ??
             this.errandTargets(memberId, rig, errand, arrived, stepElapsed, remaining));
     // Offset each member's idle loops so the room does not move in lockstep.
     const phaseOffset = memberIds.indexOf(memberId) * 1.7;
