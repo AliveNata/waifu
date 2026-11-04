@@ -2,7 +2,7 @@ import { VRMSpringBoneCollider, VRMSpringBoneColliderShapePlane } from "@pixiv/t
 import {
   Group,
   Mesh,
-  type MeshBasicMaterial,
+  MeshBasicMaterial,
   type Object3D,
   PlaneGeometry,
   SphereGeometry,
@@ -90,6 +90,8 @@ export interface CloseupShot {
 export interface OfficeProps {
   root: Group;
   workstations: Record<DeskMember, Workstation>;
+  /** Each desk's extra monitors (dashboards, lists, logs), dimmed while the owner is away. */
+  sideScreens: Record<DeskMember, MeshBasicMaterial[]>;
   whiteboard: Whiteboard;
   ideaBoard: IdeaBoard;
   /** Board UV (0..1, v down) to the world point just in front of the board surface. */
@@ -328,6 +330,7 @@ export function buildOffice(): OfficeProps {
   const hairColliders: VRMSpringBoneCollider[] = [];
   const kanban = kanbanTexture();
   const desks: Partial<Record<DeskMember, Workstation>> = {};
+  const sideScreens: Partial<Record<DeskMember, MeshBasicMaterial[]>> = {};
   let tv: TvScreen | null = null;
   const arcades: ArcadeScreen[] = [];
   const treadmills: Treadmill[] = [];
@@ -367,6 +370,19 @@ export function buildOffice(): OfficeProps {
         const built = buildDesk(member, piece, kanban, returnSideOf(piece, furniture));
         root.add(built.root);
         desks[member] = built.workstation;
+        const screens: MeshBasicMaterial[] = [];
+        built.root.traverse((part) => {
+          // The main screen shows the lock screen itself, so only the others go to sleep.
+          if (
+            part.userData.sideScreen === true &&
+            part instanceof Mesh &&
+            part.material instanceof MeshBasicMaterial &&
+            part.material.map !== built.workstation.screen.texture
+          ) {
+            screens.push(part.material);
+          }
+        });
+        sideScreens[member] = screens;
         break;
       }
       case "chair":
@@ -582,6 +598,7 @@ export function buildOffice(): OfficeProps {
   const props: OfficeProps = {
     root,
     workstations,
+    sideScreens: sideScreens as Record<DeskMember, MeshBasicMaterial[]>,
     whiteboard,
     ideaBoard,
     whiteboardPoint: (u, v) => leftWallPoint(whiteboardSpec, u, v),

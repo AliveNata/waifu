@@ -222,6 +222,11 @@ const byTimeOfDay: Record<DayPart, Partial<Record<ActivityId, number>>> = {
   malam: { tv: 1.3, read: 1.4, beanbag: 1.3, coffee: 0.6, pingpong: 0.7, plants: 0.5 },
 };
 
+/** At the desk before leaving for the night: long enough to shut the laptop or lock the screen. */
+export const packUpMs = 4000;
+/** At the desk on arrival: sitting down, opening up and signing in. */
+export const unpackMs = 5000;
+
 /** Where a member idles when the "desk" activity comes up, and what they do there. */
 const idleHome: Record<MemberId, { station: StationId; action: OfficeAction }> = {
   twob: { station: "desk-twob", action: "desk-idle" },
@@ -250,7 +255,9 @@ export type Errand =
   | "meeting-laptop"
   | "stow-laptop"
   | "go-out"
+  | "pack-up"
   | "go-home"
+  | "unpack"
   | "set-food"
   | "take-box"
   | "bin-box";
@@ -367,11 +374,12 @@ export class OfficeLife {
       this.choices.set(memberId, next);
       return next;
     }
-    const ritual = due === null ? null : this.ritualChoice(memberId, due, now);
-    if (ritual !== null) {
+    const steps = due === null ? null : this.ritualSteps(memberId, due, now, current === undefined);
+    const [ritual, ...after] = steps ?? [];
+    if (ritual !== undefined) {
       this.lastPicked.set(memberId, ritual.activity);
       this.choices.set(memberId, ritual);
-      this.queued.set(memberId, []);
+      this.queued.set(memberId, after);
       // Everyone goes home through the same door, so the door is never held for one person.
       if (ritual.activity !== "home") {
         this.reserved.set(ritual.station, memberId);
@@ -411,20 +419,50 @@ export class OfficeLife {
     return choice.errand === null && choice.activity !== "pingpong" && (this.queued.get(memberId)?.length ?? 0) === 0;
   }
 
-  /** The step for a ritual, or null when there is no free spot for it (then it is a normal break). */
-  private ritualChoice(memberId: MemberId, ritual: RitualNow, now: number): LifeChoice | null {
-    const base = { arrivedAt: null, chosenAt: now, step: 0 };
+  /**
+   * The steps for a ritual, or null when there is no free spot for it (then it is a normal break).
+   * Going home is three: shut the laptop or lock the screen at the desk, out through the door until
+   * the morning, then back at the desk to open up. Someone already gone when the office opens is
+   * simply away, with the desk shut, and opens up on arrival.
+   */
+  private ritualSteps(memberId: MemberId, ritual: RitualNow, now: number, firstStep: boolean): LifeChoice[] | null {
     if (ritual.id === "home") {
-      // Out through the door and gone until the morning.
-      return {
+      const base = { arrivedAt: null, chosenAt: now, step: 0, activity: "home" as const };
+      const desk = idleHome[memberId];
+      const packUp: LifeChoice = {
         ...base,
-        activity: "home",
+        station: desk.station,
+        action: desk.action,
+        durationMs: packUpMs,
+        errand: "pack-up",
+      };
+      const away: LifeChoice = {
+        ...base,
         station: "door",
         action: "out",
-        durationMs: ritual.remainingMs,
+        durationMs: Math.max(1000, ritual.remainingMs - (firstStep ? 0 : packUpMs)),
         errand: "go-home",
       };
+      const unpack: LifeChoice = {
+        ...base,
+        station: desk.station,
+        action: desk.action,
+        durationMs: unpackMs,
+        errand: "unpack",
+      };
+      return firstStep ? [away, unpack] : [packUp, away, unpack];
     }
+    const choice = this.ritualChoice(memberId, { ...ritual, id: ritual.id }, now);
+    return choice === null ? null : [choice];
+  }
+
+  /** The step for standup or lunch, or null when there is no free spot for it. */
+  private ritualChoice(
+    memberId: MemberId,
+    ritual: RitualNow & { id: Exclude<RitualId, "home"> },
+    now: number,
+  ): LifeChoice | null {
+    const base = { arrivedAt: null, chosenAt: now, step: 0 };
     const station = this.ritualStation(memberId, ritual.id);
     if (station === null) {
       return null;

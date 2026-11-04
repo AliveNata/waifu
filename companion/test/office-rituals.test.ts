@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { OfficeLife } from "../src/renderer/office/office-life.js";
+import { OfficeLife, packUpMs, unpackMs } from "../src/renderer/office/office-life.js";
 import { standupStationIds } from "../src/renderer/office/office-plan.js";
 import {
   arrivesAt,
@@ -147,6 +147,29 @@ describe("rituals in the office life", () => {
     expect(second).toMatchObject({ activity: "home", station: "door", errand: "go-home" });
     expect(life.occupant("door")).toBeNull();
     expect(first.durationMs).toBe(home.remainingMs);
+  });
+
+  it("shuts the desk before going home, and opens it up again on the way back in", () => {
+    // Arrange: a desk break under way when the evening comes.
+    let now: RitualNow | null = null;
+    const life = lifeWith(() => now);
+    life.planFor("yor", 0);
+    life.arrived("yor", 0);
+    now = { id: "home", remainingMs: 10 * 3600 * 1000, day: "2026-11-02" };
+
+    // Act: each step runs its course.
+    const packUp = life.planFor("yor", 10 * 60 * 1000);
+    life.arrived("yor", 10 * 60 * 1000);
+    const away = life.planFor("yor", 10 * 60 * 1000 + packUpMs + 1);
+    life.arrived("yor", 10 * 60 * 1000 + packUpMs + 1);
+    now = null;
+    const back = life.planFor("yor", 10 * 60 * 1000 + packUpMs + 2 + away.durationMs);
+
+    // Assert
+    expect(packUp).toMatchObject({ activity: "home", station: "desk-yor", errand: "pack-up", durationMs: packUpMs });
+    expect(away).toMatchObject({ activity: "home", station: "door", errand: "go-home" });
+    expect(away.durationMs).toBe(10 * 3600 * 1000 - packUpMs);
+    expect(back).toMatchObject({ station: "desk-yor", errand: "unpack", durationMs: unpackMs });
   });
 
   it("gives each luncher a seat of their own at the meeting table", () => {

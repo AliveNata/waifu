@@ -37,6 +37,15 @@ const closeBefore = 1.6;
 const pickUpBefore = 0.5;
 
 const atHome: LaptopView = { place: "home", lid: 1, screenOn: true, drawer: 0 };
+const shutAtHome: LaptopView = { place: "home", lid: 0, screenOn: false, drawer: 0 };
+
+/** Leaving for the night: the screen locks, then the lid comes down, this far into packing up. */
+export const lockAt = 1.2;
+const closeFrom = 1.8;
+/** Back in the morning: the lid goes up, then the password, this far into opening up. */
+const openFrom = 0.5;
+export const signInFrom = 1.4;
+export const signedInAt = 2.6;
 
 function ramp(value: number): number {
   const t = Math.min(1, Math.max(0, value));
@@ -90,7 +99,45 @@ export function laptopView(input: LaptopInput): LaptopView {
         screenOn: t > laptopPutSeconds + 1,
         drawer: drawerOpen(t, 0, laptopPutSeconds + 0.6),
       };
+    case "pack-up":
+      if (!input.arrived) {
+        return atHome;
+      }
+      return { place: "home", lid: 1 - ramp((t - closeFrom) / 0.8), screenOn: true, drawer: 0 };
+    case "go-home":
+      return shutAtHome;
+    case "unpack":
+      if (!input.arrived) {
+        return shutAtHome;
+      }
+      return { place: "home", lid: ramp((t - openFrom) / 0.8), screenOn: true, drawer: 0 };
     default:
       return atHome;
+  }
+}
+
+/**
+ * The desk screen's sign-in state while packing up and opening up: unlocked, locked showing the
+ * owner, or signing back in with `typed` of the password dots filled. Laptops and desk PCs alike.
+ */
+export type DeskLock = { kind: "open" } | { kind: "locked" } | { kind: "signing-in"; typed: number };
+
+export function deskLock(errand: Errand | null, arrived: boolean, stepElapsed: number): DeskLock {
+  switch (errand) {
+    case "pack-up":
+      return arrived && stepElapsed >= lockAt ? { kind: "locked" } : { kind: "open" };
+    case "go-home":
+      return { kind: "locked" };
+    case "unpack": {
+      if (!arrived || stepElapsed < signInFrom) {
+        return { kind: "locked" };
+      }
+      if (stepElapsed >= signedInAt) {
+        return { kind: "open" };
+      }
+      return { kind: "signing-in", typed: ramp((stepElapsed - signInFrom) / (signedInAt - signInFrom - 0.2)) };
+    }
+    default:
+      return { kind: "open" };
   }
 }

@@ -483,6 +483,8 @@ function monitor(map: Texture, width: number, height: number, x: number, z: numb
   );
   const panel = mesh(new PlaneGeometry(width, height), unlit(map), false);
   panel.position.set(0, y + height / 2, 0.012);
+  // Found by the office so the screen can go to sleep while its owner is away.
+  panel.userData.sideScreen = true;
   group.add(panel);
   group.position.set(x, 0, z);
   group.rotation.y = yaw;

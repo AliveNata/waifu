@@ -1,5 +1,6 @@
 import {
   ACESFilmicToneMapping,
+  AmbientLight,
   Color,
   DirectionalLight,
   HalfFloatType,
@@ -11,6 +12,7 @@ import {
   Raycaster,
   Scene,
   Spherical,
+  SRGBColorSpace,
   Timer,
   Vector2,
   Vector3,
@@ -108,7 +110,16 @@ import {
   setDownOrder,
   takePiece,
 } from "./office-food.js";
-import { type LaptopView, laptopPutSeconds, laptopTakeSeconds, laptopView } from "./office-laptop.js";
+import {
+  deskLock,
+  type LaptopView,
+  laptopPutSeconds,
+  laptopTakeSeconds,
+  laptopView,
+  lockAt,
+  signedInAt,
+  signInFrom,
+} from "./office-laptop.js";
 import { type Errand, type LifeChoice, OfficeLife } from "./office-life.js";
 import { afterSip, initialMug, type MugState, mugPickSeconds, stepMug } from "./office-mug.js";
 import { navGrid } from "./office-nav.js";
@@ -573,6 +584,8 @@ export class OfficeStage {
   /** Someone she turns her head to for a moment: whoever greeted or is stroking her. */
   private catLook: { point: Point; until: number } | null = null;
   private catPettedAt: number | null = null;
+  /** Each member's lock screen photo, taken from their model the first time it is needed. */
+  private readonly photos = new Map<MemberId, HTMLCanvasElement>();
   /** Where Alyx stood when he went to stroke her, and where he crouches beside her. */
   private petWalk: { from: Point; to: Point } | null = null;
   private catBegged: number | null = null;
@@ -818,6 +831,8 @@ export class OfficeStage {
   /** Swaps a member's avatar, for example from placeholder to their real VRM. */
   setAvatar(memberId: MemberId, avatar: OfficeAvatar): void {
     const rig = this.rigs[memberId];
+    // A new model is a new face for the lock screen.
+    this.photos.delete(memberId);
     rig.avatar.dispose();
     rig.avatar = avatar;
     rig.poseApplier.reset();
@@ -2230,6 +2245,7 @@ export class OfficeStage {
       actionElapsed: this.elapsed - rig.actionStartedAt,
     });
     rig.laptop = laptopView({ errand, arrived, stepElapsed, remaining });
+    this.updateDeskLock(memberId, errand, arrived, stepElapsed);
     this.updateFood(memberId, rig, step, arrived, stepElapsed, remaining, now);
 
     const atOwnDesk = action === "desk-idle" && plan.station === `desk-${memberId}`;
@@ -2736,6 +2752,26 @@ export class OfficeStage {
         }
         break;
       }
+      case "pack-up":
+      case "unpack": {
+        // A laptop's lid is shut or opened by its top edge; a desk PC is locked or signed into
+        // at the keyboard.
+        const [from, to] =
+          workstation.lid !== null
+            ? errand === "pack-up"
+              ? [1.6, 2.7]
+              : [0.3, 1.4]
+            : errand === "pack-up"
+              ? [0.6, lockAt + 0.2]
+              : [signInFrom - 0.2, signedInAt];
+        if (t >= from && t <= to) {
+          target =
+            workstation.lid !== null
+              ? workstation.lid.localToWorld(new Vector3(0, 0.22, 0))
+              : workstation.keyboard.root.getWorldPosition(new Vector3()).add(new Vector3(0, 0.03, 0));
+        }
+        break;
+      }
       case "wash-mug":
         break;
     }
@@ -3119,6 +3155,95 @@ export class OfficeStage {
       };
     }
     return this.office.closeups[memberId];
+  }
+
+  /**
+   * The desk screen while its owner packs up, is away for the night, and signs back in: their
+   * photo and name on a lock screen, the password dots filling in on the way back.
+   */
+  private updateDeskLock(memberId: MemberId, errand: Errand | null, arrived: boolean, stepElapsed: number): void {
+    if (!(memberId in this.office.workstations)) {
+      return;
+    }
+    const state = deskLock(errand, arrived, stepElapsed);
+    const screen = this.office.workstations[memberId as DeskMember].screen;
+    // The extra monitors go to sleep with the desk, near black rather than off, the way a
+    // dimmed panel still catches a little light.
+    const sleeping = state.kind !== "open";
+    for (const panel of this.office.sideScreens[memberId as DeskMember]) {
+      panel.color.setScalar(sleeping ? 0.06 : 1);
+    }
+    if (state.kind === "open") {
+      screen.setLock(null);
+      return;
+    }
+    screen.setLock({
+      name: roster[memberId].displayName,
+      photo: this.memberPhoto(memberId),
+      clock: clockFace(jakartaTime(this.clock()), false),
+      typed: state.kind === "signing-in" ? state.typed : null,
+    });
+  }
+
+  /**
+   * A head-and-shoulders photo of a member for their lock screen, taken once from their own model:
+   * the avatar alone in a small lit scene, so a monitor in front of them is not in the shot.
+   * Null until their real model has loaded.
+   */
+  private memberPhoto(memberId: MemberId): HTMLCanvasElement | null {
+    const cached = this.photos.get(memberId);
+    if (cached !== undefined) {
+      return cached;
+    }
+    const avatar = this.rigs[memberId].avatar;
+    const head = avatar.kind === "vrm" ? avatar.poseTarget.node("head") : null;
+    if (head === null) {
+      return null;
+    }
+    const size = 192;
+    const target = new WebGLRenderTarget(size, size);
+    target.texture.colorSpace = SRGBColorSpace;
+    const studio = new Scene();
+    studio.background = new Color("#3d2a63");
+    const key = new DirectionalLight(0xffffff, 2.2);
+    studio.add(new AmbientLight(0xffffff, 1.1), key);
+    const parent = avatar.root.parent;
+    const wasVisible = avatar.root.visible;
+    avatar.root.visible = true;
+    avatar.root.updateMatrixWorld(true);
+    const face = head.getWorldPosition(new Vector3()).add(new Vector3(0, 0.03, 0));
+    const yaw = avatar.root.rotation.y;
+    const forward = new Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+    const camera = new PerspectiveCamera(22, 1, 0.05, 10);
+    camera.position.copy(face).addScaledVector(forward, 0.75);
+    camera.lookAt(face);
+    key.position.copy(camera.position).add(new Vector3(0.3, 0.5, 0));
+    studio.add(avatar.root);
+    const previous = this.renderer.getRenderTarget();
+    this.renderer.setRenderTarget(target);
+    this.renderer.render(studio, camera);
+    const pixels = new Uint8Array(size * size * 4);
+    this.renderer.readRenderTargetPixels(target, 0, 0, size, size, pixels);
+    this.renderer.setRenderTarget(previous);
+    parent?.add(avatar.root);
+    avatar.root.visible = wasVisible;
+    target.dispose();
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext("2d");
+    if (context === null) {
+      console.error("[office] no 2D canvas for a lock screen photo");
+      return null;
+    }
+    // The render target's rows run bottom up; the canvas's top down.
+    const image = context.createImageData(size, size);
+    for (let row = 0; row < size; row++) {
+      image.data.set(pixels.subarray((size - 1 - row) * size * 4, (size - row) * size * 4), row * size * 4);
+    }
+    context.putImageData(image, 0, 0);
+    this.photos.set(memberId, canvas);
+    return canvas;
   }
 
   /** Out the door for the night, not just walking toward it. */
