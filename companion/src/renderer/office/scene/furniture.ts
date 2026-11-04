@@ -252,13 +252,13 @@ export function buildChair(piece: Furniture, seatHeight: number): BuiltPiece {
   // Armrests close to the seat's sides and low: a skirt spreading over the seat edge and an elbow
   // at the keys both stay clear of them.
   const armX = 0.235;
-  const armTop = seatHeight + 0.115;
+  // The top of the loop, where a forearm would rest.
+  const armTop = seatHeight + 0.12;
   for (const side of [-1, 1]) {
     const loop = mesh(arm, leather);
     loop.position.x = side * armX;
     loop.scale.x = side;
-    // A dark pad along the top where the forearm rests.
-    root.add(loop, box(0.04, 0.012, 0.16, dark, side * (armX + 0.02), armTop - 0.004, -0.02));
+    root.add(loop);
   }
   const backZ = -0.235;
   return {
