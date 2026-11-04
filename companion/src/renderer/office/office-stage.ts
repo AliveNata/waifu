@@ -110,15 +110,27 @@ import { OfficeSound, rallyHits } from "./office-sound.js";
 import { atJakartaTime, type DayPart, dayPart, jakartaHours, skyAt } from "./office-time.js";
 import { PlaceholderAvatar } from "./placeholder.js";
 import { CatBowl, OfficeCat } from "./scene/cat.js";
+import { DeskEffects } from "./scene/desk-effects.js";
 import { drawerTravel, memberPropLooks } from "./scene/desks.js";
 import { HandProps, handPropModel, setCupFill } from "./scene/hand-props.js";
 import { sceneQuality } from "./scene/palette.js";
+import { type BadgeKind, StatusBadge, toolKind } from "./scene/status-badge.js";
 import { fitSeat } from "./seating.js";
 import { rowDetail, type StatusRow, statusLabels, statusRows, TwobStatus } from "./status-board.js";
 import type { PenState } from "./surfaces/board-pen.js";
-import { applyMemberSignal, emptyTeamRuntime, endAllRuns, memberBehavior, type TeamRuntime } from "./team-state.js";
+import { widgetFor } from "./surfaces/work-widget.js";
+import {
+  applyMemberSignal,
+  doneDurationMs,
+  emptyTeamRuntime,
+  endAllRuns,
+  type MemberBehavior,
+  memberBehavior,
+  type TeamRuntime,
+} from "./team-state.js";
 import { handForKey, MouseHabit, TypingHands } from "./typing-hands.js";
 import { WalkHabits, walkStyles } from "./walk-life.js";
+import { type ActiveWorkBeat, beatHands, WorkBeats } from "./work-beats.js";
 
 const closeupBackground = new Color("#e9e4da");
 const keyScratch = new Vector3();
@@ -196,6 +208,15 @@ interface MemberRig {
   /** Fingertips over the member's own keyboard; made on first use, since only desk members type. */
   typingHands: TypingHands | null;
   mouseHabit: MouseHabit;
+  /** Moments between keystrokes at the desk: chin in hand, a lean, a glance, a stretch, a fist pump. */
+  workBeats: WorkBeats;
+  workBeat: ActiveWorkBeat | null;
+  /** How the member's real work stood last frame, to catch the moment it finishes. */
+  behavior: MemberBehavior;
+  /** Keystrokes until the next bit of code floats up off the keyboard. */
+  glyphIn: number;
+  /** Over the head while working: the tool in use, then a check mark. */
+  badge: StatusBadge;
   /**
    * Where each hand's IK is aiming this frame, eased toward the work's target so a hand glides
    * from keys to mouse (or from its rest pose onto the keys) instead of jumping there.
@@ -294,6 +315,14 @@ function rallyLeg(elapsed: number): number {
 export function pingpongBeat(elapsed: number, side: "west" | "east"): number {
   const contact = side === "west" ? 0 : 1;
   return ((((rallyLeg(elapsed) - contact) / 2) % 1) + 1) % 1;
+}
+
+/** Above the head bone: clear of the hair and of the speech bubbles, which sit lower. */
+const badgeAboveHead = 0.42;
+
+/** Keystrokes between two bits of code floating up off a keyboard. */
+function glyphEvery(): number {
+  return 10 + Math.floor(Math.random() * 11);
 }
 
 /** Teammates closer than this while one of them walks by say hello. */
@@ -503,6 +532,8 @@ export class OfficeStage {
   private catPettedAt: number | null = null;
   private catBegged: number | null = null;
   private readonly sound = new OfficeSound();
+  /** Code bits off the keyboards and sparks over finished work. */
+  private readonly deskEffects = new DeskEffects();
   private display: OfficeDisplaySettings = { ...defaultDisplaySettings };
   /** When the next frame may be drawn under the frame rate cap, in animation-frame milliseconds. */
   private frameDueAt = 0;
@@ -640,6 +671,7 @@ export class OfficeStage {
       this.office.root,
       this.catModel.root,
       this.bowl.root,
+      this.deskEffects.root,
     );
     this.applyDaylight();
 
@@ -1559,7 +1591,9 @@ export class OfficeStage {
   private createRig(memberId: MemberId, avatar: OfficeAvatar): MemberRig {
     const plan = this.planFor(memberId, Date.now(), null);
     const props = new HandProps(memberPropLooks[memberId]);
-    this.scene.add(avatar.root, props.root);
+    const badge = new StatusBadge();
+    this.scene.add(avatar.root, props.root, badge.root);
+    this.office.workstations[memberId].screen.setWidget(widgetFor(memberId));
     return {
       avatar,
       actor: initialActor(plan.station),
@@ -1579,6 +1613,11 @@ export class OfficeStage {
       lift: 0,
       typingHands: null,
       mouseHabit: new MouseHabit(this.elapsed),
+      workBeats: new WorkBeats(Math.random),
+      workBeat: null,
+      behavior: "idle",
+      glyphIn: glyphEvery(),
+      badge,
       reach: { left: null, right: null },
       reachTip: "wrist",
       reachApproach: { left: new Vector3(0, -1, 0), right: new Vector3(0, -1, 0) },
@@ -1678,13 +1717,51 @@ export class OfficeStage {
     return memberPlan(memberId, "idle", step);
   }
 
+  /**
+   * The badge over the head while real work runs (the tool in use, then a check mark), and the
+   * fist pump and sparks at the desk the moment the work finishes there.
+   */
+  private updateWorkStatus(memberId: MemberId, rig: MemberRig, now: number, atDesk: boolean): void {
+    const runtime = memberId === "twob" ? null : this.team[memberId];
+    const behavior: MemberBehavior = runtime === null ? "idle" : memberBehavior(runtime, now);
+    if (rig.behavior === "working" && behavior === "done" && atDesk) {
+      rig.workBeats.celebrate();
+      const keyboard = this.office.workstations[memberId].keyboard;
+      this.deskEffects.burst(keyboard.root.localToWorld(new Vector3(0, 0.25, -0.2)));
+    }
+    rig.behavior = behavior;
+    let kind: BadgeKind | null = null;
+    let pop = 0;
+    if (behavior === "working") {
+      kind = toolKind(runtime?.lastTool ?? null);
+    } else if (behavior === "done" && runtime?.finishedAt !== null && runtime !== null) {
+      kind = "done";
+      pop = (now - (runtime.finishedAt ?? now)) / Math.min(doneDurationMs, 500);
+    }
+    const head = rig.avatar.poseTarget.node("head");
+    if (kind !== null && head !== null && rig.avatar.root.visible) {
+      head.getWorldPosition(rig.badge.root.position);
+      rig.badge.root.position.y += badgeAboveHead;
+    } else {
+      kind = null;
+    }
+    rig.badge.update(kind, this.elapsed, pop);
+  }
+
   /** Advances the member's work surface and returns where the hand should be, if anywhere. */
   private updateSurface(memberId: MemberId, rig: MemberRig, delta: number): HandTargets {
     const action = rig.action;
     if (memberId in this.office.workstations) {
       const { screen, keyboard, mouse } = this.office.workstations[memberId as DeskMember];
       // Nobody types through a cat asleep on the keys.
-      const typing = action === "type" && rig.plan.station === `desk-${memberId}` && !this.catOnKeyboardOf(memberId);
+      // A beat that needs a hand (chin in hand, a stretch, a fist pump) stops the typing for its length.
+      const freed = rig.workBeat === null ? null : beatHands(rig.workBeat.kind);
+      const typing =
+        action === "type" &&
+        rig.plan.station === `desk-${memberId}` &&
+        !this.catOnKeyboardOf(memberId) &&
+        freed?.left !== true &&
+        freed?.right !== true;
       // The text stops while the right hand is off the keys.
       const mousing = rig.mouseHabit.using(this.elapsed, typing);
       const typed = screen.update(delta, typing && !mousing);
@@ -1695,6 +1772,11 @@ export class OfficeStage {
         hands.strike(handForKey(character), keyboard.keyTop(character, keyScratch));
       }
       rig.keystrokes += typed.length;
+      rig.glyphIn -= typed.length;
+      if (typed.length > 0 && rig.glyphIn <= 0) {
+        rig.glyphIn = glyphEvery();
+        this.deskEffects.emitGlyph(keyboard.root.localToWorld(new Vector3(0, 0.05, 0)));
+      }
       if (this.soundOn && typed.length > 0) {
         // A fast burst can type a few characters in one frame; two clicks are enough to hear it.
         const at = keyboard.root.getWorldPosition(keyScratch);
@@ -1903,6 +1985,10 @@ export class OfficeStage {
       rig.sippedIn = deskBit.startedAt;
     }
     this.updateDeskItems(memberId, rig, deskBit);
+    const atHomeDesk = action !== null && plan.station === `desk-${memberId}` && arrived;
+    const typingHere = atHomeDesk && action === "type" && !this.catOnKeyboardOf(memberId);
+    this.updateWorkStatus(memberId, rig, now, atHomeDesk);
+    rig.workBeat = rig.workBeats.update(delta, atHomeDesk, !typingHere);
     const surfaceTargets = this.updateSurface(memberId, rig, delta);
     const handTargets =
       surfaceTargets !== noHandTargets
@@ -1963,6 +2049,7 @@ export class OfficeStage {
           : null,
       deskBit,
       fetchSide: this.errandSide(memberId, errand),
+      workBeat: rig.workBeat,
     });
     rig.poseApplier.apply(avatar.poseTarget, pose, delta);
 
@@ -2840,6 +2927,7 @@ export class OfficeStage {
     this.teamMs += (performance.now() - membersFrom - this.teamMs) * 0.1;
     this.updateProps(delta);
     this.updateCat(delta, now);
+    this.deskEffects.update(delta);
     if (now - this.lastDaylightAt > 1000) {
       this.lastDaylightAt = now;
       this.applyDaylight();

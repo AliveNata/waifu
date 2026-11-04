@@ -294,6 +294,15 @@ Isi layar, papan tulis, dan sticky note semuanya **simulasi**, bukan kerjaan asl
 
 Pas ada yang kerja, panel **close-up** muncul sendiri di kiri, nempel di atas panel chat dengan lebar yang sama (kalau chat ditutup, dia pindah ke kiri bawah), dan nampilin layar atau papan anggota yang terakhir aktif, lengkap dengan nama tool yang lagi dipakai. Keterangannya pakai bahasa Inggris, contohnya `Ruby · Content + Portfolio · typing (Bash) · simulated screen`, sama kayak judul window (AlyxLabs Office, AlyxLabs Team). Setelah semua selesai, panelnya nunggu beberapa detik biar momen selesainya kelihatan, lalu hilang sendiri. Buat matiin sama sekali (misalnya pas share screen), hapus centang **Menu > Close-up kantor pas ada yang kerja**. Di mode browser, setting-nya ada di dialog **Model**.
 
+**Gimmick pas kerja di meja**: selama anggota duduk ngetik di mejanya sendiri:
+
+| Gimmick | Isinya |
+|---|---|
+| Panel di layar | Pojok kanan bawah monitor utama nampilin panel kecil yang gerak sesuai role: grafik naik (Asuna), test berubah hijau (Kobayashi, Komachi), tahap deploy nyala satu-satu (Yor), checklist kecentang (Erza), bentuk muncul di kanvas desain (Huagua), radar scan (Miruku), kartu tugas pindah kolom (yang lain). Isinya bentuk aja, tanpa angka |
+| Gestur | Tiap 9 sampai 16 detik nyelipin satu gerakan, nggak sama dua kali berturut-turut: megang dagu mikir, condong ke layar, nengok monitor samping, atau stretching. Yang butuh tangan bikin ngetiknya berhenti sebentar |
+| Ikon di atas kepala | Selama ada kerjaan beneran dari Claude Code: ikon tool yang lagi dipakai (`</>` edit, `>_` terminal, kaca pembesar buat cari, dokumen buat baca, globe buat web, dua orang buat delegasi, checklist buat rencana, titik tiga kalau belum ada tool) di dalem cincin ungu yang muter. Pas selesai jadi centang hijau yang ngembang |
+| Efek di meja | Tiap 10 sampai 20 ketikan, potongan kode kecil (`{ }`, `</>`, `;`, `=>`) naik dari keyboard terus pudar. Pas kerjaan selesai ada percikan cahaya di atas meja, anggotanya ngepalin tangan dua kali, baru lanjut stretching atau sorak kayak biasa |
+
 Kalau 2B ngerjain tugas sendiri tanpa delegasi ke tim, dia tetap ngomong singkat di kotak obrolan: pas mulai, pas pakai tool (paling sering sekali tiap 8 detik), dan pas selesai.
 
 Obrolan tim yang sama dengan overlay tim juga tampil di kantor, di pojok kanan atas bareng potret yang ngomong.

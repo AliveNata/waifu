@@ -1,6 +1,7 @@
 import { CanvasTexture, SRGBColorSpace } from "three";
 import type { ScreenScript } from "./screen-scripts.js";
 import { TypingProgress, visibleText } from "./typing.js";
+import { drawWorkWidget, type WorkWidget, widgetStep, widgetSteps } from "./work-widget.js";
 
 const headerHeight = 36;
 const lineHeight = 24;
@@ -28,6 +29,10 @@ export class ScreenSurface {
   private readonly width: number;
   private readonly height: number;
   private readonly maxLines: number;
+  /** The live panel in the corner while typing, for the role at this desk; none on laptops. */
+  private widget: WorkWidget | null = null;
+  private widgetSeconds = 0;
+  private widgetAt = -1;
 
   constructor(
     private readonly script: ScreenScript,
@@ -53,6 +58,15 @@ export class ScreenSurface {
     this.draw();
   }
 
+  /** Shows `widget` in the screen's corner while typing, or nothing with null. */
+  setWidget(widget: WorkWidget | null): void {
+    if (widget !== this.widget) {
+      this.widget = widget;
+      this.widgetAt = -1;
+      this.draw();
+    }
+  }
+
   /** Advances typing. Returns the characters typed this frame, for the keyboard. */
   update(deltaSeconds: number, typing: boolean): string {
     let dirty = typing !== this.active;
@@ -60,6 +74,15 @@ export class ScreenSurface {
 
     const step = this.progress.step(deltaSeconds, typing);
     dirty ||= step.changed;
+
+    if (typing && this.widget !== null) {
+      this.widgetSeconds += deltaSeconds;
+      const step = widgetStep(this.widgetSeconds);
+      if (step !== this.widgetAt) {
+        this.widgetAt = step;
+        dirty = true;
+      }
+    }
 
     this.cursorTimer += deltaSeconds;
     if (this.cursorTimer >= 0.5) {
@@ -110,6 +133,17 @@ export class ScreenSurface {
       const y = headerHeight + 10 + view.cursorLine * lineHeight + 3;
       ctx.fillStyle = theme.accent;
       ctx.fillRect(x + 1, y, 10, lineHeight - 6);
+    }
+
+    if (this.active && this.widget !== null) {
+      const widgetWidth = Math.round(width * 0.36);
+      const widgetHeight = Math.round(Math.min(height * 0.4, widgetWidth * 0.7));
+      drawWorkWidget(ctx, this.widget, (Math.max(0, this.widgetAt) + 1) / widgetSteps, this.script.theme, {
+        x: width - widgetWidth - 12,
+        y: height - widgetHeight - 12,
+        width: widgetWidth,
+        height: widgetHeight,
+      });
     }
 
     if (!this.active) {
