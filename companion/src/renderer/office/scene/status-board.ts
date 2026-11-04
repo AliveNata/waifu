@@ -62,8 +62,8 @@ export class StatusBoard {
     this.root.position.set(piece.x, 0, piece.z);
     this.root.rotation.y = piece.yaw;
     const height = piece.width * (faceHeight / faceWidth) + 0.04;
-    // Between the tops of the rack and the arcade (about 1.15 m) and the neon under the ceiling.
-    const centerY = 1.62;
+    // Above the arcades (about 1.32 m) and below the neon under the ceiling.
+    const centerY = 1.72;
     this.root.add(
       box(piece.width, height, 0.03, standard(palette.inkDeep, 0.4), 0, centerY - height / 2, 0),
       box(piece.width - 0.04, 0.008, 0.032, glow(palette.accent, 1.4), 0, centerY - height / 2 + 0.01, 0),

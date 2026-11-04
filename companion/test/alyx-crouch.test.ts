@@ -1,7 +1,7 @@
 import { Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { crouchAmount, crouchDepth, crouchSeconds, petStandSpot } from "../src/renderer/office/alyx-crouch.js";
-import { strokeOnto } from "../src/renderer/office/alyx-hands.js";
+import { strokeOnto, watchAngles } from "../src/renderer/office/alyx-hands.js";
 
 describe("Alyx crouching to stroke Mochi", () => {
   it("gets down, stays down for the stroke, and stands back up", () => {
@@ -58,5 +58,19 @@ describe("Alyx crouching to stroke Mochi", () => {
     expect(onHer.fingers.x).toBeLessThan(0);
     expect(onHer.fingers.z).toBeLessThan(0);
     expect(reaching.palm.distanceTo(shoulder)).toBeCloseTo(0.6);
+  });
+});
+
+describe("the watch on Alyx's wrist", () => {
+  it("shows the office time: hour, minute and second hands round from twelve", () => {
+    // Act
+    const quarterPastThree = watchAngles({ hours: 15, minutes: 15, seconds: 30 });
+    const midnight = watchAngles({ hours: 0, minutes: 0, seconds: 0 });
+
+    // Assert
+    expect(quarterPastThree.hour).toBeCloseTo((3 + 15 / 60) / 12);
+    expect(quarterPastThree.minute).toBeCloseTo((15 + 30 / 60) / 60);
+    expect(quarterPastThree.second).toBeCloseTo(0.5);
+    expect(midnight).toEqual({ hour: 0, minute: 0, second: 0 });
   });
 });

@@ -35,7 +35,7 @@ export const room = { minX: -7, maxX: 10.5, minZ: -5, maxZ: 4, wallHeight: 2.2 }
 export const people = { standing: 1.2, eye: 1.12, seatedEye: 0.86, reach: 1.15 } as const;
 
 /** Heights of the surfaces people use, scaled from adult furniture by roughly 0.65. */
-export const surface = { desk: 0.55, counter: 0.58, barTable: 0.72, pingpong: 0.48, coffeeTable: 0.26 } as const;
+export const surface = { desk: 0.55, counter: 0.58, barTable: 0.72, pingpong: 0.56, coffeeTable: 0.26 } as const;
 
 /** Yaw that faces the camera, which looks in along the +x/+z diagonal. */
 export const facingCamera = Math.PI / 4;

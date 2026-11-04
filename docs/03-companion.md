@@ -62,6 +62,8 @@ Di luar badannya, kursor balik ke panah biasa. Kalau model tangannya gagal dimua
 
 Model tangannya "Free Pack - VR Hands (Rigged)" karya [PolyOne Studio](https://sketchfab.com/polyone), dari [Sketchfab](https://sketchfab.com/3d-models/free-pack-vr-hands-rigged-b3b8309e59c748e3956531c8f57dd233), lisensi [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/). Pointer companion pakai tangan kanannya, mode **Jadi Alyx** di kantor pakai dua-duanya. Dikemas jadi satu file GLB dengan tekstur yang dikecilin ke 1024 piksel.
 
+Makanan dan minuman di meja bar pakai model dari [Food Kit 2.0](https://kenney.nl/assets/food-kit) karya [Kenney](https://www.kenney.nl), lisensi [CC0](http://creativecommons.org/publicdomain/zero/1.0/). Yang dipakai cuma model yang muncul di kantor, ada di `companion/src/renderer/office/assets/food/`, dan tekstur colormap kit-nya udah ditanam ke tiap GLB.
+
 | Disentuh | Reaksi pertama | Kalau diulang atau ditahan |
 |---|---|---|
 | Kepala (klik atau usap) | merem senang, nyender | ditahan: santai, matanya sayu |

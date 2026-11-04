@@ -106,20 +106,20 @@ describe("Alyx's order on the bar", () => {
 
   it("goes down shut, and nobody can take a piece until it is opened", () => {
     // Act
-    const placed = setDownOrder(emptyBar, "martabak");
+    const placed = setDownOrder(emptyBar, "waffle");
     const opened = placed === null ? null : openBox(placed);
 
     // Assert
-    expect(placed).toMatchObject({ kind: "martabak", left: 8, boxOnBar: true, open: false });
+    expect(placed).toMatchObject({ kind: "waffle", left: 6, boxOnBar: true, open: false });
     expect(placed === null ? -1 : piecesOnOffer(placed)).toBe(0);
     expect(placed === null ? true : takePiece(placed).took).toBe(false);
-    expect(opened === null ? -1 : piecesOnOffer(opened)).toBe(8);
+    expect(opened === null ? -1 : piecesOnOffer(opened)).toBe(6);
     expect(opened === null ? false : takePiece(opened).took).toBe(true);
   });
 
   it("only goes onto an empty bar", () => {
     // Act
-    const onFull = setDownOrder(fullPizza, "sushi");
+    const onFull = setDownOrder(fullPizza, "taco");
 
     // Assert
     expect(onFull).toBeNull();
@@ -127,7 +127,7 @@ describe("Alyx's order on the bar", () => {
 
   it("is not swapped out when someone comes back from a food run", () => {
     // Arrange
-    const placed = setDownOrder(emptyBar, "boba");
+    const placed = setDownOrder(emptyBar, "soda");
 
     // Act
     const after = placed === null ? null : deliver(placed, () => 0);
@@ -142,6 +142,6 @@ describe("Alyx's order on the bar", () => {
       expect(foodNames[kind].length).toBeGreaterThan(0);
       expect(foodPieces[kind]).toBeGreaterThan(0);
     }
-    expect(foodKinds).toHaveLength(8);
+    expect(foodKinds).toHaveLength(12);
   });
 });

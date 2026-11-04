@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { laptopTakeSeconds, laptopView } from "../src/renderer/office/office-laptop.js";
+import {
+  deskLock,
+  laptopTakeSeconds,
+  laptopView,
+  lockAt,
+  signedInAt,
+  signInFrom,
+} from "../src/renderer/office/office-laptop.js";
 
 describe("laptopView", () => {
   it("leaves the laptop at the desk outside a meeting run", () => {
@@ -68,5 +75,38 @@ describe("laptopView", () => {
     // Assert
     expect(carrying.place).toBe("hand");
     expect(stowed).toMatchObject({ place: "home", lid: 1, drawer: 0 });
+  });
+});
+
+describe("the desk at the end and start of the day", () => {
+  it("locks, then shuts the laptop before leaving, and keeps it shut while away", () => {
+    // Act
+    const sitting = laptopView({ errand: "pack-up", arrived: true, stepElapsed: 0.5, remaining: 3 });
+    const shut = laptopView({ errand: "pack-up", arrived: true, stepElapsed: 3.5, remaining: 0.5 });
+    const away = laptopView({ errand: "go-home", arrived: true, stepElapsed: 100, remaining: 1000 });
+
+    // Assert
+    expect(sitting.lid).toBe(1);
+    expect(shut.lid).toBe(0);
+    expect(away).toMatchObject({ place: "home", lid: 0 });
+    expect(deskLock("pack-up", true, lockAt - 0.1)).toEqual({ kind: "open" });
+    expect(deskLock("pack-up", true, lockAt)).toEqual({ kind: "locked" });
+    expect(deskLock("go-home", false, 0)).toEqual({ kind: "locked" });
+  });
+
+  it("opens the laptop on arrival and signs back in, the dots filling before it unlocks", () => {
+    // Act
+    const walkingIn = laptopView({ errand: "unpack", arrived: false, stepElapsed: 0, remaining: Infinity });
+    const opened = laptopView({ errand: "unpack", arrived: true, stepElapsed: 2, remaining: 3 });
+    const typing = deskLock("unpack", true, (signInFrom + signedInAt) / 2);
+
+    // Assert
+    expect(walkingIn.lid).toBe(0);
+    expect(opened.lid).toBe(1);
+    expect(deskLock("unpack", true, signInFrom - 0.1)).toEqual({ kind: "locked" });
+    expect(typing.kind).toBe("signing-in");
+    expect(typing.kind === "signing-in" ? typing.typed : 0).toBeGreaterThan(0);
+    expect(deskLock("unpack", true, signedInAt)).toEqual({ kind: "open" });
+    expect(deskLock(null, true, 5)).toEqual({ kind: "open" });
   });
 });

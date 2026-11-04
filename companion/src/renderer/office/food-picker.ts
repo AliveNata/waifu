@@ -1,16 +1,68 @@
-import { type FoodKind, foodKinds, foodNames } from "./office-food.js";
+import { drinkKinds, type FoodKind, foodKinds, foodNames, mealKinds } from "./office-food.js";
 
 const storageKey = "office.foodChoice";
 
-/** The food a number key picks: 1 for the first on the list, and so on. */
-export function foodForKey(key: string): FoodKind | null {
-  if (!/^[1-9]$/.test(key)) {
-    return null;
-  }
-  return foodKinds[Number(key) - 1] ?? null;
+export type PickerTab = "meal" | "drink";
+
+export const pickerTabs: Record<PickerTab, { label: string; kinds: readonly FoodKind[] }> = {
+  meal: { label: "Makanan", kinds: mealKinds },
+  drink: { label: "Minuman", kinds: drinkKinds },
+};
+
+/** Which tab is showing and which entry on it is highlighted. */
+export interface PickerState {
+  tab: PickerTab;
+  selected: number;
 }
 
-/** The last food ordered on this computer, so Enter orders it again; pizza the first time. */
+/** What a key did: the new state, and an order or a close when it made one. */
+export interface PickerStep {
+  state: PickerState;
+  order?: FoodKind;
+  close?: boolean;
+}
+
+/** Opens on the tab of the last thing ordered, with it highlighted. */
+export function pickerStart(last: FoodKind): PickerState {
+  const tab: PickerTab = drinkKinds.includes(last) ? "drink" : "meal";
+  return { tab, selected: Math.max(0, pickerTabs[tab].kinds.indexOf(last)) };
+}
+
+/** The highlighted entry. */
+export function pickedKind(state: PickerState): FoodKind {
+  const kinds = pickerTabs[state.tab].kinds;
+  return kinds[Math.min(state.selected, kinds.length - 1)] ?? "pizza";
+}
+
+/**
+ * One key on the open list: a number orders that entry on the tab, up and down move the highlight,
+ * left, right or Tab switch tabs, Enter orders the highlighted one, Escape or I closes.
+ */
+export function pickerKey(state: PickerState, key: string): PickerStep | null {
+  const kinds = pickerTabs[state.tab].kinds;
+  if (key === "Escape" || key === "i" || key === "I") {
+    return { state, close: true };
+  }
+  if (key === "Tab" || key === "ArrowLeft" || key === "ArrowRight") {
+    const tab: PickerTab = state.tab === "meal" ? "drink" : "meal";
+    return { state: { tab, selected: 0 } };
+  }
+  if (key === "ArrowUp" || key === "ArrowDown") {
+    const step = key === "ArrowUp" ? -1 : 1;
+    return { state: { ...state, selected: (state.selected + step + kinds.length) % kinds.length } };
+  }
+  if (key === "Enter") {
+    return { state, order: pickedKind(state) };
+  }
+  if (/^[1-9]$/.test(key)) {
+    const index = Number(key) - 1;
+    const kind = kinds[index];
+    return kind === undefined ? null : { state: { ...state, selected: index }, order: kind };
+  }
+  return null;
+}
+
+/** The last food ordered on this computer, so the list opens on it; pizza the first time. */
 export function rememberedFood(storage: Pick<Storage, "getItem"> | null): FoodKind {
   let stored: string | null = null;
   try {
@@ -39,105 +91,85 @@ function browserStorage(): Storage | null {
   }
 }
 
+/** What the phone screen and the page show: the list, or the order's progress while one is out. */
+export interface PickerView {
+  open: boolean;
+  state: PickerState;
+  /** The order's progress, or null while choosing. */
+  status: string | null;
+}
+
 /**
- * I in Alyx mode: the list of food to order in, numbered for the keyboard since the mouse is
- * busy looking around. While an order is out it shows how far along it is instead.
+ * I in Alyx mode: the food delivery app on Alyx's phone, worked with the keyboard since the mouse
+ * is busy looking around. The same list is kept on the page out of sight for screen readers.
  */
 export class FoodPicker {
-  private selected: FoodKind;
+  private state: PickerState;
+  private open = false;
 
   constructor(
-    private readonly panel: HTMLElement,
-    private readonly list: HTMLOListElement,
-    private readonly status: HTMLElement,
+    private readonly list: HTMLElement,
     private readonly order: (kind: FoodKind) => void,
     private readonly orderState: () => string | null,
   ) {
-    this.selected = rememberedFood(browserStorage());
-    this.list.replaceChildren(
-      ...foodKinds.map((kind, index) => {
-        const item = document.createElement("li");
-        const button = document.createElement("button");
-        button.type = "button";
-        button.dataset.food = kind;
-        const key = document.createElement("kbd");
-        key.textContent = String(index + 1);
-        button.append(key, ` ${foodNames[kind]}`);
-        button.addEventListener("click", () => this.pick(kind));
-        item.append(button);
-        return item;
-      }),
-    );
+    this.state = pickerStart(rememberedFood(browserStorage()));
   }
 
   get isOpen(): boolean {
-    return !this.panel.hidden;
+    return this.open;
+  }
+
+  /** For the phone screen. */
+  view(): PickerView {
+    return { open: this.open, state: this.state, status: this.orderState() };
   }
 
   toggle(): void {
-    if (this.isOpen) {
-      this.close();
-    } else {
-      this.open();
-    }
-  }
-
-  open(): void {
-    this.panel.hidden = false;
+    this.open = !this.open;
     this.render();
   }
 
   close(): void {
-    this.panel.hidden = true;
+    this.open = false;
+    this.render();
   }
 
-  /** Keeps the order's progress current while the list is up. */
+  /** Keeps the page's copy of the list current. */
   render(): void {
-    if (!this.isOpen) {
+    this.list.hidden = !this.open;
+    if (!this.open) {
       return;
     }
-    const state = this.orderState();
-    this.list.hidden = state !== null;
-    const text = state ?? "Pilih makanan, kurir antar ke depan pintu";
-    if (this.status.textContent !== text) {
-      this.status.textContent = text;
-    }
-    for (const button of this.list.querySelectorAll<HTMLButtonElement>("button")) {
-      button.setAttribute("aria-current", String(button.dataset.food === this.selected));
+    const status = this.orderState();
+    const tab = pickerTabs[this.state.tab];
+    const text =
+      status ??
+      `${tab.label}: ${tab.kinds.map((kind, index) => `${index + 1} ${foodNames[kind]}`).join(", ")}. Pilihan: ${foodNames[pickedKind(this.state)]}`;
+    if (this.list.textContent !== text) {
+      this.list.textContent = text;
     }
   }
 
-  /** Number keys order, Enter orders the last choice, Escape or I closes. True when it used the key. */
+  /** Keys while the phone is out. True when it used the key. */
   handleKey(event: KeyboardEvent): boolean {
-    if (!this.isOpen) {
+    if (!this.open) {
       return false;
     }
-    if (event.key === "Escape" || event.code === "KeyI") {
+    const busy = this.orderState() !== null;
+    const step = pickerKey(this.state, event.code === "KeyI" ? "I" : event.key);
+    if (step === null || (busy && step.close !== true)) {
+      return false;
+    }
+    this.state = step.state;
+    if (step.close === true) {
       this.close();
       return true;
     }
-    if (this.orderState() !== null) {
-      return false;
+    if (step.order !== undefined) {
+      rememberFood(browserStorage(), step.order);
+      this.order(step.order);
     }
-    if (event.key === "Enter") {
-      this.pick(this.selected);
-      return true;
-    }
-    const kind = foodForKey(event.key);
-    if (kind !== null) {
-      this.pick(kind);
-      return true;
-    }
-    return false;
-  }
-
-  private pick(kind: FoodKind): void {
-    if (this.orderState() !== null) {
-      return;
-    }
-    this.selected = kind;
-    rememberFood(browserStorage(), kind);
-    this.order(kind);
     this.render();
+    return true;
   }
 }
