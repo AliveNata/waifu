@@ -734,8 +734,9 @@ export const furniture: readonly Furniture[] = [
       kind: "plant",
       x,
       z: 3.72,
-      width: 0.4,
-      depth: 0.4,
+      // A pot this size grows the plant to about 0.85 m, a 1.2 m floor plant at the room's scale.
+      width: 0.5,
+      depth: 0.5,
       yaw: facing.camera,
       blocksWalking: true,
     }),
@@ -933,8 +934,8 @@ export const furniture: readonly Furniture[] = [
     // Between the rack and the arcades, where the build row meets the game corner.
     x: 5.12,
     z: -4.65,
-    width: 0.4,
-    depth: 0.4,
+    width: 0.46,
+    depth: 0.46,
     yaw: facing.camera,
     blocksWalking: true,
   },

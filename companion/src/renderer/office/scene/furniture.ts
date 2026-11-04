@@ -284,12 +284,13 @@ export function buildSofa(piece: Furniture, seatHeight: number): BuiltPiece {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const body = standard(palette.fabric, 0.95);
-  const backTop = seatHeight + 0.22;
+  // A real sofa's back (0.85 m) and arms (0.62 m) at the room's 0.73 scale.
+  const backTop = seatHeight + 0.31;
   root.add(
     box(width, seatHeight - 0.08, depth, body, 0, 0, 0),
     box(width, backTop, 0.16, body, 0, 0, -depth / 2 + 0.08),
-    box(0.14, seatHeight + 0.09, depth, body, -width / 2 + 0.07, 0, 0),
-    box(0.14, seatHeight + 0.09, depth, body, width / 2 - 0.07, 0, 0),
+    box(0.14, seatHeight + 0.14, depth, body, -width / 2 + 0.07, 0, 0),
+    box(0.14, seatHeight + 0.14, depth, body, width / 2 - 0.07, 0, 0),
   );
   const cushionWidth = (width - 0.32) / 3;
   for (let seat = 0; seat < 3; seat++) {
@@ -329,7 +330,8 @@ export function buildStool(piece: Furniture, seatHeight: number): BuiltPiece {
   leg.position.y = seatHeight / 2;
   const foot = mesh(new CylinderGeometry(0.12, 0.13, 0.02, 16), ink);
   foot.position.y = 0.01;
-  const ring = mesh(new TorusGeometry(0.09, 0.008, 6, 20), ink);
+  // A foot ring wide enough to rest feet on, as on a real bar stool.
+  const ring = mesh(new TorusGeometry(0.15, 0.009, 6, 24), ink);
   ring.rotation.x = Math.PI / 2;
   ring.position.y = seatHeight * 0.45;
   const seat = mesh(new CylinderGeometry(0.15, 0.14, 0.045, 20), standard(palette.oak, 0.7));
@@ -412,8 +414,8 @@ export function buildPantryCounter(
     box(0.05, 0.01, 0.01, glow(), machineX + 0.06, top + 0.24, machineZ + 0.111),
   );
   for (let jar = 0; jar < 4; jar++) {
-    const glass = mesh(new CylinderGeometry(0.035, 0.035, 0.1, 12), standard(palette.glass, 0.15));
-    glass.position.set(-width * 0.3 + jar * 0.14, top + 0.495, -depth / 2 + 0.1);
+    const glass = mesh(new CylinderGeometry(0.042, 0.042, 0.13, 12), standard(palette.glass, 0.15));
+    glass.position.set(-width * 0.3 + jar * 0.14, top + 0.51, -depth / 2 + 0.1);
     root.add(glass);
   }
   const kettle = mesh(new CylinderGeometry(0.06, 0.075, 0.18, 14), standard(palette.steel, 0.25, 0.7));
@@ -607,10 +609,11 @@ export function buildBarCounter(piece: Furniture): Group {
 /** A pedal bin by the bar, where the empty food boxes go. */
 export function buildTrashBin(piece: Furniture): Group {
   const root = placed(piece);
-  const body = mesh(new CylinderGeometry(0.12, 0.105, 0.34, 20), standard("#3a3f4b", 0.5, 0.3));
-  body.position.y = 0.17;
-  const lid = mesh(new CylinderGeometry(0.125, 0.125, 0.02, 20), standard(palette.steel, 0.3, 0.6));
-  lid.position.y = 0.35;
+  // A pedal bin at the room's scale: about 0.45 m tall (0.65 real).
+  const body = mesh(new CylinderGeometry(0.13, 0.115, 0.44, 20), standard("#3a3f4b", 0.5, 0.3));
+  body.position.y = 0.22;
+  const lid = mesh(new CylinderGeometry(0.135, 0.135, 0.02, 20), standard(palette.steel, 0.3, 0.6));
+  lid.position.y = 0.45;
   root.add(body, lid, box(0.06, 0.012, 0.05, standard(palette.steel, 0.3, 0.6), 0, 0.01, 0.13));
   return root;
 }
@@ -794,7 +797,7 @@ export function buildFridge(piece: Furniture): { root: Group; door: FridgeDoor }
   hinge.position.set(-doorWidth / 2, 0, front);
   hinge.add(
     box(doorWidth, split - 0.01, 0.025, body, doorWidth / 2, 0.005, 0.0125),
-    box(0.02, 0.18, 0.03, standard(palette.ink, 0.4), doorWidth - 0.07, height * 0.38, 0.035),
+    box(0.02, 0.28, 0.03, standard(palette.ink, 0.4), doorWidth - 0.07, height * 0.34, 0.035),
   );
   root.add(hinge);
   return { root, door: new FridgeDoor(hinge) };
@@ -839,7 +842,7 @@ export function buildArcade(piece: Furniture): { root: Group; screen: ArcadeScre
     box(cabinetWidth, screenBox, depth * 0.45, body, 0, panelTop, -depth * 0.18),
     box(cabinetWidth, 0.14, depth * 0.5, body, 0, panelTop + screenBox, -depth * 0.15),
     // Marquee: the brightest accent in the room, the arcade's whole reason to exist is to call you over.
-    box(cabinetWidth - 0.04, 0.09, 0.02, glow(palette.accent, 2), 0, panelTop + screenBox + 0.025, depth * 0.1),
+    box(cabinetWidth - 0.04, 0.12, 0.02, glow(palette.accent, 2), 0, panelTop + screenBox + 0.01, depth * 0.1),
     box(cabinetWidth, 0.04, depth * 0.36, standard(palette.inkSoft, 0.5), 0, panelTop - 0.02, depth * 0.24),
   );
   const display = mesh(new PlaneGeometry(cabinetWidth - 0.1, 0.38), unlit(screen.texture), false);
@@ -959,9 +962,17 @@ export function buildRingLight(piece: Furniture): Group {
   const root = placed(piece);
   const ink = standard(palette.ink, 0.5);
   const ringY = people.eye;
-  root.add(box(0.2, 0.02, 0.2, ink, 0, 0, 0), box(0.02, ringY - 0.12, 0.02, ink, 0, 0, 0));
-  // Warm white, not the accent: a ring light's job is lighting faces.
-  const ring = mesh(new TorusGeometry(0.12, 0.016, 8, 32), glow("#fff3e6", 1.2));
+  // Three splayed feet like a real light stand, about 0.55 m across at the room's scale.
+  root.add(box(0.02, ringY - 0.15, 0.02, ink, 0, 0, 0));
+  for (let foot = 0; foot < 3; foot++) {
+    const leg = box(0.27, 0.015, 0.02, ink, 0.135, 0, 0);
+    const turn = new Group();
+    turn.rotation.y = (foot / 3) * Math.PI * 2;
+    turn.add(leg);
+    root.add(turn);
+  }
+  // Warm white, not the accent: a ring light's job is lighting faces. About 0.33 m across (18 in).
+  const ring = mesh(new TorusGeometry(0.15, 0.018, 8, 36), glow("#fff3e6", 1.2));
   ring.position.y = ringY;
   root.add(ring);
   return root;
@@ -976,9 +987,10 @@ export function buildCameraTripod(piece: Furniture): Group {
   const up = new Vector3(0, 1, 0);
   for (let leg = 0; leg < 3; leg++) {
     const angle = (leg / 3) * Math.PI * 2;
-    const foot = new Vector3(Math.sin(angle) * 0.16, 0, Math.cos(angle) * 0.16);
+    // Legs spread about 0.5 m, as a real tripod stands.
+    const foot = new Vector3(Math.sin(angle) * 0.25, 0, Math.cos(angle) * 0.25);
     const length = head.distanceTo(foot);
-    const rod = mesh(new CylinderGeometry(0.006, 0.006, length, 6), ink);
+    const rod = mesh(new CylinderGeometry(0.009, 0.009, length, 6), ink);
     rod.position.copy(head).add(foot).multiplyScalar(0.5);
     rod.quaternion.setFromUnitVectors(up, new Vector3().subVectors(head, foot).normalize());
     root.add(rod);
@@ -1145,7 +1157,8 @@ export function buildPingpongTable(piece: Furniture): Group {
     box(width, 0.004, 0.012, standard("#ffffff", 0.6), 0, top, 0),
     box(0.012, 0.004, depth, standard("#ffffff", 0.6), -width / 2 + 0.006, top, 0),
     box(0.012, 0.004, depth, standard("#ffffff", 0.6), width / 2 - 0.006, top, 0),
-    box(0.012, 0.09, depth + 0.04, standard("#f4f1ec", 0.8), 0, top, 0),
+    // A real net, 15 cm high and past the table edges, at the room scale.
+    box(0.012, 0.11, depth + 0.2, standard("#f4f1ec", 0.8), 0, top, 0),
   );
   for (const x of [-1, 1]) {
     for (const z of [-1, 1]) {
@@ -1259,7 +1272,9 @@ export class Bookshelf {
     const clusterWidth = kitBooks.width * bookScale;
     // A fixed layout per tier and unit: where each cluster starts across the inner width, 0..1,
     // with a skipped slot here and there for the gaps.
-    const layout: readonly (readonly number[])[] = [[0.02, 0.5], [0.1], [0, 0.46], [0.04, 0.55], [0.3], [0.02, 0.52]];
+    // Two clusters only fit side by side when the second starts a whole cluster width after the
+    // first: about 0.75 of the free span at this size.
+    const layout: readonly (readonly number[])[] = [[0, 0.8], [0.15], [0.02, 1], [0.05, 0.85], [0.45], [0, 0.9]];
     const innerFrom = kitBookcase.inner[0] * sx;
     const innerWidth = (kitBookcase.inner[1] - kitBookcase.inner[0]) * sx - clusterWidth;
     let slot = 0;

@@ -59,10 +59,17 @@ const propScale: Partial<Record<HandPropKind, number>> = {
   book: 2.0,
   can: 2.2,
   plate: 1.8,
-  rose: 1.5,
+  rose: 2.2,
   teacup: 1.4,
   controller: 1.6,
   "food-bag": 1.5,
+  swatch: 2.0,
+  plush: 1.8,
+  fork: 1.4,
+  duck: 1.25,
+  "trash-bag": 1.25,
+  // Drawn a size too big for a cocktail stick.
+  "platter-bite": 0.7,
   // The kit's food is real size; the room is 0.73 of that.
   taco: roomScale,
   sandwich: roomScale,
@@ -269,10 +276,11 @@ export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook):
       break;
     }
     case "paddle": {
+      // A real paddle's proportions: the handle about two thirds of the blade's width.
       const blade = mesh(new CylinderGeometry(0.045, 0.045, 0.008, 20), standard("#c8323c", 0.6));
       blade.rotation.x = Math.PI / 2;
-      blade.position.y = 0.07;
-      group.add(blade, box(0.016, 0.05, 0.012, standard(palette.oak, 0.7), 0, -0.01, 0));
+      blade.position.y = 0.08;
+      group.add(blade, box(0.017, 0.065, 0.013, standard(palette.oak, 0.7), 0, -0.02, 0));
       break;
     }
     case "phone": {
