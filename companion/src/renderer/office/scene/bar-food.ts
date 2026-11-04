@@ -212,9 +212,10 @@ function chicken(): FoodSet {
     return piece;
   });
   container.add(...pieces);
-  const lid = mesh(new CylinderGeometry(0.102, 0.102, 0.012, 24), standard("#f7f1ea", 0.6));
+  // A domed lid tall enough to cover the drumsticks standing up out of the bucket.
+  const lid = mesh(new CylinderGeometry(0.07, 0.102, 0.09, 24), standard("#f7f1ea", 0.6));
   container.add(lid);
-  return { container, pieces, open: setAside(lid, [0, 0.166, 0], [0.19, 0.006, 0.02]) };
+  return { container, pieces, open: setAside(lid, [0, 0.205, 0], [0.2, 0.045, 0.02]) };
 }
 
 /** A bamboo steamer of eight siomay; the steamer lid is set down beside it. */
