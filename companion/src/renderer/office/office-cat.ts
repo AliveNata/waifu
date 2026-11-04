@@ -10,7 +10,7 @@ import { type Point, stations } from "./office-plan.js";
  */
 export const catName = "Mochi";
 
-export type CatPose = "walk" | "sit" | "loaf" | "sleep" | "groom" | "stare" | "beg";
+export type CatPose = "walk" | "sit" | "loaf" | "sleep" | "groom" | "stare" | "beg" | "eat";
 
 export type CatSpotId =
   | "beanbag"
@@ -21,7 +21,10 @@ export type CatSpotId =
   | "collab-rug"
   | "game-bench"
   | "door-mat"
-  | "visit";
+  | "visit"
+  | "bowl"
+  | "pingpong"
+  | "keyboard";
 
 export interface CatSpot {
   /** Where she settles, on the floor or up on something soft. */
@@ -32,6 +35,11 @@ export interface CatSpot {
   approach: Point;
   /** Which way she faces once there: toward the fish, the fridge door, the room. */
   facing: number;
+  /**
+   * Up on furniture: points after the approach with how high each is, walked in order before the
+   * spot. A desk is reached by hopping onto its low L-desk leg first, then along the top.
+   */
+  perch?: readonly { x: number; z: number; height: number }[];
 }
 
 const floor = (x: number, z: number): Point => navGrid.nearestFree({ x, z });
@@ -45,8 +53,16 @@ const beanbag = stations["beanbag-lounge"];
 const fridge = stations.fridge;
 const aquarium = stations.aquarium;
 
-/** The fixed places she likes. "visit" is worked out at the time, next to whoever she visits. */
-export const catSpots: Record<Exclude<CatSpotId, "visit">, CatSpot> = {
+const pingpong = stations["pingpong-west"];
+
+/** Her food bowl on the floor by the fridge, where she can see who opens it. */
+export const bowlSpot = floor(fridge.spot.x + 0.75, fridge.spot.z + 0.25);
+
+/**
+ * The fixed places she likes. "visit" and "keyboard" are worked out at the time, next to (or on
+ * the keyboard of) whoever she drops in on.
+ */
+export const catSpots: Record<Exclude<CatSpotId, "visit" | "keyboard">, CatSpot> = {
   // Curled up on the front of the cushion, clear of the backrest a sitter leans on.
   beanbag: {
     spot: {
@@ -66,6 +82,15 @@ export const catSpots: Record<Exclude<CatSpotId, "visit">, CatSpot> = {
   "collab-rug": onFloor(5.05, -0.55, -Math.PI / 2),
   "game-bench": onFloor(6.2, -1.05, Math.PI),
   "door-mat": onFloor(9.55, 0.35, -Math.PI / 2),
+  // Just behind the bowl, facing it, so her head goes down into it.
+  bowl: {
+    spot: floor(bowlSpot.x, bowlSpot.z + 0.2),
+    height: 0,
+    approach: floor(bowlSpot.x, bowlSpot.z + 0.2),
+    facing: Math.PI,
+  },
+  // Beside the ping-pong table on the side away from the bench, watching the ball go back and forth.
+  pingpong: onFloor(pingpong.spot.x + 1.1, pingpong.spot.z - 0.85, 0),
 };
 
 export interface CatPlan {
@@ -96,10 +121,35 @@ const habits: readonly Habit[] = [
   { spot: "game-bench", pose: "sit", seconds: [30, 70], weight: (h) => (night(h) ? 0.2 : 0.8) },
   { spot: "door-mat", pose: "sit", seconds: [25, 50], weight: (h) => (night(h) ? 0.2 : 0.5) },
   { spot: "visit", pose: "sit", seconds: [25, 50], weight: (h) => (night(h) ? 0 : 1.5) },
+  { spot: "pingpong", pose: "stare", seconds: [25, 50], weight: () => 6 },
+  // Asleep on someone's keyboard until they lift her off; the stage ends this one, not the clock.
+  { spot: "keyboard", pose: "sleep", seconds: [10, 16], weight: (h) => (night(h) ? 0 : 0.8) },
 ];
 
 /** Someone snacking at the fridge makes her much more likely to come and beg. */
 const snackPull = 8;
+
+/** What is going on around her that changes what she feels like doing. */
+export interface CatContext {
+  snacking: boolean;
+  unavailable: ReadonlySet<CatSpotId>;
+  /** Hungry enough to go to the bowl. */
+  hungry: boolean;
+  /** How full the bowl is, 0 empty to 1 full. */
+  bowlFood: number;
+  /** A ping-pong rally is on. */
+  rally: boolean;
+}
+
+/** One trip to the bowl empties about a third of it. */
+export const mealSize = 0.34;
+/** From fed to hungry again, in seconds of the office clock. */
+export const hungerSeconds = 45 * 60;
+
+/** The bowl after she has eaten: one meal less, never below empty. */
+export function afterMeal(food: number): number {
+  return Math.max(0, food - mealSize);
+}
 
 /**
  * What Mochi does next: never the same spot twice in a row, weighted by the hour (`hours`, in
@@ -110,13 +160,30 @@ export function nextCatPlan(
   previous: CatSpotId | null,
   hours: number,
   random: () => number,
-  context: { snacking: boolean; unavailable: ReadonlySet<CatSpotId> },
+  context: CatContext,
 ): CatPlan {
+  // Hunger comes first: to the bowl to eat, or to sit by an empty one and ask.
+  if (context.hungry && previous !== "bowl" && !context.unavailable.has("bowl")) {
+    const eating = context.bowlFood > 0;
+    const pull = eating ? 0.9 : 0.6;
+    if (random() < pull) {
+      const [shortest, longest] = eating ? [15, 25] : [20, 35];
+      return {
+        spot: "bowl",
+        pose: eating ? "eat" : "beg",
+        durationMs: (shortest + random() * (longest - shortest)) * 1000,
+      };
+    }
+  }
   const weighted = habits.map((habit) => {
     // At night she just sleeps on; by day she never stays in one place twice in a row.
     const sleepsOn = habit.spot === "beanbag" && night(hours);
     if ((habit.spot === previous && !sleepsOn) || context.unavailable.has(habit.spot)) {
       return 0;
+    }
+    if (habit.spot === "pingpong") {
+      // Only worth watching while the ball is in play.
+      return context.rally ? habit.weight(hours) : 0;
     }
     const base = habit.weight(hours);
     return habit.spot === "fridge" && context.snacking ? base + snackPull : base;
@@ -141,7 +208,17 @@ export const catLines = {
   greeted: ["Meong.", "Mrrp?", "Meong!"],
   begging: ["Meooong...", "Meong meong."],
   petted: ["Prrr...", "Prrrrr."],
+  lifted: ["Mrrp!", "Meong..."],
 } as const;
+
+/** What someone says lifting her off their keyboard. */
+export const keyboardLines = [
+  "Mochi, aku lagi kerja...",
+  "Eh, ini keyboard, bukan kasur.",
+  "Turun dulu ya, Mochi.",
+] as const;
+/** What a teammate says filling her bowl. */
+export const refillLines = ["Nih, Mochi, makan dulu.", "Mangkoknya udah kosong, ya."] as const;
 
 export function catLine(kind: keyof typeof catLines, random: () => number): string {
   const lines = catLines[kind];
@@ -185,8 +262,12 @@ export class Cat {
   private plan: CatPlan | null = null;
   private target: CatSpot;
   private last: CatSpotId | null;
-  private path: Point[] = [];
+  private path: { x: number; z: number; height: number }[] = [];
+  /** Where the current stretch of the path began, so the height can follow it. */
+  private legStart = { x: 0, z: 0, height: 0 };
   private arrived: number | null = null;
+  /** Lifted and carried by someone: the stage moves her and nothing else does. */
+  private carried = false;
 
   constructor(start: CatSpotId & keyof typeof catSpots = "beanbag") {
     this.target = catSpots[start];
@@ -203,6 +284,11 @@ export class Cat {
     return this.path.length > 0 ? "walk" : (this.plan?.pose ?? "sleep");
   }
 
+  /** How long the current plan lasts once she is there, in milliseconds. */
+  get planDurationMs(): number | null {
+    return this.plan?.durationMs ?? null;
+  }
+
   get spotId(): CatSpotId | null {
     return this.plan?.spot ?? this.last;
   }
@@ -210,6 +296,25 @@ export class Cat {
   /** When she got where she was going, in the caller's clock, or null while still on the way. */
   get arrivedAt(): number | null {
     return this.arrived;
+  }
+
+  /** Someone has her: she goes where she is put until she is set down. */
+  carry(position: Point, height: number, yaw: number): void {
+    this.carried = true;
+    this.path = [];
+    this.position = { ...position };
+    this.height = height;
+    this.yaw = yaw;
+  }
+
+  /** Set down on the floor: whatever she was doing is over, and she picks something new. */
+  land(position: Point): void {
+    this.carried = false;
+    this.position = { ...position };
+    this.height = 0;
+    this.last = this.spotId;
+    this.plan = null;
+    this.arrived = null;
   }
 
   /** Up on (or headed for) the beanbag, so nobody sits on her. */
@@ -224,7 +329,16 @@ export class Cat {
     hold: boolean,
     face: number | null,
   ): CatPose {
-    if (this.plan === null || (this.arrived !== null && now - this.arrived >= this.plan.durationMs)) {
+    if (this.carried) {
+      return this.plan?.pose ?? "sleep";
+    }
+    // A keyboard nap ends when someone lifts her off, not on the clock.
+    const timeUp =
+      this.arrived !== null &&
+      this.plan !== null &&
+      this.plan.spot !== "keyboard" &&
+      now - this.arrived >= this.plan.durationMs;
+    if (this.plan === null || timeUp) {
       const next = choose(this.spotId);
       const stays = this.arrived !== null && next.plan.spot === this.spotId;
       this.last = this.spotId;
@@ -236,6 +350,7 @@ export class Cat {
         this.target = next.target;
         this.arrived = null;
         this.path = this.route(next.target);
+        this.legStart = { ...this.position, height: this.height };
       }
     }
     if (hold) {
@@ -252,36 +367,36 @@ export class Cat {
     }
     const step = catSpeed * delta;
     const away = distanceTo(this.position, next);
-    const finalHop = this.path.length === 1 && this.target.height > 0;
     if (away <= step) {
-      this.position = { ...next };
+      this.position = { x: next.x, z: next.z };
+      this.height = next.height;
       this.path.shift();
+      this.legStart = { ...next };
     } else {
       this.position = {
         x: this.position.x + ((next.x - this.position.x) / away) * step,
         z: this.position.z + ((next.z - this.position.z) / away) * step,
       };
-    }
-    // Hop up onto a cushion over the last stretch; off one, she drops to the floor at once.
-    if (finalHop) {
-      const leg = distanceTo(this.target.approach, this.target.spot);
-      const left = distanceTo(this.position, this.target.spot);
-      this.height = this.target.height * (leg > 0 ? 1 - Math.min(1, left / leg) : 1);
-    } else {
-      this.height = Math.max(0, this.height - delta * 1.5);
+      // Up or down along the stretch: a hop onto a cushion or a desk, or down off one.
+      const leg = distanceTo(this.legStart, next);
+      const done = leg > 0 ? 1 - distanceTo(this.position, next) / leg : 1;
+      this.height = this.legStart.height + (next.height - this.legStart.height) * Math.min(1, Math.max(0, done));
     }
     this.walkPhase += step * catStride;
     this.yaw = turnToward(this.yaw, angleTo(this.position, next), catTurnRate * delta);
     return "walk";
   }
 
-  private route(target: CatSpot): Point[] {
+  private route(target: CatSpot): { x: number; z: number; height: number }[] {
     const from = navGrid.isFree(this.position) ? this.position : navGrid.nearestFree(this.position);
     const goal = navGrid.isFree(target.approach) ? target.approach : navGrid.nearestFree(target.approach);
     const walk = navGrid.findPath(from, goal) ?? [goal];
-    const path = [...(from === this.position ? [] : [from]), ...walk];
-    if (distanceTo(goal, target.spot) > 0.02) {
-      path.push(target.spot);
+    // Down to the floor first if she is up on something, then along the floor at height 0.
+    const path = [...(from === this.position ? [] : [from]), ...walk].map((point) => ({ ...point, height: 0 }));
+    path.push(...(target.perch ?? []));
+    const last = path[path.length - 1] ?? { ...goal, height: 0 };
+    if (distanceTo(last, target.spot) > 0.02 || last.height !== target.height) {
+      path.push({ ...target.spot, height: target.height });
     }
     return path;
   }

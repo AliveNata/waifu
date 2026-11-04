@@ -55,6 +55,8 @@ import { Handoffs, type Teammate } from "./handoffs.js";
 import { aimHand, solveCcd } from "./ik.js";
 import { type ActorState, angleDelta, initialActor, isWalking, stepActor } from "./office-actor.js";
 import {
+  afterMeal,
+  bowlSpot,
   Cat,
   type CatChoice,
   type CatSpotId,
@@ -62,7 +64,10 @@ import {
   catName,
   catSpots,
   greetingsForCat,
+  hungerSeconds,
+  keyboardLines,
   nextCatPlan,
+  refillLines,
 } from "./office-cat.js";
 import { ChatterDirector } from "./office-chatter.js";
 import {
@@ -100,7 +105,7 @@ import { officeDay, ritualFor, standupTurn, standupTurnSeconds } from "./office-
 import { buildOffice, type CloseupShot, type DeskMember, twobBoardShot } from "./office-scene.js";
 import { atJakartaTime, type DayPart, dayPart, jakartaHours, skyAt } from "./office-time.js";
 import { PlaceholderAvatar } from "./placeholder.js";
-import { OfficeCat } from "./scene/cat.js";
+import { CatBowl, OfficeCat } from "./scene/cat.js";
 import { drawerTravel, memberPropLooks } from "./scene/desks.js";
 import { HandProps, handPropModel, setCupFill } from "./scene/hand-props.js";
 import { sceneQuality } from "./scene/palette.js";
@@ -411,6 +416,12 @@ const alyxSeats: readonly StationId[] = [
 ];
 /** Seated, his eyes are this far above the seat. */
 const seatedEye = 0.62;
+/** Lifting Mochi off a keyboard: reaching for her, then carrying her down to the floor, in seconds. */
+const catLift = { reach: 0.9, carry: 1.4 } as const;
+/** She is hungry again from here on, 0 just fed to 1 starving. */
+const hungryFrom = 0.6;
+/** Seconds into a meal before the bowl goes down, so she is seen eating first. */
+const mealSeconds = 5;
 /** How long a stroke lasts, from his hand going down to her purring stopping. */
 const catPetSeconds = 3;
 /** A teammate walking this close to Mochi says hello to her. */
@@ -488,6 +499,19 @@ export class OfficeStage {
   private catPettedAt: number | null = null;
   private catBegged: number | null = null;
   private readonly catGreetedBy = new Map<MemberId, number>();
+  /** 0 just fed to 1 starving; she goes to the bowl from hungryFrom on. */
+  private catHunger = 0.3;
+  private bowlFood = 1;
+  private readonly bowl = new CatBowl();
+  /** The meal (by arrival time) already taken out of the bowl. */
+  private catAte: number | null = null;
+  private bowlRefilledAt = Number.NEGATIVE_INFINITY;
+  /** Asleep on someone's keyboard: whose, when they lift her, and the lift once it has started. */
+  private catNap: {
+    owner: DeskMember;
+    liftAt: number | null;
+    lift: { startedAt: number; from: { x: number; z: number; height: number }; to: Point } | null;
+  } | null = null;
   private catGreetedLast = Number.NEGATIVE_INFINITY;
   /** The TV, arcades, fridge and meeting laptops he switched on or opened, by target id. */
   private readonly alyxOn = new Set<string>();
@@ -581,7 +605,17 @@ export class OfficeStage {
     const [backGlow, sideGlow] = this.neonGlow as [PointLight, PointLight];
     backGlow.position.set(0, 1.6, -4.3);
     sideGlow.position.set(-6.3, 1.6, 0);
-    this.scene.add(this.hemisphere, sun, this.windowFill, backGlow, sideGlow, this.office.root, this.catModel.root);
+    this.bowl.root.position.set(bowlSpot.x, 0, bowlSpot.z);
+    this.scene.add(
+      this.hemisphere,
+      sun,
+      this.windowFill,
+      backGlow,
+      sideGlow,
+      this.office.root,
+      this.catModel.root,
+      this.bowl.root,
+    );
     this.applyDaylight();
 
     this.controls = new OrbitControls(this.camera, canvas);
@@ -914,6 +948,14 @@ export class OfficeStage {
         });
       }
     }
+    if (this.bowlFood < 0.99) {
+      targets.push({
+        id: "bowl",
+        label: `Isi mangkok ${catName}`,
+        point: { x: bowlSpot.x, y: 0.05, z: bowlSpot.z },
+        reach: handReach,
+      });
+    }
     targets.push({
       id: "cat",
       label: `Elus ${catName}`,
@@ -966,6 +1008,10 @@ export class OfficeStage {
         return;
       case "cat":
         this.petCat();
+        return;
+      case "bowl":
+        this.bowlFood = 1;
+        this.bowlRefilledAt = this.elapsed;
         return;
       case "lamp": {
         const owner = first as DeskMember;
@@ -1127,8 +1173,23 @@ export class OfficeStage {
     if (atDesks.length === 0) {
       unavailable.add("visit");
     }
+    // Keyboards she can get onto: an L-desk's short leg is her way up.
+    const keyboards = atDesks.filter((memberId) => furniture.some((piece) => piece.id === `return-${memberId}`));
+    if (keyboards.length === 0) {
+      unavailable.add("keyboard");
+    }
     const snacking = memberIds.some((memberId) => this.rigs[memberId].action === "snack");
-    const plan = nextCatPlan(previous, jakartaHours(this.clock()), Math.random, { snacking, unavailable });
+    const plan = nextCatPlan(previous, jakartaHours(this.clock()), Math.random, {
+      snacking,
+      unavailable,
+      hungry: this.catHunger >= hungryFrom,
+      bowlFood: this.bowlFood,
+      rally: this.office.pingpongBall.visible,
+    });
+    if (plan.spot === "keyboard") {
+      const owner = keyboards[Math.floor(Math.random() * keyboards.length) % keyboards.length] as DeskMember;
+      return { plan, target: this.keyboardPerch(owner) };
+    }
     if (plan.spot !== "visit") {
       return { plan, target: catSpots[plan.spot] };
     }
@@ -1141,13 +1202,138 @@ export class OfficeStage {
     };
   }
 
+  /**
+   * The way up onto a teammate's keyboard: walk to the end of their L-desk's short leg, hop up onto
+   * it, cross the desktop to the keys, and curl up there facing them.
+   */
+  private keyboardPerch(owner: DeskMember): CatChoice["target"] {
+    this.catNap = { owner, liftAt: null, lift: null };
+    const leg = furniture.find((piece) => piece.id === `return-${owner}`) as (typeof furniture)[number];
+    const keys = this.office.workstations[owner].keyboard.root.getWorldPosition(new Vector3());
+    const chair = stations[`desk-${owner}`].spot;
+    return {
+      spot: { x: keys.x, z: keys.z },
+      height: surface.desk + 0.025,
+      approach: navGrid.nearestFree({ x: leg.x, z: leg.z }),
+      facing: Math.atan2(chair.x - keys.x, chair.z - keys.z),
+      perch: [{ x: leg.x, z: leg.z, height: surface.desk }],
+    };
+  }
+
+  /** Mochi asleep on this teammate's keyboard: they cannot type until she is off it. */
+  private catOnKeyboardOf(memberId: MemberId): boolean {
+    return this.catNap?.owner === memberId && this.cat.spotId === "keyboard" && this.cat.arrivedAt !== null;
+  }
+
+  /**
+   * The keyboard nap: once she has been there a while, the owner reaches over, lifts her and sets
+   * her down beside the chair. If they get up first, she hops down on her own.
+   */
+  private updateCatNap(): void {
+    const nap = this.catNap;
+    if (nap === null) {
+      return;
+    }
+    if (this.cat.spotId !== "keyboard") {
+      this.catNap = null;
+      return;
+    }
+    if (this.cat.arrivedAt === null) {
+      return;
+    }
+    const owner = this.rigs[nap.owner];
+    const atDesk = owner.plan.station === `desk-${nap.owner}` && !isWalking(owner.actor);
+    if (!atDesk && nap.lift === null) {
+      this.cat.land(navGrid.nearestFree(this.cat.position));
+      this.catNap = null;
+      return;
+    }
+    if (nap.liftAt === null) {
+      nap.liftAt = this.elapsed + (this.cat.planDurationMs ?? 12_000) / 1000;
+      return;
+    }
+    if (nap.lift === null) {
+      if (this.elapsed < nap.liftAt) {
+        return;
+      }
+      nap.lift = {
+        startedAt: this.elapsed,
+        from: { ...this.cat.position, height: this.cat.height },
+        to: navGrid.nearestFree(stations[`desk-${nap.owner}`].approach),
+      };
+      const line = keyboardLines[Math.floor(Math.random() * keyboardLines.length)] ?? "Turun dulu ya, Mochi.";
+      this.chatter.announce(nap.owner, line, this.elapsed, this.elapsed + 3);
+      return;
+    }
+    const t = this.elapsed - nap.lift.startedAt;
+    if (t < catLift.reach) {
+      return;
+    }
+    const k = Math.min(1, (t - catLift.reach) / catLift.carry);
+    const eased = k * k * (3 - 2 * k);
+    const { from, to } = nap.lift;
+    const position = { x: from.x + (to.x - from.x) * eased, z: from.z + (to.z - from.z) * eased };
+    // Up off the keys, across, and down to the floor.
+    const height = from.height * (1 - eased) + 0.12 * Math.sin(Math.PI * eased);
+    this.cat.carry(position, height, this.cat.yaw);
+    if (k >= 1) {
+      this.cat.land(to);
+      this.catSpeech = { text: catLine("lifted", Math.random), startedAt: this.elapsed, until: this.elapsed + 2 };
+      this.catNap = null;
+    }
+  }
+
+  /** Both hands round Mochi while lifting her off the keyboard, or null when nobody is. */
+  private catLiftTargets(memberId: MemberId): HandTargets | null {
+    const lift = this.catNap?.owner === memberId ? this.catNap.lift : null;
+    if (lift === null || this.elapsed - lift.startedAt > catLift.reach + catLift.carry) {
+      return null;
+    }
+    const yaw = this.rigs[memberId].actor.yaw;
+    // The avatar's left, in the room: it faces +z with its left on +x.
+    const left = { x: Math.cos(yaw), z: -Math.sin(yaw) };
+    const at = (side: number): Vector3 =>
+      new Vector3(
+        this.cat.position.x + left.x * 0.07 * side,
+        this.cat.height + 0.1,
+        this.cat.position.z + left.z * 0.07 * side,
+      );
+    return { ...noHandTargets, left: at(1), right: at(-1), tip: "wrist" };
+  }
+
+  /**
+   * Feeding: she gets hungrier through the day, eats a third of the bowl when she gets to it, and a
+   * teammate at the fridge fills it if it is empty.
+   */
+  private updateCatFood(delta: number, pose: string): void {
+    this.catHunger = Math.min(1, this.catHunger + delta / hungerSeconds);
+    const arrived = this.cat.arrivedAt;
+    if (pose === "eat" && arrived !== null && this.catAte !== arrived && Date.now() - arrived > mealSeconds * 1000) {
+      this.catAte = arrived;
+      this.bowlFood = afterMeal(this.bowlFood);
+      this.catHunger = 0;
+    }
+    if (this.bowlFood <= 0 && this.elapsed - this.bowlRefilledAt > 60) {
+      const filler = memberIds.find((memberId) => this.rigs[memberId].action === "snack");
+      if (filler !== undefined) {
+        this.bowlFood = 1;
+        this.bowlRefilledAt = this.elapsed;
+        const line = refillLines[Math.floor(Math.random() * refillLines.length)] ?? "Nih, Mochi, makan dulu.";
+        this.chatter.announce(filler, line, this.elapsed, this.elapsed + 3);
+      }
+    }
+    this.bowl.setFood(this.bowlFood);
+  }
+
   /** Moves and poses Mochi, and lets passing teammates say hello to her. */
   private updateCat(delta: number, now: number): void {
     const petted = this.catPettedAt !== null && this.elapsed - this.catPettedAt < catPetSeconds;
     const look = this.catLook !== null && this.elapsed < this.catLook.until ? this.catLook.point : null;
     const { position } = this.cat;
     const face = look === null ? null : Math.atan2(look.x - position.x, look.z - position.z);
+    this.updateCatNap();
     const pose = this.cat.update(delta, now, (previous) => this.chooseCatPlan(previous), petted, face);
+    this.updateCatFood(delta, pose);
     // Begging at the fridge: one plaintive meow once she gets there.
     const arrived = this.cat.arrivedAt;
     if (pose === "beg" && arrived !== null && this.catBegged !== arrived) {
@@ -1155,7 +1341,11 @@ export class OfficeStage {
       this.catSpeech = { text: catLine("begging", Math.random), startedAt: this.elapsed, until: this.elapsed + 2.5 };
     }
     this.greetCat();
-    const lookTurn = face === null ? 0 : Math.atan2(Math.sin(face - this.cat.yaw), Math.cos(face - this.cat.yaw));
+    // Beside the ping-pong table her head follows the ball; otherwise whoever she looks at.
+    const ball = this.office.pingpongBall;
+    const watching = this.cat.spotId === "pingpong" && this.cat.arrivedAt !== null && ball.visible;
+    const toward = watching ? Math.atan2(ball.position.x - position.x, ball.position.z - position.z) : face;
+    const lookTurn = toward === null ? 0 : Math.atan2(Math.sin(toward - this.cat.yaw), Math.cos(toward - this.cat.yaw));
     this.catModel.root.position.set(this.cat.position.x, this.cat.height, this.cat.position.z);
     this.catModel.root.rotation.y = this.cat.yaw;
     this.catModel.update({
@@ -1414,7 +1604,8 @@ export class OfficeStage {
     const action = rig.action;
     if (memberId in this.office.workstations) {
       const { screen, keyboard, mouse } = this.office.workstations[memberId as DeskMember];
-      const typing = action === "type" && rig.plan.station === `desk-${memberId}`;
+      // Nobody types through a cat asleep on the keys.
+      const typing = action === "type" && rig.plan.station === `desk-${memberId}` && !this.catOnKeyboardOf(memberId);
       // The text stops while the right hand is off the keys.
       const mousing = rig.mouseHabit.using(this.elapsed, typing);
       const typed = screen.update(delta, typing && !mousing);
@@ -1693,7 +1884,8 @@ export class OfficeStage {
     // The right hand leaves the keys or whatever it holds to wave back at the boss.
     const waving =
       answering !== null && action !== null && answering >= bossWaveWindow.from && answering <= bossWaveWindow.to;
-    this.reachFor(rig, waving ? { ...handTargets, right: null } : handTargets, delta);
+    const lifting = this.catLiftTargets(memberId);
+    this.reachFor(rig, lifting ?? (waving ? { ...handTargets, right: null } : handTargets), delta);
 
     const reaction = this.chatter.reactionOf(memberId);
     // The mouth during a bit moves too fast to ease, so it is kept apart from the eased face.

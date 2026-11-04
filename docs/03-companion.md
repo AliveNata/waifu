@@ -206,8 +206,11 @@ Barang di sayap L ditaruh di samping pinggul yang duduk, jadi pas makenya badann
 | Karpet lounge | Jilat-jilat bulu |
 | Karpet pojok kolaborasi, deket bangku game, keset pintu | Duduk atau rebahan |
 | Di samping kursi anggota yang lagi di meja | Mampir, duduk, dan ngelihatin orangnya |
+| Di atas keyboard anggota yang lagi di meja | Naik lewat sayap L mejanya, terus tidur di keyboard. Selama itu anggotanya nggak bisa ngetik. Abis beberapa detik anggotanya ngangkat Mochi pakai dua tangan, bilang semacam "Mochi, aku lagi kerja...", terus naruh dia di lantai sebelah kursi. Cuma ke meja yang ada sayap L-nya |
+| Mangkok makanan di sebelah kulkas | Makin siang makin lapar. Kalau mangkoknya ada isi, Mochi makan (sekali makan habis sepertiga). Kalau kosong, dia duduk di sebelah mangkok sambil ngeong. Anggota yang lagi ngemil di kulkas ngisi mangkok yang kosong |
+| Samping meja pingpong | Pas ada yang main, Mochi duduk di pinggir meja dan kepalanya ngikutin bola kiri-kanan |
 
-Anggota yang lewat deket Mochi kadang nyapa ("Halo, Mochi.", "Pus, pus."), terus Mochi noleh dan bales ngeong. Di mode Alyx, arahin titik tengah ke Mochi sampai muncul **E Elus Mochi**: Alyx ngelus dia, Mochi diem, merem, noleh ke Alyx, dan ngedengkur ("Prrr...").
+Anggota yang lewat deket Mochi kadang nyapa ("Halo, Mochi.", "Pus, pus."), terus Mochi noleh dan bales ngeong. Di mode Alyx, kalau mangkoknya belum penuh, arahin titik tengah ke mangkok buat **E Isi mangkok Mochi**. Arahin ke Mochi sampai muncul **E Elus Mochi**: Alyx ngelus dia, Mochi diem, merem, noleh ke Alyx, dan ngedengkur ("Prrr...").
 
 **Ritual harian** (jam Jakarta, sama kayak jam dinding). Cuma cast yang lagi nganggur yang ikut. Yang lagi dijalanin Claude Code tetap kerja.
 
