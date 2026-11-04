@@ -178,8 +178,9 @@ function martabak(): FoodSet {
     const square = new Group();
     square.add(
       box(0.06, 0.026, 0.12, crust, 0, 0.006, 0),
-      box(0.062, 0.006, 0.122, chocolate, 0, 0.019, 0),
-      box(0.04, 0.005, 0.08, cheese, 0, 0.033, 0),
+      // Spread over the top, the way a cut martabak shows its chocolate and grated cheese.
+      box(0.05, 0.004, 0.105, chocolate, 0, 0.032, 0),
+      box(0.034, 0.004, 0.07, cheese, 0, 0.036, 0),
     );
     square.position.set(((index % 4) - 1.5) * 0.066, 0, (Math.floor(index / 4) - 0.5) * 0.128);
     return square;
