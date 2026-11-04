@@ -430,7 +430,8 @@ function setupFor(member: MemberId, side: -1 | 1): ReturnSetup | null {
     case "kobayashi":
       return phoneStandSetup();
     case "huagua":
-      return easelSetup();
+      // Drawn small for the chibi team; a desk easel stands about 0.25 m at the room's scale.
+      return scaled(easelSetup(), 1.35);
     case "asuna":
       return printoutSetup();
     case "yor":

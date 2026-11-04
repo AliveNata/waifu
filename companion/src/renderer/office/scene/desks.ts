@@ -504,7 +504,7 @@ export interface BuiltDesk {
 
 /** 16:10 like the canvas textures, so screen text keeps its shape. */
 const landscape = { width: 0.42, height: 0.2625 };
-const portrait = { width: 0.2, height: 0.32 };
+const portrait = { width: 0.22, height: 0.352 };
 const ultrawideScreen: ScreenSize = { width: 1000, height: 400 };
 
 /** Light laminate top, dark panel legs, and an accent strip under the front edge: the room's gaming cue. */
@@ -525,7 +525,7 @@ function monitor(map: Texture, width: number, height: number, x: number, z: numb
   const group = new Group();
   const ink = standard(palette.inkDeep, 0.4, 0.2);
   group.add(
-    box(0.12, 0.012, 0.09, ink, 0, deskTop, 0),
+    box(0.17, 0.012, 0.13, ink, 0, deskTop, 0),
     box(0.025, y - deskTop + height * 0.3, 0.02, ink, 0, deskTop, -0.02),
     box(width + 0.02, height + 0.02, 0.02, ink, 0, y - 0.01, 0),
   );
@@ -637,7 +637,7 @@ function asunaDesk(piece: Furniture): DeskBuild {
   const mug = mugAt("asuna", 0.36, nearEdge(depth));
   const { unit, drawer } = drawerUnit(width, depth, "left");
   // A rubber duck for talking a broken pipeline through.
-  const duck = deskItem(handPropModel("duck"), -0.33, deskTop + 0.018, nearEdge(depth));
+  const duck = deskItem(handPropModel("duck"), -0.33, deskTop + 0.022, nearEdge(depth));
   duck.rotation.y = 0.5;
   inner.add(keyboard.root, mouse.root, mug, duck, unit);
   return {
@@ -660,7 +660,8 @@ function kobayashiDesk(piece: Furniture): DeskBuild {
   const { dock, console } = handheldDock(0.42, nearEdge(depth) - 0.02);
   const keyboard = keyboardFor("kobayashi", keyboardZ(depth));
   const mouse = mouseBeside(keyboard, palette.accent, palette.inkDeep);
-  const plush = deskItem(handPropModel("plush"), -0.4, deskTop + 0.04, nearEdge(depth) - 0.03);
+  // Clear of the mug now that the plush is its real size.
+  const plush = deskItem(handPropModel("plush"), -0.53, deskTop + 0.07, nearEdge(depth) - 0.06);
   plush.rotation.y = 0.4;
   // The dock takes the right side, so the mug lives on the left.
   const mug = mugAt("kobayashi", -0.27, nearEdge(depth) + 0.04);
@@ -697,9 +698,9 @@ function erzaDesk(piece: Furniture): DeskBuild {
   const cakeZ = nearEdge(depth) - 0.02;
   const plate = mesh(new CylinderGeometry(0.072, 0.072, 0.006, 20), standard(palette.laminate, 0.4));
   plate.position.set(cakeX, deskTop + 0.003, cakeZ);
-  const cake = box(0.05, 0.045, 0.035, standard("#f6efe4", 0.8), cakeX, deskTop + 0.006, cakeZ);
-  const berry = mesh(new SphereGeometry(0.01, 10, 8), standard("#d23b4a", 0.5));
-  berry.position.set(cakeX, deskTop + 0.06, cakeZ);
+  const cake = box(0.07, 0.06, 0.05, standard("#f6efe4", 0.8), cakeX, deskTop + 0.006, cakeZ);
+  const berry = mesh(new SphereGeometry(0.012, 10, 8), standard("#d23b4a", 0.5));
+  berry.position.set(cakeX, deskTop + 0.077, cakeZ);
   const forkModel = handPropModel("fork");
   const bite = forkModel.getObjectByName("bite");
   if (bite !== undefined) {
@@ -820,7 +821,7 @@ function rubyDesk(piece: Furniture): DeskBuild {
   const ink = standard(palette.ink, 0.5);
   const boom = new Group();
   boom.add(box(0.016, 0.26, 0.016, ink, 0, deskTop, 0), box(0.016, 0.016, 0.24, ink, 0, deskTop + 0.25, 0.1));
-  const mic = mesh(new CylinderGeometry(0.022, 0.022, 0.09, 12), standard(palette.inkDeep, 0.3, 0.3));
+  const mic = mesh(new CylinderGeometry(0.03, 0.03, 0.13, 12), standard(palette.inkDeep, 0.3, 0.3));
   mic.position.set(0, deskTop + 0.22, 0.22);
   boom.add(mic, box(0.01, 0.01, 0.008, glow(), 0, deskTop + 0.245, 0.24));
   boom.position.set(-0.45, 0, -depth / 2 + 0.1);
@@ -879,13 +880,13 @@ function riasDesk(piece: Furniture): DeskBuild {
   const boardZ = nearEdge(depth) - 0.02;
   const boardTop = deskTop + 0.012;
   const board = mesh(
-    new PlaneGeometry(0.22, 0.22),
+    new PlaneGeometry(0.27, 0.27),
     new MeshStandardMaterial({ map: chessTexture(), roughness: 0.5 }),
     false,
   );
   board.rotation.x = -Math.PI / 2;
   board.position.set(boardX, boardTop + 0.0005, boardZ);
-  const square = 0.22 / 8;
+  const square = 0.27 / 8;
   const at = (column: number, row: number, height: number): Vector3 =>
     new Vector3(boardX + (column - 3.5) * square, boardTop + height, boardZ + (row - 3.5) * square);
   const pieces = new Group();
@@ -925,7 +926,8 @@ function riasDesk(piece: Furniture): DeskBuild {
     roll.position.set(0, deskTop + 0.018 + index * 0.03, index * 0.012);
     rolls.add(roll);
   }
-  rolls.position.set(0.5, 0, back + 0.04);
+  // Far enough in that the 0.48 m rolls stay on the desk, turned as they are.
+  rolls.position.set(0.3, 0, back + 0.04);
   rolls.rotation.y = 0.35;
 
   inner.add(keyboard.root, mouse.root, lid, board, pieces, queen, saucer, teacup, books, rolls);
@@ -1041,7 +1043,8 @@ function arisuDesk(piece: Furniture, kanban: Texture): DeskBuild {
   );
   const { keyboard, mouse, mug, unit, drawer } = deskBasics("arisu", width, depth);
   // The clipboard by her left hand, for ticking off the plan away from the screen.
-  const clipboard = deskItem(handPropModel("clipboard"), -0.42, deskTop + 0.003, nearEdge(depth) - 0.09);
+  // Clear of the mug at -0.36: the clipboard is A4 size now, 0.15 by 0.21.
+  const clipboard = deskItem(handPropModel("clipboard"), -0.6, deskTop + 0.003, nearEdge(depth) - 0.1);
   clipboard.rotation.y = 0.2;
   // Within arm's reach: things much past the mouse, or far back on the desk, are out of it.
   const hourglass = deskItem(handPropModel("hourglass"), 0.4, deskTop + 0.021, nearEdge(depth) - 0.11);
@@ -1090,7 +1093,8 @@ function komachiDesk(piece: Furniture): DeskBuild {
   writingPad.position.set(padX + 0.03, deskTop + 0.01, padZ);
   const penModel = handPropModel("pen", memberPropLooks.komachi);
   penModel.rotation.set(-Math.PI / 2, 0, 0);
-  const pen = deskItem(penModel, padX + 0.085, deskTop + 0.004, padZ);
+  // Beside the notebook, which is 0.2 m wide now, not sunk into its pages.
+  const pen = deskItem(penModel, padX + 0.125, deskTop + 0.004, padZ);
   // Reference books, the top one taken down to read.
   const stack = new Group();
   for (const [index, color] of ["#5a4f78", "#2f6fd6", "#c97b6b"].entries()) {
@@ -1183,7 +1187,8 @@ function huaguaDesk(piece: Furniture): DeskBuild {
   const pen = deskItem(stylusModel, padX + 0.105, deskTop + 0.014, padZ);
   const swatchModel = handPropModel("swatch");
   swatchModel.rotation.set(0, 0.6, 0);
-  const swatch = deskItem(swatchModel, -0.43, deskTop + 0.004, nearEdge(depth) - 0.1);
+  // Clear of the mug at -0.36: the fan is 0.16 m long now.
+  const swatch = deskItem(swatchModel, -0.6, deskTop + 0.004, nearEdge(depth) - 0.12);
   const sketchbook = box(0.15, 0.014, 0.11, standard("#9fd2b0", 0.8), -0.58, deskTop, -0.2);
   sketchbook.rotation.y = 0.2;
   inner.add(keyboard.root, mouse.root, mug, tablet, writingPad, pen, swatch, sketchbook, unit);

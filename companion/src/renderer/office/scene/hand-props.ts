@@ -59,10 +59,17 @@ const propScale: Partial<Record<HandPropKind, number>> = {
   book: 2.0,
   can: 2.2,
   plate: 1.8,
-  rose: 1.5,
+  rose: 2.2,
   teacup: 1.4,
   controller: 1.6,
   "food-bag": 1.5,
+  swatch: 2.0,
+  plush: 1.8,
+  fork: 1.4,
+  duck: 1.25,
+  "trash-bag": 1.25,
+  // Drawn a size too big for a cocktail stick.
+  "platter-bite": 0.7,
   // The kit's food is real size; the room is 0.73 of that.
   taco: roomScale,
   sandwich: roomScale,

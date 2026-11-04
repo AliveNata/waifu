@@ -119,8 +119,8 @@ export class Treadmill {
       box(0.04, consoleY, 0.04, frame, -width / 2 + 0.04, 0, front),
       box(0.04, consoleY, 0.04, frame, width / 2 - 0.04, 0, front),
       // Hand rails reaching back along the sides at hip height.
-      box(0.03, 0.03, 0.32, frame, -width / 2 + 0.04, consoleY - 0.26, front - 0.16),
-      box(0.03, 0.03, 0.32, frame, width / 2 - 0.04, consoleY - 0.26, front - 0.16),
+      box(0.03, 0.03, 0.42, frame, -width / 2 + 0.04, consoleY - 0.26, front - 0.21),
+      box(0.03, 0.03, 0.42, frame, width / 2 - 0.04, consoleY - 0.26, front - 0.21),
       box(width, 0.1, 0.12, standard(palette.ink, 0.5), 0, consoleY, front),
       box(width - 0.16, 0.05, 0.01, this.display, 0, consoleY + 0.03, front - 0.061),
     );
@@ -207,7 +207,7 @@ export class Aquarium {
     const { width, depth } = localSize(piece);
     // A cabinet at the room's 0.73 scale, so the fish swim at a standing person's chest.
     const cabinet = 0.55;
-    const tank = 0.38;
+    const tank = 0.45;
     this.tankWidth = width - 0.06;
     const water = new MeshStandardMaterial({
       color: "#6fc3e0",
@@ -243,19 +243,20 @@ export class Aquarium {
     for (let index = 0; index < 5; index++) {
       const x = -width / 2 + 0.2 + index * ((width - 0.4) / 4);
       const blade = mesh(
-        new CylinderGeometry(0.004, 0.012, 0.14 + 0.08 * (index % 2), 5),
+        new CylinderGeometry(0.005, 0.014, 0.2 + 0.1 * (index % 2), 5),
         standard(index % 2 === 0 ? palette.leaf : palette.leafDark, 0.8),
       );
-      blade.position.set(x, cabinet + 0.1, (index % 2 === 0 ? -1 : 1) * depth * 0.18);
+      blade.position.set(x, cabinet + 0.13, (index % 2 === 0 ? -1 : 1) * depth * 0.18);
       this.root.add(blade);
     }
     fishColors.forEach((color, index) => {
       const body = new Group();
-      const fishBody = mesh(new SphereGeometry(0.022, 10, 8), standard(color, 0.5), false);
+      // About 5 cm long: a 7 cm aquarium fish at the room's scale.
+      const fishBody = mesh(new SphereGeometry(0.016, 10, 8), standard(color, 0.5), false);
       fishBody.scale.set(1.6, 0.9, 0.7);
-      const tail = mesh(new CylinderGeometry(0, 0.016, 0.03, 4), standard(color, 0.5), false);
+      const tail = mesh(new CylinderGeometry(0, 0.012, 0.022, 4), standard(color, 0.5), false);
       tail.rotation.z = Math.PI / 2;
-      tail.position.x = -0.045;
+      tail.position.x = -0.033;
       body.add(fishBody, tail);
       this.root.add(body);
       this.fish.push({
@@ -354,7 +355,8 @@ export function buildGlassBoard(piece: Furniture): Group {
   ];
   const ink = standard("#3b4466", 0.6);
   for (const [index, note] of notes.entries()) {
-    root.add(box(0.1, 0.1, 0.004, standard(note.color, 0.9), note.x, note.y - 0.05, 0.01));
+    // Sticky notes at their real 76 mm, shrunk to the room's scale.
+    root.add(box(0.06, 0.06, 0.004, standard(note.color, 0.9), note.x, note.y - 0.03, 0.01));
     const next = notes[index + 1];
     if (next !== undefined) {
       const dx = next.x - note.x;
