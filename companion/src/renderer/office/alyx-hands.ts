@@ -70,6 +70,33 @@ export interface HandsPose {
   swing: number;
   /** Seconds into stroking the cat, or null. */
   pet: number | null;
+  /** Her back and the way down, in the view's frame, while stroking her; null keeps the old reach. */
+  petAt?: { back: Vector3; down: Vector3 } | null;
+}
+
+/** As far from the eyes as the hand gets, an arm out. */
+const armReach = 0.62;
+
+/**
+ * The stroking hand on her actual back: palm down onto her, fingers pointing on away from him,
+ * sliding to and fro along her. Out of reach, the hand stops at arm's length toward her.
+ */
+export function strokeOnto(back: Vector3, down: Vector3, seconds: number): Placement {
+  const up = down.clone().negate();
+  // Away from him along the floor: the view's forward with the vertical taken out.
+  const away = new Vector3(0, 0, -1).addScaledVector(up, -new Vector3(0, 0, -1).dot(up));
+  if (away.lengthSq() < 1e-6) {
+    away.set(0, 0, -1);
+  }
+  away.normalize();
+  const palm = back
+    .clone()
+    .addScaledVector(up, 0.03)
+    .addScaledVector(away, 0.05 * Math.sin(seconds * 4.5));
+  if (palm.length() > armReach) {
+    palm.setLength(armReach);
+  }
+  return { ...stroking, palm, fingers: away, facing: down.clone() };
 }
 
 /** How long a stroke of the cat lasts, from reaching down to taking the hand back. */
@@ -246,7 +273,10 @@ export class AlyxHands {
         // Down onto her, then long strokes from head to tail.
         const reach = Math.min(1, pose.pet / 0.4, (petSeconds - pose.pet) / 0.4);
         const along = 0.05 * Math.sin(pose.pet * 4.5);
-        const down = { ...stroking, palm: stroking.palm.clone().add(new Vector3(0, 0, along)) };
+        const down =
+          pose.petAt === undefined || pose.petAt === null
+            ? { ...stroking, palm: stroking.palm.clone().add(new Vector3(0, 0, along)) }
+            : strokeOnto(pose.petAt.back, pose.petAt.down, pose.pet);
         placement = mix(placement, down, reach * reach * (3 - 2 * reach));
       }
       const idleTarget = gestureTargets[side];

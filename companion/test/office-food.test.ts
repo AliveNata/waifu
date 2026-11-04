@@ -4,12 +4,17 @@ import {
   binBox,
   canBuy,
   deliver,
+  foodKinds,
+  foodNames,
   foodPieces,
   initialFood,
+  openBox,
+  piecesOnOffer,
+  setDownOrder,
   takePiece,
 } from "../src/renderer/office/office-food.js";
 
-const fullPizza: BarFood = { kind: "pizza", left: 8, boxOnBar: true, nextBuyAt: 0, last: "pizza" };
+const fullPizza: BarFood = { kind: "pizza", left: 8, boxOnBar: true, open: true, nextBuyAt: 0, last: "pizza" };
 
 describe("food on the bar", () => {
   it("is eaten one piece at a time, and the last piece empties the box", () => {
@@ -93,5 +98,50 @@ describe("food on the bar", () => {
     expect(without.boxOnBar).toBe(false);
     expect(without.nextBuyAt).toBeGreaterThanOrEqual(60_000);
     expect(without.nextBuyAt).toBeLessThanOrEqual(4 * 60_000);
+  });
+});
+
+describe("Alyx's order on the bar", () => {
+  const emptyBar: BarFood = { kind: null, left: 0, boxOnBar: false, open: false, nextBuyAt: 0, last: "pizza" };
+
+  it("goes down shut, and nobody can take a piece until it is opened", () => {
+    // Act
+    const placed = setDownOrder(emptyBar, "martabak");
+    const opened = placed === null ? null : openBox(placed);
+
+    // Assert
+    expect(placed).toMatchObject({ kind: "martabak", left: 8, boxOnBar: true, open: false });
+    expect(placed === null ? -1 : piecesOnOffer(placed)).toBe(0);
+    expect(placed === null ? true : takePiece(placed).took).toBe(false);
+    expect(opened === null ? -1 : piecesOnOffer(opened)).toBe(8);
+    expect(opened === null ? false : takePiece(opened).took).toBe(true);
+  });
+
+  it("only goes onto an empty bar", () => {
+    // Act
+    const onFull = setDownOrder(fullPizza, "sushi");
+
+    // Assert
+    expect(onFull).toBeNull();
+  });
+
+  it("is not swapped out when someone comes back from a food run", () => {
+    // Arrange
+    const placed = setDownOrder(emptyBar, "boba");
+
+    // Act
+    const after = placed === null ? null : deliver(placed, () => 0);
+
+    // Assert
+    expect(after).toEqual(placed);
+  });
+
+  it("has a name and a full count for every food", () => {
+    // Act + Assert
+    for (const kind of foodKinds) {
+      expect(foodNames[kind].length).toBeGreaterThan(0);
+      expect(foodPieces[kind]).toBeGreaterThan(0);
+    }
+    expect(foodKinds).toHaveLength(8);
   });
 });

@@ -1,14 +1,44 @@
 /**
  * Food shared on the bar: someone brings a box, people take a piece at a time, and whoever takes
  * the last one bins the empty box. A while later someone goes out for more, never the same food
- * twice in a row.
+ * twice in a row. Alyx can order in too; what Alyx brings stays shut until Alyx opens it.
  */
-export type FoodKind = "pizza" | "platter" | "donuts" | "sushi";
+export type FoodKind = "pizza" | "platter" | "donuts" | "sushi" | "martabak" | "chicken" | "dimsum" | "boba";
 
-export const foodKinds: readonly FoodKind[] = ["pizza", "platter", "donuts", "sushi"];
+export const foodKinds: readonly FoodKind[] = [
+  "pizza",
+  "sushi",
+  "martabak",
+  "chicken",
+  "dimsum",
+  "donuts",
+  "platter",
+  "boba",
+];
 
-/** Pieces in a full box. */
-export const foodPieces: Record<FoodKind, number> = { pizza: 8, platter: 6, donuts: 6, sushi: 8 };
+/** Pieces in a full box: slices, pieces, buns, or one cup each for the drinks. */
+export const foodPieces: Record<FoodKind, number> = {
+  pizza: 8,
+  platter: 6,
+  donuts: 6,
+  sushi: 8,
+  martabak: 8,
+  chicken: 6,
+  dimsum: 8,
+  boba: 6,
+};
+
+/** What each one is called on screen. */
+export const foodNames: Record<FoodKind, string> = {
+  pizza: "Pizza",
+  platter: "Platter keju",
+  donuts: "Donat",
+  sushi: "Sushi",
+  martabak: "Martabak manis",
+  chicken: "Ayam goreng",
+  dimsum: "Dimsum",
+  boba: "Boba",
+};
 
 export interface BarFood {
   /** What is (or was) in the box on the bar; null once the box is binned. */
@@ -17,6 +47,8 @@ export interface BarFood {
   left: number;
   /** The box is on the bar, full or empty. */
   boxOnBar: boolean;
+  /** Opened, so people can help themselves. Whoever goes out opens it as they set it down. */
+  open: boolean;
   /** When someone may go out for more, in ms; only matters while there is no box on the bar. */
   nextBuyAt: number;
   /** The last food bought, so the next run picks something else. */
@@ -43,11 +75,19 @@ export function initialFood(now: number, random: () => number = Math.random): Ba
       kind,
       left: Math.max(2, Math.round(full * (0.4 + 0.6 * random()))),
       boxOnBar: true,
+      open: true,
       nextBuyAt: now,
       last: kind,
     };
   }
-  return { kind: null, left: 0, boxOnBar: false, nextBuyAt: now + (1 + 3 * random()) * 60_000, last: null };
+  return {
+    kind: null,
+    left: 0,
+    boxOnBar: false,
+    open: false,
+    nextBuyAt: now + (1 + 3 * random()) * 60_000,
+    last: null,
+  };
 }
 
 /** Someone may go out for food: nothing on the bar, and the wait is over. */
@@ -55,9 +95,14 @@ export function canBuy(food: BarFood, now: number): boolean {
   return !food.boxOnBar && now >= food.nextBuyAt;
 }
 
+/** Pieces anyone can take right now: none while the box is shut. */
+export function piecesOnOffer(food: BarFood): number {
+  return food.boxOnBar && food.open ? food.left : 0;
+}
+
 /** Takes one piece. `emptied` says this was the last, so the taker bins the box. */
 export function takePiece(food: BarFood): { food: BarFood; took: boolean; emptied: boolean } {
-  if (!food.boxOnBar || food.left <= 0) {
+  if (piecesOnOffer(food) <= 0) {
     return { food, took: false, emptied: false };
   }
   const left = food.left - 1;
@@ -67,11 +112,35 @@ export function takePiece(food: BarFood): { food: BarFood; took: boolean; emptie
 /** The empty box goes in the bin; the next run out for food is a few minutes away. */
 export function binBox(food: BarFood, now: number, random: () => number = Math.random): BarFood {
   const [shortest, longest] = buyGapMs;
-  return { ...food, kind: null, left: 0, boxOnBar: false, nextBuyAt: now + shortest + random() * (longest - shortest) };
+  return {
+    ...food,
+    kind: null,
+    left: 0,
+    boxOnBar: false,
+    open: false,
+    nextBuyAt: now + shortest + random() * (longest - shortest),
+  };
 }
 
-/** Fresh food on the bar, something other than last time. */
+/** Fresh food on the bar, something other than last time, opened as it is set down. */
 export function deliver(food: BarFood, random: () => number = Math.random): BarFood {
+  // Alyx's order got there first: the box on the bar stays, and this lot goes round by hand.
+  if (food.boxOnBar) {
+    return food;
+  }
   const kind = pickKind(random, food.last);
-  return { ...food, kind, left: foodPieces[kind], boxOnBar: true, last: kind };
+  return { ...food, kind, left: foodPieces[kind], boxOnBar: true, open: true, last: kind };
+}
+
+/** Alyx's order set down on the bar, still shut. Only onto an empty bar: null while food is there. */
+export function setDownOrder(food: BarFood, kind: FoodKind): BarFood | null {
+  if (food.boxOnBar) {
+    return null;
+  }
+  return { ...food, kind, left: foodPieces[kind], boxOnBar: true, open: false, last: kind };
+}
+
+/** Opens the box on the bar, so people can help themselves. */
+export function openBox(food: BarFood): BarFood {
+  return food.boxOnBar ? { ...food, open: true } : food;
 }

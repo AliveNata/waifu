@@ -65,6 +65,14 @@ export const bowlSpot = floor(-3.38, -4.82);
  * The fixed places she likes. "visit" and "keyboard" are worked out at the time, next to (or on
  * the keyboard of) whoever she drops in on.
  */
+/** On the floor at the beanbag's edge, on her way in from the approach. */
+function beanbagEdge(): { x: number; z: number; height: number } {
+  const dx = beanbag.approach.x - beanbag.spot.x;
+  const dz = beanbag.approach.z - beanbag.spot.z;
+  const length = Math.hypot(dx, dz) || 1;
+  return { x: beanbag.spot.x + (dx / length) * 0.45, z: beanbag.spot.z + (dz / length) * 0.45, height: 0 };
+}
+
 export const catSpots: Record<Exclude<CatSpotId, "visit" | "keyboard">, CatSpot> = {
   // Curled up on the front of the cushion, clear of the backrest a sitter leans on.
   beanbag: {
@@ -75,6 +83,8 @@ export const catSpots: Record<Exclude<CatSpotId, "visit" | "keyboard">, CatSpot>
     height: 0.17,
     approach: beanbag.approach,
     facing: beanbag.facing,
+    // Up close on the floor first, so the hop onto the cushion is a short one.
+    perch: [beanbagEdge()],
   },
   // A little to the side of whoever stands there watching too, nose to the glass.
   aquarium: onFloor(aquarium.spot.x + 0.45, aquarium.spot.z, aquarium.facing),
@@ -356,11 +366,13 @@ export class Cat {
         this.legStart = { ...this.position, height: this.height };
       }
     }
-    if (hold) {
+    const next = this.path[0];
+    // Mid-hop she lands first: held there she would hang in the air or sit half inside a cushion.
+    const hopping = next !== undefined && next.height !== this.legStart.height;
+    if (hold && !hopping) {
       this.yaw = face === null ? this.yaw : turnToward(this.yaw, face, catTurnRate * delta);
       return this.path.length > 0 ? "sit" : this.pose;
     }
-    const next = this.path[0];
     if (next === undefined) {
       if (this.arrived === null) {
         this.arrived = now;
@@ -383,7 +395,7 @@ export class Cat {
       // Up or down along the stretch: a hop onto a cushion or a desk, or down off one.
       const leg = distanceTo(this.legStart, next);
       const done = leg > 0 ? 1 - distanceTo(this.position, next) / leg : 1;
-      this.height = this.legStart.height + (next.height - this.legStart.height) * Math.min(1, Math.max(0, done));
+      this.height = hopHeight(this.legStart.height, next.height, done);
     }
     this.walkPhase += step * catStride;
     this.yaw = turnToward(this.yaw, angleTo(this.position, next), catTurnRate * delta);
@@ -403,6 +415,16 @@ export class Cat {
     }
     return path;
   }
+}
+
+/**
+ * Height along a stretch from `from` to `to`, `done` of the way across. A change of height is a
+ * hop that clears the edge of what she jumps onto, not a ramp through the cushion.
+ */
+export function hopHeight(from: number, to: number, done: number): number {
+  const t = Math.min(1, Math.max(0, done));
+  const arc = Math.abs(to - from) > 0.05 ? 0.12 * 4 * t * (1 - t) : 0;
+  return from + (to - from) * t + arc;
 }
 
 function distanceTo(a: Point, b: Point): number {

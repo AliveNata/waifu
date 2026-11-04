@@ -17,6 +17,7 @@ import { requireElement, StatusChip } from "../common/status-chip.js";
 import { loadVrm } from "../common/vrm-loader.js";
 import { VrmOfficeAvatar } from "./avatar.js";
 import { ChatPanel } from "./chat-panel.js";
+import { FoodPicker } from "./food-picker.js";
 import { FrameRate, frameLabel } from "./frame-rate.js";
 import { MusicPanel } from "./music-panel.js";
 import { OfficePointer } from "./office-pointer.js";
@@ -31,7 +32,7 @@ const portraitFraming: SpeakerFraming = { height: 0.55, drop: 0.06 };
 const portraitHoldMs = 1500;
 
 const firstPersonControls =
-  "WASD jalan · Shift lari · mouse buat noleh · E buat interaksi · H sembunyiin tampilan · Esc buat berhenti";
+  "WASD jalan · Shift lari · mouse buat noleh · E buat interaksi · I pesan makanan · H sembunyiin tampilan · Esc buat berhenti";
 const firstPersonPaused = "Klik kantornya buat lanjut jalan · Esc buat keluar dari mode Alyx";
 
 class OfficePage {
@@ -78,6 +79,7 @@ class OfficePage {
   private conversationMode: ConversationMode = "simulated";
   private readonly loadGenerations = new Map<MemberId, number>();
   private readonly stage: OfficeStage;
+  private readonly foodPicker: FoodPicker;
   private readonly models: MemberModelLoader;
   private readonly speakerModels: SpeakerModels;
   private baseHintShown = false;
@@ -89,6 +91,13 @@ class OfficePage {
     canvas: HTMLCanvasElement,
   ) {
     this.stage = new OfficeStage(canvas, () => this.tick());
+    this.foodPicker = new FoodPicker(
+      requireElement("food-picker", HTMLElement),
+      requireElement("food-picker-list", HTMLOListElement),
+      requireElement("food-picker-status", HTMLElement),
+      (kind) => this.stage.orderFoodAsAlyx(kind),
+      () => this.stage.foodOrderStatus(),
+    );
     this.statusDialog = new StatusDialog(
       requireElement("status-dialog", HTMLDialogElement),
       requireElement("status-dialog-summary", HTMLElement),
@@ -356,6 +365,11 @@ class OfficePage {
       this.firstPersonHint.textContent = hint;
     }
     this.firstPersonHint.hidden = !on;
+    if (on) {
+      this.foodPicker.render();
+    } else {
+      this.foodPicker.close();
+    }
     const label = walking ? (this.stage.firstPersonTarget()?.label ?? null) : null;
     if (label !== this.interactLabel) {
       this.interactLabel = label;
@@ -439,8 +453,8 @@ class OfficePage {
   }
 
   /**
-   * F shows or hides the frame rate, H the interface in Alyx mode; Escape leaves the free camera.
-   * Never while typing or in a dialog.
+   * F shows or hides the frame rate; in Alyx mode H hides the interface and I opens the food list.
+   * Escape leaves the free camera. Never while typing or in a dialog.
    */
   private handleShortcut(event: KeyboardEvent): void {
     const target = event.target;
@@ -452,7 +466,12 @@ class OfficePage {
     if (typing || document.querySelector("dialog[open]") !== null || event.ctrlKey || event.metaKey || event.altKey) {
       return;
     }
-    if (event.code === "KeyF") {
+    if (this.foodPicker.handleKey(event)) {
+      event.preventDefault();
+    } else if (event.code === "KeyI" && this.stage.firstPersonOn()) {
+      event.preventDefault();
+      this.foodPicker.open();
+    } else if (event.code === "KeyF") {
       event.preventDefault();
       this.bridge.setFpsVisible(!this.fpsVisible);
     } else if (event.code === "KeyH" && this.stage.firstPersonOn()) {
