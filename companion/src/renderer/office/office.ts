@@ -23,6 +23,7 @@ import { MusicPanel } from "./music-panel.js";
 import { OfficePointer } from "./office-pointer.js";
 import { type CloseupRect, closeupRect, OfficeStage, portraitSize, teamDialogDock } from "./office-stage.js";
 import { loadFoodModels } from "./scene/food-models.js";
+import { loadFurnitureModels } from "./scene/furniture-models.js";
 import { setSceneQuality } from "./scene/palette.js";
 import { SpeechBubbles } from "./speech-bubbles.js";
 import { StatusDialog } from "./status-dialog.js";
@@ -638,7 +639,8 @@ function afterPaint(): Promise<void> {
 // saved state and gets painted first, instead of the window staying blank until the room is up.
 // The bar's food and drinks are small models; they load alongside, and one that fails is logged and left out.
 const foodModels = loadFoodModels();
-Promise.all([quality, chatShown, foodModels])
+const furnitureModels = loadFurnitureModels();
+Promise.all([quality, chatShown, foodModels, furnitureModels])
   .then(async ([chosen]) => {
     await afterPaint();
     setSceneQuality(chosen);

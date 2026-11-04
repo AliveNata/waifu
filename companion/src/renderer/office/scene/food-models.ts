@@ -53,23 +53,32 @@ export const kitScale = 0.35;
 
 const templates = new Map<FoodModelName, Object3D>();
 
-/** Loads every model. One that fails is logged and left out; its food shows as a plain stand-in. */
-export async function loadFoodModels(): Promise<void> {
+/** Loads each GLB into `into` by name. One that fails is logged and left out, for a stand-in to take its place. */
+export async function loadTemplates<Name extends string>(
+  sources: Record<Name, string>,
+  into: Map<Name, Object3D>,
+  what: string,
+): Promise<void> {
   const loader = new GLTFLoader();
   await Promise.all(
-    (Object.entries(urls) as [FoodModelName, string][]).map(async ([name, url]) => {
+    (Object.entries(sources) as [Name, string][]).map(async ([name, url]) => {
       try {
         const gltf = await loader.loadAsync(url);
         gltf.scene.traverse((part) => {
           part.castShadow = false;
           part.receiveShadow = true;
         });
-        templates.set(name, gltf.scene);
+        into.set(name, gltf.scene);
       } catch (error) {
-        console.error(`[office] food model "${name}" could not be loaded`, error);
+        console.error(`[office] ${what} model "${name}" could not be loaded`, error);
       }
     }),
   );
+}
+
+/** Loads every model. One that fails is logged and left out; its food shows as a plain stand-in. */
+export function loadFoodModels(): Promise<void> {
+  return loadTemplates(urls, templates, "food");
 }
 
 /** A fresh copy of a model at `scale` times the kit's size, or an empty group when it is not loaded. */
