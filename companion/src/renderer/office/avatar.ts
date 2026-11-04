@@ -1,5 +1,5 @@
 import type { VRM, VRMSpringBoneCollider } from "@pixiv/three-vrm";
-import { Group } from "three";
+import { Group, Vector3 } from "three";
 import type { ExpressionWeights } from "../common/expressions.js";
 import { type PoseTarget, vrmPoseTarget } from "../common/pose.js";
 import { disposeVrm } from "../common/vrm-loader.js";
@@ -35,11 +35,29 @@ export interface OfficeAvatar {
   dispose(): void;
 }
 
+/**
+ * Colliders farther than this from a member's feet cannot touch their hair: the longest hair
+ * on the team reaches below the knees, and a member walks well under this between refreshes.
+ */
+const hairReach = 1.6;
+/** Seconds between picking the nearby colliders again. */
+const nearbyRefreshSeconds = 0.25;
+
 export class VrmOfficeAvatar implements OfficeAvatar {
   readonly kind = "vrm";
   readonly root = new Group();
   readonly legs: LegMetrics;
   readonly poseTarget: PoseTarget;
+
+  /** The office's colliders with their fixed world positions, from addHairColliders. */
+  private environment: { collider: VRMSpringBoneCollider; at: Vector3; always: boolean }[] = [];
+  /** The collider group the hair joints test: the environment's colliders near this member. */
+  private readonly nearby: { name: string; colliders: VRMSpringBoneCollider[] } = {
+    name: "office-environment",
+    colliders: [],
+  };
+  private sinceRefresh = 0;
+  private readonly scratch = new Vector3();
 
   constructor(private readonly vrm: VRM) {
     const metrics = applyBodyProportions(vrm);
@@ -97,10 +115,18 @@ export class VrmOfficeAvatar implements OfficeAvatar {
   }
 
   addHairColliders(colliders: readonly VRMSpringBoneCollider[]): void {
-    const group = { name: "office-environment", colliders: [...colliders] };
+    // Every hair joint tests every collider in its groups each step, and the office has a few
+    // for every seat in the room. Only the ones near enough for hair to reach are kept in the
+    // group, refreshed as the member moves; the floor is always in.
+    this.environment = colliders.map((collider) => ({
+      collider,
+      at: collider.getWorldPosition(new Vector3()),
+      always: collider.shape.type === "plane",
+    }));
     for (const joint of this.vrm.springBoneManager?.joints ?? []) {
-      joint.colliderGroups = [...joint.colliderGroups, group];
+      joint.colliderGroups = [...joint.colliderGroups, this.nearby];
     }
+    this.refreshNearby();
   }
 
   setExpressions(weights: ExpressionWeights, blink: number): void {
@@ -115,7 +141,22 @@ export class VrmOfficeAvatar implements OfficeAvatar {
   }
 
   update(deltaSeconds: number): void {
+    this.sinceRefresh += deltaSeconds;
+    if (this.sinceRefresh >= nearbyRefreshSeconds) {
+      this.refreshNearby();
+    }
     updateVrmStable(this.vrm, deltaSeconds);
+  }
+
+  private refreshNearby(): void {
+    this.sinceRefresh = 0;
+    const here = this.root.getWorldPosition(this.scratch);
+    this.nearby.colliders.length = 0;
+    for (const { collider, at, always } of this.environment) {
+      if (always || at.distanceToSquared(here) < hairReach * hairReach) {
+        this.nearby.colliders.push(collider);
+      }
+    }
   }
 
   dispose(): void {

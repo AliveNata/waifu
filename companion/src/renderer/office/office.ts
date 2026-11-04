@@ -213,9 +213,10 @@ class OfficePage {
         .getCompanionVisible()
         .then((visible) => this.applyCompanionVisible(visible))
         .catch((error: unknown) => console.error("[office] failed to read the companion setting", error));
-      // 2B's own Menu button and a right-click anywhere in the office open the same menu,
-      // so a second Menu button in the office HUD only crowded the corner.
-      this.menuButton.hidden = true;
+      // The office's settings (resolution, frame cap, sound, ...) live in the app menu, which
+      // otherwise only opens from 2B or the team overlay: hidden 2B would leave no way in.
+      this.menuButton.textContent = "Pengaturan";
+      this.menuButton.addEventListener("click", () => this.bridge.openMenu());
     } else {
       this.menuButton.textContent = "Model";
       this.buildModelDialog();
@@ -400,6 +401,7 @@ class OfficePage {
       this.frameRate.frameMs(),
       this.stage.drawCalls(),
       this.stage.frameCpuMs(),
+      this.stage.frameTeamMs(),
       this.stage.gpuName(),
     );
   }

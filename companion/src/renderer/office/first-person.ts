@@ -20,8 +20,11 @@ export interface WalkInput {
   fast: boolean;
 }
 
-/** A head above the team, so he looks down at them a little: he is the tall one. */
-export const eyeHeight = 1.28;
+/**
+ * A little taller than the team (their eyes are at 1.12 m): he is the tall one, but he meets
+ * their eyes instead of looking down on the tops of their heads.
+ */
+export const eyeHeight = 1.16;
 /** Meters per second. */
 export const strollSpeed = 1.5;
 export const hurryMultiplier = 1.8;

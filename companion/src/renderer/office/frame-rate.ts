@@ -35,12 +35,20 @@ export class FrameRate {
 }
 
 /**
- * "24 fps · 41 ms · cpu 12 ms · 1480 draw", short enough for a corner chip, with the graphics
- * chip on a second line when known. Frame time far above the CPU's share means the GPU is what
- * holds the frame back; close to it, the scripts (animation, hair physics) are.
+ * "24 fps · 41 ms · cpu 12 ms (tim 5) · 1480 draw", short enough for a corner chip, with the
+ * graphics chip on a second line when known. Frame time far above the CPU's share means the GPU
+ * holds the frame back; close to it, the scripts do, and "tim" is how much of that is the team
+ * (poses and hair physics).
  */
-export function frameLabel(fps: number, frameMs: number, drawCalls: number, cpuMs: number, gpu: string | null): string {
-  const numbers = `${Math.round(fps)} fps · ${Math.round(frameMs)} ms · cpu ${Math.round(cpuMs)} ms · ${drawCalls} draw`;
+export function frameLabel(
+  fps: number,
+  frameMs: number,
+  drawCalls: number,
+  cpuMs: number,
+  teamMs: number,
+  gpu: string | null,
+): string {
+  const numbers = `${Math.round(fps)} fps · ${Math.round(frameMs)} ms · cpu ${Math.round(cpuMs)} ms (tim ${Math.round(teamMs)}) · ${drawCalls} draw`;
   return gpu === null ? numbers : `${numbers}\n${gpu}`;
 }
 
