@@ -210,7 +210,8 @@ export interface Station {
 const deskRowSeatZ = -3.92;
 /** Office chairs at knee height, so feet rest flat on the floor and thighs stay level. */
 export const chairSeatHeight = 0.32;
-const sofaSeatHeight = 0.26;
+// About 0.43 m in life, at the room's 0.73 scale.
+const sofaSeatHeight = 0.31;
 /**
  * The lane between the sofa and the coffee table. The sofa faces the TV with its back to the
  * room, so sitters walk in along this lane from the north end and sit down from the front.

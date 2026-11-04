@@ -323,8 +323,9 @@ export function buildHighTable(piece: Furniture): Group {
 export function buildGlassBoard(piece: Furniture): Group {
   const root = placed(piece);
   const { width } = localSize(piece);
-  const bottom = 0.4;
-  const height = 0.7;
+  // At the room's 0.73 scale: from about hip to a little over head height.
+  const bottom = 0.55;
+  const height = 0.85;
   const frame = standard(palette.ink, 0.5, 0.2);
   const glass = new MeshStandardMaterial({
     color: "#dfe9f2",

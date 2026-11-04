@@ -641,7 +641,7 @@ export class EntryDoor {
  * when shut. Each door slides out over its own side bay, so the whole opening clears.
  */
 /** How tall the glass doors are; the header over them takes another 10 cm. */
-export const entryDoorHeight = 1.45;
+export const entryDoorHeight = 1.6;
 
 export function buildEntryDoor(piece: Furniture, logo: Texture | null = null): { root: Group; door: EntryDoor } {
   const root = placed(piece);
