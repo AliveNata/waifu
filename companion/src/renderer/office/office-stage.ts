@@ -1221,7 +1221,7 @@ export class OfficeStage {
     for (const station of ["pingpong-west", "pingpong-east"] as const) {
       const { spot } = stations[station];
       // The middle of his half of the table, where the eye goes when he looks at it.
-      const towardTable = station === "pingpong-west" ? 0.75 : -0.75;
+      const towardTable = station === "pingpong-west" ? 1.0 : -1.0;
       if (this.life.occupant(station) === null && !this.stationCrowded(station)) {
         targets.push({
           id: `pingpong:${station}`,
@@ -1440,7 +1440,7 @@ export class OfficeStage {
         if (this.foodOrder !== null) {
           // Carried in front, a little smaller than it is so it does not fill the view.
           const parcel = shutPackage(this.foodOrder.kind);
-          parcel.scale.setScalar(0.7);
+          parcel.scale.multiplyScalar(0.9);
           this.alyxHands.hold(parcel);
         }
         return;

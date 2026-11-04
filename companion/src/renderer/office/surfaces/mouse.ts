@@ -1,8 +1,9 @@
 import { BoxGeometry, Color, Group, Mesh, MeshStandardMaterial, Vector3 } from "three";
 
-const bodyHeight = 0.016;
+/** A real mouse at the room's 0.73 scale: about 0.05 by 0.08 m. */
+const bodyHeight = 0.022;
 /** Where the index fingertip rests, from the mouse's center: on the button, toward the screen. */
-const grip = new Vector3(0, bodyHeight + 0.004, -0.014);
+const grip = new Vector3(0, bodyHeight + 0.004, -0.02);
 const clickDip = 0.004;
 const clickSeconds = 0.12;
 
@@ -23,12 +24,12 @@ export class DeskMouse {
   constructor(accent: string, base: string) {
     this.glow = new Color(accent);
     this.idle = new Color(base);
-    const shell = new Mesh(new BoxGeometry(0.036, bodyHeight, 0.056), new MeshStandardMaterial({ color: base }));
+    const shell = new Mesh(new BoxGeometry(0.048, bodyHeight, 0.078), new MeshStandardMaterial({ color: base }));
     shell.position.y = bodyHeight / 2;
     shell.castShadow = true;
     this.buttonMaterial = new MeshStandardMaterial({ color: base, emissive: accent, emissiveIntensity: 0 });
-    const button = new Mesh(new BoxGeometry(0.03, 0.003, 0.018), this.buttonMaterial);
-    button.position.set(0, bodyHeight + 0.0015, -0.016);
+    const button = new Mesh(new BoxGeometry(0.04, 0.003, 0.026), this.buttonMaterial);
+    button.position.set(0, bodyHeight + 0.0015, -0.022);
     this.body.add(shell, button);
     this.root.add(this.body);
   }

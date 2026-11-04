@@ -1,9 +1,11 @@
 import {
   AdditiveBlending,
+  CatmullRomCurve3,
   Color,
   CylinderGeometry,
   DataTexture,
   Group,
+  type Material,
   MeshBasicMaterial,
   MeshStandardMaterial,
   NearestFilter,
@@ -13,6 +15,7 @@ import {
   SRGBColorSpace,
   type Texture,
   TorusGeometry,
+  TubeGeometry,
   Vector3,
 } from "three";
 import type { MemberId } from "../../../shared/team.js";
@@ -127,6 +130,14 @@ function at(object: Object3D, x: number, y: number, z: number): Object3D {
   return object;
 }
 
+/** A round bar from one point to another, for arms that have to meet at their joints. */
+function rod(from: Vector3, to: Vector3, radius: number, material: Material): Object3D {
+  const bar = mesh(new CylinderGeometry(radius, radius, from.distanceTo(to), 8), material);
+  bar.position.copy(from).add(to).multiplyScalar(0.5);
+  bar.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), to.clone().sub(from).normalize());
+  return bar;
+}
+
 /**
  * Each member's lamp, picked for who they are: 2B's black architect lamp, Chizuru's mushroom,
  * Rias's brass lamp with a crimson shade, Asuna's LED bar, Kobayashi's dragon-green gooseneck,
@@ -139,18 +150,21 @@ function lampLook(member: DeskMember): LampLook {
       // Two straight arms at an angle and a cone head: a drafting lamp, precise and dark.
       const black = standard("#16161a", 0.35, 0.2);
       const bulb = glow("#e8f0ff", 0);
-      const lower = mesh(new CylinderGeometry(0.006, 0.006, 0.2, 8), black);
-      lower.rotation.x = 0.35;
-      const upper = mesh(new CylinderGeometry(0.006, 0.006, 0.18, 8), black);
-      upper.rotation.x = 1.9;
+      // The arms are drawn joint to joint, so the elbow and the head always meet them.
+      const shoulder = new Vector3(0, y + 0.014, 0);
+      const elbow = new Vector3(0, y + 0.2, 0.07);
       const head = mesh(new CylinderGeometry(0.018, 0.045, 0.07, 16, 1, true), black);
-      head.rotation.x = 0.3;
+      // The narrow end tips back toward the arm, the open end down over the desk.
+      head.rotation.x = -0.3;
+      const headAt = new Vector3(0, y + 0.17, 0.23);
+      const neck = headAt.clone().add(new Vector3(0, Math.cos(0.3) * 0.035, -Math.sin(0.3) * 0.035));
       return {
         parts: [
           box(0.08, 0.014, 0.08, black, 0, y, 0),
-          at(lower, 0, y + 0.1, 0.035),
-          at(upper, 0, y + 0.2 + 0.0, 0.14),
-          at(head, 0, y + 0.17, 0.23),
+          rod(shoulder, elbow, 0.006, black),
+          at(mesh(new SphereGeometry(0.01, 10, 8), black), elbow.x, elbow.y, elbow.z),
+          rod(elbow, neck, 0.006, black),
+          at(head, headAt.x, headAt.y, headAt.z),
           at(mesh(new SphereGeometry(0.014, 10, 8), bulb, false), 0, y + 0.155, 0.235),
         ],
         bulb,
@@ -210,16 +224,23 @@ function lampLook(member: DeskMember): LampLook {
       // A bendy gooseneck in dragon green, the head bent down over the keyboard.
       const green = standard("#4fae6f", 0.5);
       const bulb = glow("#eaffef", 0);
-      const neck = mesh(new TorusGeometry(0.12, 0.007, 8, 20, Math.PI * 0.75), green);
-      neck.rotation.y = -Math.PI / 2;
+      // Up out of the base, over the top and down toward the keys, ending where the head hangs.
+      const curve = new CatmullRomCurve3([
+        new Vector3(0, y + 0.02, 0),
+        new Vector3(0, y + 0.15, 0.01),
+        new Vector3(0, y + 0.22, 0.08),
+        new Vector3(0, y + 0.19, 0.185),
+      ]);
+      const neck = mesh(new TubeGeometry(curve, 20, 0.007, 8, false), green);
       const head = mesh(new CylinderGeometry(0.016, 0.04, 0.06, 14, 1, true), green);
-      head.rotation.x = -0.4;
+      // The narrow end toward the neck, the open end down at the keys.
+      head.rotation.x = -0.6;
       return {
         parts: [
           at(mesh(new CylinderGeometry(0.045, 0.05, 0.02, 18), standard("#2b2b30", 0.5)), 0, y + 0.01, 0),
-          at(neck, 0, y + 0.02, 0.12),
-          at(head, 0, y + 0.115, 0.215),
-          at(mesh(new SphereGeometry(0.013, 10, 8), bulb, false), 0, y + 0.1, 0.22),
+          neck,
+          at(head, 0, y + 0.165, 0.205),
+          at(mesh(new SphereGeometry(0.013, 10, 8), bulb, false), 0, y + 0.145, 0.215),
         ],
         bulb,
         poolAhead: 0.24,
@@ -351,10 +372,37 @@ function lampLook(member: DeskMember): LampLook {
  * The member's lamp at (x, z) in the desk's frame, turned toward the middle of the desk's front
  * edge, with its pool of light on the desk in front of it.
  */
+/**
+ * How much each lamp grows from where it was drawn for the chibi team, to stand about 0.3 m over
+ * the desk like a real one at the room's 0.73 scale. The mushroom and the two light bars already do.
+ */
+const lampScale: Record<DeskMember, number> = {
+  twob: 1.35,
+  chizuru: 1,
+  rias: 1.25,
+  asuna: 1.05,
+  kobayashi: 1.35,
+  yor: 1.2,
+  erza: 1.5,
+  ruby: 1.2,
+  arisu: 1.3,
+  komachi: 1,
+  miruku: 1.6,
+  huagua: 1.25,
+};
+
 function deskLamp(member: DeskMember, x: number, z: number, depth: number): DeskLamp {
   const root = new Group();
   const look = lampLook(member);
-  root.add(...look.parts);
+  // The parts are drawn from the desk top up; they grow about the desk top so the base stays on it.
+  const drawn = new Group();
+  drawn.add(...look.parts);
+  drawn.position.y = -deskTop;
+  const grown = new Group();
+  grown.add(drawn);
+  grown.scale.setScalar(lampScale[member]);
+  grown.position.y = deskTop;
+  root.add(grown);
   root.position.set(x, 0, z);
   root.rotation.y = Math.atan2(-x, depth / 2 - z);
   const poolMaterial = new MeshBasicMaterial({
@@ -367,7 +415,7 @@ function deskLamp(member: DeskMember, x: number, z: number, depth: number): Desk
   });
   const pool = mesh(new PlaneGeometry(0.6, 0.6), poolMaterial, false);
   pool.rotation.x = -Math.PI / 2;
-  pool.position.set(0, deskTop + 0.002, look.poolAhead);
+  pool.position.set(0, deskTop + 0.002, look.poolAhead * lampScale[member]);
   root.add(pool);
   const lamp = new DeskLamp(root, look.bulb, poolMaterial);
   lamp.setLevel(0);
@@ -400,10 +448,10 @@ export const memberPropLooks: Record<MemberId, PropLook> = {
   huagua: { mug: "#9fd2b0", shell: "#e8e2d4" },
 };
 
-/** The same mug the member carries, a size up on the desk so it reads from the room camera. */
+/** The same mug the member carries, standing on the desk. */
 function mugAt(member: MemberId, x: number, z: number): Group {
+  // The hand's mug is already at the room's scale, so the desk shows the same size.
   const model = handPropModel("mug", memberPropLooks[member]);
-  model.scale.setScalar(1.15);
   return deskItem(model, x, deskTop + 0.017, z);
 }
 
@@ -530,7 +578,7 @@ function headsetStand(x: number, z: number): Group {
   band.rotation.y = Math.PI / 2;
   band.position.set(0, deskTop + 0.16, 0);
   const cupMaterial = standard(palette.ink, 0.5);
-  const leftCup = mesh(new CylinderGeometry(0.025, 0.025, 0.02, 12), cupMaterial);
+  const leftCup = mesh(new CylinderGeometry(0.034, 0.034, 0.022, 12), cupMaterial);
   leftCup.rotation.z = Math.PI / 2;
   leftCup.position.set(-0.05, deskTop + 0.13, 0);
   const rightCup = leftCup.clone();
@@ -555,7 +603,7 @@ function keyboardFor(member: DeskMember, z: number): Keyboard {
 /** Just right of the keyboard, within arm's reach and clear of the mugs at x 0.42 and beyond. */
 function mouseBeside(keyboard: Keyboard, accent: string, base: string): DeskMouse {
   const mouse = new DeskMouse(accent, base);
-  mouse.root.position.set(keyboard.root.position.x + 0.26, deskTop, keyboard.root.position.z + 0.02);
+  mouse.root.position.set(keyboard.root.position.x + 0.23, deskTop, keyboard.root.position.z + 0.02);
   return mouse;
 }
 
@@ -647,7 +695,7 @@ function erzaDesk(piece: Furniture): DeskBuild {
   const mouse = mouseBeside(keyboard, palette.accent, palette.inkDeep);
   const cakeX = -0.34;
   const cakeZ = nearEdge(depth) - 0.02;
-  const plate = mesh(new CylinderGeometry(0.05, 0.05, 0.006, 20), standard(palette.laminate, 0.4));
+  const plate = mesh(new CylinderGeometry(0.072, 0.072, 0.006, 20), standard(palette.laminate, 0.4));
   plate.position.set(cakeX, deskTop + 0.003, cakeZ);
   const cake = box(0.05, 0.045, 0.035, standard("#f6efe4", 0.8), cakeX, deskTop + 0.006, cakeZ);
   const berry = mesh(new SphereGeometry(0.01, 10, 8), standard("#d23b4a", 0.5));
@@ -659,7 +707,7 @@ function erzaDesk(piece: Furniture): DeskBuild {
   }
   // Lying flat beside the plate, tines away from her.
   forkModel.rotation.x = -Math.PI / 2;
-  const fork = deskItem(forkModel, cakeX + 0.07, deskTop + 0.004, cakeZ);
+  const fork = deskItem(forkModel, cakeX + 0.09, deskTop + 0.004, cakeZ);
   const mug = mugAt("erza", 0.36, nearEdge(depth));
   const { unit, drawer } = drawerUnit(width, depth, "left");
   inner.add(keyboard.root, mouse.root, plate, cake, berry, fork, mug, unit);
@@ -685,10 +733,10 @@ function yorDesk(piece: Furniture): DeskBuild {
   const mouse = mouseBeside(keyboard, palette.accent, palette.inkDeep);
   const vaseX = -0.32;
   const vaseZ = nearEdge(depth);
-  const vase = mesh(new CylinderGeometry(0.018, 0.022, 0.09, 12), standard(palette.glass, 0.1));
-  vase.position.set(vaseX, deskTop + 0.045, vaseZ);
+  const vase = mesh(new CylinderGeometry(0.025, 0.03, 0.13, 12), standard(palette.glass, 0.1));
+  vase.position.set(vaseX, deskTop + 0.065, vaseZ);
   // Held by the stem just above the vase; the stem goes down into the water.
-  const rose = deskItem(handPropModel("rose"), vaseX, deskTop + 0.1, vaseZ);
+  const rose = deskItem(handPropModel("rose"), vaseX, deskTop + 0.14, vaseZ);
   const mug = mugAt("yor", 0.36, nearEdge(depth));
   const { unit, drawer } = drawerUnit(width, depth, "right");
   inner.add(keyboard.root, mouse.root, vase, rose, mug, unit);
@@ -741,12 +789,13 @@ function laptop(screen: ScreenSurface, depth: number, shell: string, keys: strin
   const mouse = mouseBeside(keyboard, palette.accent, keys);
   const lid = new Group();
   // Hinged above the keys, so the shut lid lies on them instead of the keys poking through it.
-  lid.position.set(0, deskTop + 0.03, keyboardZ(depth) - 0.11);
+  lid.position.set(0, deskTop + 0.03, keyboardZ(depth) - 0.07);
   lid.rotation.x = 0.25;
   lid.userData.openAngle = 0.25;
-  lid.add(box(0.38, 0.24, 0.012, standard(shell, 0.5), 0, 0, -0.006));
-  const panel = mesh(new PlaneGeometry(0.36, 0.225), unlit(screen.texture), false);
-  panel.position.set(0, 0.12, 0.001);
+  // A touch wider than the keyboard (0.32) and longer than it is deep, so the shut lid covers every key.
+  lid.add(box(0.34, 0.2, 0.012, standard(shell, 0.5), 0, 0, -0.006));
+  const panel = mesh(new PlaneGeometry(0.32, 0.185), unlit(screen.texture), false);
+  panel.position.set(0, 0.1, 0.001);
   lid.add(panel);
   return { keyboard, mouse, lid };
 }
@@ -819,21 +868,21 @@ function riasDesk(piece: Furniture): DeskBuild {
   const boardZ = nearEdge(depth) - 0.02;
   const boardTop = deskTop + 0.012;
   const board = mesh(
-    new PlaneGeometry(0.15, 0.15),
+    new PlaneGeometry(0.22, 0.22),
     new MeshStandardMaterial({ map: chessTexture(), roughness: 0.5 }),
     false,
   );
   board.rotation.x = -Math.PI / 2;
   board.position.set(boardX, boardTop + 0.0005, boardZ);
-  const square = 0.15 / 8;
+  const square = 0.22 / 8;
   const at = (column: number, row: number, height: number): Vector3 =>
     new Vector3(boardX + (column - 3.5) * square, boardTop + height, boardZ + (row - 3.5) * square);
   const pieces = new Group();
   for (const [color, column, row, height] of [
-    ["#b3262f", 2, 6, 0.03],
-    ["#b3262f", 5, 7, 0.026],
-    ["#1d1a1f", 3, 1, 0.03],
-    ["#1d1a1f", 6, 2, 0.026],
+    ["#b3262f", 2, 6, 0.042],
+    ["#b3262f", 5, 7, 0.036],
+    ["#1d1a1f", 3, 1, 0.042],
+    ["#1d1a1f", 6, 2, 0.036],
     ["#1d1a1f", 1, 0, 0.034],
   ] as const) {
     const placed = chessPiece(color, height);
@@ -841,15 +890,15 @@ function riasDesk(piece: Furniture): DeskBuild {
     pieces.add(placed);
   }
   // Her queen, the piece she keeps moving while she thinks.
-  const queenHeight = 0.036;
+  const queenHeight = 0.05;
   // Between two squares on the side nearest her, where her hand reaches.
   const chessMove: [Vector3, Vector3] = [at(6, 7, queenHeight), at(5, 4, queenHeight)];
   const queen = chessPiece("#b3262f", queenHeight);
   queen.position.copy(chessMove[0]);
 
-  const saucer = mesh(new CylinderGeometry(0.036, 0.03, 0.006, 18), standard("#f7f1ea", 0.3));
+  const saucer = mesh(new CylinderGeometry(0.052, 0.044, 0.006, 18), standard("#f7f1ea", 0.3));
   saucer.position.set(0.32, deskTop + 0.003, nearEdge(depth) + 0.04);
-  const teacup = deskItem(handPropModel("teacup"), 0.32, deskTop + 0.021, nearEdge(depth) + 0.04);
+  const teacup = deskItem(handPropModel("teacup"), 0.32, deskTop + 0.027, nearEdge(depth) + 0.04);
 
   const books = new Group();
   for (const [index, color] of ["#5c2a35", "#2f3b55", "#c9a24a"].entries()) {
@@ -860,7 +909,7 @@ function riasDesk(piece: Furniture): DeskBuild {
   books.position.set(-0.52, 0, back + 0.04);
   const rolls = new Group();
   for (const [index, color] of ["#4a78b5", "#e9eef5"].entries()) {
-    const roll = mesh(new CylinderGeometry(0.018, 0.018, 0.34, 12), standard(color, 0.8));
+    const roll = mesh(new CylinderGeometry(0.02, 0.02, 0.48, 12), standard(color, 0.8));
     roll.rotation.z = Math.PI / 2;
     roll.position.set(0, deskTop + 0.018 + index * 0.03, index * 0.012);
     rolls.add(roll);
@@ -984,7 +1033,7 @@ function arisuDesk(piece: Furniture, kanban: Texture): DeskBuild {
   const clipboard = deskItem(handPropModel("clipboard"), -0.42, deskTop + 0.003, nearEdge(depth) - 0.09);
   clipboard.rotation.y = 0.2;
   // Within arm's reach: things much past the mouse, or far back on the desk, are out of it.
-  const hourglass = deskItem(handPropModel("hourglass"), 0.4, deskTop + 0.015, nearEdge(depth) - 0.11);
+  const hourglass = deskItem(handPropModel("hourglass"), 0.4, deskTop + 0.021, nearEdge(depth) - 0.11);
   inner.add(keyboard.root, mouse.root, mug, clipboard, hourglass, unit);
   return {
     root: placedDesk(piece, inner),
@@ -1020,9 +1069,9 @@ function komachiDesk(piece: Furniture): DeskBuild {
   const paper = standard("#f7f3ea", 0.9);
   const notebook = new Group();
   notebook.add(
-    box(0.13, 0.006, 0.095, standard("#3b4466", 0.7), 0, deskTop, 0),
-    box(0.06, 0.004, 0.088, paper, -0.032, deskTop + 0.006, 0),
-    box(0.06, 0.004, 0.088, paper, 0.032, deskTop + 0.006, 0),
+    box(0.2, 0.006, 0.145, standard("#3b4466", 0.7), 0, deskTop, 0),
+    box(0.092, 0.004, 0.135, paper, -0.049, deskTop + 0.006, 0),
+    box(0.092, 0.004, 0.135, paper, 0.049, deskTop + 0.006, 0),
   );
   notebook.position.set(padX, 0, padZ);
   notebook.rotation.y = -0.15;
@@ -1034,14 +1083,14 @@ function komachiDesk(piece: Furniture): DeskBuild {
   // Reference books, the top one taken down to read.
   const stack = new Group();
   for (const [index, color] of ["#5a4f78", "#2f6fd6", "#c97b6b"].entries()) {
-    const book = box(0.11, 0.022, 0.08, standard(color, 0.8), 0, deskTop + index * 0.022, 0);
+    const book = box(0.16, 0.025, 0.115, standard(color, 0.8), 0, deskTop + index * 0.025, 0);
     book.rotation.y = (index - 1) * 0.08;
     stack.add(book);
   }
   stack.position.set(-0.44, 0, nearEdge(depth) - 0.12);
   const bookModel = new Group();
-  bookModel.add(box(0.1, 0.02, 0.075, standard("#9fb3e8", 0.8), 0, 0, 0));
-  const book = deskItem(bookModel, -0.44, deskTop + 0.066, nearEdge(depth) - 0.12);
+  bookModel.add(box(0.15, 0.022, 0.11, standard("#9fb3e8", 0.8), 0, 0, 0));
+  const book = deskItem(bookModel, -0.44, deskTop + 0.075, nearEdge(depth) - 0.12);
   inner.add(keyboard.root, mouse.root, mug, notebook, writingPad, pen, stack, book, unit);
   return {
     root: placedDesk(piece, inner),

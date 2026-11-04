@@ -237,7 +237,7 @@ function buildRoomShell(root: Group, logo: Texture): SkyGlass {
 
   // Two windows over the desks with the sign between them, so the brand sits at the room's focal point,
   // and a third over the treadmills, so the runners look out at the city.
-  // The sills clear the monitors and the tops stay under the 2.2 m wall.
+  // The sills clear the monitors and the tops stay under the 2.6 m wall.
   const sill = 1.0;
   const windowHeight = 0.85;
   const sky: SkyGlass = { night: [], twilight: [] };

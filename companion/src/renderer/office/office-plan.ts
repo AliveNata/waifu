@@ -16,7 +16,7 @@ export interface Point {
 }
 
 /**
- * Walls are 2.2 m: tall for the people here, but not so tall the room swallows them like a warehouse.
+ * Walls are 2.6 m: a loft feel over the people here, still short of a warehouse.
  * The room is laid out in zones that each read at a glance from the camera: the pantry and the
  * planning pod by the boards on the left, the builders' L-desks along the back wall mirrored
  * around the logo, 2B front and center between Erza and Miruku, the meeting table on the same
@@ -34,8 +34,8 @@ export const room = { minX: -7, maxX: 10.5, minZ: -5, maxZ: 4, wallHeight: 2.6 }
  */
 export const people = { standing: 1.2, eye: 1.12, seatedEye: 0.86, reach: 1.15 } as const;
 
-/** Heights of the surfaces people use, scaled from adult furniture by roughly 0.65. */
-export const surface = { desk: 0.55, counter: 0.58, barTable: 0.72, pingpong: 0.56, coffeeTable: 0.26 } as const;
+/** Heights of the surfaces people use, scaled from adult furniture by about 0.73. */
+export const surface = { desk: 0.55, counter: 0.58, barTable: 0.72, pingpong: 0.56, coffeeTable: 0.33 } as const;
 
 /** Yaw that faces the camera, which looks in along the +x/+z diagonal. */
 export const facingCamera = Math.PI / 4;
@@ -223,7 +223,7 @@ const sofaFrontX = -5.4;
  */
 const stoolSeatHeight = 0.5;
 /** The cushion surface of the reshaped beanbag, so sitters rest on it instead of sinking in. */
-const beanbagSeatHeight = 0.17;
+const beanbagSeatHeight = 0.22;
 
 /**
  * x of each back-row desk, left to right: the people who build. Two on each side of the logo with
@@ -423,7 +423,7 @@ const treadmillX = [8.35, 9.35] as const;
 const treadmillZ = -4.35;
 const treadmillLength = 1.2;
 /** The belt deck's top: a runner stands this high while on it. */
-export const treadmillDeckHeight = 0.07;
+export const treadmillDeckHeight = 0.12;
 const pingpongCenter = { x: 7.1, z: -2.75 } as const;
 const punchingBagSpot = { x: 9.9, z: -2.75 } as const;
 /** A long low aquarium between the front row and the lounge. */
@@ -650,8 +650,9 @@ export const furniture: readonly Furniture[] = [
     id: "pingpong-table",
     kind: "pingpong-table",
     ...pingpongCenter,
-    width: 1.5,
-    depth: 0.85,
+    // A full table at the room's 0.73 scale (2.74 by 1.525 m real).
+    width: 2.0,
+    depth: 1.1,
     yaw: facing.camera,
     blocksWalking: true,
   },
@@ -699,8 +700,8 @@ export const furniture: readonly Furniture[] = [
     id: "high-table",
     kind: "high-table",
     ...collabCenter,
-    width: 0.7,
-    depth: 0.7,
+    width: 0.56,
+    depth: 0.56,
     yaw: facing.camera,
     blocksWalking: true,
   },
@@ -1186,8 +1187,8 @@ const placeStations: Record<Exclude<StationId, VisitStationId>, Station> = {
   // From the open side by the meeting table, not the narrow lane to 2B's desk on the other side.
   ...meetingStations(),
   // Players stand off each end of the table, facing each other across it.
-  "pingpong-west": standing("pingpong-west", { x: pingpongCenter.x - 1.1, z: pingpongCenter.z }, facing.right),
-  "pingpong-east": standing("pingpong-east", { x: pingpongCenter.x + 1.1, z: pingpongCenter.z }, facing.leftWall),
+  "pingpong-west": standing("pingpong-west", { x: pingpongCenter.x - 1.35, z: pingpongCenter.z }, facing.right),
+  "pingpong-east": standing("pingpong-east", { x: pingpongCenter.x + 1.35, z: pingpongCenter.z }, facing.leftWall),
 };
 
 /**

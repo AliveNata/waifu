@@ -416,9 +416,9 @@ export function buildPantryCounter(
     glass.position.set(-width * 0.3 + jar * 0.14, top + 0.495, -depth / 2 + 0.1);
     root.add(glass);
   }
-  const kettle = mesh(new CylinderGeometry(0.05, 0.065, 0.14, 14), standard(palette.steel, 0.25, 0.7));
+  const kettle = mesh(new CylinderGeometry(0.06, 0.075, 0.18, 14), standard(palette.steel, 0.25, 0.7));
   // Clear of the bar's overhanging top, which covers this end of the counter.
-  kettle.position.set(width / 2 - 0.3, top + 0.07, -0.05);
+  kettle.position.set(width / 2 - 0.3, top + 0.09, -0.05);
   root.add(kettle);
   const sink = buildSink(at.sink - piece.x, top);
   const oven = buildOven(ovenX, front);
@@ -879,10 +879,10 @@ export function buildTvConsole(piece: Furniture): Group {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   root.add(
-    box(width - 0.1, 0.26, depth - 0.1, standard(palette.oak, 0.7), 0, 0, 0),
+    box(width - 0.1, 0.33, depth - 0.1, standard(palette.oak, 0.7), 0, 0, 0),
     box(width - 0.14, 0.012, 0.01, glow(), 0, 0.04, (depth - 0.1) / 2 + 0.005),
-    box(0.22, 0.05, 0.16, standard(palette.inkDeep, 0.3, 0.2), -0.25, 0.26, 0),
-    box(0.01, 0.01, 0.01, glow(), -0.17, 0.29, 0.081),
+    box(0.22, 0.05, 0.16, standard(palette.inkDeep, 0.3, 0.2), -0.25, 0.33, 0),
+    box(0.01, 0.01, 0.01, glow(), -0.17, 0.36, 0.081),
   );
   return root;
 }
@@ -1143,9 +1143,10 @@ export function buildPrinterCabinet(piece: Furniture): Group {
   const cabinetHeight = surface.desk - 0.12;
   root.add(
     box(width - 0.04, cabinetHeight, depth - 0.06, standard(palette.ink, 0.6), 0, 0, 0),
-    box(width - 0.08, 0.13, depth - 0.14, standard(palette.laminate, 0.5), 0, cabinetHeight, 0),
-    box(width - 0.14, 0.015, 0.1, standard("#fbfaf7", 0.9), 0, cabinetHeight + 0.13, 0.04),
-    box(0.012, 0.012, 0.01, glow(), width / 2 - 0.09, cabinetHeight + 0.1, (depth - 0.14) / 2 + 0.005),
+    // An office printer at the room's scale: about 0.3 m a side and 0.17 tall.
+    box(width - 0.08, 0.17, 0.3, standard(palette.laminate, 0.5), 0, cabinetHeight, 0),
+    box(width - 0.14, 0.015, 0.1, standard("#fbfaf7", 0.9), 0, cabinetHeight + 0.17, 0.04),
+    box(0.012, 0.012, 0.01, glow(), width / 2 - 0.09, cabinetHeight + 0.14, 0.155),
   );
   return root;
 }
