@@ -86,6 +86,27 @@ function seatColliders(root: Group, width: number, y: number, front: number, bac
   );
 }
 
+/** A capsule running front to back at `x`, such as along an armrest pad, in the piece's frame. */
+function lengthwiseCollider(
+  root: Group,
+  x: number,
+  y: number,
+  back: number,
+  front: number,
+  radius: number,
+): VRMSpringBoneCollider {
+  const collider = new VRMSpringBoneCollider(
+    new VRMSpringBoneColliderShapeCapsule({
+      offset: new Vector3(0, 0, back),
+      tail: new Vector3(0, 0, front),
+      radius,
+    }),
+  );
+  collider.position.set(x, y, 0);
+  root.add(collider);
+  return collider;
+}
+
 /** A sphere standing in for a rounded seat or cushion, so hair slides off it. */
 function sphereCollider(root: Group, x: number, y: number, z: number, radius: number): VRMSpringBoneCollider {
   const collider = new VRMSpringBoneCollider(new VRMSpringBoneColliderShapeSphere({ radius }));
@@ -137,11 +158,14 @@ export function buildChair(piece: Furniture, seatHeight: number): BuiltPiece {
     box(0.05, headrestBottom - backTop + 0.02, 0.03, trim, 0, backTop - 0.01, backZ - 0.01),
     box(0.26, headrestTop - headrestBottom, 0.065, leather, 0, headrestBottom, backZ + 0.005),
   );
+  // Short armrests, set out past the seat's edge and low: a skirt spreading over the seat edge
+  // and an elbow at the keys both stay clear of them.
+  const armX = 0.25;
+  const armTop = seatHeight + 0.085;
   for (const side of [-1, 1]) {
-    // A short armrest: post from the seat, pad on top, well back from the desk edge.
     root.add(
-      box(0.025, 0.12, 0.025, chrome, side * 0.235, seatHeight - 0.02, -0.06),
-      box(0.05, 0.022, 0.2, dark, side * 0.235, seatHeight + 0.1, -0.05),
+      box(0.025, armTop - seatHeight + 0.02, 0.025, chrome, side * armX, seatHeight - 0.02, -0.06),
+      box(0.05, 0.022, 0.2, dark, side * armX, armTop - 0.022, -0.05),
     );
   }
   return {
@@ -149,6 +173,9 @@ export function buildChair(piece: Furniture, seatHeight: number): BuiltPiece {
     hairColliders: [
       ...panelColliders(root, 0.38, backZ, backBottom, backTop, 0.04),
       capsuleCollider(root, 0.26, (headrestBottom + headrestTop) / 2, backZ, 0.05),
+      // Along each armrest pad, so a skirt or long hair drapes over it instead of cutting through.
+      lengthwiseCollider(root, -armX, armTop - 0.01, -0.15, 0.05, 0.03),
+      lengthwiseCollider(root, armX, armTop - 0.01, -0.15, 0.05, 0.03),
       ...seatColliders(root, 0.4, seatHeight - 0.03, 0.15, -0.15, 0.035),
     ],
   };
@@ -228,6 +255,16 @@ export interface PantryCounter {
   oven: Oven;
   /** One drying slot per owner, in the order given; each holds that owner's cup upside down. */
   rackCups: Object3D[];
+  /** Where hands go: the coffee machine's button, the cup's place under its spout, the basin. */
+  reach: { button: Object3D; tray: Object3D; basin: Object3D };
+}
+
+/** An empty point at a spot in `parent`'s frame, for hands to find in the world. */
+function anchor(parent: Object3D, x: number, y: number, z: number): Object3D {
+  const point = new Group();
+  point.position.set(x, y, z);
+  parent.add(point);
+  return point;
 }
 
 /** A cup that dries on the rack: whose colors, and whether it is a teacup rather than a mug. */
@@ -267,10 +304,13 @@ export function buildPantryCounter(
     root.add(box(0.015, top * 0.6, 0.01, standard(palette.inkSoft, 0.5), x, 0.08, front - 0.015));
   }
   const machineX = at.coffee - piece.x;
+  // Well forward on the counter: the team stands about 1.2 m tall, and the button and the cup's
+  // place have to be within an arm's length of someone standing at the counter's edge.
+  const machineZ = 0;
   root.add(
-    box(0.22, 0.28, 0.22, standard(palette.inkDeep, 0.35, 0.3), machineX, top, -0.08),
-    box(0.16, 0.025, 0.09, standard(palette.steel, 0.3, 0.6), machineX, top + 0.04, 0.05),
-    box(0.05, 0.01, 0.01, glow(), machineX + 0.06, top + 0.24, 0.031),
+    box(0.22, 0.28, 0.22, standard(palette.inkDeep, 0.35, 0.3), machineX, top, machineZ),
+    box(0.16, 0.025, 0.09, standard(palette.steel, 0.3, 0.6), machineX, top + 0.04, machineZ + 0.13),
+    box(0.05, 0.01, 0.01, glow(), machineX + 0.06, top + 0.24, machineZ + 0.111),
   );
   for (let jar = 0; jar < 4; jar++) {
     const glass = mesh(new CylinderGeometry(0.035, 0.035, 0.1, 12), standard(palette.glass, 0.15));
@@ -278,14 +318,25 @@ export function buildPantryCounter(
     root.add(glass);
   }
   const kettle = mesh(new CylinderGeometry(0.05, 0.065, 0.14, 14), standard(palette.steel, 0.25, 0.7));
-  kettle.position.set(width / 2 - 0.12, top + 0.07, -0.05);
+  // Clear of the bar's overhanging top, which covers this end of the counter.
+  kettle.position.set(width / 2 - 0.3, top + 0.07, -0.05);
   root.add(kettle);
   const sink = buildSink(at.sink - piece.x, top);
   const oven = buildOven(ovenX, front);
   // Right beside the basin, so a washed mug goes straight onto it.
   const rack = buildDryingRack(at.sink - piece.x - 0.27, top, cups);
   root.add(sink.root, oven.root, rack.root);
-  return { root, sink: sink.tap, oven: oven.oven, rackCups: rack.cups };
+  return {
+    root,
+    sink: sink.tap,
+    oven: oven.oven,
+    rackCups: rack.cups,
+    reach: {
+      button: anchor(root, machineX + 0.06, top + 0.2, machineZ + 0.115),
+      tray: anchor(root, machineX, top + 0.07, machineZ + 0.13),
+      basin: anchor(sink.root, 0, top + 0.03, 0),
+    },
+  };
 }
 
 /**
@@ -330,7 +381,8 @@ export class SinkTap {
 
 function buildSink(x: number, top: number): { root: Group; tap: SinkTap } {
   const root = new Group();
-  root.position.set(x, 0, 0.02);
+  // Toward the front of the counter, within reach of someone the team's height.
+  root.position.set(x, 0, 0.08);
   const steel = standard(palette.steel, 0.25, 0.7);
   // A basin set into the top: a steel rim around a dark bowl.
   root.add(
@@ -585,7 +637,9 @@ export function buildFridge(piece: Furniture): { root: Group; door: FridgeDoor }
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const body = standard(palette.steel, 0.35, 0.4);
-  const height = 1.1;
+  // A tall fridge at the team's scale (they stand 1.2 m): a little over head height, as a real
+  // one stands over an adult.
+  const height = 1.32;
   const split = height * 0.66;
   const front = (depth - 0.06) / 2;
   root.add(
@@ -799,9 +853,10 @@ export function buildBackdrop(piece: Furniture, logo: Texture, lettering: SignLe
   const root = placed(piece);
   const { width } = localSize(piece);
   const ink = standard(palette.inkDeep, 0.7);
-  const height = 1.25;
+  const height = 1.5;
   root.add(box(width, height, 0.05, ink, 0, 0, 0), box(width, 0.018, 0.06, glow(), 0, height - 0.02, 0));
-  const bandY = people.eye + 0.13;
+  // The name stays inside the panel, above a seated head, whatever the team's height.
+  const bandY = height - 0.24;
   const markSize = 0.32;
   const gap = 0.06;
   const planeWidth = 0.8;

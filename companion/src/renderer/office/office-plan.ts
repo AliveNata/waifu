@@ -214,7 +214,11 @@ const sofaSeatHeight = 0.26;
  * room, so sitters walk in along this lane from the north end and sit down from the front.
  */
 const sofaFrontX = -5.4;
-const stoolSeatHeight = 0.42;
+/**
+ * Bar and high-table stools: the counter tops (0.72 m) sit as far above the seat as a desk does
+ * above its chair, so whoever sits there has the top at their elbows, not at their chest.
+ */
+const stoolSeatHeight = 0.5;
 /** The cushion surface of the reshaped beanbag, so sitters rest on it instead of sinking in. */
 const beanbagSeatHeight = 0.17;
 
@@ -444,7 +448,8 @@ export const standupStationIds: readonly StandupStationId[] = Array.from(
 );
 
 /** From the table's middle to each stool: close enough to lean on the table, clear of its edge. */
-const collabStoolRadius = 0.62;
+/** Close enough to the high table's 0.35 m top that knees go under it and hands reach it. */
+const collabStoolRadius = 0.55;
 /** Stools at the south, then back left and back right, evenly round the table. */
 const collabStools = [Math.PI / 2, (7 * Math.PI) / 6, (11 * Math.PI) / 6].map((angle) => ({
   x: collabCenter.x + collabStoolRadius * Math.cos(angle),
@@ -512,7 +517,8 @@ export const meetingLaptopSpots: readonly { x: number; z: number; yaw: number }[
  * out into the room with two stools on each side.
  */
 const barCounter = { x: -3.86, z: -3.86, width: 0.48, depth: 2.22 } as const;
-const barStoolX = -3.33;
+/** Pulled in to the counter's edge, so the sitter's hands are on the top, not out over the floor. */
+const barStoolX = -3.4;
 const barStools = [
   // Turned a little toward each other, so the two can talk without twisting round.
   { id: "stool-left", z: -3.5, yaw: facing.leftWall + 0.4 },
@@ -1070,9 +1076,11 @@ const placeStations: Record<Exclude<StationId, VisitStationId>, Station> = {
     { x: twobSeat.x - 0.65, z: 2.78 },
     yawToward({ x: twobSeat.x - 0.65, z: 2.78 }, twobSeat),
   ),
-  coffee: standing("coffee", { x: -5.35, z: -3.95 }, facing.backWall),
-  fridge: standing("fridge", { x: -6.55, z: -3.85 }, facing.backWall),
-  sink: standing("sink", { x: sinkX, z: -3.95 }, facing.backWall),
+  // Right up at the counter edge: the team is 1.2 m tall, and the machine is an arm away.
+  coffee: standing("coffee", { x: -5.35, z: -4.1 }, facing.backWall),
+  // An arm's length from the shelves inside; the door swings open on the other side.
+  fridge: standing("fridge", { x: -6.55, z: -4.0 }, facing.backWall),
+  sink: standing("sink", { x: sinkX, z: -4.1 }, facing.backWall),
   oven: standing("oven", { x: ovenX, z: -3.85 }, facing.backWall),
   "bar-left": {
     id: "bar-left",
@@ -1102,7 +1110,8 @@ const placeStations: Record<Exclude<StationId, VisitStationId>, Station> = {
     approach: { x: westStoolX - 0.5, z: westStools[1].z },
     seatHeight: stoolSeatHeight,
   },
-  "bar-food": standing("bar-food", { x: barCounter.x, z: barCounter.z + barCounter.depth / 2 + 0.33 }, facing.backWall),
+  // Close up to the bar's end, where the food box is within an arm's reach.
+  "bar-food": standing("bar-food", { x: barCounter.x, z: barCounter.z + barCounter.depth / 2 + 0.22 }, facing.backWall),
   trash: standing("trash", { x: -6.36, z: -3.36 }, facing.leftWall),
   door: standing("door", { x: 10.0, z: -0.45 }, facing.right),
   "sofa-1": {

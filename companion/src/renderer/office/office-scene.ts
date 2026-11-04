@@ -115,6 +115,8 @@ export interface OfficeProps {
   lunchBoxes: Group[];
   fridgeDoor: FridgeDoor;
   sink: SinkTap;
+  /** Points on the pantry counter that hands go to: the coffee button, the cup's place, the basin. */
+  pantryReach: { button: Object3D; tray: Object3D; basin: Object3D };
   oven: Oven;
   /** Each member's cup on the drying rack by the sink, shown while their mug is drying there. */
   rackCups: Record<MemberId, Object3D>;
@@ -339,6 +341,7 @@ export function buildOffice(): OfficeProps {
   let statusBoard: StatusBoard | null = null;
   let fridgeDoor: FridgeDoor | null = null;
   let sink: SinkTap | null = null;
+  let pantryReach: OfficeProps["pantryReach"] | null = null;
   let oven: Oven | null = null;
   let entryDoor: EntryDoor | null = null;
   const barFood = new BarFoodDisplay();
@@ -416,6 +419,7 @@ export function buildOffice(): OfficeProps {
         sink = built.sink;
         oven = built.oven;
         rackCups = built.rackCups;
+        pantryReach = built.reach;
         break;
       }
       case "fridge": {
@@ -526,6 +530,7 @@ export function buildOffice(): OfficeProps {
     rackLights === null ||
     fridgeDoor === null ||
     sink === null ||
+    pantryReach === null ||
     oven === null ||
     meetingLaptops.length !== meetingStationIds.length ||
     rackCups.length !== memberIds.length ||
@@ -595,6 +600,7 @@ export function buildOffice(): OfficeProps {
     lunchBoxes,
     fridgeDoor,
     sink,
+    pantryReach,
     oven,
     rackCups: Object.fromEntries(memberIds.map((member, index) => [member, rackCups[index]])) as Record<
       MemberId,

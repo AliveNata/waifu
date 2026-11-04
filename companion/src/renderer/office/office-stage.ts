@@ -55,7 +55,7 @@ import { eyeHeight, FirstPerson, firstPersonFov } from "./first-person.js";
 import { gpuLabel, paceFrame } from "./frame-rate.js";
 import { FreeCamera } from "./free-camera.js";
 import { Handoffs, type Teammate } from "./handoffs.js";
-import { aimHand, solveCcd } from "./ik.js";
+import { aimHand, solveCcd, withinReach } from "./ik.js";
 import { type ActorState, angleDelta, initialActor, isWalking, stepActor } from "./office-actor.js";
 import {
   afterMeal,
@@ -316,6 +316,15 @@ export function pingpongBeat(elapsed: number, side: "west" | "east"): number {
   const contact = side === "west" ? 0 : 1;
   return ((((rallyLeg(elapsed) - contact) / 2) % 1) + 1) % 1;
 }
+
+/** The middle shelf just inside the fridge's door, for a hand reaching in for a snack. */
+const fridgeShelf = (() => {
+  const fridge = furniture.find((piece) => piece.id === "fridge");
+  // The fridge faces into the room (+z); the shelf is a little inside its front.
+  return fridge === undefined
+    ? { x: -6.6, y: 0.5, z: -4.4 }
+    : { x: fridge.x + 0.05, y: 0.5, z: fridge.z + fridge.depth / 2 - 0.12 };
+})();
 
 /** Above the head bone: clear of the hair and of the speech bubbles, which sit lower. */
 const badgeAboveHead = 0.42;
@@ -1748,6 +1757,63 @@ export class OfficeStage {
     rig.badge.update(kind, this.elapsed, pop);
   }
 
+  /**
+   * Hands on the pantry counter: at the coffee machine one hand on the button and the other
+   * holding the cup under the spout; at the sink both hands in the basin, scrubbing. Placed by
+   * IK on the counter's own points, so they land there whatever the arms' length.
+   */
+  private counterTargets(rig: MemberRig, action: OfficeAction | null, arrived: boolean): HandTargets | null {
+    if (!arrived) {
+      return null;
+    }
+    const { position } = rig.actor;
+    // The way from the member to a point, level, with the fingers tipped down onto it.
+    const onto = (point: Vector3, down: number): Vector3 => {
+      const dx = point.x - position.x;
+      const dz = point.z - position.z;
+      const length = Math.hypot(dx, dz) || 1;
+      return new Vector3(dx / length, -down, dz / length).normalize();
+    };
+    // Along the counter, at right angles to the way to the point.
+    const along = (point: Vector3, side: number): Vector3 => {
+      const dx = point.x - position.x;
+      const dz = point.z - position.z;
+      const length = Math.hypot(dx, dz) || 1;
+      return point.clone().add(new Vector3((-dz / length) * side, 0, (dx / length) * side));
+    };
+    if (action === "brew") {
+      const { button, tray } = this.office.pantryReach;
+      const press = button.getWorldPosition(new Vector3());
+      const cup = tray.getWorldPosition(new Vector3()).add(new Vector3(0, 0.02, 0));
+      return {
+        left: cup,
+        right: press,
+        tip: "fingertip",
+        approach: onto(press, 0.25),
+        board: null,
+        rate: 4,
+      };
+    }
+    if (action === "wash") {
+      const bowl = this.office.pantryReach.basin.getWorldPosition(new Vector3());
+      const scrub = 0.03 * Math.sin(this.elapsed * 9);
+      return {
+        left: along(bowl, -0.07 + scrub),
+        right: along(bowl, 0.07 - scrub),
+        tip: "fingertip",
+        approach: onto(bowl, 0.9),
+        board: null,
+        rate: 6,
+      };
+    }
+    if (action === "snack" && (this.elapsed - rig.actionStartedAt) % 4 < 1.4) {
+      // Into the fridge for something off the middle shelf; the bites in between are the pose's.
+      const shelf = new Vector3(fridgeShelf.x, fridgeShelf.y, fridgeShelf.z);
+      return { left: null, right: shelf, tip: "fingertip", approach: onto(shelf, 0.2), board: null, rate: 5 };
+    }
+    return null;
+  }
+
   /** Advances the member's work surface and returns where the hand should be, if anywhere. */
   private updateSurface(memberId: MemberId, rig: MemberRig, delta: number): HandTargets {
     const action = rig.action;
@@ -1787,6 +1853,26 @@ export class OfficeStage {
       keyboard.update(delta);
       hands.update(delta);
       mouse.update(delta, mousing);
+      if (rig.workBeat?.kind === "think" && action === "type") {
+        // Chin in the right hand: the wrist just under and in front of the chin, the left hand
+        // resting at the front edge of the keyboard.
+        const head = rig.avatar.poseTarget.node("head");
+        if (head !== null) {
+          const chin = head.getWorldPosition(new Vector3());
+          const yaw = rig.actor.yaw;
+          chin.x += Math.sin(yaw) * 0.1;
+          chin.z += Math.cos(yaw) * 0.1;
+          chin.y -= 0.07;
+          return {
+            left: keyboard.root.localToWorld(new Vector3(-0.08, 0.03, 0.09)),
+            right: chin,
+            tip: "wrist",
+            approach: null,
+            board: null,
+            rate: 4,
+          };
+        }
+      }
       if (typing) {
         return {
           left: keyboard.root.localToWorld(hands.fingertip("left", new Vector3())),
@@ -1873,14 +1959,14 @@ export class OfficeStage {
         aim.lerp(target, blend);
       }
       if (hand === null) {
-        solveCcd(arm, aim);
+        solveCcd(arm, withinReach(arm, aim));
         continue;
       }
       const length =
         hand.tip.getWorldPosition(new Vector3()).distanceTo(hand.pivot.getWorldPosition(new Vector3())) +
         fingertipBeyondBone;
       const wrist = aim.clone().addScaledVector(rig.reachApproach[side], -length);
-      solveCcd(arm, wrist);
+      solveCcd(arm, withinReach(arm, wrist));
       aimHand(hand, aim);
     }
   }
@@ -1995,7 +2081,8 @@ export class OfficeStage {
         ? surfaceTargets
         : deskBit !== null
           ? this.deskBitTargets(memberId, rig, deskBit)
-          : (this.foodTargets(rig, action, errand, arrived, stepElapsed) ??
+          : (this.counterTargets(rig, action, arrived) ??
+            this.foodTargets(rig, action, errand, arrived, stepElapsed) ??
             this.errandTargets(memberId, rig, errand, arrived, stepElapsed, remaining));
     // Offset each member's idle loops so the room does not move in lockstep.
     const phaseOffset = memberIds.indexOf(memberId) * 1.7;

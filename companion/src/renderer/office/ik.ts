@@ -38,6 +38,34 @@ const worldRotation = new Quaternion();
 const parentRotation = new Quaternion();
 
 /**
+ * `target`, or the nearest point on the way to it that the chain can reach without locking
+ * straight. A target past an arm's length otherwise pulls the arm rigid and lets the wrist
+ * twist round to make up the last bit; held short, the hand simply stops a little away.
+ */
+export function withinReach(chain: IkChain, target: Vector3, fraction = 0.92): Vector3 {
+  const first = chain.joints[0];
+  if (first === undefined) {
+    return target;
+  }
+  chain.sync();
+  const root = first.measure.getWorldPosition(new Vector3());
+  let length = 0;
+  let previous = root.clone();
+  for (const joint of chain.joints.slice(1)) {
+    const at = joint.measure.getWorldPosition(new Vector3());
+    length += at.distanceTo(previous);
+    previous = at;
+  }
+  length += chain.effector.getWorldPosition(new Vector3()).distanceTo(previous);
+  const reach = length * fraction;
+  const offset = target.clone().sub(root);
+  if (offset.length() <= reach) {
+    return target;
+  }
+  return root.add(offset.setLength(reach));
+}
+
+/**
  * Cyclic coordinate descent: rotate each joint, tip first, so the effector
  * swings toward the target. Returns the remaining distance in meters.
  */

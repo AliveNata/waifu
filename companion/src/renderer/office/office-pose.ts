@@ -1012,7 +1012,8 @@ function brewBody(input: OfficePoseInput): UpperBody {
   // Hands busy at the machine: one holds the cup, the other works the buttons.
   return {
     bones: {
-      spine: { x: 0.1, y: 0, z: 0 },
+      // Leaning over the counter toward the machine; the arms are placed on it by IK.
+      spine: { x: 0.25, y: 0, z: 0 },
       head: { x: 0.18, y: 0.05 * Math.sin(input.time * 0.7), z: 0 },
       leftUpperArm: { x: -0.85, y: 0, z: -1.0 },
       rightUpperArm: { x: -0.95 + 0.1 * Math.sin(input.time * 2.4), y: 0, z: 1.0 },
@@ -1300,8 +1301,9 @@ function washBody(input: OfficePoseInput): UpperBody {
   return {
     bones: {
       ...armsRelaxed,
-      spine: { x: 0.15, y: 0, z: 0 },
-      head: { x: 0.35, y: 0, z: 0 },
+      // Over the basin; the hands are placed in it by IK.
+      spine: { x: 0.28, y: 0, z: 0 },
+      head: { x: 0.3, y: 0, z: 0 },
       rightUpperArm: { x: -0.75, y: 0.35, z: 1.0 },
       rightLowerArm: { x: 0, y: 0.95 + 0.15 * scrub, z: 0 },
       leftUpperArm: { x: -0.75, y: -0.35, z: -1.0 },
@@ -1483,5 +1485,10 @@ export function officePose(input: OfficePoseInput): Pose {
   }
   const breath = 0.015 * Math.sin((input.time * 2 * Math.PI) / 4);
   pose.bones.chest = addRotation(pose.bones.chest, { x: breath });
+  // Hands are always posed, straight unless a pose bends them. IK turns a hand to point the
+  // fingers onto keys or a button; a bone no pose ever names is never put back, so without
+  // this the last turn stayed on the hand through every pose that came after.
+  pose.bones.leftHand ??= { x: 0, y: 0, z: 0 };
+  pose.bones.rightHand ??= { x: 0, y: 0, z: 0 };
   return pose;
 }
