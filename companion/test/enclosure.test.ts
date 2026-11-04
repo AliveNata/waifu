@@ -1,9 +1,10 @@
 import { Box3, type Mesh, type MeshStandardMaterial, Texture, Vector3 } from "three";
 import { beforeAll, describe, expect, it } from "vitest";
 import { furniture, room } from "../src/renderer/office/office-plan.js";
-import { buildEnclosure, wallQuotes } from "../src/renderer/office/scene/enclosure.js";
+import { buildEnclosure, wallArts } from "../src/renderer/office/scene/enclosure.js";
 import { entryDoorHeight } from "../src/renderer/office/scene/furniture.js";
 import { setSceneQuality } from "../src/renderer/office/scene/palette.js";
+import type { WallArt } from "../src/renderer/office/scene/textures.js";
 
 // High quality paints surface textures on a DOM canvas, which Node has none of; geometry is the same.
 beforeAll(() => setSceneQuality("low"));
@@ -85,17 +86,18 @@ describe("the room seen from inside", () => {
     expect(off).toEqual([]);
   });
 
-  it("letters every quote once on the walls", () => {
+  it("paints each piece of lettering once: the sentence chain, the script line and the manifesto", () => {
     // Arrange
-    const lettered: string[] = [];
+    const painted: WallArt[] = [];
 
     // Act
-    buildEnclosure((text) => {
-      lettered.push(text);
+    buildEnclosure((art) => {
+      painted.push(art);
       return new Texture();
     });
 
     // Assert
-    expect(lettered).toEqual([...wallQuotes]);
+    expect(painted).toEqual([...wallArts]);
+    expect(new Set(painted)).toEqual(new Set(["block", "script", "manifesto"]));
   });
 });

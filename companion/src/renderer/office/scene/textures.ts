@@ -131,35 +131,135 @@ export function signTextTexture(alyxColor: string = palette.inkDeep, labsColor =
   return { texture: texture(element), inkStart: 10 / 1024, inkEnd: Math.min(1, inkEnd / 1024) };
 }
 
+/** The three pieces of painted wall lettering in the closed room. */
+export type WallArt = "block" | "manifesto" | "script";
+
+/** Canvas size of each piece, in pixels; the wall plane keeps the same proportions. */
+export const wallArtSize: Record<WallArt, { width: number; height: number }> = {
+  block: { width: 1024, height: 640 },
+  manifesto: { width: 2048, height: 360 },
+  script: { width: 1024, height: 400 },
+};
+
+const wallInk = "#2a2140";
+const wallInkLight = "#8d86a0";
+const scriptFont = "'Segoe Script', 'Ink Free', 'Lucida Handwriting', 'Brush Script MT', cursive";
+
+/** One run of words on a line of the block quote: plain, or a key word set big, bold and underlined. */
+type BlockRun = [text: string, key: boolean];
+
 /**
- * A line of wall lettering lit like a neon tube: a near-white core in the brand purple's glow,
- * on a transparent ground. The size shrinks to fit long lines into the same width.
+ * A sentence chain in mixed weights, the key word of each line set large and underlined, in
+ * the dark wall paint: "A bug found early becomes a fix..."
  */
-export function quoteTexture(text: string): CanvasTexture {
-  const width = 1024;
-  const height = 200;
+function paintBlock(ctx: CanvasRenderingContext2D, width: number): void {
+  const lines: BlockRun[][] = [
+    [
+      ["A ", false],
+      ["BUG", true],
+      [" found early", false],
+    ],
+    [
+      ["becomes a ", false],
+      ["FIX", true],
+      [".", false],
+    ],
+    [["A fix with a test", false]],
+    [
+      ["becomes a ", false],
+      ["RELEASE", true],
+      [".", false],
+    ],
+    [["A release people use", false]],
+    [
+      ["becomes a ", false],
+      ["PRODUCT", true],
+      [".", false],
+    ],
+  ];
+  const plain = `400 46px ${uiFont}`;
+  const key = `800 72px ${uiFont}`;
+  ctx.fillStyle = wallInk;
+  ctx.strokeStyle = wallInk;
+  ctx.textBaseline = "alphabetic";
+  let y = 92;
+  for (const line of lines) {
+    // Right-aligned, like lettering that hangs off the wall's corner.
+    let lineWidth = 0;
+    for (const [text, isKey] of line) {
+      ctx.font = isKey ? key : plain;
+      lineWidth += ctx.measureText(text).width;
+    }
+    let x = width - 60 - lineWidth;
+    for (const [text, isKey] of line) {
+      ctx.font = isKey ? key : plain;
+      ctx.fillText(text, x, y);
+      const runWidth = ctx.measureText(text).width;
+      if (isKey) {
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(x, y + 12);
+        ctx.lineTo(x + runWidth, y + 12);
+        ctx.stroke();
+      }
+      x += runWidth;
+    }
+    y += line.some(([, isKey]) => isKey) ? 104 : 80;
+  }
+}
+
+/** Rows of short capitals in alternating weights and tones, filling the wall like a manifesto. */
+function paintManifesto(ctx: CanvasRenderingContext2D, width: number): void {
+  const rows = [
+    ["SHIP IT.", "TEST IT.", "BREAK IT.", "FIX IT."],
+    ["LEARN IT.", "LOG IT.", "MERGE IT.", "DEPLOY IT."],
+    ["GG.", "NEXT SPRINT.", "NO BUGS,", "ONLY SIDE QUESTS."],
+  ];
+  ctx.textBaseline = "middle";
+  rows.forEach((row, rowIndex) => {
+    const fonts = row.map((_, index) => `${(index + rowIndex) % 2 === 0 ? 800 : 300} 84px ${uiFont}`);
+    const gap = 30;
+    const widths = row.map((text, index) => {
+      ctx.font = fonts[index] ?? "";
+      return ctx.measureText(text).width;
+    });
+    const total = widths.reduce((sum, value) => sum + value, 0) + gap * (row.length - 1);
+    let x = (width - total) / 2;
+    row.forEach((text, index) => {
+      const bold = (index + rowIndex) % 2 === 0;
+      ctx.font = fonts[index] ?? "";
+      ctx.fillStyle = bold ? wallInk : wallInkLight;
+      ctx.fillText(text, x, 70 + rowIndex * 110);
+      x += (widths[index] ?? 0) + gap;
+    });
+  });
+}
+
+/** One short line in a big hand-lettered script between oversized quote marks. */
+function paintScript(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+  ctx.fillStyle = wallInk;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+  ctx.font = `700 230px ${uiFont}`;
+  ctx.fillText("\u201c", 90, 120);
+  ctx.fillText("\u201d", width - 90, height - 70);
+  ctx.font = `700 104px ${scriptFont}`;
+  ctx.fillText("Respawn. Retry.", width / 2, height / 2 - 52);
+  ctx.fillText("Release.", width / 2 + 120, height / 2 + 72);
+}
+
+/** Painted lettering for one wall, dark ink on a transparent ground so the wall's plaster shows. */
+export function paintWallArt(art: WallArt): CanvasTexture {
+  const { width, height } = wallArtSize[art];
   const { canvas: element, ctx } = canvas(width, height);
   ctx.clearRect(0, 0, width, height);
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  let size = 96;
-  ctx.font = `700 ${size}px ${uiFont}`;
-  const room = width - 80;
-  const measured = ctx.measureText(text).width;
-  if (measured > room) {
-    size = Math.floor((size * room) / measured);
-    ctx.font = `700 ${size}px ${uiFont}`;
+  if (art === "block") {
+    paintBlock(ctx, width);
+  } else if (art === "manifesto") {
+    paintManifesto(ctx, width);
+  } else {
+    paintScript(ctx, width, height);
   }
-  // Two glow passes, wide and faint then tight and bright, then the tube itself.
-  ctx.shadowColor = "#b45cff";
-  ctx.fillStyle = "#c98bff";
-  ctx.shadowBlur = 36;
-  ctx.fillText(text, width / 2, height / 2);
-  ctx.shadowBlur = 12;
-  ctx.fillText(text, width / 2, height / 2);
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = "#f7efff";
-  ctx.fillText(text, width / 2, height / 2);
   return texture(element);
 }
 
