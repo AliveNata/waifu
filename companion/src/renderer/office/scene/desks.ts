@@ -572,18 +572,28 @@ function handheldDock(x: number, z: number): { dock: Group; console: Group } {
 function headsetStand(x: number, z: number): Group {
   const group = new Group();
   const ink = standard(palette.inkDeep, 0.4);
-  group.add(box(0.07, 0.01, 0.07, ink, 0, deskTop, 0), box(0.012, 0.16, 0.012, ink, 0, deskTop, 0));
-  const band = mesh(new CylinderGeometry(0.05, 0.05, 0.02, 16, 1, true, -Math.PI / 2, Math.PI), ink);
-  band.rotation.z = Math.PI / 2;
-  band.rotation.y = Math.PI / 2;
-  band.position.set(0, deskTop + 0.16, 0);
+  // Over-ear headphones wide enough for the members' heads (about 0.15 m across), hung by the top
+  // of the band on a 0.24 m stand, the cups hanging down at its sides.
+  const standTop = 0.24;
+  const bandRadius = 0.075;
+  const bandCenter = standTop - bandRadius;
+  group.add(box(0.1, 0.012, 0.1, ink, 0, deskTop, 0), box(0.014, standTop, 0.014, ink, 0, deskTop, 0));
+  // The band as a half ring from one cup over the top to the other, flattened like a padded band.
+  const band = mesh(new TorusGeometry(bandRadius, 0.011, 8, 24, Math.PI), ink);
+  band.scale.z = 1.6;
+  band.position.set(0, deskTop + bandCenter, 0);
   const cupMaterial = standard(palette.ink, 0.5);
-  const leftCup = mesh(new CylinderGeometry(0.034, 0.034, 0.022, 12), cupMaterial);
+  const leftCup = mesh(new CylinderGeometry(0.042, 0.042, 0.03, 16), cupMaterial);
   leftCup.rotation.z = Math.PI / 2;
-  leftCup.position.set(-0.05, deskTop + 0.13, 0);
+  leftCup.position.set(-bandRadius, deskTop + bandCenter - 0.045, 0);
   const rightCup = leftCup.clone();
-  rightCup.position.x = 0.05;
-  group.add(band, leftCup, rightCup, box(0.004, 0.012, 0.03, glow(), 0.062, deskTop + 0.125, -0.015));
+  rightCup.position.x = bandRadius;
+  group.add(
+    band,
+    leftCup,
+    rightCup,
+    box(0.005, 0.016, 0.04, glow(), bandRadius + 0.017, deskTop + bandCenter - 0.052, -0.02),
+  );
   group.position.set(x, 0, z);
   return group;
 }
