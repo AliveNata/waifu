@@ -90,7 +90,10 @@ export type FurnitureKind =
   | "aquarium"
   | "bench"
   | "high-table"
-  | "glass-board";
+  | "glass-board"
+  | "ceiling-fan"
+  | "floor-lamp"
+  | "coat-rack";
 
 export interface Furniture {
   id: string;
@@ -834,6 +837,38 @@ export const furniture: readonly Furniture[] = [
     width: 0.1,
     depth: 1.3,
     yaw: facing.right,
+    blocksWalking: true,
+  },
+  // Kenney decor: a fan turning slowly over the lounge, a reading lamp at the sofa's end and a coat
+  // rack by the way in.
+  {
+    id: "ceiling-fan",
+    kind: "ceiling-fan",
+    x: -5.6,
+    z: 3.0,
+    width: 0.9,
+    depth: 0.9,
+    yaw: facing.camera,
+    blocksWalking: false,
+  },
+  {
+    id: "floor-lamp",
+    kind: "floor-lamp",
+    x: -4.5,
+    z: 1.92,
+    width: 0.28,
+    depth: 0.28,
+    yaw: facing.camera,
+    blocksWalking: true,
+  },
+  {
+    id: "coat-rack",
+    kind: "coat-rack",
+    x: 10.2,
+    z: -1.8,
+    width: 0.34,
+    depth: 0.34,
+    yaw: facing.leftWall,
     blocksWalking: true,
   },
   // A big digital clock on the pantry wall, above the open shelf.

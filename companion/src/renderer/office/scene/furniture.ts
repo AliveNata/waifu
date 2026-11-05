@@ -22,10 +22,11 @@ import {
   TubeGeometry,
   Vector3,
 } from "three";
-import { type Furniture, people, surface } from "../office-plan.js";
+import { type Furniture, people, room, surface } from "../office-plan.js";
 import { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./animated.js";
 import { furnitureModel } from "./furniture-models.js";
 import { handPropModel, type PropLook } from "./hand-props.js";
+import { kitPiece, kitSize } from "./kit.js";
 import { box, glow, mesh, palette, standard, unlit } from "./palette.js";
 import { leafyCrown } from "./plant.js";
 import { doorLetteringTexture, type SignLettering } from "./textures.js";
@@ -286,16 +287,25 @@ export function buildSofa(piece: Furniture, seatHeight: number): BuiltPiece {
   const body = standard(palette.fabric, 0.95);
   // A real sofa's back (0.85 m) and arms (0.62 m) at the room's 0.73 scale.
   const backTop = seatHeight + 0.31;
-  root.add(
-    box(width, seatHeight - 0.08, depth, body, 0, 0, 0),
-    box(width, backTop, 0.16, body, 0, 0, -depth / 2 + 0.08),
-    box(0.14, seatHeight + 0.14, depth, body, -width / 2 + 0.07, 0, 0),
-    box(0.14, seatHeight + 0.14, depth, body, width / 2 - 0.07, 0, 0),
-  );
-  const cushionWidth = (width - 0.32) / 3;
-  for (let seat = 0; seat < 3; seat++) {
-    const x = -width / 2 + 0.16 + cushionWidth * (seat + 0.5);
-    root.add(box(cushionWidth - 0.03, 0.08, depth - 0.2, standard(palette.cushion, 0.95), x, seatHeight - 0.08, 0.05));
+  // Kenney's lounge sofa: its cushions sit at half its height, so fitted to the back's height the
+  // seat lands on the station's seat height.
+  const kit = kitPiece("loungeSofa", { width, height: backTop, depth }, { carpet: palette.fabric, wood: palette.ink });
+  if (kit !== null) {
+    root.add(kit);
+  } else {
+    root.add(
+      box(width, seatHeight - 0.08, depth, body, 0, 0, 0),
+      box(width, backTop, 0.16, body, 0, 0, -depth / 2 + 0.08),
+      box(0.14, seatHeight + 0.14, depth, body, -width / 2 + 0.07, 0, 0),
+      box(0.14, seatHeight + 0.14, depth, body, width / 2 - 0.07, 0, 0),
+    );
+    const cushionWidth = (width - 0.32) / 3;
+    for (let seat = 0; seat < 3; seat++) {
+      const x = -width / 2 + 0.16 + cushionWidth * (seat + 0.5);
+      root.add(
+        box(cushionWidth - 0.03, 0.08, depth - 0.2, standard(palette.cushion, 0.95), x, seatHeight - 0.08, 0.05),
+      );
+    }
   }
   return {
     root,
@@ -325,6 +335,12 @@ export function buildBeanbag(piece: Furniture, tint: string, seatHeight: number)
 
 export function buildStool(piece: Furniture, seatHeight: number): BuiltPiece {
   const root = placed(piece);
+  // Kenney's bar stool, its seat top fitted to the station's seat height.
+  const kit = kitPiece("stoolBar", { height: seatHeight }, { carpet: palette.accentDeep, wood: palette.ink });
+  if (kit !== null) {
+    root.add(kit);
+    return { root, hairColliders: stoolColliders(root, seatHeight) };
+  }
   const ink = standard(palette.ink, 0.5);
   const leg = mesh(new CylinderGeometry(0.018, 0.018, seatHeight, 8), ink);
   leg.position.y = seatHeight / 2;
@@ -337,15 +353,18 @@ export function buildStool(piece: Furniture, seatHeight: number): BuiltPiece {
   const seat = mesh(new CylinderGeometry(0.15, 0.14, 0.045, 20), standard(palette.oak, 0.7));
   seat.position.y = seatHeight - 0.0225;
   root.add(leg, foot, ring, seat);
-  // A sphere just under the round seat: hair hanging behind the sitter slides around the stool,
-  // and a flat one in the seat itself so tips resting on it stay on top.
-  return {
-    root,
-    hairColliders: [
-      sphereCollider(root, 0, seatHeight - 0.15, 0, 0.16),
-      ...seatColliders(root, 0.24, seatHeight - 0.03, 0.08, -0.08, 0.035),
-    ],
-  };
+  return { root, hairColliders: stoolColliders(root, seatHeight) };
+}
+
+/**
+ * A sphere just under the round seat: hair hanging behind the sitter slides around the stool,
+ * and a flat one in the seat itself so tips resting on it stay on top.
+ */
+function stoolColliders(root: Group, seatHeight: number): VRMSpringBoneCollider[] {
+  return [
+    sphereCollider(root, 0, seatHeight - 0.15, 0, 0.16),
+    ...seatColliders(root, 0.24, seatHeight - 0.03, 0.08, -0.08, 0.035),
+  ];
 }
 
 /** Pantry counter at working height, with the coffee machine where the "coffee" station stands. */
@@ -396,23 +415,77 @@ export function buildPantryCounter(
     // Open shelf above the counter with mugs and jars, within reach.
     box(width * 0.8, 0.025, 0.18, standard(palette.oak, 0.6), 0, top + 0.42, -depth / 2 + 0.1),
   );
-  for (let door = 0; door < 4; door++) {
-    const x = -width / 2 + (width / 4) * (door + 0.5);
-    // No cupboard line across the oven's face.
-    if (Math.abs(x - ovenX) < ovenWidth / 2 + 0.03) {
-      continue;
+  // Kenney's kitchen cabinets along the front, in the room's ink with steel handles, leaving the
+  // oven's slot open; the dark body behind fills the gap round the oven.
+  const unitWidth = 0.42;
+  const ovenFrom = ovenX - ovenWidth / 2 - 0.02;
+  const ovenTo = ovenX + ovenWidth / 2 + 0.02;
+  let cabinets = 0;
+  for (const [from, to] of [
+    [-width / 2, ovenFrom],
+    [ovenTo, width / 2],
+  ] as const) {
+    const count = Math.floor((to - from) / unitWidth + 0.25);
+    const each = count > 0 ? (to - from) / count : 0;
+    for (let unit = 0; unit < count; unit++) {
+      const cabinet = kitPiece(
+        "kitchenCabinet",
+        { width: each - 0.005, height: top - 0.03, depth: depth - 0.03 },
+        { wood: palette.ink, woodDark: palette.inkSoft, metal: palette.steel },
+      );
+      if (cabinet === null) {
+        break;
+      }
+      cabinet.position.x = from + each * (unit + 0.5);
+      root.add(cabinet);
+      cabinets++;
     }
-    root.add(box(0.015, top * 0.6, 0.01, standard(palette.inkSoft, 0.5), x, 0.08, front - 0.015));
+  }
+  if (cabinets === 0) {
+    for (let door = 0; door < 4; door++) {
+      const x = -width / 2 + (width / 4) * (door + 0.5);
+      // No cupboard line across the oven's face.
+      if (Math.abs(x - ovenX) < ovenWidth / 2 + 0.03) {
+        continue;
+      }
+      root.add(box(0.015, top * 0.6, 0.01, standard(palette.inkSoft, 0.5), x, 0.08, front - 0.015));
+    }
   }
   const machineX = at.coffee - piece.x;
   // Well forward on the counter: the team stands about 1.2 m tall, and the button and the cup's
   // place have to be within an arm's length of someone standing at the counter's edge.
   const machineZ = 0;
-  root.add(
-    box(0.22, 0.28, 0.22, standard(palette.inkDeep, 0.35, 0.3), machineX, top, machineZ),
-    box(0.16, 0.025, 0.09, standard(palette.steel, 0.3, 0.6), machineX, top + 0.04, machineZ + 0.13),
-    box(0.05, 0.01, 0.01, glow(), machineX + 0.06, top + 0.24, machineZ + 0.111),
+  // Kenney's espresso machine in dark ink and steel; its own cup is left out, the team brings mugs.
+  const machine = kitPiece(
+    "kitchenCoffeeMachine",
+    { height: 0.3 },
+    { metalMedium: palette.inkDeep, metal: palette.steel },
   );
+  const machineCup = machine?.getObjectByName("mug");
+  if (machine !== null) {
+    if (machineCup !== undefined) {
+      machineCup.visible = false;
+    }
+    machine.position.set(machineX, top, machineZ);
+    root.add(machine, box(0.05, 0.01, 0.01, glow(), machineX + 0.06, top + 0.24, machineZ + 0.16));
+  } else {
+    root.add(
+      box(0.22, 0.28, 0.22, standard(palette.inkDeep, 0.35, 0.3), machineX, top, machineZ),
+      box(0.16, 0.025, 0.09, standard(palette.steel, 0.3, 0.6), machineX, top + 0.04, machineZ + 0.13),
+      box(0.05, 0.01, 0.01, glow(), machineX + 0.06, top + 0.24, machineZ + 0.111),
+    );
+  }
+  // A microwave against the wall between the coffee machine and the oven, and a toaster by the kettle.
+  const microwave = kitPiece("kitchenMicrowave", { height: 0.19 }, { metalMedium: palette.inkDeep });
+  if (microwave !== null) {
+    microwave.position.set(ovenX - 0.32, top, -depth / 2 + 0.17);
+    root.add(microwave);
+  }
+  const toaster = kitPiece("toaster", { height: 0.13 }, { metalMedium: palette.accentDeep });
+  if (toaster !== null) {
+    toaster.position.set(width / 2 - 0.5, top, -depth / 2 + 0.12);
+    root.add(toaster);
+  }
   for (let jar = 0; jar < 4; jar++) {
     const glass = mesh(new CylinderGeometry(0.042, 0.042, 0.13, 12), standard(palette.glass, 0.15));
     glass.position.set(-width * 0.3 + jar * 0.14, top + 0.51, -depth / 2 + 0.1);
@@ -609,6 +682,12 @@ export function buildBarCounter(piece: Furniture): Group {
 /** A pedal bin by the bar, where the empty food boxes go. */
 export function buildTrashBin(piece: Furniture): Group {
   const root = placed(piece);
+  // Kenney's pedal bin, at about 0.45 m: 0.65 real at the room's scale.
+  const kit = kitPiece("trashcan", { height: 0.46 }, { metal: "#3a3f4b", metalDark: palette.steel });
+  if (kit !== null) {
+    root.add(kit);
+    return root;
+  }
   // A pedal bin at the room's scale: about 0.45 m tall (0.65 real).
   const body = mesh(new CylinderGeometry(0.13, 0.115, 0.44, 20), standard("#3a3f4b", 0.5, 0.3));
   body.position.y = 0.22;
@@ -668,8 +747,15 @@ export function buildEntryDoor(piece: Furniture, logo: Texture | null = null): {
     box(width - 0.1, 0.012, 0.012, glow(), 0, height + 0.08, 0.065),
     // The floor track the doors run in, and a mat on the room side.
     box(width, 0.012, 0.05, steel, 0, 0, 0),
-    box(opening + 0.3, 0.01, 0.45, standard(palette.inkSoft, 0.95), 0, 0, 0.32),
   );
+  // Kenney's doormat in the room's dark ink, stretched across the opening.
+  const mat = kitPiece("rugDoormat", { width: opening + 0.3, height: 0.012, depth: 0.45 }, { wood: palette.inkSoft });
+  if (mat !== null) {
+    mat.position.z = 0.32;
+    root.add(mat);
+  } else {
+    root.add(box(opening + 0.3, 0.01, 0.45, standard(palette.inkSoft, 0.95), 0, 0, 0.32));
+  }
   const glass = new MeshStandardMaterial({
     color: palette.glass,
     roughness: 0.05,
@@ -752,7 +838,7 @@ const fridgeSwingRate = 5;
 export class FridgeDoor {
   private angle = 0;
 
-  constructor(private readonly hinge: Group) {}
+  constructor(private readonly hinge: Object3D) {}
 
   update(open: boolean, delta: number): void {
     const target = open ? fridgeOpenAngle : 0;
@@ -766,6 +852,15 @@ export class FridgeDoor {
 export function buildFridge(piece: Furniture): { root: Group; door: FridgeDoor } {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
+  // Kenney's double-door fridge at 1.32 m, a little over the team's heads, its back to the wall.
+  // Fitted uniformly so the left door, which the snack run opens, turns without shearing.
+  const kit = kitPiece("kitchenFridgeLarge", { height: 1.32 }, { metalLight: palette.steel, metalMedium: palette.ink });
+  const kitDoor = kit?.getObjectByName("doorLeft");
+  if (kit !== null && kitDoor !== undefined) {
+    kit.position.z = -(depth - kitSize(kit).z) / 2;
+    root.add(kit);
+    return { root, door: new FridgeDoor(kitDoor) };
+  }
   const body = standard(palette.steel, 0.35, 0.4);
   // A tall fridge at the team's scale (they stand 1.2 m): a little over head height, as a real
   // one stands over an adult.
@@ -900,8 +995,14 @@ export function buildTvWall(piece: Furniture): { root: Group; screen: TvScreen }
 export function buildTvConsole(piece: Furniture): Group {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
+  // Kenney's TV cabinet in the room's oak, with the console box and its light on top.
+  const kit = kitPiece(
+    "cabinetTelevision",
+    { width: width - 0.1, height: 0.33, depth: depth - 0.1 },
+    { wood: palette.oak },
+  );
   root.add(
-    box(width - 0.1, 0.33, depth - 0.1, standard(palette.oak, 0.7), 0, 0, 0),
+    kit ?? box(width - 0.1, 0.33, depth - 0.1, standard(palette.oak, 0.7), 0, 0, 0),
     box(width - 0.14, 0.012, 0.01, glow(), 0, 0.04, (depth - 0.1) / 2 + 0.005),
     box(0.22, 0.05, 0.16, standard(palette.inkDeep, 0.3, 0.2), -0.25, 0.33, 0),
     box(0.01, 0.01, 0.01, glow(), -0.17, 0.36, 0.081),
@@ -925,16 +1026,49 @@ export function buildCoffeeTable(piece: Furniture): Group {
   const { width, depth } = localSize(piece);
   const top = surface.coffeeTable;
   const legs = standard(palette.ink, 0.5);
-  root.add(box(width, 0.035, depth, standard(palette.oak, 0.6), 0, top - 0.035, 0));
-  for (const [x, z] of [
-    [-1, -1],
-    [1, -1],
-    [-1, 1],
-    [1, 1],
-  ] as const) {
-    root.add(box(0.035, top - 0.035, 0.035, legs, x * (width / 2 - 0.05), 0, z * (depth / 2 - 0.05)));
+  const kit = kitPiece("tableCoffee", { width, height: top, depth }, { wood: palette.oak });
+  if (kit !== null) {
+    root.add(kit);
+  } else {
+    root.add(box(width, 0.035, depth, standard(palette.oak, 0.6), 0, top - 0.035, 0));
+    for (const [x, z] of [
+      [-1, -1],
+      [1, -1],
+      [-1, 1],
+      [1, 1],
+    ] as const) {
+      root.add(box(0.035, top - 0.035, 0.035, legs, x * (width / 2 - 0.05), 0, z * (depth / 2 - 0.05)));
+    }
   }
   root.add(box(0.14, 0.025, 0.07, standard(palette.inkDeep, 0.4), -0.1, top, -0.15));
+  return root;
+}
+
+/**
+ * The Kenney decor pieces: a ceiling fan hung under the ceiling over the lounge, a floor lamp
+ * whose shade glows warm, and a standing coat rack. Empty when the kit did not load.
+ */
+export function buildKitDecor(piece: Furniture): Group {
+  const root = placed(piece);
+  if (piece.kind === "ceiling-fan") {
+    // About 0.9 m across (a 1.3 m fan at the room's scale), hanging just under the ceiling.
+    const fan = kitPiece("ceilingFan", { height: 0.22 }, { metalLight: palette.inkSoft, wood: palette.oak });
+    if (fan !== null) {
+      fan.position.y = room.wallHeight - 0.22;
+      root.add(fan);
+    }
+  } else if (piece.kind === "floor-lamp") {
+    // 1.2 m: a 1.6 m reading lamp at the room's scale, its shade lit.
+    const lamp = kitPiece("lampRoundFloor", { height: 1.2 }, { metal: palette.ink, lamp: "#ffe9c4" });
+    if (lamp !== null) {
+      root.add(lamp);
+    }
+  } else if (piece.kind === "coat-rack") {
+    const rack = kitPiece("coatRackStanding", { height: 1.25 }, { wood: palette.oak });
+    if (rack !== null) {
+      root.add(rack);
+    }
+  }
   return root;
 }
 
@@ -942,6 +1076,20 @@ export function buildCoffeeTable(piece: Furniture): Group {
 export function buildPlant(piece: Furniture): Group {
   const root = placed(piece);
   const radius = Math.min(piece.width, piece.depth) / 2;
+  // Kenney's potted plant, as tall as the pot's footprint allows: 0.85 m from a 0.5 m spot.
+  const kit = kitPiece(
+    "pottedPlant",
+    { height: radius * 3.4 },
+    {
+      wood: palette.pot,
+      woodDark: palette.ink,
+      plant: palette.leaf,
+    },
+  );
+  if (kit !== null) {
+    root.add(kit);
+    return root;
+  }
   const potHeight = radius * 1.2;
   const pot = mesh(new CylinderGeometry(radius * 0.8, radius * 0.62, potHeight, 16), standard(palette.pot, 0.6));
   pot.position.y = potHeight / 2;
