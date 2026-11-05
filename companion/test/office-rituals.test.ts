@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lockerMs, OfficeLife, packUpMs, unpackMs } from "../src/renderer/office/office-life.js";
+import { OfficeLife, packUpMs, unpackMs } from "../src/renderer/office/office-life.js";
 import { standupStationIds } from "../src/renderer/office/office-plan.js";
 import {
   arrivesAt,
@@ -149,37 +149,26 @@ describe("rituals in the office life", () => {
     expect(first.durationMs).toBe(home.remainingMs);
   });
 
-  it("shuts the desk, stops at the locker, and opens up again after the locker on the way back in", () => {
+  it("shuts the desk before going home, and opens it up again on the way back in", () => {
     // Arrange: a desk break under way when the evening comes.
     let now: RitualNow | null = null;
     const life = lifeWith(() => now);
     life.planFor("yor", 0);
     life.arrived("yor", 0);
     now = { id: "home", remainingMs: 10 * 3600 * 1000, day: "2026-11-02" };
-    const start = 10 * 60 * 1000;
 
     // Act: each step runs its course.
-    const packUp = life.planFor("yor", start);
-    life.arrived("yor", start);
-    let clock = start + packUpMs + 1;
-    const lockerOut = life.planFor("yor", clock);
-    life.arrived("yor", clock);
-    clock += lockerMs + 1;
-    const away = life.planFor("yor", clock);
-    life.arrived("yor", clock);
+    const packUp = life.planFor("yor", 10 * 60 * 1000);
+    life.arrived("yor", 10 * 60 * 1000);
+    const away = life.planFor("yor", 10 * 60 * 1000 + packUpMs + 1);
+    life.arrived("yor", 10 * 60 * 1000 + packUpMs + 1);
     now = null;
-    clock += away.durationMs + 1;
-    const lockerIn = life.planFor("yor", clock);
-    life.arrived("yor", clock);
-    clock += lockerMs + 1;
-    const back = life.planFor("yor", clock);
+    const back = life.planFor("yor", 10 * 60 * 1000 + packUpMs + 2 + away.durationMs);
 
     // Assert
     expect(packUp).toMatchObject({ activity: "home", station: "desk-yor", errand: "pack-up", durationMs: packUpMs });
-    expect(lockerOut).toMatchObject({ station: "locker-yor", errand: "locker", durationMs: lockerMs });
     expect(away).toMatchObject({ activity: "home", station: "door", errand: "go-home" });
-    expect(away.durationMs).toBe(10 * 3600 * 1000 - packUpMs - lockerMs);
-    expect(lockerIn).toMatchObject({ station: "locker-yor", errand: "locker", durationMs: lockerMs });
+    expect(away.durationMs).toBe(10 * 3600 * 1000 - packUpMs);
     expect(back).toMatchObject({ station: "desk-yor", errand: "unpack", durationMs: unpackMs });
   });
 

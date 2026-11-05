@@ -1,4 +1,5 @@
 import {
+  type AnimationMixer,
   CanvasTexture,
   CylinderGeometry,
   Group,
@@ -12,6 +13,7 @@ import {
 import { type Furniture, surface, treadmillDeckHeight } from "../office-plan.js";
 import { punchReach } from "../office-pose.js";
 import { deskTop } from "./desks.js";
+import { type FishSpecies, fishModel, fishSpecies } from "./fish-models.js";
 import { box, glow, mesh, palette, standard } from "./palette.js";
 
 function placed(piece: Furniture): Group {
@@ -185,13 +187,23 @@ export class PunchingBag {
 
 interface Fish {
   body: Object3D;
+  /** The model's own swim loop; null for a code-built fish or a model without one, which wiggle instead. */
+  mixer: AnimationMixer | null;
   speed: number;
   phase: number;
   depthLane: number;
   height: number;
 }
 
-const fishColors = ["#ff8a3d", "#ffd23f", "#4fc3f7", "#ff6fa8", "#9be564", "#ff8a3d"] as const;
+const fishColors = ["#ff8a3d", "#ffd23f", "#4fc3f7", "#ff6fa8", "#9be564", "#ff8a3d", "#ffd23f", "#4fc3f7"] as const;
+/** Nose to tail, by species: a 7 to 12 cm aquarium fish at the room's 0.73 scale. */
+const fishLengths: Record<FishSpecies, number> = {
+  goldfish: 0.055,
+  koi: 0.085,
+  snapper: 0.07,
+  discus: 0.06,
+  butterflyfish: 0.055,
+};
 
 /**
  * A long low aquarium on an oak cabinet: tinted water, sand, a few plants and small fish swimming
@@ -201,6 +213,7 @@ export class Aquarium {
   readonly root: Group;
   private readonly fish: Fish[] = [];
   private readonly tankWidth: number;
+  private lastElapsed = 0;
 
   constructor(piece: Furniture) {
     this.root = placed(piece);
@@ -250,17 +263,14 @@ export class Aquarium {
       this.root.add(blade);
     }
     fishColors.forEach((color, index) => {
-      const body = new Group();
-      // About 5 cm long: a 7 cm aquarium fish at the room's scale.
-      const fishBody = mesh(new SphereGeometry(0.016, 10, 8), standard(color, 0.5), false);
-      fishBody.scale.set(1.6, 0.9, 0.7);
-      const tail = mesh(new CylinderGeometry(0, 0.012, 0.022, 4), standard(color, 0.5), false);
-      tail.rotation.z = Math.PI / 2;
-      tail.position.x = -0.033;
-      body.add(fishBody, tail);
+      // A mix of species round the tank; a code-built fish wherever a model did not load.
+      const species = fishSpecies[index % fishSpecies.length] ?? "goldfish";
+      const model = fishModel(species, fishLengths[species]);
+      const body = model?.root ?? this.codeFish(color);
       this.root.add(body);
       this.fish.push({
         body,
+        mixer: model?.mixer ?? null,
         speed: 0.12 + 0.05 * (index % 3),
         phase: index * 1.7,
         depthLane: ((index % 3) - 1) * depth * 0.22,
@@ -269,7 +279,22 @@ export class Aquarium {
     });
   }
 
+  /** A simple fish of a sphere and a tail, for when the fish models are not loaded. */
+  private codeFish(color: string): Group {
+    const body = new Group();
+    // About 5 cm long: a 7 cm aquarium fish at the room's scale.
+    const fishBody = mesh(new SphereGeometry(0.016, 10, 8), standard(color, 0.5), false);
+    fishBody.scale.set(1.6, 0.9, 0.7);
+    const tail = mesh(new CylinderGeometry(0, 0.012, 0.022, 4), standard(color, 0.5), false);
+    tail.rotation.z = Math.PI / 2;
+    tail.position.x = -0.033;
+    body.add(fishBody, tail);
+    return body;
+  }
+
   update(elapsed: number): void {
+    const delta = Math.max(0, elapsed - this.lastElapsed);
+    this.lastElapsed = elapsed;
     const half = this.tankWidth / 2 - 0.08;
     for (const fish of this.fish) {
       // There and back along the tank, turning round at each end.
@@ -282,7 +307,10 @@ export class Aquarium {
         fish.height + 0.012 * Math.sin(elapsed * 1.7 + fish.phase),
         fish.depthLane,
       );
-      fish.body.rotation.y = forward ? 0 : Math.PI;
+      // A fish without its own swim loop sways its body side to side as it goes.
+      const sway = fish.mixer === null ? 0.18 * Math.sin(elapsed * 9 + fish.phase) : 0;
+      fish.body.rotation.y = (forward ? 0 : Math.PI) + sway;
+      fish.mixer?.update(delta);
     }
   }
 }

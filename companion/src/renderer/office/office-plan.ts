@@ -95,8 +95,7 @@ export type FurnitureKind =
   | "coat-rack"
   | "lounge-chair"
   | "side-table"
-  | "display-cabinet"
-  | "lockers";
+  | "display-cabinet";
 
 export interface Furniture {
   id: string;
@@ -118,9 +117,6 @@ export interface Furniture {
 
 /** Beside a teammate's desk, where 2B stands to hand over a brief. */
 type VisitStationId = `visit-${Exclude<MemberId, "twob">}`;
-
-/** In front of a member's own locker, where they drop their bag in the morning and take it at night. */
-export type LockerStationId = `locker-${MemberId}`;
 
 export type StationId =
   | "desk-asuna"
@@ -185,7 +181,6 @@ export type StationId =
   | "pingpong-west"
   | "pingpong-east"
   | VisitStationId
-  | LockerStationId
   | "reading-chair"
   | "report-1"
   | "report-2"
@@ -439,25 +434,6 @@ const pingpongCenter = { x: 7.1, z: -2.75 } as const;
 const punchingBagSpot = { x: 9.9, z: -2.75 } as const;
 /** A long low aquarium between the front row and the lounge. */
 const aquariumSpot = { x: -1.9, z: 3.6 } as const;
-/**
- * The members' lockers against the front wall: two rows of six on a plinth, half height so the
- * lettering painted above stays clear. Each member has one, in roster order, top row first.
- */
-export const lockerBank = { x: 5.65, z: 3.8, columns: 6, unitWidth: 0.25, depth: 0.36, plinth: 0.42 } as const;
-/** A locker's front, 0.25 wide by 0.23 tall: the kit cabinet's proportions. */
-export const lockerUnitHeight = 0.227;
-
-/** Where a member's locker sits: its middle along the wall (world x) and the bottom of its row. */
-export function lockerSlot(memberId: MemberId): { x: number; y: number } {
-  const index = memberIds.indexOf(memberId);
-  const column = index % lockerBank.columns;
-  const row = Math.floor(index / lockerBank.columns);
-  const width = lockerBank.columns * lockerBank.unitWidth;
-  // The bank faces the room (turned half round), so its first column is at the far +x end.
-  const local = -width / 2 + lockerBank.unitWidth * (column + 0.5);
-  return { x: lockerBank.x - local, y: lockerBank.plinth + (1 - row) * lockerUnitHeight };
-}
-
 /** The bookshelf's middle, its back to the front wall, and how wide it runs along it. */
 const bookshelfSpot = { x: 0.65, z: 3.79 } as const;
 const bookshelfWidth = 1.5;
@@ -867,7 +843,7 @@ export const furniture: readonly Furniture[] = [
     blocksWalking: true,
   },
   // Along the front wall past the bookshelf: a reading corner, a cabinet of the team's trophies and
-  // keepsakes, and the members' lockers behind Chizuru's and Komachi's chairs.
+  // keepsakes.
   {
     id: "lounge-chair",
     kind: "lounge-chair",
@@ -895,16 +871,6 @@ export const furniture: readonly Furniture[] = [
     z: 3.8,
     width: 1.2,
     depth: 0.36,
-    yaw: facing.backWall,
-    blocksWalking: true,
-  },
-  {
-    id: "lockers",
-    kind: "lockers",
-    x: lockerBank.x,
-    z: lockerBank.z,
-    width: lockerBank.columns * lockerBank.unitWidth,
-    depth: lockerBank.depth,
     yaw: facing.backWall,
     blocksWalking: true,
   },
@@ -1129,7 +1095,7 @@ export function yawToward(from: Point, to: Point): number {
 /** Close enough to the boards (surface at x -6.91) that an arm reaches the writing. */
 const boardStandX = -6.68;
 
-const placeStations: Record<Exclude<StationId, VisitStationId | LockerStationId>, Station> = {
+const placeStations: Record<Exclude<StationId, VisitStationId>, Station> = {
   "desk-asuna": deskRowStation("desk-asuna", deskRowX.asuna),
   "desk-kobayashi": deskRowStation("desk-kobayashi", deskRowX.kobayashi),
   "desk-huagua": deskRowStation("desk-huagua", deskRowX.huagua),
@@ -1289,23 +1255,9 @@ function visitStations(desks: typeof placeStations): Record<VisitStationId, Stat
   ) as Record<VisitStationId, Station>;
 }
 
-/** In front of each member's locker, facing it, a step back from the bank. */
-function lockerStations(): Record<LockerStationId, Station> {
-  return Object.fromEntries(
-    memberIds.map((memberId) => {
-      const id: LockerStationId = `locker-${memberId}`;
-      return [
-        id,
-        standing(id, { x: lockerSlot(memberId).x, z: lockerBank.z - lockerBank.depth / 2 - 0.32 }, facing.camera),
-      ];
-    }),
-  ) as Record<LockerStationId, Station>;
-}
-
 export const stations: Record<StationId, Station> = {
   ...placeStations,
   ...visitStations(placeStations),
-  ...lockerStations(),
 };
 
 function meetingStations(): Record<MeetingStationId, Station> {

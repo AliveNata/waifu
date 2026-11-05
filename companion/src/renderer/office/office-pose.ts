@@ -10,6 +10,7 @@ import {
   safeStep,
   stampStep,
 } from "./desk-habits.js";
+import { type EatStyle, eatStyleFor, lunchMoment, speakerGestureKinds } from "./lunch-eating.js";
 import type { ChatGesture, ChatReaction } from "./office-chatter.js";
 import { type OfficeAction, ovenStep } from "./office-director.js";
 import { people } from "./office-plan.js";
@@ -58,6 +59,8 @@ export interface OfficePoseInput {
   fetchSide?: "left" | "right";
   /** A moment in the middle of typing: hand on the chin, leaning in, a glance, a stretch, a fist pump. */
   workBeat?: ActiveWorkBeat | null;
+  /** The member's own way of eating at lunch; a default eater when absent. */
+  eatStyle?: EatStyle;
 }
 
 const plainWalk: WalkStyle = { stride: 1, armSwing: 1, bounce: 1, sway: 1, lean: 0.04 };
@@ -1216,22 +1219,56 @@ function standupLeadBody(input: OfficePoseInput): UpperBody {
   return chatBody({ ...input, chatGesture: { kind, elapsed: input.actionElapsed % 6 } });
 }
 
-/** Lunch at the meeting table: chopsticks from the lunch box up to the mouth, a bite, back down. */
+/**
+ * Lunch at the meeting table, in the member's own way: bites at their own pace, pauses to chew
+ * and look about, sit back or poke around the box, and a stop to talk when it is their line.
+ */
 function lunchBody(input: OfficePoseInput): UpperBody {
-  const bite = cycle(Math.max(0, input.actionElapsed - 1), 3.2);
+  const style = input.eatStyle ?? eatStyleFor("twob");
+  const moment = lunchMoment(input.actionElapsed - 1, style);
+  const bite = moment.kind === "bite" ? moment.amount : 0;
+  const pausing = moment.kind === "bite" ? 0 : moment.amount;
+  const sitBack = moment.kind === "sit-back" ? pausing : 0;
+  const picking = moment.kind === "pick" ? pausing : 0;
+  const look = moment.kind === "chew" ? moment.look * pausing : 0;
+  const lean = 0.06 + 0.1 * style.lean;
   const bones: PoseBones = {
     ...armsRelaxed,
-    spine: { x: 0.12 - 0.08 * bite, y: 0, z: 0 },
-    head: { x: 0.3 - 0.25 * bite, y: 0, z: 0 },
+    spine: { x: lean - 0.08 * bite - (lean + 0.06) * sitBack + 0.05 * picking, y: 0.08 * look, z: 0 },
+    head: { x: 0.3 - 0.25 * bite - 0.25 * sitBack + 0.1 * picking, y: 0.35 * look, z: 0.04 * look },
   };
+  // The chopsticks: down at the box, up to the mouth on a bite, a little lower and still while
+  // pausing, stirring about the box while picking.
+  const stir = picking * 0.12 * Math.sin(input.time * 5);
   setArm(
     bones,
     "right",
-    mixRotation({ x: -0.75, y: 0, z: 1.0 }, { x: -0.6, y: 0, z: 1.0 }, bite),
-    mixRotation({ x: 0, y: 1.1, z: 0 }, { x: 0, y: 2.3, z: 0 }, bite),
+    mixRotation({ x: -0.75, y: 0, z: 1.0 + 0.15 * sitBack }, { x: -0.6, y: 0, z: 1.0 }, bite),
+    mixRotation({ x: 0, y: 1.1 - 0.3 * sitBack + stir, z: 0 }, { x: 0, y: 2.3, z: 0 }, bite),
   );
-  // The other hand steadies the box on the table.
-  setArm(bones, "left", { x: -0.7, y: 0, z: 1.1 }, { x: 0, y: 1.0, z: 0 });
+  switch (style.freeHand) {
+    case "box":
+      setArm(bones, "left", { x: -0.7, y: 0, z: 1.1 }, { x: 0, y: 1.0, z: 0 });
+      break;
+    case "table":
+      // Forearm along the table edge, the hand out beside the box.
+      setArm(bones, "left", { x: -0.55, y: 0.25, z: 1.15 }, { x: 0, y: 1.25, z: 0 });
+      break;
+    case "lap":
+      setArm(bones, "left", { x: -0.2, y: 0, z: 1.25 }, { x: 0, y: 0.7, z: 0 });
+      break;
+  }
+  const gesture = input.chatGesture ?? null;
+  if (gesture !== null && speakerGestureKinds.has(gesture.kind)) {
+    // Their line: chopsticks held low over the box, the other hand doing the talking.
+    const talking = chatGestureBones(gesture, input.time);
+    if (talking.leftUpperArm !== undefined && talking.leftLowerArm !== undefined) {
+      bones.leftUpperArm = talking.leftUpperArm;
+      bones.leftLowerArm = talking.leftLowerArm;
+    }
+    setArm(bones, "right", { x: -0.75, y: 0, z: 1.05 }, { x: 0, y: 1.0, z: 0 });
+    bones.head = { x: 0.1, y: 0, z: 0 };
+  }
   return { bones };
 }
 

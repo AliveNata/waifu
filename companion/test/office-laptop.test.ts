@@ -94,15 +94,6 @@ describe("the desk at the end and start of the day", () => {
     expect(deskLock("go-home", false, 0)).toEqual({ kind: "locked" });
   });
 
-  it("keeps the desk shut and locked while its owner is at the locker", () => {
-    // Act
-    const atLocker = laptopView({ errand: "locker", arrived: true, stepElapsed: 1, remaining: 1.6 });
-
-    // Assert
-    expect(atLocker).toMatchObject({ place: "home", lid: 0 });
-    expect(deskLock("locker", true, 1)).toEqual({ kind: "locked" });
-  });
-
   it("opens the laptop on arrival and signs back in, the dots filling before it unlocks", () => {
     // Act
     const walkingIn = laptopView({ errand: "unpack", arrived: false, stepElapsed: 0, remaining: Infinity });
