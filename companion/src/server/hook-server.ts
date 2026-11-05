@@ -5,6 +5,7 @@ import { readFile, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { basename, extname, join, normalize, resolve, sep } from "node:path";
 import { type CompanionHookPayload, parseHookPayload } from "../shared/hook-event.js";
+import { isLocalProp, type LocalProp } from "../shared/protocol.js";
 import { type CompanionSignal, signalsForHook } from "../shared/reaction.js";
 import { isMemberId, type MemberId } from "../shared/team.js";
 
@@ -32,6 +33,8 @@ export interface WebModeOptions {
   baseModelPath: string | null;
   /** The delivery courier's model, served at GET /model/courier. Absent or null when there is none. */
   courierModelPath?: string | null;
+  /** Local-only props, served at GET /model/prop/<name>. A missing one is served as "none". */
+  localPropPaths?: Partial<Record<LocalProp, string>>;
 }
 
 export interface HookServerOptions {
@@ -146,6 +149,16 @@ export class HookServer extends EventEmitter<HookServerEvents> {
       }
       if (url.pathname === "/model/courier") {
         await serveModel(web.courierModelPath ?? null, response);
+        return;
+      }
+      const propMatch = /^\/model\/prop\/([a-z-]+)$/.exec(url.pathname);
+      if (propMatch !== null) {
+        const name = propMatch[1];
+        if (!isLocalProp(name)) {
+          sendJson(response, 404, { ok: false, error: "unknown prop" });
+          return;
+        }
+        await serveModel(web.localPropPaths?.[name] ?? null, response);
         return;
       }
       const modelMatch = /^\/model\/([a-z]+)$/.exec(url.pathname);

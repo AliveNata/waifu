@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { findCourierModel, findMemberModel, memberModelFileNames } from "../src/tools/member-models.js";
+import { findCourierModel, findLocalProp, findMemberModel, memberModelFileNames } from "../src/tools/member-models.js";
 
 const repoRoot = join("repo");
 
@@ -53,5 +53,20 @@ describe("findCourierModel", () => {
 
     // Assert
     expect(path).toBeNull();
+  });
+});
+
+describe("findLocalProp", () => {
+  it("finds a local-only prop in models/ by its name", () => {
+    // Arrange
+    const existing = new Set([join(repoRoot, "models", "punching-bag.glb")]);
+
+    // Act
+    const bag = findLocalProp(repoRoot, "punching-bag", (candidate) => existing.has(candidate));
+    const arcade = findLocalProp(repoRoot, "arcade-elben", (candidate) => existing.has(candidate));
+
+    // Assert
+    expect(bag).toBe(join(repoRoot, "models", "punching-bag.glb"));
+    expect(arcade).toBeNull();
   });
 });

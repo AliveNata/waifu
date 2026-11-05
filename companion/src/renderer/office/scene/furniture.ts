@@ -30,7 +30,7 @@ import { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./animated.js"
 import { type FoodModelName, foodModel, kitScale, roomScale } from "./food-models.js";
 import { furnitureModel } from "./furniture-models.js";
 import { handPropModel, type PropLook } from "./hand-props.js";
-import { kitPiece, kitSize } from "./kit.js";
+import { fitModel, kitPiece, kitSize } from "./kit.js";
 import { laptopShell } from "./laptop-model.js";
 import { box, glow, mesh, palette, standard, unlit } from "./palette.js";
 import { leafyCrown } from "./plant.js";
@@ -232,9 +232,8 @@ function modelChair(seatHeight: number): BuiltPiece | null {
   const chair = kitPiece(
     "officeChair",
     { height: 1.192 * scale },
-    // A black chair with the seat cushion and arm pads in the room's chair purple. The headrest's
-    // texture is left out to keep the model light, so it takes the black too.
-    { couro_2_4k: palette.chairPurple, couro_2_4k_encosto1: "#161616", couro_2_4k_encosto_de_cabea: "#161616" },
+    // An all-black chair, seat, back and arm pads, with only the headrest in the room's chair purple.
+    { couro_2_4k: "#161616", couro_2_4k_encosto1: "#161616", couro_2_4k_encosto_de_cabea: palette.chairPurple },
   );
   if (chair === null) {
     return null;
@@ -1098,18 +1097,89 @@ export function buildServerRack(piece: Furniture): { root: Group; lights: RackLi
   return { root, lights: new RackLights(lights) };
 }
 
-/** Arcade cabinet at the office's scale: controls at hand height, screen at eye height. */
-export function buildArcade(piece: Furniture): { root: Group; screen: ArcadeScreen } {
-  const root = placed(piece);
+/** Arcade cabinet height at the office's scale: controls at hand height, screen at eye height. */
+const arcadeHeight = 1.32;
+
+/**
+ * The arcade models: how each is turned to face +z, which part is the glass the game shows on,
+ * and the parts left out (the Pac-Man model's own sprites would sit over the office's game).
+ */
+const arcadeModels = {
+  // "Pacman Arcade + animation" by Daniel Brück, CC-BY-4.0, in the repo.
+  pacman: { yaw: 0, glass: "scheibe", hide: ["pacman_", "mouth_", "ghost"] },
+  // "Arcade Cabinet Elben Quest" by iceboxX708, CC-BY-NC-4.0: only from the user's own models/.
+  elben: { yaw: Math.PI / 2, glass: "ArcadeMachine_Glass", hide: [] },
+} as const;
+export type ArcadeModel = keyof typeof arcadeModels;
+
+/**
+ * An arcade model fitted to the cabinet height and turned to face the player, the office's game
+ * on a plane laid over its glass at the glass's own tilt.
+ */
+function modelArcade(model: Object3D, kind: ArcadeModel, screen: ArcadeScreen): Group {
+  const spec = arcadeModels[kind];
+  const holder = fitModel(model, { height: arcadeHeight });
+  holder.rotation.y = spec.yaw;
+  const cabinet = new Group();
+  cabinet.add(holder);
+  cabinet.updateMatrixWorld(true);
+  let glass: Box3 | null = null;
+  cabinet.traverse((part) => {
+    if (spec.hide.some((prefix: string) => part.name.startsWith(prefix))) {
+      part.visible = false;
+    } else if (glass === null && part instanceof Mesh && part.name.startsWith(spec.glass)) {
+      glass = new Box3().setFromObject(part);
+    }
+  });
+  const bounds: Box3 = glass ?? new Box3().setFromObject(cabinet);
+  const size = bounds.getSize(new Vector3());
+  // The glass leans back: bottom edge at the front, top edge further back.
+  const tilt = Math.atan2(size.z, size.y);
+  const display = mesh(new PlaneGeometry(size.x * 0.9, Math.hypot(size.y, size.z) * 0.9), unlit(screen.texture), false);
+  const center = bounds.getCenter(new Vector3());
+  display.position.set(center.x, center.y + 0.006 * Math.sin(tilt), center.z + 0.006 * Math.cos(tilt));
+  display.rotation.x = -tilt;
+  cabinet.add(display);
+  return cabinet;
+}
+
+/**
+ * One of the two arcade cabinets. The first is the Pac-Man model; the second is built here
+ * until the user's own Elben Quest model loads, which then takes its place.
+ */
+export class ArcadeCabinet {
+  readonly root: Group;
+  readonly screen: ArcadeScreen;
+  private body: Group;
+
+  constructor(piece: Furniture) {
+    this.root = placed(piece);
+    // The pair runs two different games, so they never show the same frame side by side.
+    this.screen = new ArcadeScreen(piece.id === "arcade" ? "shooter" : "breakout");
+    const pacman = piece.id === "arcade" ? furnitureModel("arcadePacman") : null;
+    this.body = pacman === null ? codeArcade(piece, this.screen) : modelArcade(pacman, "pacman", this.screen);
+    this.root.add(this.body);
+  }
+
+  /** Swaps the cabinet for a model that arrived after the room was built. */
+  useModel(model: Object3D, kind: ArcadeModel): void {
+    const next = modelArcade(model, kind, this.screen);
+    this.root.remove(this.body);
+    this.body = next;
+    this.root.add(next);
+  }
+}
+
+/** The arcade cabinet built from boxes, for when no model is there. */
+function codeArcade(piece: Furniture, screen: ArcadeScreen): Group {
   const { width, depth } = localSize(piece);
+  const cabinet = new Group();
   const body = standard(palette.ink, 0.55);
-  // The pair runs two different games, so they never show the same frame side by side.
-  const screen = new ArcadeScreen(piece.id === "arcade" ? "shooter" : "breakout");
   const cabinetWidth = width - 0.16;
   // Controls at a standing player's hands and the top at about 1.3 m, at the room's 0.73 scale.
   const panelTop = 0.68;
   const screenBox = 0.5;
-  root.add(
+  cabinet.add(
     box(cabinetWidth, panelTop, depth * 0.7, body, 0, 0, -depth * 0.05),
     box(cabinetWidth, screenBox, depth * 0.45, body, 0, panelTop, -depth * 0.18),
     box(cabinetWidth, 0.14, depth * 0.5, body, 0, panelTop + screenBox, -depth * 0.15),
@@ -1136,21 +1206,21 @@ export function buildArcade(piece: Furniture): { root: Group; screen: ArcadeScre
   );
   bezel.position.copy(display.position);
   bezel.rotation.copy(display.rotation);
-  root.add(display, bezel);
+  cabinet.add(display, bezel);
   const stick = mesh(new CylinderGeometry(0.008, 0.008, 0.05, 6), standard(palette.ink, 0.4));
   stick.position.set(-0.1, panelTop + 0.045, depth * 0.27);
   const knob = mesh(new SphereGeometry(0.018, 10, 8), glow(palette.accent, 0.8));
   knob.position.set(-0.1, panelTop + 0.075, depth * 0.27);
-  root.add(stick, knob);
+  cabinet.add(stick, knob);
   for (let button = 0; button < 3; button++) {
     const cap = mesh(
       new CylinderGeometry(0.014, 0.014, 0.012, 12),
       standard(button === 0 ? palette.accent : palette.laminate, 0.4),
     );
     cap.position.set(0.03 + button * 0.05, panelTop + 0.026, depth * 0.27);
-    root.add(cap);
+    cabinet.add(cap);
   }
-  return { root, screen };
+  return cabinet;
 }
 
 /** TV centered at seated eye height for the sofa, on a low console. */
@@ -1550,10 +1620,20 @@ export function buildBoardStep(piece: Furniture, height: number): Group {
 }
 
 /** Ping-pong table at the office's scale: ink top with white lines and a net, accent paddles at each end. */
+/** The ping-pong model's own height and play surface, so its top lands on the office's table height. */
+const pingpongModel = { height: 0.903, top: 0.76 } as const;
+
 export function buildPingpongTable(piece: Furniture): Group {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const top = surface.pingpong;
+  // "ping pong" by alixor22 (CC-BY-4.0), scaled as a whole so its top is the office's table height;
+  // at that scale it is 2.0 by 1.1 m, the table's own footprint, so the ball's bounces still land.
+  const model = kitPiece("pingpong", { height: (pingpongModel.height / pingpongModel.top) * top });
+  if (model !== null) {
+    root.add(model);
+    return root;
+  }
   const ink = standard(palette.ink, 0.6);
   root.add(
     box(width, 0.03, depth, standard(palette.inkSoft, 0.5), 0, top - 0.03, 0),

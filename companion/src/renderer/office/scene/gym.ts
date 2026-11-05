@@ -1,20 +1,23 @@
 import {
   type AnimationMixer,
+  Box3,
   CanvasTexture,
   CylinderGeometry,
   Group,
+  Mesh,
   MeshStandardMaterial,
   type Object3D,
   PlaneGeometry,
   RepeatWrapping,
   SphereGeometry,
   SRGBColorSpace,
+  Vector3,
 } from "three";
 import { type Furniture, surface, treadmillDeckHeight } from "../office-plan.js";
 import { punchReach } from "../office-pose.js";
 import { deskTop } from "./desks.js";
 import { type FishSpecies, fishModel, fishSpecies } from "./fish-models.js";
-import { kitPiece } from "./kit.js";
+import { fitModel, kitPiece, kitSize } from "./kit.js";
 import { box, glow, mesh, palette, standard } from "./palette.js";
 
 function placed(piece: Furniture): Group {
@@ -112,6 +115,24 @@ export class Treadmill {
     const deck = treadmillDeckHeight;
     this.belt = beltTexture();
     this.belt.repeat.set(1, depth * 6);
+    this.display = glow(palette.accentSoft, 0.2);
+    // "treadmill ProForm" by e-restrepo1114 (CC-BY-4.0): its deck is 0.182 of its 1.355 height, so
+    // scaled to put the deck where the runner's feet are. Its console faces -z: turned round.
+    const model = kitPiece("treadmill", { height: (1.355 / 0.182) * deck });
+    if (model !== null) {
+      model.rotation.y = Math.PI;
+      const size = kitSize(model);
+      // The office's moving belt over the model's own, on the deck between its side rails.
+      const belt = mesh(
+        new PlaneGeometry(size.x * 0.5, size.z * 0.55),
+        new MeshStandardMaterial({ map: this.belt, roughness: 0.9 }),
+        false,
+      );
+      belt.rotation.x = -Math.PI / 2;
+      belt.position.set(0, deck + 0.004, -size.z * 0.08);
+      this.root.add(model, belt);
+      return;
+    }
     const beltWidth = width - 0.16;
     const belt = mesh(
       new PlaneGeometry(beltWidth, depth - 0.12),
@@ -120,7 +141,6 @@ export class Treadmill {
     );
     belt.rotation.x = -Math.PI / 2;
     belt.position.set(0, deck + 0.002, 0);
-    this.display = glow(palette.accentSoft, 0.2);
     const front = depth / 2 - 0.08;
     // Console and hand rails at the room's 0.73 scale: about 1.35 m and 1 m in life.
     const consoleY = 0.98;
@@ -155,6 +175,12 @@ export class Treadmill {
  * top with the bag on a short chain, its middle at a standing person's chest. It swings back each
  * time a punch lands, on the same clock as the puncher's fists.
  */
+/** The stand's height, and where along the piece the bag hangs, in front of the post. */
+const punchingBagTop = 1.65;
+const bagSpotZ = 0.02;
+/** The model's bag and chain, which swing; everything else is the stand. */
+const swingingMaterials: ReadonlySet<string> = new Set(["Material.001", "Material_153"]);
+
 export class PunchingBag {
   readonly root: Group;
   private readonly swing: Group;
@@ -166,7 +192,7 @@ export class PunchingBag {
     const frame = standard(palette.ink, 0.5, 0.2);
     // A full-size stand and bag at the room's 0.73 scale: the bag hangs from about the hip to
     // above the head, its bottom near 0.7 m like a real one hung at about 1 m.
-    const top = 1.65;
+    const top = punchingBagTop;
     const post = -depth / 2 + 0.05;
     this.root.add(
       box(0.42, 0.05, depth, frame, 0, 0, 0),
@@ -174,7 +200,7 @@ export class PunchingBag {
       box(0.05, 0.05, depth / 2 + 0.03, frame, 0, top - 0.05, post + depth / 4),
     );
     this.swing = new Group();
-    this.swing.position.set(0, top - 0.05, 0.02);
+    this.swing.position.set(0, top - 0.05, bagSpotZ);
     const chain = mesh(new CylinderGeometry(0.006, 0.006, 0.12, 6), standard(palette.steel, 0.4, 0.8));
     chain.position.y = -0.06;
     const bagHeight = 0.78;
@@ -184,6 +210,46 @@ export class PunchingBag {
     band.position.y = -0.12 - bagHeight * 0.3;
     this.swing.add(chain, bag, band);
     this.root.add(this.swing);
+  }
+
+  /**
+   * Swaps the stand and bag for the user's own punching bag model ("Punch bag" by Hapk, only from
+   * models/ under its license). The stand stays put; the bag and its chain go on the swing, hung
+   * from the chain's top and moved so the bag is where the puncher stands to hit it.
+   */
+  useModel(model: Object3D): void {
+    // The model's bag is long and wide for its stand: a lower stand keeps the bag about as tall
+    // as a real one is against the team, from the knee to just above the head.
+    const holder = fitModel(model, { height: 1.45 });
+    const swinging: Object3D[] = [];
+    holder.updateMatrixWorld(true);
+    holder.traverse((part) => {
+      if (part instanceof Mesh && !Array.isArray(part.material) && swingingMaterials.has(part.material.name)) {
+        swinging.push(part);
+      }
+    });
+    if (swinging.length === 0) {
+      console.error("[office] punching bag model has no bag to swing; keeping the built one");
+      return;
+    }
+    const bag = new Box3();
+    for (const part of swinging) {
+      bag.union(new Box3().setFromObject(part));
+    }
+    const bagCenter = bag.getCenter(new Vector3());
+    holder.position.x -= bagCenter.x;
+    holder.position.z += bagSpotZ - bagCenter.z;
+    for (const child of [...this.root.children]) {
+      this.root.remove(child);
+    }
+    this.swing.clear();
+    this.swing.rotation.set(0, 0, 0);
+    this.swing.position.set(0, bag.max.y, bagSpotZ);
+    this.root.add(holder, this.swing);
+    this.root.updateMatrixWorld(true);
+    for (const part of swinging) {
+      this.swing.attach(part);
+    }
   }
 
   /** `elapsed` is how long the current puncher has been at it, or null when nobody is. */

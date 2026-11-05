@@ -1,7 +1,8 @@
 import "../common/base.css";
 import "./office.css";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { normalizeDisplaySettings, type OfficeDisplaySettings } from "../../shared/display-settings.js";
-import type { ConversationMode } from "../../shared/protocol.js";
+import { type ConversationMode, localProps } from "../../shared/protocol.js";
 import { idleReaction } from "../../shared/reaction.js";
 import { normalizeSoundSettings, type OfficeSoundSettings } from "../../shared/sound-settings.js";
 import type { MemberId } from "../../shared/team.js";
@@ -23,7 +24,7 @@ import { MusicPanel } from "./music-panel.js";
 import { OfficePointer } from "./office-pointer.js";
 import { type CloseupRect, closeupRect, OfficeStage, portraitSize, teamDialogDock } from "./office-stage.js";
 import { loadFishModels } from "./scene/fish-models.js";
-import { loadFoodModels } from "./scene/food-models.js";
+import { loadFoodModels, simplifyMaterials } from "./scene/food-models.js";
 import { loadFurnitureModels } from "./scene/furniture-models.js";
 import { setSceneQuality } from "./scene/palette.js";
 import { SpeechBubbles } from "./speech-bubbles.js";
@@ -241,6 +242,28 @@ class OfficePage {
       this.loadSaved(memberId);
     }
     this.loadCourier();
+    this.loadLocalProps();
+  }
+
+  /**
+   * Props whose license keeps them out of the repo load from models/ when the user has them;
+   * without the file the office keeps its own version, so a missing one is not worth a notice.
+   */
+  private loadLocalProps(): void {
+    for (const name of localProps) {
+      this.bridge
+        .loadLocalProp(name)
+        .then(async (file) => {
+          if (file !== null) {
+            const gltf = await new GLTFLoader().parseAsync(file.bytes, "");
+            simplifyMaterials(gltf.scene);
+            this.stage.setLocalProp(name, gltf.scene);
+          }
+        })
+        .catch((error: unknown) => {
+          console.error(`[office] local prop "${name}" failed to load`, error);
+        });
+    }
   }
 
   /** The courier is optional: no models/courier.vrm keeps orders appearing on the mat as before. */

@@ -84,7 +84,24 @@ Model dari Sketchfab, lisensi [CC-BY-4.0](http://creativecommons.org/licenses/by
 - Laptop gaming (meja Ruby): "Gaming Laptop" karya [Blue Lantern](https://sketchfab.com/genoris2), [sumber](https://sketchfab.com/3d-models/gaming-laptop-4e72a2078b3c4a75a821ab09830693fe).
 - Ikan di aquarium: "Fish Animated" karya [Pia Krensel](https://sketchfab.com/Pidele) ([sumber](https://sketchfab.com/3d-models/fish-animated-665ab73155a44d91908519d84e5fd002)), "Koi Fish" karya [lesliestowe](https://sketchfab.com/lesliestowe) ([sumber](https://sketchfab.com/3d-models/koi-fish-f7e2e4858f2f438aa2832566220199f4)), "Fish" karya [Yimit](https://sketchfab.com/yimit) ([sumber](https://sketchfab.com/3d-models/fish-c4328d6c1ae445198abc1a3d4c1e2570)), "Fish" karya [mRiot](https://sketchfab.com/malgorzatariot) ([sumber](https://sketchfab.com/3d-models/fish-c34f2b96bd5140b3ac44b7266fd72b28)), "Small fish" karya [The SpezX](https://sketchfab.com/SpezX) ([sumber](https://sketchfab.com/3d-models/small-fish-8f5de32946f347a0b6c8e55c6a66d46d)).
 
+- Arcade Pac-Man: "Pacman Arcade + animation" karya [Daniel Brück](https://sketchfab.com/daniel.brueck), [sumber](https://sketchfab.com/3d-models/pacman-arcade-animation-0b43f85af5384ea4bac5d6e2d3cbd008).
+- Treadmill: "treadmill ProForm" karya [e-restrepo1114](https://sketchfab.com/EmanuelRestrepoVelez), [sumber](https://sketchfab.com/3d-models/treadmill-proform-03e4ff99ecc24e5f8ea49d4e8df876e8).
+- Meja pingpong: "ping pong" karya [alixor22](https://sketchfab.com/alixor22), [sumber](https://sketchfab.com/3d-models/ping-pong-c954dcfaec2744e381a30d09afbb6e47).
+- Printer: "Printer- Low Poly" karya [CG Buzz](https://sketchfab.com/Tapan_S), [sumber](https://sketchfab.com/3d-models/printer-low-poly-8a3a68f84f4d4a34973b527875a7314b).
+- Server rack: "Server Rack" karya [Spellkaze](https://sketchfab.com/Spellkaze), [sumber](https://sketchfab.com/3d-models/server-rack-62f6779cb7e448b19aaf58544c3c7218).
+- Ring light: "Ring Light" karya [ahmagh2e](https://sketchfab.com/ahmagh2e), [sumber](https://sketchfab.com/3d-models/ring-light-fe2d9eda3939484ea10c3ebc4887c28a).
+- Kamera dan tripod: "Camera With Tripod" karya [FatWasHere](https://sketchfab.com/fathin880), [sumber](https://sketchfab.com/3d-models/camera-with-tripod-cc324baf6dc548de965c3a47b87f1e27).
+
+Dari Kenney Furniture Kit juga: TV `televisionModern` di atas kabinet TV, speaker `speakerSmall` di kedua ujung kabinet, dan bangku `benchCushionLow` di depan meja pingpong.
+
 Laptop cuma diambil bentuk badan dan tutupnya. Keyboard yang nyala pas ngetik dan layarnya tetap buatan kode, jadi animasinya sama kayak sebelumnya.
+
+Dua prop opsional yang lisensinya nggak boleh masuk repo, jadi file-nya disimpan sendiri di `models/` (nggak ikut ke-commit, sama kayak kurir):
+
+- `models/arcade-elben.glb`: "Arcade Cabinet Elben Quest" karya [iceboxX708](https://sketchfab.com/iceboxX708), lisensi CC-BY-NC-4.0 (cuma buat non-komersial), [sumber](https://sketchfab.com/3d-models/arcade-cabinet-elben-quest-637f3a217d3e4fbbbeef8670381f2c53). Kalau ada, jadi arcade kedua. Kalau nggak ada, arcade kedua tetap buatan kode.
+- `models/punching-bag.glb`: "Punch bag" karya [Hapk](https://sketchfab.com/neiltonanimacoes), lisensi Sketchfab Standard (nggak boleh disebar ulang), [sumber](https://sketchfab.com/3d-models/punch-bag-dc939aa468a74c9a814f72fef1cb5a15). Kalau ada, samsaknya pakai model ini dan tetap berayun waktu dipukul.
+
+Download dari Sketchfab (format glTF, file `.glb`), ganti namanya kayak di atas, dan catat kreditnya di `models/CREDITS.md`.
 
 Kurir pesanan opsional. Simpan model kurir sebagai `models/courier.vrm`, nanti tiap pesanan diantar sama kurirnya: jalan masuk lewat lorong bawa bungkus sesuai pesanan, nunggu di depan pintu sampai Alyx ambil paketnya, terus balik keluar. Kalau 45 detik nggak diambil, paketnya ditaruh di keset dan kurirnya pergi. Tanpa file itu, pesanan langsung muncul di keset kayak sebelumnya.
 

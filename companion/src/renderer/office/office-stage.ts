@@ -30,6 +30,7 @@ import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { defaultDisplaySettings, type OfficeDisplaySettings } from "../../shared/display-settings.js";
+import type { LocalProp } from "../../shared/protocol.js";
 import { idleReaction, type MemberSignal, type Reaction } from "../../shared/reaction.js";
 import type { OfficeSoundSettings } from "../../shared/sound-settings.js";
 import { type MemberId, memberIds, roster } from "../../shared/team.js";
@@ -884,6 +885,15 @@ export class OfficeStage {
 
   /** Swaps a member's avatar, for example from placeholder to their real VRM. */
   /** The delivery courier's model: from now on orders are walked in and handed over. */
+  /** A local-only prop that loaded after the room was built: the second arcade or the punching bag. */
+  setLocalProp(name: LocalProp, model: Object3D): void {
+    if (name === "arcade-elben") {
+      this.office.arcadeCabinets[1]?.useModel(model, "elben");
+    } else {
+      this.office.punchingBag.useModel(model);
+    }
+  }
+
   setCourier(avatar: OfficeAvatar): void {
     this.courier?.dispose();
     this.courier = new Courier(avatar, this.scene);

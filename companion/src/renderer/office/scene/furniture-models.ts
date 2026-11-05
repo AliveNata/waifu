@@ -1,4 +1,5 @@
 import type { Object3D } from "three";
+import arcadePacmanUrl from "../assets/furniture/arcadePacman.glb?url";
 import bearUrl from "../assets/furniture/bear.glb?url";
 import benchCushionLowUrl from "../assets/furniture/benchCushionLow.glb?url";
 import bookcaseUrl from "../assets/furniture/bookcaseClosedWide.glb?url";
@@ -17,6 +18,7 @@ import loungeChairUrl from "../assets/furniture/loungeChair.glb?url";
 import loungeSofaUrl from "../assets/furniture/loungeSofa.glb?url";
 import mouseM310Url from "../assets/furniture/mouseM310.glb?url";
 import officeChairUrl from "../assets/furniture/officeChair.glb?url";
+import pingpongUrl from "../assets/furniture/pingpong.glb?url";
 import plantSmall1Url from "../assets/furniture/plantSmall1.glb?url";
 import pottedPlantUrl from "../assets/furniture/pottedPlant.glb?url";
 import printerUrl from "../assets/furniture/printer.glb?url";
@@ -31,6 +33,7 @@ import stoolBarUrl from "../assets/furniture/stoolBar.glb?url";
 import tableCoffeeUrl from "../assets/furniture/tableCoffee.glb?url";
 import televisionModernUrl from "../assets/furniture/televisionModern.glb?url";
 import toasterUrl from "../assets/furniture/toaster.glb?url";
+import treadmillUrl from "../assets/furniture/treadmill.glb?url";
 import { loadTemplates } from "./food-models.js";
 
 /**
@@ -52,6 +55,9 @@ const urls = {
   mouseM310: mouseM310Url,
   laptop: laptopUrl,
   printer: printerUrl,
+  arcadePacman: arcadePacmanUrl,
+  treadmill: treadmillUrl,
+  pingpong: pingpongUrl,
   serverRack: serverRackUrl,
   ringLight: ringLightUrl,
   cameraTripod: cameraTripodUrl,

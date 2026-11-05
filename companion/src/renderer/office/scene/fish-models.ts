@@ -6,6 +6,7 @@ import discusUrl from "../assets/fish/discus.glb?url";
 import goldfishUrl from "../assets/fish/goldfish.glb?url";
 import koiUrl from "../assets/fish/koi.glb?url";
 import snapperUrl from "../assets/fish/snapper.glb?url";
+import { simplifyMaterials } from "./food-models.js";
 
 /**
  * The aquarium's fish, from Sketchfab under CC-BY-4.0 (credited in docs/03-companion.md). Each
@@ -40,6 +41,7 @@ export async function loadFishModels(): Promise<void> {
         gltf.scene.traverse((part) => {
           part.castShadow = false;
         });
+        simplifyMaterials(gltf.scene);
         loaded.set(name, { scene: gltf.scene, clips: gltf.animations });
       } catch (error) {
         console.error(`[office] fish model "${name}" could not be loaded`, error);
