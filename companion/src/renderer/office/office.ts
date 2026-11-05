@@ -22,6 +22,7 @@ import { FrameRate, frameLabel } from "./frame-rate.js";
 import { MusicPanel } from "./music-panel.js";
 import { OfficePointer } from "./office-pointer.js";
 import { type CloseupRect, closeupRect, OfficeStage, portraitSize, teamDialogDock } from "./office-stage.js";
+import { loadFishModels } from "./scene/fish-models.js";
 import { loadFoodModels } from "./scene/food-models.js";
 import { loadFurnitureModels } from "./scene/furniture-models.js";
 import { setSceneQuality } from "./scene/palette.js";
@@ -640,7 +641,8 @@ function afterPaint(): Promise<void> {
 // The bar's food and drinks are small models; they load alongside, and one that fails is logged and left out.
 const foodModels = loadFoodModels();
 const furnitureModels = loadFurnitureModels();
-Promise.all([quality, chatShown, foodModels, furnitureModels])
+const fishModels = loadFishModels();
+Promise.all([quality, chatShown, foodModels, furnitureModels, fishModels])
   .then(async ([chosen]) => {
     await afterPaint();
     setSceneQuality(chosen);

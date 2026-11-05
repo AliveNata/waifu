@@ -5,10 +5,12 @@ import bookcaseOpenLowUrl from "../assets/furniture/bookcaseOpenLow.glb?url";
 import booksUrl from "../assets/furniture/books.glb?url";
 import cabinetTelevisionUrl from "../assets/furniture/cabinetTelevision.glb?url";
 import coatRackStandingUrl from "../assets/furniture/coatRackStanding.glb?url";
+import gamingLaptopUrl from "../assets/furniture/gamingLaptop.glb?url";
 import kitchenCabinetUrl from "../assets/furniture/kitchenCabinet.glb?url";
 import kitchenCoffeeMachineUrl from "../assets/furniture/kitchenCoffeeMachine.glb?url";
 import kitchenFridgeLargeUrl from "../assets/furniture/kitchenFridgeLarge.glb?url";
 import lampRoundFloorUrl from "../assets/furniture/lampRoundFloor.glb?url";
+import laptopUrl from "../assets/furniture/laptop.glb?url";
 import loungeChairUrl from "../assets/furniture/loungeChair.glb?url";
 import loungeSofaUrl from "../assets/furniture/loungeSofa.glb?url";
 import mouseM310Url from "../assets/furniture/mouseM310.glb?url";
@@ -41,6 +43,8 @@ const urls = {
   // From Sketchfab, CC-BY-4.0: credited in docs/03-companion.md.
   officeChair: officeChairUrl,
   mouseM310: mouseM310Url,
+  laptop: laptopUrl,
+  gamingLaptop: gamingLaptopUrl,
   loungeSofa: loungeSofaUrl,
   tableCoffee: tableCoffeeUrl,
   cabinetTelevision: cabinetTelevisionUrl,

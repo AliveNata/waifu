@@ -80,6 +80,11 @@ Model dari Sketchfab, lisensi [CC-BY-4.0](http://creativecommons.org/licenses/by
 
 - Kursi kerja: "Office Chair" karya [PixelPlay](https://sketchfab.com/PixelPlay), [sumber](https://sketchfab.com/3d-models/office-chair-c677daf0cf074ff1aa0744880b9a63dd).
 - Mouse: "Logitech M310 Mouse" karya [Nick Scott](https://sketchfab.com/Nickjjscott), [sumber](https://sketchfab.com/3d-models/logitech-m310-mouse-062b547dbd9a42ce94ff0c94ab9ce3af).
+- Laptop (meja Rias dan Chizuru, laptop meeting): "Laptop" karya [senthil123](https://sketchfab.com/senthil123), [sumber](https://sketchfab.com/3d-models/laptop-426afac17c664f1a9e3224394024fb7e).
+- Laptop gaming (meja Ruby): "Gaming Laptop" karya [Blue Lantern](https://sketchfab.com/genoris2), [sumber](https://sketchfab.com/3d-models/gaming-laptop-4e72a2078b3c4a75a821ab09830693fe).
+- Ikan di aquarium: "Fish Animated" karya [Pia Krensel](https://sketchfab.com/Pidele) ([sumber](https://sketchfab.com/3d-models/fish-animated-665ab73155a44d91908519d84e5fd002)), "Koi Fish" karya [lesliestowe](https://sketchfab.com/lesliestowe) ([sumber](https://sketchfab.com/3d-models/koi-fish-f7e2e4858f2f438aa2832566220199f4)), "Fish" karya [Yimit](https://sketchfab.com/yimit) ([sumber](https://sketchfab.com/3d-models/fish-c4328d6c1ae445198abc1a3d4c1e2570)), "Fish" karya [mRiot](https://sketchfab.com/malgorzatariot) ([sumber](https://sketchfab.com/3d-models/fish-c34f2b96bd5140b3ac44b7266fd72b28)), "Small fish" karya [The SpezX](https://sketchfab.com/SpezX) ([sumber](https://sketchfab.com/3d-models/small-fish-8f5de32946f347a0b6c8e55c6a66d46d)).
+
+Laptop cuma diambil bentuk badan dan tutupnya. Keyboard yang nyala pas ngetik dan layarnya tetap buatan kode, jadi animasinya sama kayak sebelumnya.
 
 Kurir pesanan opsional. Simpan model kurir sebagai `models/courier.vrm`, nanti tiap pesanan diantar sama kurirnya: jalan masuk lewat lorong bawa bungkus sesuai pesanan, nunggu di depan pintu sampai Alyx ambil paketnya, terus balik keluar. Kalau 45 detik nggak diambil, paketnya ditaruh di keset dan kurirnya pergi. Tanpa file itu, pesanan langsung muncul di keset kayak sebelumnya.
 

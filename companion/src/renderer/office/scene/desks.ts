@@ -29,6 +29,7 @@ import { screenScripts } from "../surfaces/screen-scripts.js";
 import { type DeskGadget, returnSetup } from "./desk-returns.js";
 import { handPropModel, type PropLook } from "./hand-props.js";
 import { kitPiece } from "./kit.js";
+import { type LaptopModel, laptopShell } from "./laptop-model.js";
 import { box, glow, mesh, palette, standard, unlit } from "./palette.js";
 import { leafyCrown } from "./plant.js";
 import {
@@ -795,9 +796,33 @@ interface Laptop {
 }
 
 /** A laptop near the front edge: the keyboard is its own, the screen is on the open lid behind it. */
-function laptop(screen: ScreenSurface, depth: number, shell: string, keys: string): Laptop {
+function laptop(
+  screen: ScreenSurface,
+  depth: number,
+  shell: string,
+  keys: string,
+  model: LaptopModel = "laptop",
+): Laptop {
   const keyboard = new Keyboard(palette.accent, shell, keys);
   keyboard.root.position.set(0, deskTop, keyboardZ(depth));
+  const mouse = mouseBeside(keyboard, palette.accent, keys);
+  // The laptop model's own shell around the keys and behind the screen, in this member's color.
+  // The keys and screen stay the office's own, so typing and the screen work as before.
+  const fromModel = laptopShell(model, 0.34, 0.02, standard(shell, 0.5));
+  if (fromModel !== null) {
+    fromModel.base.position.z = -0.07;
+    keyboard.root.add(fromModel.base);
+    const lid = new Group();
+    lid.position.set(0, deskTop + 0.02, keyboardZ(depth) - 0.07);
+    lid.rotation.x = 0.25;
+    lid.userData.openAngle = 0.25;
+    lid.add(fromModel.lid);
+    const panelHeight = Math.min(0.185, fromModel.lidHeight * 0.8);
+    const panel = mesh(new PlaneGeometry(0.31, panelHeight), unlit(screen.texture), false);
+    panel.position.set(0, fromModel.lidHeight * 0.52, fromModel.screenZ + 0.001);
+    lid.add(panel);
+    return { keyboard, mouse, lid };
+  }
   // The laptop's own base around the keys: a palm rest in front and a rim up to the hinge, so the
   // shut lid rests on a closed body instead of floating over bare keys.
   const body = standard(shell, 0.5);
@@ -809,7 +834,6 @@ function laptop(screen: ScreenSurface, depth: number, shell: string, keys: strin
     box(0.01, rim, 0.2, body, 0.165, 0, 0.03),
     box(0.34, rim, 0.01, body, 0, 0, -0.065),
   );
-  const mouse = mouseBeside(keyboard, palette.accent, keys);
   const lid = new Group();
   // Hinged above the keys, so the shut lid lies on them instead of the keys poking through it.
   lid.position.set(0, deskTop + 0.03, keyboardZ(depth) - 0.07);
@@ -828,7 +852,8 @@ function rubyDesk(piece: Furniture): DeskBuild {
   const { width, depth } = deskSize(piece);
   const inner = deskBase(width, depth);
   const screen = new ScreenSurface(screenScripts.ruby);
-  const { keyboard, mouse, lid } = laptop(screen, depth, "#d9d4cc", "#efebe5");
+  // Video editing wants a GPU: the gaming laptop.
+  const { keyboard, mouse, lid } = laptop(screen, depth, "#d9d4cc", "#efebe5", "gamingLaptop");
   const ink = standard(palette.ink, 0.5);
   const boom = new Group();
   boom.add(box(0.016, 0.26, 0.016, ink, 0, deskTop, 0), box(0.016, 0.016, 0.24, ink, 0, deskTop + 0.25, 0.1));

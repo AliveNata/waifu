@@ -30,6 +30,7 @@ import { type FoodModelName, foodModel, kitScale, roomScale } from "./food-model
 import { furnitureModel } from "./furniture-models.js";
 import { handPropModel, type PropLook } from "./hand-props.js";
 import { kitPiece, kitSize } from "./kit.js";
+import { laptopShell } from "./laptop-model.js";
 import { box, glow, mesh, palette, standard, unlit } from "./palette.js";
 import { leafyCrown } from "./plant.js";
 import { doorLetteringTexture, type SignLettering } from "./textures.js";
@@ -233,8 +234,9 @@ function modelChair(seatHeight: number): BuiltPiece | null {
   const chair = kitPiece(
     "officeChair",
     { height: 1.192 * scale },
-    // The backrest in the room's chair purple; the seat, arms and frame keep the model's own finish.
-    { couro_2_4k_encosto1: chairPurple },
+    // The backrest in the room's chair purple, the headrest in the seat's black leather (its
+    // texture is left out to keep the model light); the rest keeps the model's own finish.
+    { couro_2_4k_encosto1: chairPurple, couro_2_4k_encosto_de_cabea: "#161616" },
   );
   if (chair === null) {
     return null;
@@ -1400,14 +1402,28 @@ export function buildMeetingTable(
     const screen = new LaptopScreen(index + 1);
     const laptop = new Group();
     const shell = standard("#d9d4cc", 0.5);
-    laptop.add(box(0.26, 0.012, 0.18, shell, 0, top, 0));
     // The lid turns on a hinge along the back edge of the keys.
     const lid = new Group();
     lid.position.set(0, top + 0.012, -0.085);
-    lid.add(box(0.26, 0.17, 0.01, shell, 0, 0, -0.005));
-    const panel = mesh(new PlaneGeometry(0.24, 0.15), unlit(screen.texture), false);
-    panel.position.set(0, 0.085, 0.001);
-    lid.add(panel);
+    const fromModel = laptopShell("laptop", 0.26, 0.012, shell);
+    if (fromModel !== null) {
+      fromModel.base.position.set(0, top, -0.085);
+      laptop.add(fromModel.base);
+      lid.add(fromModel.lid);
+      const panel = mesh(
+        new PlaneGeometry(0.235, Math.min(0.15, fromModel.lidHeight * 0.8)),
+        unlit(screen.texture),
+        false,
+      );
+      panel.position.set(0, fromModel.lidHeight * 0.52, fromModel.screenZ + 0.001);
+      lid.add(panel);
+    } else {
+      laptop.add(box(0.26, 0.012, 0.18, shell, 0, top, 0));
+      lid.add(box(0.26, 0.17, 0.01, shell, 0, 0, -0.005));
+      const panel = mesh(new PlaneGeometry(0.24, 0.15), unlit(screen.texture), false);
+      panel.position.set(0, 0.085, 0.001);
+      lid.add(panel);
+    }
     laptop.add(lid);
     laptop.position.set(x, 0, z);
     laptop.rotation.y = yaw;
