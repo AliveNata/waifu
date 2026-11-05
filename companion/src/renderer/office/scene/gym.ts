@@ -301,7 +301,8 @@ export function buildHighTable(piece: Furniture): Group {
   base.position.y = 0.015;
   const pole = mesh(new CylinderGeometry(0.03, 0.03, top - 0.04, 12), frame);
   pole.position.y = (top - 0.04) / 2 + 0.03;
-  const tabletop = mesh(new CylinderGeometry(radius, radius, 0.035, 32), standard(palette.oak, 0.6));
+  // The same walnut as the stools round it.
+  const tabletop = mesh(new CylinderGeometry(radius, radius, 0.035, 32), standard(palette.walnut, 0.6));
   tabletop.position.y = top - 0.0175;
   // The accent ring under the edge, like the strip under every desk.
   const ring = mesh(new CylinderGeometry(radius - 0.02, radius - 0.02, 0.008, 32), glow());

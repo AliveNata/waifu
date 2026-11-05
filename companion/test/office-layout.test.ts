@@ -4,7 +4,15 @@ import { memberPlan, ovenStep, propForAction, twobPlan, usesHandIk } from "../sr
 import { homeStations } from "../src/renderer/office/office-layout.js";
 import { type LifeChoice, OfficeLife } from "../src/renderer/office/office-life.js";
 import { bodyRadius, navGrid, planPath } from "../src/renderer/office/office-nav.js";
-import { distance, furniture, type Point, room, type StationId, stations } from "../src/renderer/office/office-plan.js";
+import {
+  distance,
+  furniture,
+  lockerSlot,
+  type Point,
+  room,
+  type StationId,
+  stations,
+} from "../src/renderer/office/office-plan.js";
 import type { DayPart } from "../src/renderer/office/office-time.js";
 import { fitSeat, type LegMetrics } from "../src/renderer/office/seating.js";
 import { type MemberId, memberIds } from "../src/shared/team.js";
@@ -59,6 +67,17 @@ describe("floor plan", () => {
 
     // Assert
     expect(unreachable).toEqual([]);
+  });
+
+  it("gives each member a locker of their own, the station right in front of it", () => {
+    // Act
+    const slots = memberIds.map((memberId) => lockerSlot(memberId));
+
+    // Assert
+    expect(new Set(slots.map((slot) => `${slot.x},${slot.y}`)).size).toBe(memberIds.length);
+    for (const memberId of memberIds) {
+      expect(stations[`locker-${memberId}`].spot.x).toBeCloseTo(lockerSlot(memberId).x);
+    }
   });
 
   it("keeps every station inside the room", () => {

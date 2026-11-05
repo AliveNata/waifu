@@ -192,11 +192,13 @@ function watch(dorsal: Vector3): { group: Group; hands: WatchHands } {
   );
   strap.position.y = -0.004;
   const face = new Group();
-  // The dial sits on the strap, its flat side out along the back of the wrist, with twelve o'clock
-  // toward the fingers (down the sleeve's -y) as a watch is worn.
+  // The dial sits on the strap, its flat side out along the back of the wrist, worn as a watch is:
+  // three o'clock toward the fingers (down the sleeve's -y), so it reads upright with the forearm
+  // held across the chest. Twelve, the dial's +z, is then a quarter turn back from three.
   const toFingers = new Vector3(0, -1, 0);
-  const across = new Vector3().crossVectors(dorsal, toFingers).normalize();
-  face.quaternion.setFromRotationMatrix(new Matrix4().makeBasis(across, dorsal, toFingers));
+  const toElbow = toFingers.clone().negate();
+  const twelve = new Vector3().crossVectors(dorsal, toFingers).normalize();
+  face.quaternion.setFromRotationMatrix(new Matrix4().makeBasis(toElbow, dorsal, twelve));
   face.position.copy(dorsal).multiplyScalar(0.038).setY(-0.004);
   const casing = new Mesh(
     new CylinderGeometry(0.017, 0.017, 0.008, 24),

@@ -105,6 +105,8 @@ export function laptopView(input: LaptopInput): LaptopView {
       }
       return { place: "home", lid: 1 - ramp((t - closeFrom) / 0.8), screenOn: true, drawer: 0 };
     case "go-home":
+    // At the locker, on the way out or in, the desk stays shut.
+    case "locker":
       return shutAtHome;
     case "unpack":
       if (!input.arrived) {
@@ -127,6 +129,7 @@ export function deskLock(errand: Errand | null, arrived: boolean, stepElapsed: n
     case "pack-up":
       return arrived && stepElapsed >= lockAt ? { kind: "locked" } : { kind: "open" };
     case "go-home":
+    case "locker":
       return { kind: "locked" };
     case "unpack": {
       if (!arrived || stepElapsed < signInFrom) {

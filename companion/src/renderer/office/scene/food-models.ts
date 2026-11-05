@@ -1,7 +1,10 @@
 import { Group, type Object3D } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import appleUrl from "../assets/food/apple.glb?url";
 import burgerUrl from "../assets/food/burger-cheese.glb?url";
+import milkUrl from "../assets/food/carton.glb?url";
 import cartonUrl from "../assets/food/carton-small.glb?url";
+import cheeseBlockUrl from "../assets/food/cheese.glb?url";
 import cheeseUrl from "../assets/food/cheese-cut.glb?url";
 import cookieUrl from "../assets/food/cookie.glb?url";
 import cookieChocolateUrl from "../assets/food/cookie-chocolate.glb?url";
@@ -9,10 +12,15 @@ import coffeeUrl from "../assets/food/cup-coffee.glb?url";
 import boardUrl from "../assets/food/cutting-board-round.glb?url";
 import dimSumUrl from "../assets/food/dim-sum.glb?url";
 import frappeUrl from "../assets/food/frappe.glb?url";
+import grapesUrl from "../assets/food/grapes.glb?url";
+import iceCreamCupUrl from "../assets/food/ice-cream-cup.glb?url";
+import orangeUrl from "../assets/food/orange.glb?url";
 import pizzaUrl from "../assets/food/pizza.glb?url";
 import pizzaBoxUrl from "../assets/food/pizza-box.glb?url";
+import puddingUrl from "../assets/food/pudding.glb?url";
 import sandwichUrl from "../assets/food/sandwich.glb?url";
 import sausageUrl from "../assets/food/sausage-half.glb?url";
+import sodaBottleUrl from "../assets/food/soda-bottle.glb?url";
 import sodaUrl from "../assets/food/soda-can.glb?url";
 import steamerUrl from "../assets/food/steamer.glb?url";
 import tacoUrl from "../assets/food/taco.glb?url";
@@ -41,6 +49,15 @@ const urls = {
   steamer: steamerUrl,
   taco: tacoUrl,
   waffle: waffleUrl,
+  // The fridge's groceries.
+  apple: appleUrl,
+  "cheese-block": cheeseBlockUrl,
+  grapes: grapesUrl,
+  "ice-cream-cup": iceCreamCupUrl,
+  milk: milkUrl,
+  orange: orangeUrl,
+  pudding: puddingUrl,
+  "soda-bottle": sodaBottleUrl,
 } as const;
 
 export type FoodModelName = keyof typeof urls;

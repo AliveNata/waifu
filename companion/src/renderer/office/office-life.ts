@@ -139,7 +139,7 @@ const activities: Record<ActivityId, Activity> = {
   // has been empty long enough and nobody is already out for it.
   "buy-food": { stations: ["door"], action: "out", durationSeconds: [25, 40], weight: 3, cooldownSeconds: 0 },
   read: {
-    stations: [...sofaSeats, "beanbag-lounge"],
+    stations: [...sofaSeats, "beanbag-lounge", "reading-chair"],
     action: "read",
     durationSeconds: [20, 40],
     weight: 0.5,
@@ -226,6 +226,8 @@ const byTimeOfDay: Record<DayPart, Partial<Record<ActivityId, number>>> = {
 export const packUpMs = 4000;
 /** At the desk on arrival: sitting down, opening up and signing in. */
 export const unpackMs = 5000;
+/** At the locker, on the way out and back in: door open, bag in or out, door shut. */
+export const lockerMs = 2600;
 
 /** Where a member idles when the "desk" activity comes up, and what they do there. */
 const idleHome: Record<MemberId, { station: StationId; action: OfficeAction }> = {
@@ -261,7 +263,8 @@ export type Errand =
   | "set-food"
   | "take-box"
   | "take-book"
-  | "bin-box";
+  | "bin-box"
+  | "locker";
 
 export interface LifeChoice {
   activity: ActivityId;
@@ -301,6 +304,7 @@ const errandMs = {
   "take-box": 1400,
   "bin-box": 1600,
   "take-book": 1800,
+  locker: lockerMs,
 } as const;
 type TimedErrand = keyof typeof errandMs;
 
@@ -423,9 +427,10 @@ export class OfficeLife {
 
   /**
    * The steps for a ritual, or null when there is no free spot for it (then it is a normal break).
-   * Going home is three: shut the laptop or lock the screen at the desk, out through the door until
-   * the morning, then back at the desk to open up. Someone already gone when the office opens is
-   * simply away, with the desk shut, and opens up on arrival.
+   * Going home: shut the laptop or lock the screen at the desk, the bag from the locker, out
+   * through the door until the morning, the bag back in the locker, then the desk to open up.
+   * Someone already gone when the office opens is simply away, with the desk shut, and stops at
+   * the locker on arrival.
    */
   private ritualSteps(memberId: MemberId, ritual: RitualNow, now: number, firstStep: boolean): LifeChoice[] | null {
     if (ritual.id === "home") {
@@ -438,11 +443,18 @@ export class OfficeLife {
         durationMs: packUpMs,
         errand: "pack-up",
       };
+      const locker: LifeChoice = {
+        ...base,
+        station: `locker-${memberId}`,
+        action: "pick",
+        durationMs: errandMs.locker,
+        errand: "locker",
+      };
       const away: LifeChoice = {
         ...base,
         station: "door",
         action: "out",
-        durationMs: Math.max(1000, ritual.remainingMs - (firstStep ? 0 : packUpMs)),
+        durationMs: Math.max(1000, ritual.remainingMs - (firstStep ? 0 : packUpMs + errandMs.locker)),
         errand: "go-home",
       };
       const unpack: LifeChoice = {
@@ -452,7 +464,8 @@ export class OfficeLife {
         durationMs: unpackMs,
         errand: "unpack",
       };
-      return firstStep ? [away, unpack] : [packUp, away, unpack];
+      // The locker on the way out for the bag, and again on the way in to leave it.
+      return firstStep ? [away, locker, unpack] : [packUp, locker, away, locker, unpack];
     }
     const choice = this.ritualChoice(memberId, { ...ritual, id: ritual.id }, now);
     return choice === null ? null : [choice];

@@ -31,6 +31,9 @@ export const palette = {
   inkDeep: "#1b0f2e",
   laminate: "#f4f1ec",
   oak: "#c9a47a",
+  // The bar stools and the round high table in the collab corner, one darker wood for both.
+  walnut: "#7a5236",
+  walnutDark: "#5a3d2b",
   steel: "#c9ccd3",
   leaf: "#5b8c4a",
   leafDark: "#3f6e35",
@@ -69,6 +72,7 @@ export function sceneQuality(): SceneQuality {
  */
 const surfaceByColor: Readonly<Record<string, SurfaceKind>> = {
   [palette.oak]: "wood",
+  [palette.walnut]: "wood",
   [palette.fabric]: "fabric",
   [palette.cushion]: "fabric",
   [palette.rug]: "fabric",
