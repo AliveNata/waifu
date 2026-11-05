@@ -112,6 +112,11 @@ export function mergeStaticMeshes(root: Object3D, live: LiveParts): { merged: nu
     ) {
       return;
     }
+    // A mesh with children (a kit model's body with its doors hung on it) cannot leave the scene:
+    // its children would go with it, out of sight while the stage still turns them.
+    if (mesh.children.length > 0) {
+      return;
+    }
     const material = mesh.material;
     if (!mergeable(material) || live.materials.has(material) || insideLive(mesh, root, live)) {
       return;

@@ -325,6 +325,8 @@ const pieceProps: Record<FoodKind, HandPropKind> = {
 };
 
 const trashBin = furniture.find((piece) => piece.kind === "trash-bin");
+/** How long the bin's lid stays up after something is dropped in. */
+const binLidSeconds = 1.2;
 
 /** A book held open in front of the eyes, pages up, for Alyx to read. */
 function openBook(): Group {
@@ -710,6 +712,8 @@ export class OfficeStage {
   private standup: { startedAt: number | null; order: MemberId[] } = { startedAt: null, order: [] };
   /** The idle step each member is on, or nothing while real work has them. */
   private readonly lifeSteps: Partial<Record<MemberId, LifeChoice>> = {};
+  /** The bin's lid stays up until this point on the stage clock, after something goes in. */
+  private binOpenUntil = Number.NEGATIVE_INFINITY;
   private readonly rigs: Record<MemberId, MemberRig>;
 
   private team: TeamRuntime = emptyTeamRuntime();
@@ -1491,6 +1495,7 @@ export class OfficeStage {
       case "bin-bag":
         this.alyxMeal = null;
         this.alyxHands.hold(null);
+        this.binOpenUntil = this.elapsed + binLidSeconds;
         if (trashBin !== undefined) {
           this.sound.play("door-close", { x: trashBin.x, y: 0.4, z: trashBin.z });
         }
@@ -2931,6 +2936,10 @@ export class OfficeStage {
       hands.owesBin = false;
     }
     const binned = errand === "bin-box" && arrived && stepElapsed >= foodHandoverSeconds;
+    if (errand === "bin-box" && arrived && stepElapsed < foodHandoverSeconds + 0.3) {
+      // The lid lifts as the hand comes over the bin and stays up a moment after the box drops.
+      this.binOpenUntil = this.elapsed + binLidSeconds;
+    }
     if (hands.box && ((errand !== "take-box" && errand !== "bin-box") || binned)) {
       hands.box = false;
     }
@@ -3210,6 +3219,7 @@ export class OfficeStage {
       (usingAt("pingpong-west", "pingpong") && usingAt("pingpong-east", "pingpong")) || this.alyxRally(),
     );
     this.office.fridgeDoor.update(usingAt("fridge", "snack") || this.alyxOn.has("fridge"), delta);
+    this.office.trashBin.update(this.elapsed < this.binOpenUntil, delta);
     const door = stations.door.spot;
     this.foodOrder = stepOrder(this.foodOrder, Date.now());
     this.courierVisit = this.courier === null ? null : stepCourier(this.courierVisit, this.foodOrder, Date.now());

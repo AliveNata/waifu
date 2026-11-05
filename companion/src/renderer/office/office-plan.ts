@@ -91,7 +91,6 @@ export type FurnitureKind =
   | "bench"
   | "high-table"
   | "glass-board"
-  | "ceiling-fan"
   | "floor-lamp"
   | "coat-rack";
 
@@ -839,18 +838,8 @@ export const furniture: readonly Furniture[] = [
     yaw: facing.right,
     blocksWalking: true,
   },
-  // Kenney decor: a fan turning slowly over the lounge, a reading lamp at the sofa's end and a coat
-  // rack by the way in.
-  {
-    id: "ceiling-fan",
-    kind: "ceiling-fan",
-    x: -5.6,
-    z: 3.0,
-    width: 0.9,
-    depth: 0.9,
-    yaw: facing.camera,
-    blocksWalking: false,
-  },
+  // Kenney decor: a reading lamp at the sofa's end and a coat rack by the way in. No ceiling fan:
+  // the office is cooled by central air.
   {
     id: "floor-lamp",
     kind: "floor-lamp",

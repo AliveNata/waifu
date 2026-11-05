@@ -22,7 +22,7 @@ import {
   TubeGeometry,
   Vector3,
 } from "three";
-import { type Furniture, people, room, surface } from "../office-plan.js";
+import { type Furniture, people, surface } from "../office-plan.js";
 import { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./animated.js";
 import { furnitureModel } from "./furniture-models.js";
 import { handPropModel, type PropLook } from "./hand-props.js";
@@ -335,10 +335,18 @@ export function buildBeanbag(piece: Furniture, tint: string, seatHeight: number)
 
 export function buildStool(piece: Furniture, seatHeight: number): BuiltPiece {
   const root = placed(piece);
-  // Kenney's bar stool, its seat top fitted to the station's seat height.
-  const kit = kitPiece("stoolBar", { height: seatHeight }, { carpet: palette.accentDeep, wood: palette.ink });
+  // Kenney's bar stool frame in walnut, its eight-sided seat swapped for a round brown cushion so
+  // the seat top lands on the station's seat height.
+  const kit = kitPiece("stoolBar", { height: seatHeight }, { carpet: palette.accentDeep, wood: "#5a3d2b" });
   if (kit !== null) {
-    root.add(kit);
+    kit.traverse((part) => {
+      if (part instanceof Mesh && !Array.isArray(part.material) && part.material.name === "carpet") {
+        part.visible = false;
+      }
+    });
+    const cushion = mesh(new CylinderGeometry(0.155, 0.15, 0.05, 28), standard("#7a5236", 0.6));
+    cushion.position.y = seatHeight - 0.025;
+    root.add(kit, cushion);
     return { root, hairColliders: stoolColliders(root, seatHeight) };
   }
   const ink = standard(palette.ink, 0.5);
@@ -679,22 +687,53 @@ export function buildBarCounter(piece: Furniture): Group {
   return root;
 }
 
-/** A pedal bin by the bar, where the empty food boxes go. */
-export function buildTrashBin(piece: Furniture): Group {
-  const root = placed(piece);
-  // Kenney's pedal bin, at about 0.45 m: 0.65 real at the room's scale.
-  const kit = kitPiece("trashcan", { height: 0.46 }, { metal: "#3a3f4b", metalDark: palette.steel });
-  if (kit !== null) {
-    root.add(kit);
-    return root;
+/** How far the bin's lid flips up, and how quickly it gets there and back. */
+const binLidOpenAngle = 1.6;
+const binLidRate = 9;
+
+/** The bin's lid on its back hinge: up while someone drops something in, then down again. */
+export class TrashBin {
+  private angle = 0;
+
+  constructor(
+    readonly root: Group,
+    private readonly lid: Group,
+  ) {}
+
+  update(open: boolean, delta: number): void {
+    const target = open ? binLidOpenAngle : 0;
+    this.angle += (target - this.angle) * Math.min(1, binLidRate * delta);
+    // Negative pitch lifts the front edge, the lid turning up on the hinge at the back.
+    this.lid.rotation.x = -this.angle;
   }
-  // A pedal bin at the room's scale: about 0.45 m tall (0.65 real).
-  const body = mesh(new CylinderGeometry(0.13, 0.115, 0.44, 20), standard("#3a3f4b", 0.5, 0.3));
-  body.position.y = 0.22;
-  const lid = mesh(new CylinderGeometry(0.135, 0.135, 0.02, 20), standard(palette.steel, 0.3, 0.6));
-  lid.position.y = 0.45;
-  root.add(body, lid, box(0.06, 0.012, 0.05, standard(palette.steel, 0.3, 0.6), 0, 0.01, 0.13));
-  return root;
+}
+
+/**
+ * A pedal bin by the bar, where the empty food boxes go: about 0.45 m tall (0.65 real at the
+ * room's scale), eight-sided like the Kenney one it replaces, with a lid hinged at the back that
+ * opens while something goes in.
+ */
+export function buildTrashBin(piece: Furniture): TrashBin {
+  const root = placed(piece);
+  const height = 0.44;
+  const radius = 0.13;
+  const body = mesh(new CylinderGeometry(radius, radius * 0.88, height, 8), standard("#3a3f4b", 0.5, 0.3));
+  body.position.y = height / 2;
+  body.rotation.y = Math.PI / 8;
+  const steel = standard(palette.steel, 0.3, 0.6);
+  const rim = mesh(new CylinderGeometry(radius + 0.006, radius + 0.006, 0.02, 8), steel);
+  rim.position.y = height - 0.01;
+  rim.rotation.y = Math.PI / 8;
+  const lid = new Group();
+  lid.position.set(0, height, -radius);
+  const top = mesh(new CylinderGeometry(radius + 0.008, radius + 0.008, 0.02, 8), steel);
+  top.position.set(0, 0.012, radius);
+  top.rotation.y = Math.PI / 8;
+  const knob = mesh(new CylinderGeometry(0.05, 0.05, 0.012, 8), standard("#3a3f4b", 0.4, 0.3));
+  knob.position.set(0, 0.028, radius);
+  lid.add(top, knob);
+  root.add(body, rim, lid, box(0.07, 0.014, 0.06, steel, 0, 0.012, radius + 0.02));
+  return new TrashBin(root, lid);
 }
 
 /** Doors slide this fast toward open or shut, as a share of the way per second. */
@@ -1045,19 +1084,12 @@ export function buildCoffeeTable(piece: Furniture): Group {
 }
 
 /**
- * The Kenney decor pieces: a ceiling fan hung under the ceiling over the lounge, a floor lamp
- * whose shade glows warm, and a standing coat rack. Empty when the kit did not load.
+ * The Kenney decor pieces: a floor lamp whose shade glows warm, and a standing coat rack. Empty
+ * when the kit did not load.
  */
 export function buildKitDecor(piece: Furniture): Group {
   const root = placed(piece);
-  if (piece.kind === "ceiling-fan") {
-    // About 0.9 m across (a 1.3 m fan at the room's scale), hanging just under the ceiling.
-    const fan = kitPiece("ceilingFan", { height: 0.22 }, { metalLight: palette.inkSoft, wood: palette.oak });
-    if (fan !== null) {
-      fan.position.y = room.wallHeight - 0.22;
-      root.add(fan);
-    }
-  } else if (piece.kind === "floor-lamp") {
+  if (piece.kind === "floor-lamp") {
     // 1.2 m: a 1.6 m reading lamp at the room's scale, its shade lit.
     const lamp = kitPiece("lampRoundFloor", { height: 1.2 }, { metal: palette.ink, lamp: "#ffe9c4" });
     if (lamp !== null) {
