@@ -17,6 +17,7 @@ import { type Furniture, surface, treadmillDeckHeight } from "../office-plan.js"
 import { punchReach } from "../office-pose.js";
 import { deskTop } from "./desks.js";
 import { type FishSpecies, fishModel, fishSpecies } from "./fish-models.js";
+import { furnitureModel } from "./furniture-models.js";
 import { fitModel, kitPiece, kitSize } from "./kit.js";
 import { box, glow, mesh, palette, standard } from "./palette.js";
 
@@ -282,23 +283,88 @@ const fishLengths: Record<FishSpecies, number> = {
   butterflyfish: 0.055,
 };
 
+/** The water inside the tank, in the aquarium's own space: where the fish may swim. */
+interface Tank {
+  centerX: number;
+  /** Half the swimmable length, nose to tail clear of the glass at each end. */
+  half: number;
+  bottom: number;
+  top: number;
+  centerZ: number;
+  /** Half the swimmable depth, front glass to back. */
+  reach: number;
+}
+
 /**
- * A long low aquarium on an oak cabinet: tinted water, sand, a few plants and small fish swimming
- * from end to end at different speeds and depths, lit from a strip under the lid.
+ * The aquarium: the Sketchfab "Room aquarium" by NeoT1 (CC-BY-4.0, credited in
+ * docs/03-companion.md), a planted tank on a wooden table, stripped of its own fish. When the model
+ * did not load, a long low tank on an oak cabinet stands in. Either way the office's fish swim from
+ * end to end at different speeds and depths.
  */
 export class Aquarium {
   readonly root: Group;
   private readonly fish: Fish[] = [];
-  private readonly tankWidth: number;
+  private readonly tank: Tank;
   private lastElapsed = 0;
 
   constructor(piece: Furniture) {
     this.root = placed(piece);
     const { width, depth } = localSize(piece);
+    const model = furnitureModel("aquarium");
+    this.tank = model === null ? this.buildCodeTank(width, depth) : this.useModel(model, width);
+    const { bottom, top, reach } = this.tank;
+    fishColors.forEach((color, index) => {
+      // A mix of species round the tank; a code-built fish wherever a model did not load.
+      const species = fishSpecies[index % fishSpecies.length] ?? "goldfish";
+      const fishBody = fishModel(species, fishLengths[species]);
+      const body = fishBody?.root ?? this.codeFish(color);
+      this.root.add(body);
+      this.fish.push({
+        body,
+        mixer: fishBody?.mixer ?? null,
+        speed: 0.08 + 0.04 * (index % 3),
+        phase: index * 1.7,
+        depthLane: this.tank.centerZ + ((index % 3) - 1) * reach * 0.6,
+        height: bottom + (top - bottom) * (0.2 + 0.2 * (index % 4)),
+      });
+    });
+  }
+
+  /** Stands the model at the piece's width and finds its water, so the fish swim inside it. */
+  private useModel(model: Object3D, width: number): Tank {
+    model.updateMatrixWorld(true);
+    const size = new Box3().setFromObject(model).getSize(new Vector3());
+    const fitted = fitModel(model, { height: (width * size.y) / size.x });
+    this.root.add(fitted);
+    fitted.updateMatrixWorld(true);
+    let water: Box3 | null = null;
+    fitted.traverse((part) => {
+      if (part instanceof Mesh && !Array.isArray(part.material) && part.material.name === "watter") {
+        water = new Box3().setFromObject(part);
+      }
+    });
+    if (water === null) {
+      throw new Error("The aquarium model has no water mesh to swim the fish in");
+    }
+    const inside: Box3 = water;
+    const middle = inside.getCenter(new Vector3());
+    const extent = inside.getSize(new Vector3());
+    return {
+      centerX: middle.x,
+      half: extent.x / 2 - 0.06,
+      // Above the sand and the stones on it, below the water line.
+      bottom: inside.min.y + extent.y * 0.3,
+      top: inside.max.y - extent.y * 0.12,
+      centerZ: middle.z,
+      reach: extent.z / 2 - 0.05,
+    };
+  }
+
+  /** A long low tank on an oak cabinet, tinted water, sand and a few blades of weed. */
+  private buildCodeTank(width: number, depth: number): Tank {
     // A cabinet at the room's 0.73 scale, so the fish swim at a standing person's chest.
     const cabinet = 0.55;
     const tank = 0.45;
-    this.tankWidth = width - 0.06;
     const water = new MeshStandardMaterial({
       color: "#6fc3e0",
       transparent: true,
@@ -339,21 +405,14 @@ export class Aquarium {
       blade.position.set(x, cabinet + 0.13, (index % 2 === 0 ? -1 : 1) * depth * 0.18);
       this.root.add(blade);
     }
-    fishColors.forEach((color, index) => {
-      // A mix of species round the tank; a code-built fish wherever a model did not load.
-      const species = fishSpecies[index % fishSpecies.length] ?? "goldfish";
-      const model = fishModel(species, fishLengths[species]);
-      const body = model?.root ?? this.codeFish(color);
-      this.root.add(body);
-      this.fish.push({
-        body,
-        mixer: model?.mixer ?? null,
-        speed: 0.12 + 0.05 * (index % 3),
-        phase: index * 1.7,
-        depthLane: ((index % 3) - 1) * depth * 0.22,
-        height: cabinet + 0.1 + 0.05 * (index % 4),
-      });
-    });
+    return {
+      centerX: 0,
+      half: (width - 0.06) / 2 - 0.08,
+      bottom: cabinet + 0.1,
+      top: cabinet + 0.25,
+      centerZ: 0,
+      reach: depth / 2 - 0.08,
+    };
   }
 
   /** A simple fish of a sphere and a tail, for when the fish models are not loaded. */
@@ -372,7 +431,7 @@ export class Aquarium {
   update(elapsed: number): void {
     const delta = Math.max(0, elapsed - this.lastElapsed);
     this.lastElapsed = elapsed;
-    const half = this.tankWidth / 2 - 0.08;
+    const { centerX, half } = this.tank;
     for (const fish of this.fish) {
       // There and back along the tank, turning round at each end.
       const travel = (elapsed * fish.speed) / (2 * half) + fish.phase;
@@ -380,7 +439,7 @@ export class Aquarium {
       const forward = t < 1;
       const along = forward ? t : 2 - t;
       fish.body.position.set(
-        -half + along * 2 * half,
+        centerX - half + along * 2 * half,
         fish.height + 0.012 * Math.sin(elapsed * 1.7 + fish.phase),
         fish.depthLane,
       );

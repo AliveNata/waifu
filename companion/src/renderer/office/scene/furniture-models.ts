@@ -1,4 +1,5 @@
 import type { Object3D } from "three";
+import aquariumUrl from "../assets/furniture/aquarium.glb?url";
 import arcadePacmanUrl from "../assets/furniture/arcadePacman.glb?url";
 import bearUrl from "../assets/furniture/bear.glb?url";
 import benchCushionLowUrl from "../assets/furniture/benchCushionLow.glb?url";
@@ -67,6 +68,7 @@ const urls = {
   serverRack: serverRackUrl,
   ringLight: ringLightUrl,
   cameraTripod: cameraTripodUrl,
+  aquarium: aquariumUrl,
   // Kenney Furniture Kit, CC0.
   televisionModern: televisionModernUrl,
   speakerSmall: speakerSmallUrl,

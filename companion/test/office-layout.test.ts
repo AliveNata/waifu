@@ -70,6 +70,31 @@ describe("floor plan", () => {
       expect(spot.z).toBeLessThan(room.maxZ - bodyRadius);
     }
   });
+
+  it("keeps the pieces along the front wall against it, inside the room", () => {
+    // Arrange
+    const alongFrontWall = [
+      "aquarium",
+      "bookshelf",
+      "plant-front-1",
+      "plant-front-2",
+      "side-table",
+      "display-cabinet",
+      "plant-lounge",
+    ];
+
+    // Act
+    const gaps = alongFrontWall.map((id) => {
+      const piece = furniture.find((candidate) => candidate.id === id);
+      return piece === undefined ? Number.NaN : room.maxZ - (piece.z + piece.depth / 2);
+    });
+
+    // Assert: each back edge sits within a hand's width of the wall, never through it.
+    for (const gap of gaps) {
+      expect(gap).toBeGreaterThanOrEqual(0);
+      expect(gap).toBeLessThan(0.12);
+    }
+  });
 });
 
 describe("planPath", () => {

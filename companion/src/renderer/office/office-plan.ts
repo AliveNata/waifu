@@ -24,7 +24,7 @@ export interface Point {
  * at the front right, the lounge at the front left behind a long aquarium, and a collaboration
  * corner between the meeting table and the game corner.
  */
-export const room = { minX: -7, maxX: 10.5, minZ: -5, maxZ: 4, wallHeight: 2.6 } as const;
+export const room = { minX: -7, maxX: 10.5, minZ: -5, maxZ: 4.6, wallHeight: 2.6 } as const;
 
 /**
  * The whole office is scaled to its people: at ordinary proportions they stand 1.2 m with their
@@ -432,10 +432,14 @@ const treadmillLength = 1.2;
 export const treadmillDeckHeight = 0.12;
 const pingpongCenter = { x: 7.1, z: -2.75 } as const;
 const punchingBagSpot = { x: 9.9, z: -2.75 } as const;
-/** A long low aquarium between the front row and the lounge. */
-const aquariumSpot = { x: -1.9, z: 3.6 } as const;
+/**
+ * The aquarium on its table against the front wall, between the front row and the lounge. The
+ * model is a tank on a four-legged table, about two thirds as deep as it is wide.
+ */
+const aquariumSize = { width: 1.5, depth: 1.02 } as const;
+const aquariumSpot = { x: -1.9, z: room.maxZ - 0.02 - aquariumSize.depth / 2 } as const;
 /** The bookshelf's middle, its back to the front wall, and how wide it runs along it. */
-const bookshelfSpot = { x: 0.65, z: 3.79 } as const;
+const bookshelfSpot = { x: 0.65, z: room.maxZ - 0.21 } as const;
 const bookshelfWidth = 1.5;
 
 /**
@@ -686,8 +690,7 @@ export const furniture: readonly Furniture[] = [
     id: "aquarium",
     kind: "aquarium",
     ...aquariumSpot,
-    width: 2.0,
-    depth: 0.5,
+    ...aquariumSize,
     yaw: facing.camera,
     blocksWalking: true,
   },
@@ -739,7 +742,7 @@ export const furniture: readonly Furniture[] = [
       id: `plant-front-${index + 1}`,
       kind: "plant",
       x,
-      z: 3.72,
+      z: room.maxZ - 0.28,
       // A pot this size grows the plant to about 0.85 m, a 1.2 m floor plant at the room's scale.
       width: 0.5,
       depth: 0.5,
@@ -848,7 +851,7 @@ export const furniture: readonly Furniture[] = [
     id: "lounge-chair",
     kind: "lounge-chair",
     x: 2.45,
-    z: 3.6,
+    z: room.maxZ - 0.4,
     width: 0.62,
     depth: 0.62,
     yaw: facing.backWall,
@@ -858,7 +861,7 @@ export const furniture: readonly Furniture[] = [
     id: "side-table",
     kind: "side-table",
     x: 3.08,
-    z: 3.78,
+    z: room.maxZ - 0.22,
     width: 0.36,
     depth: 0.36,
     yaw: facing.backWall,
@@ -868,7 +871,7 @@ export const furniture: readonly Furniture[] = [
     id: "display-cabinet",
     kind: "display-cabinet",
     x: 3.95,
-    z: 3.8,
+    z: room.maxZ - 0.2,
     width: 1.2,
     depth: 0.36,
     yaw: facing.backWall,
@@ -950,7 +953,7 @@ export const furniture: readonly Furniture[] = [
     // Behind the sofa's open side, at the aquarium's end: the left-wall corner is boxed in by the
     // beanbag and the coffee table, so a plant there could never be reached for watering.
     x: -3.6,
-    z: 3.65,
+    z: room.maxZ - 0.35,
     width: 0.5,
     depth: 0.5,
     yaw: facing.camera,
@@ -1196,9 +1199,9 @@ const placeStations: Record<Exclude<StationId, VisitStationId>, Station> = {
   // The armchair in the reading corner by the bookshelf, facing into the room.
   "reading-chair": {
     id: "reading-chair",
-    spot: { x: 2.45, z: 3.62 },
+    spot: { x: 2.45, z: room.maxZ - 0.38 },
     facing: facing.backWall,
-    approach: { x: 2.45, z: 3.05 },
+    approach: { x: 2.45, z: room.maxZ - 0.95 },
     seatHeight: sofaSeatHeight,
   },
   "beanbag-lounge": {
@@ -1221,7 +1224,12 @@ const placeStations: Record<Exclude<StationId, VisitStationId>, Station> = {
   }),
   // A short step back from the bag: a jab reaches about a third of a meter.
   "punching-bag": standing("punching-bag", { x: punchingBagSpot.x, z: punchingBagSpot.z + 0.55 }, facing.backWall),
-  aquarium: standing("aquarium", { x: aquariumSpot.x, z: aquariumSpot.z - 0.55 }, facing.camera),
+  // Close enough to the glass to watch the fish, clear of the table's front legs.
+  aquarium: standing(
+    "aquarium",
+    { x: aquariumSpot.x, z: aquariumSpot.z - aquariumSize.depth / 2 - 0.4 },
+    facing.camera,
+  ),
   ...collabStations(),
   ...standupStations(),
   rack: standing("rack", { x: 4.55, z: -3.85 }, facing.backWall),
@@ -1229,7 +1237,7 @@ const placeStations: Record<Exclude<StationId, VisitStationId>, Station> = {
   selfie: standing("selfie", selfieSpot, yawToward(selfieSpot, tripodSpot)),
   // In front of the shelves, facing them, an arm's length off.
   bookshelf: standing("bookshelf", { x: bookshelfSpot.x, z: bookshelfSpot.z - 0.62 }, facing.camera),
-  "plant-lounge": standing("plant-lounge", { x: -3.6, z: 3.05 }, facing.camera),
+  "plant-lounge": standing("plant-lounge", { x: -3.6, z: room.maxZ - 0.95 }, facing.camera),
   "plant-corner": standing("plant-corner", { x: 9.4, z: 0.8 }, facing.right),
   "plant-desks": standing("plant-desks", { x: 5.12, z: -3.9 }, facing.backWall),
   // From the open side by the meeting table, not the narrow lane to 2B's desk on the other side.
