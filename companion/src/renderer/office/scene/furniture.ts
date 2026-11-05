@@ -4,7 +4,9 @@ import {
   VRMSpringBoneColliderShapeSphere,
 } from "@pixiv/three-vrm";
 import {
+  Box3,
   BoxGeometry,
+  CanvasTexture,
   CatmullRomCurve3,
   CylinderGeometry,
   ExtrudeGeometry,
@@ -17,13 +19,16 @@ import {
   PlaneGeometry,
   Shape,
   SphereGeometry,
+  SRGBColorSpace,
   type Texture,
   TorusGeometry,
   TubeGeometry,
   Vector3,
 } from "three";
-import { type Furniture, people, surface } from "../office-plan.js";
+import { type MemberId, memberIds, roster } from "../../../shared/team.js";
+import { type Furniture, lockerBank, lockerUnitHeight, people, surface } from "../office-plan.js";
 import { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./animated.js";
+import { type FoodModelName, foodModel, kitScale, roomScale } from "./food-models.js";
 import { furnitureModel } from "./furniture-models.js";
 import { handPropModel, type PropLook } from "./hand-props.js";
 import { kitPiece, kitSize } from "./kit.js";
@@ -337,14 +342,14 @@ export function buildStool(piece: Furniture, seatHeight: number): BuiltPiece {
   const root = placed(piece);
   // Kenney's bar stool frame in walnut, its eight-sided seat swapped for a round brown cushion so
   // the seat top lands on the station's seat height.
-  const kit = kitPiece("stoolBar", { height: seatHeight }, { carpet: palette.accentDeep, wood: "#5a3d2b" });
+  const kit = kitPiece("stoolBar", { height: seatHeight }, { carpet: palette.accentDeep, wood: palette.walnutDark });
   if (kit !== null) {
     kit.traverse((part) => {
       if (part instanceof Mesh && !Array.isArray(part.material) && part.material.name === "carpet") {
         part.visible = false;
       }
     });
-    const cushion = mesh(new CylinderGeometry(0.155, 0.15, 0.05, 28), standard("#7a5236", 0.6));
+    const cushion = mesh(new CylinderGeometry(0.155, 0.15, 0.05, 28), standard(palette.walnut, 0.6));
     cushion.position.y = seatHeight - 0.025;
     root.add(kit, cushion);
     return { root, hairColliders: stoolColliders(root, seatHeight) };
@@ -483,12 +488,7 @@ export function buildPantryCounter(
       box(0.05, 0.01, 0.01, glow(), machineX + 0.06, top + 0.24, machineZ + 0.111),
     );
   }
-  // A microwave against the wall between the coffee machine and the oven, and a toaster by the kettle.
-  const microwave = kitPiece("kitchenMicrowave", { height: 0.19 }, { metalMedium: palette.inkDeep });
-  if (microwave !== null) {
-    microwave.position.set(ovenX - 0.32, top, -depth / 2 + 0.17);
-    root.add(microwave);
-  }
+  // No microwave on the counter: the oven is built in below. A toaster by the kettle.
   const toaster = kitPiece("toaster", { height: 0.13 }, { metalMedium: palette.accentDeep });
   if (toaster !== null) {
     toaster.position.set(width / 2 - 0.5, top, -depth / 2 + 0.12);
@@ -505,8 +505,9 @@ export function buildPantryCounter(
   root.add(kettle);
   const sink = buildSink(at.sink - piece.x, top);
   const oven = buildOven(ovenX, front);
-  // Right beside the basin, so a washed mug goes straight onto it.
-  const rack = buildDryingRack(at.sink - piece.x - 0.31, top, cups);
+  // Right beside the basin, so a washed mug goes straight onto it, and wholly on the counter: its
+  // far edge stops short of the counter's end by the fridge.
+  const rack = buildDryingRack(at.sink - piece.x - 0.32, top, cups);
   root.add(sink.root, oven.root, rack.root);
   return {
     root,
@@ -873,11 +874,15 @@ const fridgeOpenAngle = 1.45;
 /** Radians per second at full speed; the door eases out and in around that. */
 const fridgeSwingRate = 5;
 
-/** The fridge's main door on its hinge. The stage opens it while someone grabs a snack. */
+/** The fridge's doors on their hinges. The stage opens them while someone grabs a snack. */
 export class FridgeDoor {
   private angle = 0;
 
-  constructor(private readonly hinge: Object3D) {}
+  /** `hinge` turns on its left edge; `rightHinge`, a second door turning on its right edge, mirrors it. */
+  constructor(
+    private readonly hinge: Object3D,
+    private readonly rightHinge: Object3D | null = null,
+  ) {}
 
   update(open: boolean, delta: number): void {
     const target = open ? fridgeOpenAngle : 0;
@@ -885,6 +890,9 @@ export class FridgeDoor {
     this.angle += (target - this.angle) * step;
     // Negative yaw swings a door hinged on its left edge outward, toward the person in front.
     this.hinge.rotation.y = -this.angle;
+    if (this.rightHinge !== null) {
+      this.rightHinge.rotation.y = this.angle;
+    }
   }
 }
 
@@ -898,7 +906,9 @@ export function buildFridge(piece: Furniture): { root: Group; door: FridgeDoor }
   if (kit !== null && kitDoor !== undefined) {
     kit.position.z = -(depth - kitSize(kit).z) / 2;
     root.add(kit);
-    return { root, door: new FridgeDoor(kitDoor) };
+    const rightDoor = kit.getObjectByName("doorRight") ?? null;
+    stockFridge(kit, kitDoor, rightDoor);
+    return { root, door: new FridgeDoor(kitDoor, rightDoor) };
   }
   const body = standard(palette.steel, 0.35, 0.4);
   // A tall fridge at the team's scale (they stand 1.2 m): a little over head height, as a real
@@ -935,6 +945,83 @@ export function buildFridge(piece: Furniture): { root: Group; door: FridgeDoor }
   );
   root.add(hinge);
   return { root, door: new FridgeDoor(hinge) };
+}
+
+/**
+ * Kenney's fridge is one open cavity behind its two doors. In the kit's own units: inside walls
+ * at x 0.027 and 0.493, floor at y 0.087, a fixed shelf at 0.69 to 0.717 and the roof at 0.893,
+ * back wall at z -0.31 and the opening at z 0.
+ */
+const fridgeCavity = { left: 0.027, right: 0.493, floor: 0.087, shelf: 0.717, back: -0.31 } as const;
+
+/**
+ * Glass shelves and the week's groceries inside the kit fridge, and a bin of drinks on the inside
+ * of each door, so it is stocked when the doors swing open. Placed in the kit's units, under the
+ * same scale as the fridge.
+ */
+function stockFridge(kit: Group, leftDoor: Object3D, rightDoor: Object3D | null): void {
+  const model = kit.children[0];
+  if (model === undefined) {
+    return;
+  }
+  // Food sizes are meters in the room; the kit is scaled up to fit the fridge's height.
+  const toKit = 1 / model.scale.x;
+  const food = (name: FoodModelName, x: number, y: number, z: number, turn = 0): void => {
+    const piece = foodModel(name, kitScale * roomScale * toKit);
+    piece.position.set(x, y, z);
+    piece.rotation.y = turn;
+    model.add(piece);
+  };
+  const shelfGlass = standard("#dfeaf2", 0.15);
+  const width = fridgeCavity.right - fridgeCavity.left;
+  const middle = (fridgeCavity.left + fridgeCavity.right) / 2;
+  // Short of the opening, clear of the door bins when the doors shut.
+  const depth = -fridgeCavity.back - 0.06;
+  const shelfZ = fridgeCavity.back + depth / 2;
+  const lowShelf = 0.31;
+  const highShelf = 0.5;
+  for (const y of [lowShelf, highShelf]) {
+    model.add(box(width, 0.006, depth, shelfGlass, middle, y, shelfZ));
+  }
+  // A cool light strip under the fixed shelf, lighting the contents from above.
+  model.add(box(width * 0.7, 0.006, 0.02, glow("#eef6ff", 0.9), middle, fridgeCavity.shelf - 0.034, shelfZ));
+  const front = -0.1;
+  // Bottom: fruit and cheese.
+  food("grapes", 0.09, fridgeCavity.floor, front);
+  food("cheese-block", 0.21, fridgeCavity.floor, front, 0.4);
+  food("apple", 0.33, fridgeCavity.floor, front + 0.02);
+  food("apple", 0.37, fridgeCavity.floor, front - 0.05);
+  food("orange", 0.43, fridgeCavity.floor, front + 0.01);
+  // Middle: milk and puddings.
+  food("milk", 0.08, lowShelf + 0.006, front - 0.05);
+  food("milk", 0.15, lowShelf + 0.006, front - 0.08, 0.3);
+  food("pudding", 0.27, lowShelf + 0.006, front);
+  food("pudding", 0.33, lowShelf + 0.006, front - 0.03);
+  food("soda-bottle", 0.42, lowShelf + 0.006, front - 0.06);
+  // Top: drinks and leftovers; ice cream on the fixed shelf.
+  food("soda-bottle", 0.07, highShelf + 0.006, front - 0.07);
+  food("soda-bottle", 0.12, highShelf + 0.006, front - 0.07);
+  food("carton", 0.3, highShelf + 0.006, front, -0.3);
+  food("orange", 0.42, highShelf + 0.006, front);
+  food("ice-cream-cup", 0.12, fridgeCavity.shelf, front - 0.04);
+  food("ice-cream-cup", 0.35, fridgeCavity.shelf, front - 0.06);
+  // A shallow bin on the inside of each door, its drinks standing in it. The door's inside face
+  // is at z -0.04 in its own frame; the bin hangs in from there.
+  const binMaterial = standard("#e8eef2", 0.3);
+  const doorBin = (door: Object3D, from: number, to: number, drinks: readonly number[]): void => {
+    for (const y of [-0.22, 0.08]) {
+      door.add(box(to - from, 0.03, 0.05, binMaterial, (from + to) / 2, y, -0.065));
+      for (const x of drinks) {
+        const bottle = foodModel("soda-bottle", kitScale * roomScale * toKit * 0.8);
+        bottle.position.set(x, y + 0.004, -0.065);
+        door.add(bottle);
+      }
+    }
+  };
+  doorBin(leftDoor, 0.02, 0.17, [0.06, 0.12]);
+  if (rightDoor !== null) {
+    doorBin(rightDoor, -0.25, -0.02, [-0.2, -0.13, -0.07]);
+  }
 }
 
 /** A compact rack, chest-to-head height for the team: Yor checks the lights at eye level. */
@@ -1563,4 +1650,257 @@ export class Bookshelf {
     const grip = this.grips[index];
     return book === undefined || grip === undefined ? null : book.localToWorld(grip.clone());
   }
+}
+
+/**
+ * The reading corner's armchair: Kenney's lounge chair, its cushion at half its height like the
+ * sofa's, so fitted to twice the seat height the seat lands on the station's.
+ */
+export function buildLoungeChair(piece: Furniture, seatHeight: number): BuiltPiece {
+  const root = placed(piece);
+  const { width, depth } = localSize(piece);
+  const kit = kitPiece(
+    "loungeChair",
+    { width, height: seatHeight * 2, depth },
+    { carpet: palette.fabric, wood: palette.ink },
+  );
+  if (kit !== null) {
+    root.add(kit);
+  } else {
+    const body = standard(palette.fabric, 0.95);
+    root.add(
+      box(width, seatHeight, depth, body, 0, 0, 0),
+      box(width, seatHeight * 2, 0.14, body, 0, 0, -depth / 2 + 0.07),
+    );
+  }
+  return {
+    root,
+    hairColliders: [
+      ...panelColliders(root, width - 0.2, -depth / 2 + 0.08, seatHeight, seatHeight * 2, 0.08),
+      ...seatColliders(root, width - 0.2, seatHeight - 0.05, depth / 2 - 0.1, -depth / 2 + 0.2, 0.05),
+    ],
+  };
+}
+
+/** A small side table by the armchair, with the book the last reader left on it. */
+export function buildSideTable(piece: Furniture): Group {
+  const root = placed(piece);
+  const { width, depth } = localSize(piece);
+  const top = 0.36;
+  const kit = kitPiece("sideTable", { width, height: top, depth }, { wood: palette.oak });
+  root.add(kit ?? box(width, top, depth, standard(palette.oak, 0.6), 0, 0, 0));
+  const book = box(0.15, 0.025, 0.11, standard("#2f4b6e", 0.8), 0.02, top, 0.02);
+  book.rotation.y = 0.3;
+  root.add(book);
+  return root;
+}
+
+/** A hackathon cup in gold on a dark base, `height` tall. */
+function trophy(height: number): Group {
+  const gold = standard("#d4af37", 0.3, 0.8);
+  const group = new Group();
+  const base = box(height * 0.45, height * 0.18, height * 0.45, standard(palette.inkDeep, 0.4), 0, 0, 0);
+  const stem = mesh(new CylinderGeometry(height * 0.05, height * 0.09, height * 0.3, 10), gold);
+  stem.position.y = height * 0.33;
+  const cup = mesh(new CylinderGeometry(height * 0.28, height * 0.12, height * 0.42, 16, 1, true), gold);
+  cup.position.y = height * 0.69;
+  const handles = [-1, 1].map((side) => {
+    const handle = mesh(new TorusGeometry(height * 0.1, height * 0.025, 6, 12, Math.PI), gold);
+    handle.rotation.z = (side * Math.PI) / 2;
+    handle.position.set(side * height * 0.28, height * 0.72, 0);
+    return handle;
+  });
+  group.add(base, stem, cup, ...handles);
+  return group;
+}
+
+/** The framed photo from the hackathon the team won, drawn once. */
+function hackathonPhoto(): CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 192;
+  const ctx = canvas.getContext("2d");
+  if (ctx !== null) {
+    const sky = ctx.createLinearGradient(0, 0, 0, 192);
+    sky.addColorStop(0, "#3a2a6a");
+    sky.addColorStop(1, "#1b0f2e");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, 256, 192);
+    // The team in a row, heads and shoulders, in the members' colors.
+    const colors = ["#e8e6f2", "#c9783f", "#c0303a", "#e9c46a", "#4fae6f", "#2b2b30", "#c23a3a", "#f5a8c2"];
+    colors.forEach((color, index) => {
+      const x = 22 + index * 30;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, 112, 11, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(x - 13, 124, 26, 40);
+    });
+    ctx.fillStyle = "#f2c94c";
+    ctx.font = "700 22px 'Segoe UI', system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("JUARA 1", 128, 40);
+    ctx.fillStyle = "#f4f1ec";
+    ctx.font = "600 16px 'Segoe UI', system-ui, sans-serif";
+    ctx.fillText("Hackathon 24 jam", 128, 64);
+  } else {
+    console.error("[office] no 2D canvas for the hackathon photo");
+  }
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  return texture;
+}
+
+/**
+ * A low cabinet of the team's keepsakes: three of Kenney's low open shelves side by side, with
+ * the hackathon cups, the winning photo, a teddy bear and a radio on top.
+ */
+export function buildDisplayCabinet(piece: Furniture): Group {
+  const root = placed(piece);
+  const { width, depth } = localSize(piece);
+  const height = 0.5;
+  const units = 3;
+  for (let unit = 0; unit < units; unit++) {
+    const shelf = kitPiece("bookcaseOpenLow", { width: width / units, height, depth }, { wood: palette.oak });
+    if (shelf === null) {
+      root.add(box(width, height, depth, standard(palette.oak, 0.6), 0, 0, 0));
+      break;
+    }
+    shelf.position.x = -width / 2 + (width / units) * (unit + 0.5);
+    root.add(shelf);
+  }
+  const big = trophy(0.16);
+  big.position.set(-0.05, height, 0);
+  const small = trophy(0.11);
+  small.position.set(0.1, height, 0.04);
+  // Leaning back a little, the way a frame stands on its own foot.
+  const frame = new Group();
+  frame.add(
+    box(0.2, 0.155, 0.012, standard(palette.inkDeep, 0.4), 0, 0, 0),
+    mesh(new PlaneGeometry(0.18, 0.135), unlit(hackathonPhoto()), false),
+  );
+  const photo = frame.children[1];
+  photo?.position.set(0, 0.0775, 0.007);
+  frame.rotation.x = -0.15;
+  frame.position.set(0.3, height, 0.02);
+  root.add(big, small, frame);
+  const bear = kitPiece("bear", { height: 0.2 }, { fur: "#a8744f", wood: palette.oak });
+  if (bear !== null) {
+    bear.position.set(-0.4, height, 0.02);
+    root.add(bear);
+  }
+  const radio = kitPiece("radio", { height: 0.12 }, { metalMedium: palette.inkSoft, wood: palette.oak });
+  if (radio !== null) {
+    radio.position.set(0.48, height, -0.04);
+    root.add(radio);
+  }
+  return root;
+}
+
+/** How far a locker door swings open, and how quickly. */
+const lockerOpenAngle = 1.7;
+const lockerSwingRate = 7;
+
+/** The members' lockers: each door opens while its owner is at it. */
+export class Lockers {
+  private readonly angles = new Map<MemberId, number>();
+
+  constructor(
+    readonly root: Group,
+    private readonly doors: ReadonlyMap<MemberId, Object3D>,
+  ) {}
+
+  update(open: ReadonlySet<MemberId>, delta: number): void {
+    for (const [memberId, door] of this.doors) {
+      const angle = this.angles.get(memberId) ?? 0;
+      const next = angle + ((open.has(memberId) ? lockerOpenAngle : 0) - angle) * Math.min(1, lockerSwingRate * delta);
+      this.angles.set(memberId, next);
+      // Hinged on the left edge like the fridge: negative yaw swings it out toward the member.
+      door.rotation.y = -next;
+    }
+  }
+
+  /** The middle of the member's door, wherever it has swung to, for the hand that opens and shuts it. */
+  doorPoint(memberId: MemberId): Vector3 | null {
+    const door = this.doors.get(memberId);
+    return door === undefined ? null : new Box3().setFromObject(door).getCenter(new Vector3());
+  }
+}
+
+/** A small plate with a member's name, for their locker door. */
+function nameplate(name: string, width: number, height: number): Mesh {
+  const canvas = document.createElement("canvas");
+  canvas.width = 192;
+  canvas.height = 56;
+  const ctx = canvas.getContext("2d");
+  if (ctx !== null) {
+    ctx.fillStyle = "#f4f1ec";
+    ctx.fillRect(0, 0, 192, 56);
+    ctx.fillStyle = "#2a2140";
+    ctx.font = "700 30px 'Segoe UI', system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(name, 96, 30);
+  } else {
+    console.error("[office] no 2D canvas for a locker nameplate");
+  }
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  return mesh(new PlaneGeometry(width, height), unlit(texture), false);
+}
+
+/**
+ * The members' lockers: two rows of six of Kenney's wall cabinets on a plinth, each with its
+ * owner's name on the door. Fitted uniformly so the doors turn without shearing.
+ */
+export function buildLockers(piece: Furniture): Lockers {
+  const root = placed(piece);
+  const { width, depth } = localSize(piece);
+  const ink = standard(palette.ink, 0.6);
+  root.add(box(width, lockerBank.plinth, depth, ink, 0, 0, 0));
+  // The carcass behind the fronts, so the bank reads as one piece of furniture from the side.
+  root.add(box(width, lockerUnitHeight * 2, depth - 0.12, ink, 0, lockerBank.plinth, -0.06));
+  const doors = new Map<MemberId, Object3D>();
+  memberIds.forEach((memberId, index) => {
+    const column = index % lockerBank.columns;
+    const row = Math.floor(index / lockerBank.columns);
+    const unit = kitPiece(
+      "kitchenCabinetUpper",
+      { height: lockerUnitHeight },
+      {
+        wood: palette.inkSoft,
+        woodDark: palette.accentDeep,
+        metal: palette.steel,
+      },
+    );
+    if (unit === null) {
+      return;
+    }
+    const front = kitSize(unit);
+    unit.position.set(
+      -width / 2 + lockerBank.unitWidth * (column + 0.5),
+      lockerBank.plinth + (1 - row) * lockerUnitHeight,
+      depth / 2 - front.z / 2,
+    );
+    root.add(unit);
+    const door = unit.getObjectByName("door");
+    if (door === undefined) {
+      return;
+    }
+    // The nameplate rides on the door, in the door's own units (the kit's, before the fit).
+    unit.updateMatrixWorld(true);
+    const scale = unit.children[0]?.scale.x ?? 1;
+    const doorBox = new Box3().setFromObject(door);
+    const doorSize = doorBox.getSize(new Vector3());
+    const doorCenter = door.worldToLocal(doorBox.getCenter(new Vector3()));
+    const plate = nameplate(roster[memberId].displayName, 0.15 / scale, 0.042 / scale);
+    plate.position.set(
+      doorCenter.x,
+      doorCenter.y + doorSize.y / scale / 4,
+      doorCenter.z + doorSize.z / scale / 2 + 0.002 / scale,
+    );
+    door.add(plate);
+    doors.set(memberId, door);
+  });
+  return new Lockers(root, doors);
 }

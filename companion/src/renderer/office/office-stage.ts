@@ -327,6 +327,9 @@ const pieceProps: Record<FoodKind, HandPropKind> = {
 const trashBin = furniture.find((piece) => piece.kind === "trash-bin");
 /** How long the bin's lid stays up after something is dropped in. */
 const binLidSeconds = 1.2;
+/** Into a locker step, when the door starts to open, and how long before leaving it is shut. */
+const lockerOpenFrom = 0.3;
+const lockerShutBefore = 0.5;
 
 /** A book held open in front of the eyes, pages up, for Alyx to read. */
 function openBook(): Group {
@@ -714,6 +717,8 @@ export class OfficeStage {
   private readonly lifeSteps: Partial<Record<MemberId, LifeChoice>> = {};
   /** The bin's lid stays up until this point on the stage clock, after something goes in. */
   private binOpenUntil = Number.NEGATIVE_INFINITY;
+  /** Members at their locker with the door open this frame. */
+  private readonly lockersOpen = new Set<MemberId>();
   private readonly rigs: Record<MemberId, MemberRig>;
 
   private team: TeamRuntime = emptyTeamRuntime();
@@ -2524,6 +2529,12 @@ export class OfficeStage {
     this.updateDeskLock(memberId, errand, arrived, stepElapsed);
     this.updateBook(memberId, errand, arrived, stepElapsed, plan.action);
     this.updateFood(memberId, rig, step, arrived, stepElapsed, remaining, now);
+    // Opened as the hand gets to it, shut again just before walking off.
+    if (errand === "locker" && arrived && stepElapsed >= lockerOpenFrom && remaining > lockerShutBefore) {
+      this.lockersOpen.add(memberId);
+    } else {
+      this.lockersOpen.delete(memberId);
+    }
 
     const atOwnDesk = action === "desk-idle" && plan.station === `desk-${memberId}`;
     const mug = this.mugs[memberId];
@@ -3061,6 +3072,12 @@ export class OfficeStage {
         }
         break;
       }
+      case "locker":
+        // The door by its middle while opening and shutting it.
+        if (t < lockerOpenFrom + 0.4 || remaining < lockerShutBefore + 0.4) {
+          target = this.office.lockers.doorPoint(memberId);
+        }
+        break;
       case "wash-mug":
         break;
     }
@@ -3220,6 +3237,7 @@ export class OfficeStage {
     );
     this.office.fridgeDoor.update(usingAt("fridge", "snack") || this.alyxOn.has("fridge"), delta);
     this.office.trashBin.update(this.elapsed < this.binOpenUntil, delta);
+    this.office.lockers.update(this.lockersOpen, delta);
     const door = stations.door.spot;
     this.foodOrder = stepOrder(this.foodOrder, Date.now());
     this.courierVisit = this.courier === null ? null : stepCourier(this.courierVisit, this.foodOrder, Date.now());

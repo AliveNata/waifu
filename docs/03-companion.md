@@ -62,13 +62,14 @@ Di luar badannya, kursor balik ke panah biasa. Kalau model tangannya gagal dimua
 
 Model tangannya "Free Pack - VR Hands (Rigged)" karya [PolyOne Studio](https://sketchfab.com/polyone), dari [Sketchfab](https://sketchfab.com/3d-models/free-pack-vr-hands-rigged-b3b8309e59c748e3956531c8f57dd233), lisensi [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/). Pointer companion pakai tangan kanannya, mode **Jadi Alyx** di kantor pakai dua-duanya. Dikemas jadi satu file GLB dengan tekstur yang dikecilin ke 1024 piksel.
 
-Makanan dan minuman di meja bar pakai model dari [Food Kit 2.0](https://kenney.nl/assets/food-kit) karya [Kenney](https://www.kenney.nl), lisensi [CC0](http://creativecommons.org/publicdomain/zero/1.0/). Yang dipakai cuma model yang muncul di kantor, ada di `companion/src/renderer/office/assets/food/`, dan tekstur colormap kit-nya udah ditanam ke tiap GLB.
+Makanan dan minuman di meja bar, juga isi kulkas, pakai model dari [Food Kit 2.0](https://kenney.nl/assets/food-kit) karya [Kenney](https://www.kenney.nl), lisensi [CC0](http://creativecommons.org/publicdomain/zero/1.0/). Yang dipakai cuma model yang muncul di kantor, ada di `companion/src/renderer/office/assets/food/`, dan tekstur colormap kit-nya udah ditanam ke tiap GLB.
 
 Furnitur dari [Furniture Kit 2.0](https://kenney.nl/assets/furniture-kit) karya [Kenney](https://www.kenney.nl), lisensi [CC0](http://creativecommons.org/publicdomain/zero/1.0/), warnanya diganti ke palet kantor:
 
 - Rak buku: `bookcaseClosedWide` dua unit, diisi `books` dengan warna sampul per kumpulan.
 - Lounge: sofa `loungeSofa`, meja `tableCoffee`, kabinet TV `cabinetTelevision`, standing lamp `lampRoundFloor`.
-- Dapur: kulkas `kitchenFridgeLarge` (pintu kirinya yang kebuka), lemari `kitchenCabinet`, mesin kopi `kitchenCoffeeMachine`, `kitchenMicrowave`, `toaster`.
+- Dapur: kulkas `kitchenFridgeLarge` (dua pintunya kebuka, di dalamnya rak kaca dan isi dari Food Kit), lemari `kitchenCabinet`, mesin kopi `kitchenCoffeeMachine`, `toaster`.
+- Dinding depan: kursi baca `loungeChair` dan meja kecil `sideTable`, lemari pajangan dari tiga `bookcaseOpenLow` dengan boneka `bear` dan `radio` di atasnya, loker member dari `kitchenCabinetUpper` (pintunya kebuka pas pemiliknya mampir).
 - Lain-lain: rangka kursi bar `stoolBar` (dudukannya bulat buatan kode), tanaman `pottedPlant` dan `plantSmall1`, keset `rugDoormat`, gantungan jaket `coatRackStanding`.
 
 File-nya ada di `companion/src/renderer/office/assets/furniture/`. Kalau ada yang gagal dimuat, versi buatan kode dipakai.

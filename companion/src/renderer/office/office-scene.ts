@@ -41,9 +41,12 @@ import {
   buildCameraTripod,
   buildChair,
   buildCoffeeTable,
+  buildDisplayCabinet,
   buildEntryDoor,
   buildFridge,
   buildKitDecor,
+  buildLockers,
+  buildLoungeChair,
   buildMeetingTable,
   buildPantryCounter,
   buildPingpongTable,
@@ -52,6 +55,7 @@ import {
   buildRingLight,
   buildRug,
   buildServerRack,
+  buildSideTable,
   buildSofa,
   buildStool,
   buildTrashBin,
@@ -59,6 +63,7 @@ import {
   buildTvWall,
   type EntryDoor,
   type FridgeDoor,
+  type Lockers,
   type MeetingLaptop,
   type Oven,
   type SinkTap,
@@ -121,6 +126,8 @@ export interface OfficeProps {
   lunchBoxes: Group[];
   fridgeDoor: FridgeDoor;
   trashBin: TrashBin;
+  /** One door per member, opened while they are at their locker. */
+  lockers: Lockers;
   sink: SinkTap;
   /** Points on the pantry counter that hands go to: the coffee button, the cup's place, the basin. */
   pantryReach: { button: Object3D; tray: Object3D; basin: Object3D };
@@ -376,6 +383,7 @@ export function buildOffice(): OfficeProps {
   let bookshelf: Bookshelf | null = null;
   let fridgeDoor: FridgeDoor | null = null;
   let trashBin: TrashBin | null = null;
+  let lockers: Lockers | null = null;
   let sink: SinkTap | null = null;
   let pantryReach: OfficeProps["pantryReach"] | null = null;
   let oven: Oven | null = null;
@@ -428,6 +436,22 @@ export function buildOffice(): OfficeProps {
         hairColliders.push(...built.hairColliders);
         break;
       }
+      case "lounge-chair": {
+        const built = buildLoungeChair(piece, stations["reading-chair"].seatHeight ?? 0.31);
+        root.add(built.root);
+        hairColliders.push(...built.hairColliders);
+        break;
+      }
+      case "side-table":
+        root.add(buildSideTable(piece));
+        break;
+      case "display-cabinet":
+        root.add(buildDisplayCabinet(piece));
+        break;
+      case "lockers":
+        lockers = buildLockers(piece);
+        root.add(lockers.root);
+        break;
       case "beanbag":
       case "stool": {
         const built =
@@ -588,6 +612,7 @@ export function buildOffice(): OfficeProps {
     rackLights === null ||
     fridgeDoor === null ||
     trashBin === null ||
+    lockers === null ||
     sink === null ||
     pantryReach === null ||
     oven === null ||
@@ -660,6 +685,7 @@ export function buildOffice(): OfficeProps {
     lunchBoxes,
     fridgeDoor,
     trashBin,
+    lockers,
     sink,
     pantryReach,
     oven,
