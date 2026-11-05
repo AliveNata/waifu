@@ -18,6 +18,9 @@ import loungeChairUrl from "../assets/furniture/loungeChair.glb?url";
 import loungeSofaUrl from "../assets/furniture/loungeSofa.glb?url";
 import mouseM310Url from "../assets/furniture/mouseM310.glb?url";
 import officeChairUrl from "../assets/furniture/officeChair.glb?url";
+import pcFuturisticUrl from "../assets/furniture/pcFuturistic.glb?url";
+import pcGamingUrl from "../assets/furniture/pcGaming.glb?url";
+import pcMonitorsUrl from "../assets/furniture/pcMonitors.glb?url";
 import pingpongUrl from "../assets/furniture/pingpong.glb?url";
 import plantSmall1Url from "../assets/furniture/plantSmall1.glb?url";
 import pottedPlantUrl from "../assets/furniture/pottedPlant.glb?url";
@@ -55,6 +58,9 @@ const urls = {
   mouseM310: mouseM310Url,
   laptop: laptopUrl,
   printer: printerUrl,
+  pcMonitors: pcMonitorsUrl,
+  pcGaming: pcGamingUrl,
+  pcFuturistic: pcFuturisticUrl,
   arcadePacman: arcadePacmanUrl,
   treadmill: treadmillUrl,
   pingpong: pingpongUrl,

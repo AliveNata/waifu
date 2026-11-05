@@ -47,6 +47,8 @@ function localPropPaths(repoRoot: string): Partial<Record<LocalProp, string>> {
   return found;
 }
 
+const ignoreLocalModels = process.env.WAIFU_IGNORE_LOCAL_MODELS === "1";
+
 const server = new HookServer({
   log: (line) => console.log(line),
   host: "127.0.0.1",
@@ -55,8 +57,10 @@ const server = new HookServer({
     staticDir,
     modelPaths,
     baseModelPath: findBaseModel(repoRootFrom(import.meta.dirname), process.env),
-    courierModelPath: findCourierModel(repoRootFrom(import.meta.dirname)),
-    localPropPaths: localPropPaths(repoRootFrom(import.meta.dirname)),
+    // Tests set WAIFU_IGNORE_LOCAL_MODELS so they run against the repo alone, not whatever
+    // optional models (the courier, local-only props) the machine has in models/.
+    courierModelPath: ignoreLocalModels ? null : findCourierModel(repoRootFrom(import.meta.dirname)),
+    localPropPaths: ignoreLocalModels ? {} : localPropPaths(repoRootFrom(import.meta.dirname)),
   },
 });
 

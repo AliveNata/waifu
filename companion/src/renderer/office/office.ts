@@ -1,8 +1,9 @@
 import "../common/base.css";
 import "./office.css";
+import type { Object3D } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { normalizeDisplaySettings, type OfficeDisplaySettings } from "../../shared/display-settings.js";
-import { type ConversationMode, localProps } from "../../shared/protocol.js";
+import { type ConversationMode, type LocalProp, localProps } from "../../shared/protocol.js";
 import { idleReaction } from "../../shared/reaction.js";
 import { normalizeSoundSettings, type OfficeSoundSettings } from "../../shared/sound-settings.js";
 import type { MemberId } from "../../shared/team.js";
@@ -242,27 +243,12 @@ class OfficePage {
       this.loadSaved(memberId);
     }
     this.loadCourier();
-    this.loadLocalProps();
   }
 
-  /**
-   * Props whose license keeps them out of the repo load from models/ when the user has them;
-   * without the file the office keeps its own version, so a missing one is not worth a notice.
-   */
-  private loadLocalProps(): void {
-    for (const name of localProps) {
-      this.bridge
-        .loadLocalProp(name)
-        .then(async (file) => {
-          if (file !== null) {
-            const gltf = await new GLTFLoader().parseAsync(file.bytes, "");
-            simplifyMaterials(gltf.scene);
-            this.stage.setLocalProp(name, gltf.scene);
-          }
-        })
-        .catch((error: unknown) => {
-          console.error(`[office] local prop "${name}" failed to load`, error);
-        });
+  /** The local-only props that loaded before the room was built take their places in it. */
+  useLocalProps(models: ReadonlyMap<LocalProp, Object3D>): void {
+    for (const [name, model] of models) {
+      this.stage.setLocalProp(name, model);
     }
   }
 
@@ -665,11 +651,38 @@ function afterPaint(): Promise<void> {
 const foodModels = loadFoodModels();
 const furnitureModels = loadFurnitureModels();
 const fishModels = loadFishModels();
-Promise.all([quality, chatShown, foodModels, furnitureModels, fishModels])
-  .then(async ([chosen]) => {
+/**
+ * Props whose license keeps them out of the repo load from models/ when the user has them, with
+ * the other models, so their parsing is over before the room runs. Without the file the office
+ * keeps its own version, so a missing one is not worth a notice.
+ */
+async function loadLocalProps(): Promise<Map<LocalProp, Object3D>> {
+  const loaded = new Map<LocalProp, Object3D>();
+  await Promise.all(
+    localProps.map(async (name) => {
+      try {
+        const file = await bridge.loadLocalProp(name);
+        if (file !== null) {
+          const gltf = await new GLTFLoader().parseAsync(file.bytes, "");
+          simplifyMaterials(gltf.scene);
+          loaded.set(name, gltf.scene);
+        }
+      } catch (error) {
+        console.error(`[office] local prop "${name}" failed to load`, error);
+      }
+    }),
+  );
+  return loaded;
+}
+
+const localPropModels = loadLocalProps();
+Promise.all([quality, chatShown, foodModels, furnitureModels, fishModels, localPropModels])
+  .then(async ([chosen, , , , , props]) => {
     await afterPaint();
     setSceneQuality(chosen);
-    new OfficePage(bridge, canvas).start();
+    const page = new OfficePage(bridge, canvas);
+    page.useLocalProps(props);
+    page.start();
     // Hook signals are only listened to from here on: anything that drives the office waits for this.
     document.documentElement.dataset.office = "ready";
   })

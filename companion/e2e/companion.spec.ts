@@ -19,7 +19,11 @@ async function openPage(page: Page, path: string): Promise<void> {
   // CI renders with software WebGL, where the office's ambient occlusion runs at well under one
   // frame a second; these tests check behavior, so the office loads with the light graphics.
   await page.goto(path === "/office/" ? "/office/?quality=low" : path);
-  await expect(page.locator("html")).toHaveAttribute("data-events", "connected");
+  // The office opens its event stream once the room is built, which takes several seconds on
+  // software WebGL, as office-chat.spec.ts allows for too.
+  await expect(page.locator("html")).toHaveAttribute("data-events", "connected", {
+    timeout: path === "/office/" ? 20_000 : 5_000,
+  });
 }
 
 async function postHook(page: Page, body: Record<string, string>): Promise<void> {
@@ -146,8 +150,8 @@ test.describe("office", () => {
     await postHook(page, { hook_event_name: "SubagentStart", agent_id: "r1", agent_type: "erza" });
     await postHook(page, { hook_event_name: "PreToolUse", agent_id: "r1", agent_type: "erza", tool_name: "Bash" });
 
-    // Assert
-    await expect(caption).toContainText("Erza · Review + QA");
+    // Assert: the close-up turns up within a few frames, which on software WebGL is seconds.
+    await expect(caption).toContainText("Erza · Review + QA", { timeout: 10_000 });
     await expect(caption).toContainText("(Bash)");
     await expect(caption).toContainText("simulated screen");
   });
@@ -157,7 +161,7 @@ test.describe("office", () => {
     await openPage(page, "/office/");
     const caption = page.locator("#closeup-caption");
     await postHook(page, { hook_event_name: "SubagentStart", agent_id: "d1", agent_type: "data-engineer" });
-    await expect(caption).toContainText("Asuna");
+    await expect(caption).toContainText("Asuna", { timeout: 10_000 });
 
     // Act
     await postHook(page, { hook_event_name: "SubagentStop", agent_id: "d1", agent_type: "data-engineer" });

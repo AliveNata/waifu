@@ -1,11 +1,13 @@
 import {
   AdditiveBlending,
+  type BufferGeometry,
   CatmullRomCurve3,
   Color,
   CylinderGeometry,
   DataTexture,
   Group,
   type Material,
+  Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
   NearestFilter,
@@ -27,8 +29,9 @@ import { DeskMouse } from "../surfaces/mouse.js";
 import { type ScreenSize, ScreenSurface } from "../surfaces/screen.js";
 import { screenScripts } from "../surfaces/screen-scripts.js";
 import { type DeskGadget, returnSetup } from "./desk-returns.js";
+import { furnitureModel } from "./furniture-models.js";
 import { handPropModel, type PropLook } from "./hand-props.js";
-import { kitPiece } from "./kit.js";
+import { fitModel, kitPiece } from "./kit.js";
 import { type LaptopModel, laptopShell } from "./laptop-model.js";
 import { box, glow, mesh, palette, standard, unlit } from "./palette.js";
 import { leafyCrown } from "./plant.js";
@@ -522,17 +525,101 @@ function deskBase(width: number, depth: number): Group {
   return root;
 }
 
+/**
+ * The monitors' plastic, in the room's ink: one plain material for every monitor, so the static
+ * ones bake into a single draw instead of one textured draw each.
+ */
+let monitorShellMaterial: MeshStandardMaterial | null = null;
+/** Made on first use: building a material needs a canvas, which tests without a page lack. */
+function monitorShell(): MeshStandardMaterial {
+  monitorShellMaterial ??= standard(palette.inkDeep, 0.4, 0.2);
+  return monitorShellMaterial;
+}
+
+/** A part of a model with its own transforms baked in, so it can be fitted on its own. */
+function bakedPart(node: Object3D): Group {
+  const part = new Group();
+  node.traverse((child) => {
+    if (child instanceof Mesh) {
+      const baked = new Mesh(
+        (child.geometry as BufferGeometry).clone().applyMatrix4(child.matrixWorld),
+        monitorShell(),
+      );
+      part.add(baked);
+    }
+  });
+  return part;
+}
+
+/**
+ * "Basic PC Monitors" by Sousinho (CC-BY-4.0): a standard and a widescreen monitor whose panels
+ * come off their stands. Baked once per kind; every desk's monitor is a copy.
+ */
+const monitorParts = new Map<"standard" | "widescreen", { panel: Group; stand: Group } | null>();
+
+function monitorPartsOf(kind: "standard" | "widescreen"): { panel: Group; stand: Group } | null {
+  if (!monitorParts.has(kind)) {
+    const model = furnitureModel("pcMonitors");
+    const names =
+      kind === "widescreen"
+        ? { panel: "SM_widescreen_monitor_1", stand: "SM_widescreen_stand_2" }
+        : { panel: "SM_standard_monitor_5", stand: "SM_standard_monitor_stand_4" };
+    model?.updateMatrixWorld(true);
+    const panel = model?.getObjectByName(names.panel);
+    const stand = model?.getObjectByName(names.stand);
+    monitorParts.set(
+      kind,
+      panel === undefined || stand === undefined ? null : { panel: bakedPart(panel), stand: bakedPart(stand) },
+    );
+  }
+  return monitorParts.get(kind) ?? null;
+}
+
+/**
+ * The monitor model at this desk screen's size: the panel fitted around the screen and, for a
+ * tall screen, turned on its end; the stand under it reaching up behind its middle. Null when the
+ * model did not load.
+ */
+function modelMonitor(width: number, height: number, y: number): Group | null {
+  const parts = monitorPartsOf(width / height > 2.2 ? "widescreen" : "standard");
+  if (parts === null) {
+    return null;
+  }
+  const group = new Group();
+  const turned = new Group();
+  const panel = parts.panel.clone();
+  // A tall screen is the standard panel stood on its end on the same stand.
+  if (height > width) {
+    panel.rotation.z = Math.PI / 2;
+  }
+  turned.add(panel);
+  const fitted = fitModel(turned, { width: width + 0.025, height: height + 0.03, depth: 0.025 });
+  fitted.position.y = y - 0.015;
+  // The model's stand reaches 1.375 times the panel's middle above its foot.
+  const standHeight = 1.375 * (y + height / 2 - deskTop);
+  const stand = fitModel(parts.stand.clone(), { height: Math.min(standHeight, y + height * 0.9 - deskTop) });
+  stand.position.set(0, deskTop, -0.03);
+  group.add(stand, fitted);
+  return group;
+}
+
 /** Monitor on a stand, screen facing +z (toward the sitter). `y` is the bottom edge of the panel. */
 function monitor(map: Texture, width: number, height: number, x: number, z: number, yaw = 0, y = panelBottom): Group {
   const group = new Group();
   const ink = standard(palette.inkDeep, 0.4, 0.2);
-  group.add(
-    box(0.17, 0.012, 0.13, ink, 0, deskTop, 0),
-    box(0.025, y - deskTop + height * 0.3, 0.02, ink, 0, deskTop, -0.02),
-    box(width + 0.02, height + 0.02, 0.02, ink, 0, y - 0.01, 0),
-  );
+  const fromModel = modelMonitor(width, height, y);
+  if (fromModel !== null) {
+    group.add(fromModel);
+  } else {
+    group.add(
+      box(0.17, 0.012, 0.13, ink, 0, deskTop, 0),
+      box(0.025, y - deskTop + height * 0.3, 0.02, ink, 0, deskTop, -0.02),
+      box(width + 0.02, height + 0.02, 0.02, ink, 0, y - 0.01, 0),
+    );
+  }
   const panel = mesh(new PlaneGeometry(width, height), unlit(map), false);
-  panel.position.set(0, y + height / 2, 0.012);
+  // Just in front of the model panel's face, or of the box bezel.
+  panel.position.set(0, y + height / 2, fromModel === null ? 0.012 : 0.0145);
   // Found by the office so the screen can go to sleep while its owner is away.
   panel.userData.sideScreen = true;
   group.add(panel);
@@ -542,13 +629,43 @@ function monitor(map: Texture, width: number, height: number, x: number, z: numb
 }
 
 /** Desktop tower beside the desk with a glass side and RGB fans: the gaming half of the setup. */
-function pcTower(x: number, z: number, glowColor: string = palette.accent, brightness = 1): Group {
+/**
+ * The two tower models, each turned so its front faces +z and its glass side +x (toward the
+ * desk's middle): "(FREE) Gaming Pc" by Moonway 3D, black with three fans, its glass on -x so it
+ * is mirrored; "Computer- PC futuristic" by Caio de Oliveira, white with a lit strip, its front on
+ * -z so it is turned round. Both CC-BY-4.0.
+ */
+const towerModels = {
+  gaming: { name: "pcGaming", yaw: 0, mirror: true },
+  futuristic: { name: "pcFuturistic", yaw: Math.PI, mirror: false },
+} as const;
+export type TowerModel = keyof typeof towerModels;
+
+function pcTower(
+  x: number,
+  z: number,
+  glowColor: string = palette.accent,
+  brightness = 1,
+  model: TowerModel = "gaming",
+): Group {
   const group = new Group();
-  group.add(
-    box(0.16, 0.36, 0.34, standard(palette.inkDeep, 0.35, 0.3), 0, 0, 0),
-    box(0.005, 0.3, 0.28, glow(glowColor, 1.4 * brightness), 0.082, 0.03, 0),
-    box(0.1, 0.012, 0.012, glow(glowColor, 1.8 * brightness), 0, 0.33, 0.171),
-  );
+  const spec = towerModels[model];
+  const template = furnitureModel(spec.name);
+  if (template !== null) {
+    const tower = fitModel(template, { width: 0.17, height: 0.38, depth: 0.35 });
+    tower.rotation.y = spec.yaw;
+    if (spec.mirror) {
+      tower.scale.x = -1;
+    }
+    // The member's role color still glows from the tower, along its foot on the desk's side.
+    group.add(tower, box(0.004, 0.012, 0.3, glow(glowColor, 1.6 * brightness), 0.087, 0.004, 0));
+  } else {
+    group.add(
+      box(0.16, 0.36, 0.34, standard(palette.inkDeep, 0.35, 0.3), 0, 0, 0),
+      box(0.005, 0.3, 0.28, glow(glowColor, 1.4 * brightness), 0.082, 0.03, 0),
+      box(0.1, 0.012, 0.012, glow(glowColor, 1.8 * brightness), 0, 0.33, 0.171),
+    );
+  }
   group.position.set(x, 0, z);
   return group;
 }
@@ -740,7 +857,7 @@ function yorDesk(piece: Furniture): DeskBuild {
     monitor(screen.texture, landscape.width, landscape.height, -0.23, back, 0.1),
     monitor(monitoringTexture(), landscape.width, landscape.height, 0.23, back, -0.1),
     headsetStand(-0.6, back + 0.04),
-    pcTower(-width / 2 + 0.14, 0, "#5fd38d"),
+    pcTower(-width / 2 + 0.14, 0, "#5fd38d", 1, "futuristic"),
   );
   const keyboard = keyboardFor("yor", keyboardZ(depth));
   const mouse = mouseBeside(keyboard, palette.accent, palette.inkDeep);
@@ -766,7 +883,7 @@ function twobDesk(piece: Furniture): DeskBuild {
   const screen = new ScreenSurface(screenScripts.twob);
   inner.add(
     monitor(screen.texture, landscape.width, landscape.height, -0.06, -depth / 2 + 0.15),
-    pcTower(width / 2 - 0.14, 0),
+    pcTower(width / 2 - 0.14, 0, palette.accent, 1, "futuristic"),
   );
   const keyboard = keyboardFor("twob", keyboardZ(depth));
   const mouse = mouseBeside(keyboard, palette.accent, palette.inkDeep);
@@ -1325,6 +1442,16 @@ const towerGlow: Partial<Record<DeskMember, string>> = {
   huagua: "#ff5fc8",
 };
 
+/** Which tower each desk has, alternating the two models so neighbouring desks differ. */
+const towerOf: Partial<Record<DeskMember, TowerModel>> = {
+  huagua: "gaming",
+  asuna: "futuristic",
+  arisu: "gaming",
+  komachi: "futuristic",
+  miruku: "gaming",
+  erza: "futuristic",
+};
+
 export function buildDesk(
   member: DeskMember,
   piece: Furniture,
@@ -1339,7 +1466,7 @@ export function buildDesk(
     const side = returnSide === null ? 1 : -returnSide;
     // Under the desk at the back, its glass side turned to the sitter and the aisle behind them,
     // and brighter than the open-desk towers, since the desk shades it.
-    const tower = pcTower(side * (width / 2 - 0.16), -depth / 2 + 0.22, glowColor, 1.8);
+    const tower = pcTower(side * (width / 2 - 0.16), -depth / 2 + 0.22, glowColor, 1.8, towerOf[member] ?? "gaming");
     tower.scale.setScalar(0.88);
     tower.rotation.y = -Math.PI / 2;
     built.root.add(tower);
