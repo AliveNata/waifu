@@ -1,9 +1,11 @@
 import type { Object3D } from "three";
 import bearUrl from "../assets/furniture/bear.glb?url";
+import benchCushionLowUrl from "../assets/furniture/benchCushionLow.glb?url";
 import bookcaseUrl from "../assets/furniture/bookcaseClosedWide.glb?url";
 import bookcaseOpenLowUrl from "../assets/furniture/bookcaseOpenLow.glb?url";
 import booksUrl from "../assets/furniture/books.glb?url";
 import cabinetTelevisionUrl from "../assets/furniture/cabinetTelevision.glb?url";
+import cameraTripodUrl from "../assets/furniture/cameraTripod.glb?url";
 import coatRackStandingUrl from "../assets/furniture/coatRackStanding.glb?url";
 import gamingLaptopUrl from "../assets/furniture/gamingLaptop.glb?url";
 import kitchenCabinetUrl from "../assets/furniture/kitchenCabinet.glb?url";
@@ -17,12 +19,17 @@ import mouseM310Url from "../assets/furniture/mouseM310.glb?url";
 import officeChairUrl from "../assets/furniture/officeChair.glb?url";
 import plantSmall1Url from "../assets/furniture/plantSmall1.glb?url";
 import pottedPlantUrl from "../assets/furniture/pottedPlant.glb?url";
+import printerUrl from "../assets/furniture/printer.glb?url";
 import radioUrl from "../assets/furniture/radio.glb?url";
+import ringLightUrl from "../assets/furniture/ringLight.glb?url";
 import roseUrl from "../assets/furniture/rose.glb?url";
 import rugDoormatUrl from "../assets/furniture/rugDoormat.glb?url";
+import serverRackUrl from "../assets/furniture/serverRack.glb?url";
 import sideTableUrl from "../assets/furniture/sideTable.glb?url";
+import speakerSmallUrl from "../assets/furniture/speakerSmall.glb?url";
 import stoolBarUrl from "../assets/furniture/stoolBar.glb?url";
 import tableCoffeeUrl from "../assets/furniture/tableCoffee.glb?url";
+import televisionModernUrl from "../assets/furniture/televisionModern.glb?url";
 import toasterUrl from "../assets/furniture/toaster.glb?url";
 import { loadTemplates } from "./food-models.js";
 
@@ -44,6 +51,14 @@ const urls = {
   officeChair: officeChairUrl,
   mouseM310: mouseM310Url,
   laptop: laptopUrl,
+  printer: printerUrl,
+  serverRack: serverRackUrl,
+  ringLight: ringLightUrl,
+  cameraTripod: cameraTripodUrl,
+  // Kenney Furniture Kit, CC0.
+  televisionModern: televisionModernUrl,
+  speakerSmall: speakerSmallUrl,
+  benchCushionLow: benchCushionLowUrl,
   gamingLaptop: gamingLaptopUrl,
   loungeSofa: loungeSofaUrl,
   tableCoffee: tableCoffeeUrl,

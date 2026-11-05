@@ -14,6 +14,7 @@ import { type Furniture, surface, treadmillDeckHeight } from "../office-plan.js"
 import { punchReach } from "../office-pose.js";
 import { deskTop } from "./desks.js";
 import { type FishSpecies, fishModel, fishSpecies } from "./fish-models.js";
+import { kitPiece } from "./kit.js";
 import { box, glow, mesh, palette, standard } from "./palette.js";
 
 function placed(piece: Furniture): Group {
@@ -52,6 +53,16 @@ export function buildBench(piece: Furniture): Group {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const seat = 0.31;
+  // Kenney's low cushioned bench: an ink frame and a chair-purple cushion, like the office chairs.
+  const bench = kitPiece(
+    "benchCushionLow",
+    { width, height: seat, depth },
+    { wood: palette.ink, carpet: palette.chairPurple },
+  );
+  if (bench !== null) {
+    root.add(bench);
+    return root;
+  }
   const frame = standard(palette.ink, 0.6);
   root.add(
     box(width, 0.05, depth, standard(palette.oak, 0.7), 0, seat - 0.05, 0),
