@@ -1,6 +1,7 @@
 import {
   ACESFilmicToneMapping,
   AmbientLight,
+  Box3,
   BoxGeometry,
   Color,
   DirectionalLight,
@@ -75,6 +76,7 @@ import { gpuLabel, paceFrame } from "./frame-rate.js";
 import { FreeCamera } from "./free-camera.js";
 import { Handoffs, type Teammate } from "./handoffs.js";
 import { aimHand, solveCcd, withinReach } from "./ik.js";
+import { eatStyles, lunchMoment, speakerGestureKinds } from "./lunch-eating.js";
 import { type ActorState, angleDelta, initialActor, isWalking, stepActor } from "./office-actor.js";
 import {
   afterMeal,
@@ -327,9 +329,6 @@ const pieceProps: Record<FoodKind, HandPropKind> = {
 const trashBin = furniture.find((piece) => piece.kind === "trash-bin");
 /** How long the bin's lid stays up after something is dropped in. */
 const binLidSeconds = 1.2;
-/** Into a locker step, when the door starts to open, and how long before leaving it is shut. */
-const lockerOpenFrom = 0.3;
-const lockerShutBefore = 0.5;
 
 /** A book held open in front of the eyes, pages up, for Alyx to read. */
 function openBook(): Group {
@@ -717,8 +716,7 @@ export class OfficeStage {
   private readonly lifeSteps: Partial<Record<MemberId, LifeChoice>> = {};
   /** The bin's lid stays up until this point on the stage clock, after something goes in. */
   private binOpenUntil = Number.NEGATIVE_INFINITY;
-  /** Members at their locker with the door open this frame. */
-  private readonly lockersOpen = new Set<MemberId>();
+  private readonly lunchBoxTops = new Map<Object3D, Vector3>();
   private readonly rigs: Record<MemberId, MemberRig>;
 
   private team: TeamRuntime = emptyTeamRuntime();
@@ -2529,12 +2527,6 @@ export class OfficeStage {
     this.updateDeskLock(memberId, errand, arrived, stepElapsed);
     this.updateBook(memberId, errand, arrived, stepElapsed, plan.action);
     this.updateFood(memberId, rig, step, arrived, stepElapsed, remaining, now);
-    // Opened as the hand gets to it, shut again just before walking off.
-    if (errand === "locker" && arrived && stepElapsed >= lockerOpenFrom && remaining > lockerShutBefore) {
-      this.lockersOpen.add(memberId);
-    } else {
-      this.lockersOpen.delete(memberId);
-    }
 
     const atOwnDesk = action === "desk-idle" && plan.station === `desk-${memberId}`;
     const mug = this.mugs[memberId];
@@ -2561,7 +2553,8 @@ export class OfficeStage {
         ? surfaceTargets
         : deskBit !== null
           ? this.deskBitTargets(memberId, rig, deskBit)
-          : (this.counterTargets(rig, action, arrived) ??
+          : (this.lunchTargets(memberId, rig, action, arrived) ??
+            this.counterTargets(rig, action, arrived) ??
             this.foodTargets(rig, action, errand, arrived, stepElapsed) ??
             this.errandTargets(memberId, rig, errand, arrived, stepElapsed, remaining));
     // Offset each member's idle loops so the room does not move in lockstep.
@@ -2607,6 +2600,7 @@ export class OfficeStage {
       carrying,
       board,
       walkStyle: walkStyles[memberId],
+      eatStyle: eatStyles[memberId],
       gimmick,
       chatter: this.chatter.reactionOf(memberId),
       chatGesture: this.chatter.gestureOf(memberId),
@@ -2965,6 +2959,90 @@ export class OfficeStage {
   }
 
   /** The hand onto the food at the end of the bar, or onto the bin, while food changes hands. */
+  /**
+   * Lunch at the meeting table, hands on the meal: the chopsticks between the box and the mouth
+   * at the member's own pace, the free hand on the box or the table edge. Null when not eating.
+   */
+  private lunchTargets(
+    memberId: MemberId,
+    rig: MemberRig,
+    action: OfficeAction | null,
+    arrived: boolean,
+  ): HandTargets | null {
+    if (action !== "lunch" || !arrived) {
+      return null;
+    }
+    const seat = meetingStationIds.indexOf(rig.plan.station as (typeof meetingStationIds)[number]);
+    const box = this.office.lunchBoxes[seat];
+    const head = rig.avatar.poseTarget.node("head");
+    if (box === undefined || head === null) {
+      return null;
+    }
+    const style = eatStyles[memberId];
+    const yaw = rig.actor.yaw;
+    const forward = new Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+    // Facing +z, the member's left is +x.
+    const left = new Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+    const boxAt = this.lunchBoxTop(box);
+    // The wrist stays a hand and chopsticks short of the food, which the tips reach.
+    const overBox = boxAt
+      .clone()
+      .addScaledVector(left, -0.03)
+      .addScaledVector(forward, -0.1)
+      .add(new Vector3(0, 0.07, 0));
+    const mouth = head
+      .getWorldPosition(new Vector3())
+      .addScaledVector(forward, 0.09)
+      .add(new Vector3(0, -0.06, 0));
+    const chest = mouth
+      .clone()
+      .add(new Vector3(0, -0.3, 0))
+      .addScaledVector(forward, 0.05);
+    const gesture = this.chatter.gestureOf(memberId);
+    const speaking = gesture !== null && gesture.kind !== "relaxed" && speakerGestureKinds.has(gesture.kind);
+    const moment = lunchMoment(this.elapsed - rig.actionStartedAt - 1, style);
+    let right: Vector3;
+    if (speaking) {
+      // Saying their line: chopsticks held still just over the box.
+      right = overBox.clone().lerp(mouth, 0.15);
+    } else if (moment.kind === "bite") {
+      right = overBox.clone().lerp(mouth, moment.amount);
+    } else if (moment.kind === "chew") {
+      right = overBox.clone().lerp(mouth, 0.25 * moment.amount);
+    } else if (moment.kind === "sit-back") {
+      right = overBox.clone().lerp(chest, moment.amount);
+    } else {
+      // Poking about the box for the next piece.
+      right = overBox.clone().addScaledVector(left, 0.03 * moment.amount * Math.sin(this.elapsed * 5));
+    }
+    const leftHand =
+      speaking || style.freeHand === "lap"
+        ? null
+        : style.freeHand === "box"
+          ? boxAt
+              .clone()
+              .addScaledVector(left, 0.08)
+              .addScaledVector(forward, -0.07)
+              .add(new Vector3(0, 0.03, 0))
+          : boxAt
+              .clone()
+              .addScaledVector(left, 0.14)
+              .addScaledVector(forward, -0.14)
+              .add(new Vector3(0, 0.02, 0));
+    return { left: leftHand, right, tip: "wrist", approach: null, board: null, rate: 5 };
+  }
+
+  /** The middle of a lunch box's lid, worked out once: the box's own origin is down at the floor. */
+  private lunchBoxTop(box: Object3D): Vector3 {
+    let top = this.lunchBoxTops.get(box);
+    if (top === undefined) {
+      const bounds = new Box3().setFromObject(box);
+      top = bounds.getCenter(new Vector3()).setY(bounds.max.y);
+      this.lunchBoxTops.set(box, top);
+    }
+    return top.clone();
+  }
+
   private foodTargets(
     rig: MemberRig,
     action: OfficeAction | null,
@@ -3072,12 +3150,6 @@ export class OfficeStage {
         }
         break;
       }
-      case "locker":
-        // The door by its middle while opening and shutting it.
-        if (t < lockerOpenFrom + 0.4 || remaining < lockerShutBefore + 0.4) {
-          target = this.office.lockers.doorPoint(memberId);
-        }
-        break;
       case "wash-mug":
         break;
     }
@@ -3237,7 +3309,6 @@ export class OfficeStage {
     );
     this.office.fridgeDoor.update(usingAt("fridge", "snack") || this.alyxOn.has("fridge"), delta);
     this.office.trashBin.update(this.elapsed < this.binOpenUntil, delta);
-    this.office.lockers.update(this.lockersOpen, delta);
     const door = stations.door.spot;
     this.foodOrder = stepOrder(this.foodOrder, Date.now());
     this.courierVisit = this.courier === null ? null : stepCourier(this.courierVisit, this.foodOrder, Date.now());

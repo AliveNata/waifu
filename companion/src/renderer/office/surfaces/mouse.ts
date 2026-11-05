@@ -1,4 +1,5 @@
 import { BoxGeometry, Color, Group, Mesh, MeshStandardMaterial, Vector3 } from "three";
+import { kitPiece } from "../scene/kit.js";
 
 /** A real mouse at the room's 0.73 scale: about 0.05 by 0.08 m. */
 const bodyHeight = 0.022;
@@ -20,14 +21,32 @@ export class DeskMouse {
   private held = 0;
   private sinceClick = clickSeconds;
   private nextClickIn = 0.8;
+  /** How strongly a click lights up: the box stand-in lights only its button, the model all over. */
+  private readonly glowStrength: number;
 
   constructor(accent: string, base: string) {
     this.glow = new Color(accent);
     this.idle = new Color(base);
+    this.buttonMaterial = new MeshStandardMaterial({ color: base, emissive: accent, emissiveIntensity: 0 });
+    // The Logitech M310 model ("Logitech M310 Mouse" by Nick Scott, CC-BY-4.0) in the desk's own
+    // color, its buttons toward the screen (-z). The whole shell takes the click's glow.
+    const model = kitPiece("mouseM310", { width: 0.048, height: bodyHeight + 0.004, depth: 0.078 });
+    if (model !== null) {
+      model.rotation.y = Math.PI;
+      model.traverse((part) => {
+        if (part instanceof Mesh) {
+          part.material = this.buttonMaterial;
+        }
+      });
+      this.glowStrength = 0.35;
+      this.body.add(model);
+      this.root.add(this.body);
+      return;
+    }
+    this.glowStrength = 1;
     const shell = new Mesh(new BoxGeometry(0.048, bodyHeight, 0.078), new MeshStandardMaterial({ color: base }));
     shell.position.y = bodyHeight / 2;
     shell.castShadow = true;
-    this.buttonMaterial = new MeshStandardMaterial({ color: base, emissive: accent, emissiveIntensity: 0 });
     const button = new Mesh(new BoxGeometry(0.04, 0.003, 0.026), this.buttonMaterial);
     button.position.set(0, bodyHeight + 0.0015, -0.022);
     this.body.add(shell, button);
@@ -49,8 +68,8 @@ export class DeskMouse {
     // Two slow sines out of step: the path never quite repeats, like hunting for a button.
     this.body.position.set(0.022 * Math.sin(t * 1.3), 0, 0.016 * Math.sin(t * 0.9 + 1));
     const clicking = Math.max(0, 1 - this.sinceClick / clickSeconds);
-    this.buttonMaterial.emissiveIntensity = clicking * 1.6;
-    this.buttonMaterial.color.copy(this.idle).lerp(this.glow, clicking * 0.5);
+    this.buttonMaterial.emissiveIntensity = clicking * 1.6 * this.glowStrength;
+    this.buttonMaterial.color.copy(this.idle).lerp(this.glow, clicking * 0.5 * this.glowStrength);
   }
 
   /** World point for the index fingertip on the button, pressed down a little mid-click. */

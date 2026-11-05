@@ -4,7 +4,6 @@ import {
   VRMSpringBoneColliderShapeSphere,
 } from "@pixiv/three-vrm";
 import {
-  Box3,
   BoxGeometry,
   CanvasTexture,
   CatmullRomCurve3,
@@ -25,8 +24,7 @@ import {
   TubeGeometry,
   Vector3,
 } from "three";
-import { type MemberId, memberIds, roster } from "../../../shared/team.js";
-import { type Furniture, lockerBank, lockerUnitHeight, people, surface } from "../office-plan.js";
+import { type Furniture, people, surface } from "../office-plan.js";
 import { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./animated.js";
 import { type FoodModelName, foodModel, kitScale, roomScale } from "./food-models.js";
 import { furnitureModel } from "./furniture-models.js";
@@ -222,7 +220,51 @@ function chairGeometry(seatHeight: number): { shell: ExtrudeGeometry; cover: Ext
  * shows down both sides, looping armrests kept low so typing elbows clear them, and a chrome
  * five-star base on casters.
  */
+/**
+ * The office chair model ("Office Chair" by PixelPlay, CC-BY-4.0), in its own units: the seat
+ * cushion's top, the middle of the seat from the model's center, the backrest's front, and the
+ * armrests' tops and spread. Its back is toward +z, so it is turned round to face the desk.
+ */
+const officeChairModel = { seatTop: 0.515, seatOffsetZ: 0.0985, backFront: 0.27, armTop: 0.759, armX: 0.33 } as const;
+
+/** The office chair model fitted to the seat height, or null when it did not load. */
+function modelChair(seatHeight: number): BuiltPiece | null {
+  const scale = seatHeight / officeChairModel.seatTop;
+  const chair = kitPiece(
+    "officeChair",
+    { height: 1.192 * scale },
+    // The backrest in the room's chair purple; the seat, arms and frame keep the model's own finish.
+    { couro_2_4k_encosto1: chairPurple },
+  );
+  if (chair === null) {
+    return null;
+  }
+  chair.rotation.y = Math.PI;
+  // Seat middle over the piece's origin, where the seated pose expects it.
+  chair.position.z = -officeChairModel.seatOffsetZ * scale;
+  const root = new Group();
+  root.add(chair);
+  const backZ = -officeChairModel.backFront * scale;
+  const armX = officeChairModel.armX * scale;
+  const armTop = officeChairModel.armTop * scale;
+  return {
+    root,
+    hairColliders: [
+      ...panelColliders(root, 0.36, backZ - 0.02, seatHeight + 0.06, seatHeight + 0.4, 0.04),
+      lengthwiseCollider(root, -armX, armTop - 0.01, -0.12, 0.08, 0.03),
+      lengthwiseCollider(root, armX, armTop - 0.01, -0.12, 0.08, 0.03),
+      ...seatColliders(root, 0.36, seatHeight - 0.03, 0.15, -0.15, 0.035),
+    ],
+  };
+}
+
 export function buildChair(piece: Furniture, seatHeight: number): BuiltPiece {
+  const fromModel = modelChair(seatHeight);
+  if (fromModel !== null) {
+    const root = placed(piece);
+    root.add(fromModel.root);
+    return { root, hairColliders: fromModel.hairColliders };
+  }
   const root = placed(piece);
   const leather = standard(palette.leather, 0.45);
   // A warmer purple than the trim elsewhere: the deep one reads as navy under the room's lights.
@@ -1387,10 +1429,13 @@ export function buildMeetingTable(
   return { root, laptops, lunchBoxes };
 }
 
-/** An open bento: rice on one side, salmon, egg and greens on the other, nearer the chair than a laptop. */
+/**
+ * An open bento: rice on one side, salmon, egg and greens on the other. Near the table's edge, in
+ * easy reach of the chopsticks from the chair, where a laptop would sit further in.
+ */
 function lunchBox(top: number): Group {
   const lunch = new Group();
-  const z = 0.06;
+  const z = 0.13;
   lunch.add(
     box(0.13, 0.03, 0.09, standard(palette.inkDeep, 0.5), 0, top, z),
     box(0.058, 0.006, 0.078, standard("#f7f3ea", 0.9), -0.03, top + 0.026, z),
@@ -1795,112 +1840,4 @@ export function buildDisplayCabinet(piece: Furniture): Group {
     root.add(radio);
   }
   return root;
-}
-
-/** How far a locker door swings open, and how quickly. */
-const lockerOpenAngle = 1.7;
-const lockerSwingRate = 7;
-
-/** The members' lockers: each door opens while its owner is at it. */
-export class Lockers {
-  private readonly angles = new Map<MemberId, number>();
-
-  constructor(
-    readonly root: Group,
-    private readonly doors: ReadonlyMap<MemberId, Object3D>,
-  ) {}
-
-  update(open: ReadonlySet<MemberId>, delta: number): void {
-    for (const [memberId, door] of this.doors) {
-      const angle = this.angles.get(memberId) ?? 0;
-      const next = angle + ((open.has(memberId) ? lockerOpenAngle : 0) - angle) * Math.min(1, lockerSwingRate * delta);
-      this.angles.set(memberId, next);
-      // Hinged on the left edge like the fridge: negative yaw swings it out toward the member.
-      door.rotation.y = -next;
-    }
-  }
-
-  /** The middle of the member's door, wherever it has swung to, for the hand that opens and shuts it. */
-  doorPoint(memberId: MemberId): Vector3 | null {
-    const door = this.doors.get(memberId);
-    return door === undefined ? null : new Box3().setFromObject(door).getCenter(new Vector3());
-  }
-}
-
-/** A small plate with a member's name, for their locker door. */
-function nameplate(name: string, width: number, height: number): Mesh {
-  const canvas = document.createElement("canvas");
-  canvas.width = 192;
-  canvas.height = 56;
-  const ctx = canvas.getContext("2d");
-  if (ctx !== null) {
-    ctx.fillStyle = "#f4f1ec";
-    ctx.fillRect(0, 0, 192, 56);
-    ctx.fillStyle = "#2a2140";
-    ctx.font = "700 30px 'Segoe UI', system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(name, 96, 30);
-  } else {
-    console.error("[office] no 2D canvas for a locker nameplate");
-  }
-  const texture = new CanvasTexture(canvas);
-  texture.colorSpace = SRGBColorSpace;
-  return mesh(new PlaneGeometry(width, height), unlit(texture), false);
-}
-
-/**
- * The members' lockers: two rows of six of Kenney's wall cabinets on a plinth, each with its
- * owner's name on the door. Fitted uniformly so the doors turn without shearing.
- */
-export function buildLockers(piece: Furniture): Lockers {
-  const root = placed(piece);
-  const { width, depth } = localSize(piece);
-  const ink = standard(palette.ink, 0.6);
-  root.add(box(width, lockerBank.plinth, depth, ink, 0, 0, 0));
-  // The carcass behind the fronts, so the bank reads as one piece of furniture from the side.
-  root.add(box(width, lockerUnitHeight * 2, depth - 0.12, ink, 0, lockerBank.plinth, -0.06));
-  const doors = new Map<MemberId, Object3D>();
-  memberIds.forEach((memberId, index) => {
-    const column = index % lockerBank.columns;
-    const row = Math.floor(index / lockerBank.columns);
-    const unit = kitPiece(
-      "kitchenCabinetUpper",
-      { height: lockerUnitHeight },
-      {
-        wood: palette.inkSoft,
-        woodDark: palette.accentDeep,
-        metal: palette.steel,
-      },
-    );
-    if (unit === null) {
-      return;
-    }
-    const front = kitSize(unit);
-    unit.position.set(
-      -width / 2 + lockerBank.unitWidth * (column + 0.5),
-      lockerBank.plinth + (1 - row) * lockerUnitHeight,
-      depth / 2 - front.z / 2,
-    );
-    root.add(unit);
-    const door = unit.getObjectByName("door");
-    if (door === undefined) {
-      return;
-    }
-    // The nameplate rides on the door, in the door's own units (the kit's, before the fit).
-    unit.updateMatrixWorld(true);
-    const scale = unit.children[0]?.scale.x ?? 1;
-    const doorBox = new Box3().setFromObject(door);
-    const doorSize = doorBox.getSize(new Vector3());
-    const doorCenter = door.worldToLocal(doorBox.getCenter(new Vector3()));
-    const plate = nameplate(roster[memberId].displayName, 0.15 / scale, 0.042 / scale);
-    plate.position.set(
-      doorCenter.x,
-      doorCenter.y + doorSize.y / scale / 4,
-      doorCenter.z + doorSize.z / scale / 2 + 0.002 / scale,
-    );
-    door.add(plate);
-    doors.set(memberId, door);
-  });
-  return new Lockers(root, doors);
 }

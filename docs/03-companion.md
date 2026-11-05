@@ -69,12 +69,17 @@ Furnitur dari [Furniture Kit 2.0](https://kenney.nl/assets/furniture-kit) karya 
 - Rak buku: `bookcaseClosedWide` dua unit, diisi `books` dengan warna sampul per kumpulan.
 - Lounge: sofa `loungeSofa`, meja `tableCoffee`, kabinet TV `cabinetTelevision`, standing lamp `lampRoundFloor`.
 - Dapur: kulkas `kitchenFridgeLarge` (dua pintunya kebuka, di dalamnya rak kaca dan isi dari Food Kit), lemari `kitchenCabinet`, mesin kopi `kitchenCoffeeMachine`, `toaster`.
-- Dinding depan: kursi baca `loungeChair` dan meja kecil `sideTable`, lemari pajangan dari tiga `bookcaseOpenLow` dengan boneka `bear` dan `radio` di atasnya, loker member dari `kitchenCabinetUpper` (pintunya kebuka pas pemiliknya mampir).
+- Dinding depan: kursi baca `loungeChair` dan meja kecil `sideTable`, lemari pajangan dari tiga `bookcaseOpenLow` dengan boneka `bear` dan `radio` di atasnya.
 - Lain-lain: rangka kursi bar `stoolBar` (dudukannya bulat buatan kode), tanaman `pottedPlant` dan `plantSmall1`, keset `rugDoormat`, gantungan jaket `coatRackStanding`.
 
 File-nya ada di `companion/src/renderer/office/assets/furniture/`. Kalau ada yang gagal dimuat, versi buatan kode dipakai.
 
 Mawar di meja Yor pakai model "Rose" karya M Smith Jonn dari [Poly Pizza](https://poly.pizza/m/3iKz2gyNhMr). Poly Pizza cuma nyediain model CC0 atau CC-BY, jadi kreditnya dicantumin di sini dan di `assets/furniture/rose.CREDIT.txt`.
+
+Model dari Sketchfab, lisensi [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/), dikompres (jumlah segitiga dikurangi, tekstur dikecilin) dan warnanya disesuaikan ke palet kantor:
+
+- Kursi kerja: "Office Chair" karya [PixelPlay](https://sketchfab.com/PixelPlay), [sumber](https://sketchfab.com/3d-models/office-chair-c677daf0cf074ff1aa0744880b9a63dd).
+- Mouse: "Logitech M310 Mouse" karya [Nick Scott](https://sketchfab.com/Nickjjscott), [sumber](https://sketchfab.com/3d-models/logitech-m310-mouse-062b547dbd9a42ce94ff0c94ab9ce3af).
 
 Kurir pesanan opsional. Simpan model kurir sebagai `models/courier.vrm`, nanti tiap pesanan diantar sama kurirnya: jalan masuk lewat lorong bawa bungkus sesuai pesanan, nunggu di depan pintu sampai Alyx ambil paketnya, terus balik keluar. Kalau 45 detik nggak diambil, paketnya ditaruh di keset dan kurirnya pergi. Tanpa file itu, pesanan langsung muncul di keset kayak sebelumnya.
 
