@@ -84,15 +84,17 @@ function hasAncestor(object: Object3D, name: string): boolean {
 }
 
 /**
- * The model's shell `width` wide in `material`, its deck `baseHeight` high, taken apart into base
- * and lid. Null when the model did not load, so the caller keeps its boxes.
+ * The model's shell `width` wide and `depth` from hinge to front edge in `material`, its deck
+ * `baseHeight` high, taken apart into base and lid. The depth is the laptop's place on the desk,
+ * so its front stays on the desk whatever the model's proportions. Null when the model did not
+ * load, so the caller keeps its boxes.
  */
 export function laptopShell(
   name: LaptopModel,
-  width: number,
-  baseHeight: number,
+  size: { width: number; depth: number; baseHeight: number },
   material: MeshStandardMaterial,
 ): LaptopShell | null {
+  const { width, depth, baseHeight } = size;
   const model = furnitureModel(name);
   if (model === null) {
     return null;
@@ -130,7 +132,11 @@ export function laptopShell(
   const middleX = (baseBounds.min.x + baseBounds.max.x) / 2;
   const scale = width / (baseBounds.max.x - baseBounds.min.x);
   baseGeometry.translate(-middleX, -baseBounds.min.y, -hingeZ);
-  baseGeometry.scale(scale, baseHeight / (baseBounds.max.y - baseBounds.min.y), scale);
+  baseGeometry.scale(
+    scale,
+    baseHeight / (baseBounds.max.y - baseBounds.min.y),
+    depth / (baseBounds.max.z - baseBounds.min.z),
+  );
   // Stand the lid up: it leans back past the hinge, so turn it forward by that lean.
   lidGeometry.translate(-middleX, -hingeY, -hingeZ);
   lidGeometry.computeBoundingBox();

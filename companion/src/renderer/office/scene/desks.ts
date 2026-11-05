@@ -808,7 +808,8 @@ function laptop(
   const mouse = mouseBeside(keyboard, palette.accent, keys);
   // The laptop model's own shell around the keys and behind the screen, in this member's color.
   // The keys and screen stay the office's own, so typing and the screen work as before.
-  const fromModel = laptopShell(model, 0.34, 0.02, standard(shell, 0.5));
+  // From the hinge to the old palm rest's front edge, so the laptop stays on the desk.
+  const fromModel = laptopShell(model, { width: 0.34, depth: 0.2, baseHeight: 0.02 }, standard(shell, 0.5));
   if (fromModel !== null) {
     fromModel.base.position.z = -0.07;
     keyboard.root.add(fromModel.base);

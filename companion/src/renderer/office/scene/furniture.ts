@@ -234,9 +234,9 @@ function modelChair(seatHeight: number): BuiltPiece | null {
   const chair = kitPiece(
     "officeChair",
     { height: 1.192 * scale },
-    // The backrest in the room's chair purple, the headrest in the seat's black leather (its
-    // texture is left out to keep the model light); the rest keeps the model's own finish.
-    { couro_2_4k_encosto1: chairPurple, couro_2_4k_encosto_de_cabea: "#161616" },
+    // A black chair with the seat cushion and arm pads in the room's chair purple. The headrest's
+    // texture is left out to keep the model light, so it takes the black too.
+    { couro_2_4k: chairPurple, couro_2_4k_encosto1: "#161616", couro_2_4k_encosto_de_cabea: "#161616" },
   );
   if (chair === null) {
     return null;
@@ -1405,7 +1405,7 @@ export function buildMeetingTable(
     // The lid turns on a hinge along the back edge of the keys.
     const lid = new Group();
     lid.position.set(0, top + 0.012, -0.085);
-    const fromModel = laptopShell("laptop", 0.26, 0.012, shell);
+    const fromModel = laptopShell("laptop", { width: 0.26, depth: 0.18, baseHeight: 0.012 }, shell);
     if (fromModel !== null) {
       fromModel.base.position.set(0, top, -0.085);
       laptop.add(fromModel.base);
