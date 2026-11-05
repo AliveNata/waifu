@@ -4,6 +4,7 @@ import {
   VRMSpringBoneColliderShapeSphere,
 } from "@pixiv/three-vrm";
 import {
+  Box3,
   BoxGeometry,
   CanvasTexture,
   CatmullRomCurve3,
@@ -29,7 +30,7 @@ import { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./animated.js"
 import { type FoodModelName, foodModel, kitScale, roomScale } from "./food-models.js";
 import { furnitureModel } from "./furniture-models.js";
 import { handPropModel, type PropLook } from "./hand-props.js";
-import { kitPiece, kitSize } from "./kit.js";
+import { fitModel, kitPiece, kitSize } from "./kit.js";
 import { laptopShell } from "./laptop-model.js";
 import { box, glow, mesh, palette, standard, unlit } from "./palette.js";
 import { leafyCrown } from "./plant.js";
@@ -181,9 +182,6 @@ function extrudedAcross(shape: Shape, width: number, round: number): ExtrudeGeom
   return geometry;
 }
 
-/** The chair's back cover, close to the logo's purple. */
-const chairPurple = "#a33ccc";
-
 /** Built once per seat height and shared, since all the chairs at that height are alike. */
 const chairParts = new Map<number, { shell: ExtrudeGeometry; cover: ExtrudeGeometry; arm: TubeGeometry }>();
 
@@ -234,9 +232,8 @@ function modelChair(seatHeight: number): BuiltPiece | null {
   const chair = kitPiece(
     "officeChair",
     { height: 1.192 * scale },
-    // A black chair with the seat cushion and arm pads in the room's chair purple. The headrest's
-    // texture is left out to keep the model light, so it takes the black too.
-    { couro_2_4k: chairPurple, couro_2_4k_encosto1: "#161616", couro_2_4k_encosto_de_cabea: "#161616" },
+    // An all-black chair, seat, back and arm pads, with only the headrest in the room's chair purple.
+    { couro_2_4k: "#161616", couro_2_4k_encosto1: "#161616", couro_2_4k_encosto_de_cabea: palette.chairPurple },
   );
   if (chair === null) {
     return null;
@@ -270,7 +267,7 @@ export function buildChair(piece: Furniture, seatHeight: number): BuiltPiece {
   const root = placed(piece);
   const leather = standard(palette.leather, 0.45);
   // A warmer purple than the trim elsewhere: the deep one reads as navy under the room's lights.
-  const trim = standard(chairPurple, 0.5);
+  const trim = standard(palette.chairPurple, 0.5);
   const chrome = standard(palette.steel, 0.2, 0.9);
   const dark = standard(palette.inkDeep, 0.6);
   const { shell, cover, arm } = chairGeometry(seatHeight);
@@ -385,8 +382,13 @@ export function buildBeanbag(piece: Furniture, tint: string, seatHeight: number)
 export function buildStool(piece: Furniture, seatHeight: number): BuiltPiece {
   const root = placed(piece);
   // Kenney's bar stool frame in walnut, its eight-sided seat swapped for a round brown cushion so
-  // the seat top lands on the station's seat height.
-  const kit = kitPiece("stoolBar", { height: seatHeight }, { carpet: palette.accentDeep, wood: palette.walnutDark });
+  // the seat top lands on the station's seat height. The frame is square: 0.2 across, its corner
+  // legs (0.14 from the middle) stay under the 0.15 cushion instead of poking out past its rim.
+  const kit = kitPiece(
+    "stoolBar",
+    { width: 0.2, height: seatHeight, depth: 0.2 },
+    { carpet: palette.accentDeep, wood: palette.walnutDark },
+  );
   if (kit !== null) {
     kit.traverse((part) => {
       if (part instanceof Mesh && !Array.isArray(part.material) && part.material.name === "carpet") {
@@ -1074,12 +1076,16 @@ export function buildServerRack(piece: Furniture): { root: Group; lights: RackLi
   const { width, depth } = localSize(piece);
   // A full-height rack at the room's scale, about 0.73 of life size like everything else here.
   const height = 1.4;
-  root.add(box(width - 0.1, height, depth - 0.1, standard(palette.inkDeep, 0.5, 0.2), 0, 0, 0));
+  // "Server Rack" by Spellkaze (CC-BY-4.0); the status lights are the office's own, on its front.
+  const model = kitPiece("serverRack", { width: width - 0.1, height, depth: depth - 0.1 });
+  root.add(model ?? box(width - 0.1, height, depth - 0.1, standard(palette.inkDeep, 0.5, 0.2), 0, 0, 0));
   const lights: { mesh: ReturnType<typeof box>; material: MeshStandardMaterial }[] = [];
   const front = (depth - 0.1) / 2;
   for (let unit = 0; unit < 6; unit++) {
     const y = 0.14 + unit * 0.2;
-    root.add(box(width - 0.16, 0.14, 0.02, standard(palette.ink, 0.4, 0.3), 0, y, front));
+    if (model === null) {
+      root.add(box(width - 0.16, 0.14, 0.02, standard(palette.ink, 0.4, 0.3), 0, y, front));
+    }
     for (let led = 0; led < 3; led++) {
       // Status lights: the accent for activity, white for link, the colors gear actually uses.
       const material = glow(led === 0 ? "#ffffff" : palette.accent, 1.5);
@@ -1091,18 +1097,89 @@ export function buildServerRack(piece: Furniture): { root: Group; lights: RackLi
   return { root, lights: new RackLights(lights) };
 }
 
-/** Arcade cabinet at the office's scale: controls at hand height, screen at eye height. */
-export function buildArcade(piece: Furniture): { root: Group; screen: ArcadeScreen } {
-  const root = placed(piece);
+/** Arcade cabinet height at the office's scale: controls at hand height, screen at eye height. */
+const arcadeHeight = 1.32;
+
+/**
+ * The arcade models: how each is turned to face +z, which part is the glass the game shows on,
+ * and the parts left out (the Pac-Man model's own sprites would sit over the office's game).
+ */
+const arcadeModels = {
+  // "Pacman Arcade + animation" by Daniel Brück, CC-BY-4.0, in the repo.
+  pacman: { yaw: 0, glass: "scheibe", hide: ["pacman_", "mouth_", "ghost"] },
+  // "Arcade Cabinet Elben Quest" by iceboxX708, CC-BY-NC-4.0: only from the user's own models/.
+  elben: { yaw: Math.PI / 2, glass: "ArcadeMachine_Glass", hide: [] },
+} as const;
+export type ArcadeModel = keyof typeof arcadeModels;
+
+/**
+ * An arcade model fitted to the cabinet height and turned to face the player, the office's game
+ * on a plane laid over its glass at the glass's own tilt.
+ */
+function modelArcade(model: Object3D, kind: ArcadeModel, screen: ArcadeScreen): Group {
+  const spec = arcadeModels[kind];
+  const holder = fitModel(model, { height: arcadeHeight });
+  holder.rotation.y = spec.yaw;
+  const cabinet = new Group();
+  cabinet.add(holder);
+  cabinet.updateMatrixWorld(true);
+  let glass: Box3 | null = null;
+  cabinet.traverse((part) => {
+    if (spec.hide.some((prefix: string) => part.name.startsWith(prefix))) {
+      part.visible = false;
+    } else if (glass === null && part instanceof Mesh && part.name.startsWith(spec.glass)) {
+      glass = new Box3().setFromObject(part);
+    }
+  });
+  const bounds: Box3 = glass ?? new Box3().setFromObject(cabinet);
+  const size = bounds.getSize(new Vector3());
+  // The glass leans back: bottom edge at the front, top edge further back.
+  const tilt = Math.atan2(size.z, size.y);
+  const display = mesh(new PlaneGeometry(size.x * 0.9, Math.hypot(size.y, size.z) * 0.9), unlit(screen.texture), false);
+  const center = bounds.getCenter(new Vector3());
+  display.position.set(center.x, center.y + 0.006 * Math.sin(tilt), center.z + 0.006 * Math.cos(tilt));
+  display.rotation.x = -tilt;
+  cabinet.add(display);
+  return cabinet;
+}
+
+/**
+ * One of the two arcade cabinets. The first is the Pac-Man model; the second is built here
+ * until the user's own Elben Quest model loads, which then takes its place.
+ */
+export class ArcadeCabinet {
+  readonly root: Group;
+  readonly screen: ArcadeScreen;
+  private body: Group;
+
+  constructor(piece: Furniture) {
+    this.root = placed(piece);
+    // The pair runs two different games, so they never show the same frame side by side.
+    this.screen = new ArcadeScreen(piece.id === "arcade" ? "shooter" : "breakout");
+    const pacman = piece.id === "arcade" ? furnitureModel("arcadePacman") : null;
+    this.body = pacman === null ? codeArcade(piece, this.screen) : modelArcade(pacman, "pacman", this.screen);
+    this.root.add(this.body);
+  }
+
+  /** Swaps the cabinet for a model that arrived after the room was built. */
+  useModel(model: Object3D, kind: ArcadeModel): void {
+    const next = modelArcade(model, kind, this.screen);
+    this.root.remove(this.body);
+    this.body = next;
+    this.root.add(next);
+  }
+}
+
+/** The arcade cabinet built from boxes, for when no model is there. */
+function codeArcade(piece: Furniture, screen: ArcadeScreen): Group {
   const { width, depth } = localSize(piece);
+  const cabinet = new Group();
   const body = standard(palette.ink, 0.55);
-  // The pair runs two different games, so they never show the same frame side by side.
-  const screen = new ArcadeScreen(piece.id === "arcade" ? "shooter" : "breakout");
   const cabinetWidth = width - 0.16;
   // Controls at a standing player's hands and the top at about 1.3 m, at the room's 0.73 scale.
   const panelTop = 0.68;
   const screenBox = 0.5;
-  root.add(
+  cabinet.add(
     box(cabinetWidth, panelTop, depth * 0.7, body, 0, 0, -depth * 0.05),
     box(cabinetWidth, screenBox, depth * 0.45, body, 0, panelTop, -depth * 0.18),
     box(cabinetWidth, 0.14, depth * 0.5, body, 0, panelTop + screenBox, -depth * 0.15),
@@ -1129,27 +1206,32 @@ export function buildArcade(piece: Furniture): { root: Group; screen: ArcadeScre
   );
   bezel.position.copy(display.position);
   bezel.rotation.copy(display.rotation);
-  root.add(display, bezel);
+  cabinet.add(display, bezel);
   const stick = mesh(new CylinderGeometry(0.008, 0.008, 0.05, 6), standard(palette.ink, 0.4));
   stick.position.set(-0.1, panelTop + 0.045, depth * 0.27);
   const knob = mesh(new SphereGeometry(0.018, 10, 8), glow(palette.accent, 0.8));
   knob.position.set(-0.1, panelTop + 0.075, depth * 0.27);
-  root.add(stick, knob);
+  cabinet.add(stick, knob);
   for (let button = 0; button < 3; button++) {
     const cap = mesh(
       new CylinderGeometry(0.014, 0.014, 0.012, 12),
       standard(button === 0 ? palette.accent : palette.laminate, 0.4),
     );
     cap.position.set(0.03 + button * 0.05, panelTop + 0.026, depth * 0.27);
-    root.add(cap);
+    cabinet.add(cap);
   }
-  return { root, screen };
+  return cabinet;
 }
 
 /** TV centered at seated eye height for the sofa, on a low console. */
 export function buildTvWall(piece: Furniture): { root: Group; screen: TvScreen } {
   const root = placed(piece);
   const screen = new TvScreen();
+  const standing = modelTv(screen);
+  if (standing !== null) {
+    root.add(standing);
+    return { root, screen };
+  }
   const width = 1.15;
   const height = width * (9 / 16);
   const centerY = people.seatedEye + 0.08;
@@ -1160,6 +1242,39 @@ export function buildTvWall(piece: Furniture): { root: Group; screen: TvScreen }
   display.position.set(0, centerY, 0.025);
   root.add(display);
   return { root, screen };
+}
+
+/** From the wall to the middle of the TV console's top, and the top's height. */
+const tvConsoleTop = { z: 0.23, y: 0.33 } as const;
+
+/**
+ * Kenney's modern TV on its own stand, on the middle of the console in front of the wall, the
+ * same 1.15 m wide as the wall-hung one it replaces. The feed goes on its screen face, found from
+ * the screen's own part of the model. Null when the model did not load.
+ */
+function modelTv(screen: TvScreen): Group | null {
+  const width = 1.15;
+  const tv = kitPiece("televisionModern", { height: (width / 0.685) * 0.455 });
+  if (tv === null) {
+    return null;
+  }
+  tv.position.set(0, tvConsoleTop.y, tvConsoleTop.z);
+  tv.updateMatrixWorld(true);
+  // The lighter "metal" part of the kit TV is its screen.
+  let face: Box3 | null = null;
+  tv.traverse((part) => {
+    if (part instanceof Mesh && !Array.isArray(part.material) && part.material.name === "metal") {
+      face = new Box3().setFromObject(part);
+    }
+  });
+  const holder = new Group();
+  holder.add(tv);
+  const bounds: Box3 = face ?? new Box3().setFromObject(tv);
+  const size = bounds.getSize(new Vector3());
+  const display = mesh(new PlaneGeometry(size.x * 0.96, size.y * 0.94), unlit(screen.texture), false);
+  display.position.set(0, (bounds.min.y + bounds.max.y) / 2, bounds.max.z + 0.003);
+  holder.add(display);
+  return holder;
 }
 
 export function buildTvConsole(piece: Furniture): Group {
@@ -1174,9 +1289,17 @@ export function buildTvConsole(piece: Furniture): Group {
   root.add(
     kit ?? box(width - 0.1, 0.33, depth - 0.1, standard(palette.oak, 0.7), 0, 0, 0),
     box(width - 0.14, 0.012, 0.01, glow(), 0, 0.04, (depth - 0.1) / 2 + 0.005),
-    box(0.22, 0.05, 0.16, standard(palette.inkDeep, 0.3, 0.2), -0.25, 0.33, 0),
-    box(0.01, 0.01, 0.01, glow(), -0.17, 0.36, 0.081),
+    box(0.22, 0.05, 0.16, standard(palette.inkDeep, 0.3, 0.2), -0.45, 0.33, 0),
+    box(0.01, 0.01, 0.01, glow(), -0.37, 0.36, 0.081),
   );
+  // A pair of Kenney's small speakers at the console's ends, either side of the TV.
+  for (const side of [-1, 1]) {
+    const speaker = kitPiece("speakerSmall", { height: 0.24 }, { wood: palette.ink, metalMedium: palette.inkSoft });
+    if (speaker !== null) {
+      speaker.position.set(side * ((width - 0.1) / 2 - 0.1), 0.33, 0);
+      root.add(speaker);
+    }
+  }
   return root;
 }
 
@@ -1273,6 +1396,20 @@ export function buildRingLight(piece: Furniture): Group {
   const root = placed(piece);
   const ink = standard(palette.ink, 0.5);
   const ringY = people.eye;
+  // "Ring Light" by ahmagh2e (CC-BY-4.0): its ring's middle is 0.88 of its height up. The model's
+  // ring faces along x, so it is turned a quarter round to face the piece's front like the old one.
+  const model = kitPiece("ringLight", { height: ringY / 0.88 });
+  if (model !== null) {
+    model.rotation.y = Math.PI / 2;
+    const lit = glow("#fff3e6", 1.2);
+    model.traverse((part) => {
+      if (part instanceof Mesh && !Array.isArray(part.material) && part.material.name === "Mat.1_1") {
+        part.material = lit;
+      }
+    });
+    root.add(model);
+    return root;
+  }
   // Three splayed feet like a real light stand, about 0.55 m across at the room's scale.
   root.add(box(0.02, ringY - 0.15, 0.02, ink, 0, 0, 0));
   for (let foot = 0; foot < 3; foot++) {
@@ -1294,6 +1431,14 @@ export function buildCameraTripod(piece: Furniture): Group {
   const root = placed(piece);
   const ink = standard(palette.ink, 0.5);
   const headY = people.seatedEye - 0.04;
+  // "Camera With Tripod" by FatWasHere (CC-BY-4.0): the camera sits 0.945 of the way up and its
+  // lens points along -x, so it is turned a quarter round to point it at the piece's front.
+  const model = kitPiece("cameraTripod", { height: headY / 0.945 });
+  if (model !== null) {
+    model.rotation.y = Math.PI / 2;
+    root.add(model, box(0.012, 0.012, 0.008, glow(palette.accent, 1.8), 0.04, headY + 0.07, 0.03));
+    return root;
+  }
   const head = new Vector3(0, headY, 0);
   const up = new Vector3(0, 1, 0);
   for (let leg = 0; leg < 3; leg++) {
@@ -1475,10 +1620,20 @@ export function buildBoardStep(piece: Furniture, height: number): Group {
 }
 
 /** Ping-pong table at the office's scale: ink top with white lines and a net, accent paddles at each end. */
+/** The ping-pong model's own height and play surface, so its top lands on the office's table height. */
+const pingpongModel = { height: 0.903, top: 0.76 } as const;
+
 export function buildPingpongTable(piece: Furniture): Group {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const top = surface.pingpong;
+  // "ping pong" by alixor22 (CC-BY-4.0), scaled as a whole so its top is the office's table height;
+  // at that scale it is 2.0 by 1.1 m, the table's own footprint, so the ball's bounces still land.
+  const model = kitPiece("pingpong", { height: (pingpongModel.height / pingpongModel.top) * top });
+  if (model !== null) {
+    root.add(model);
+    return root;
+  }
   const ink = standard(palette.ink, 0.6);
   root.add(
     box(width, 0.03, depth, standard(palette.inkSoft, 0.5), 0, top - 0.03, 0),
@@ -1501,8 +1656,15 @@ export function buildPrinterCabinet(piece: Furniture): Group {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const cabinetHeight = surface.desk - 0.12;
+  root.add(box(width - 0.04, cabinetHeight, depth - 0.06, standard(palette.ink, 0.6), 0, 0, 0));
+  // "Printer- Low Poly" by CG Buzz (CC-BY-4.0), as wide as the cabinet top allows.
+  const printer = kitPiece("printer", { height: (0.155 / 0.459) * (width - 0.06) });
+  if (printer !== null) {
+    printer.position.y = cabinetHeight;
+    root.add(printer);
+    return root;
+  }
   root.add(
-    box(width - 0.04, cabinetHeight, depth - 0.06, standard(palette.ink, 0.6), 0, 0, 0),
     // An office printer at the room's scale: about 0.3 m a side and 0.17 tall.
     box(width - 0.08, 0.17, 0.3, standard(palette.laminate, 0.5), 0, cabinetHeight, 0),
     box(width - 0.14, 0.015, 0.1, standard("#fbfaf7", 0.9), 0, cabinetHeight + 0.17, 0.04),

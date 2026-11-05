@@ -32,8 +32,8 @@ import { buildContactShadows } from "./scene/contact-shadows.js";
 import { buildDesk, type DeskMember, deskTop, memberPropLooks, type Workstation } from "./scene/desks.js";
 import { buildEnclosure, type Enclosure } from "./scene/enclosure.js";
 import {
+  ArcadeCabinet,
   Bookshelf,
-  buildArcade,
   buildBackdrop,
   buildBarCounter,
   buildBeanbag,
@@ -110,6 +110,8 @@ export interface OfficeProps {
   tv: TvScreen;
   /** One screen per cabinet, in the order of `arcadeStationIds`. */
   arcades: ArcadeScreen[];
+  /** The two cabinets, in the same order, so a model loaded later can take one's place. */
+  arcadeCabinets: ArcadeCabinet[];
   /** One per treadmill, in the order of `treadmillStationIds`. */
   treadmills: Treadmill[];
   punchingBag: PunchingBag;
@@ -367,6 +369,7 @@ export function buildOffice(): OfficeProps {
   const sideScreens: Partial<Record<DeskMember, MeshBasicMaterial[]>> = {};
   let tv: TvScreen | null = null;
   const arcades: ArcadeScreen[] = [];
+  const arcadeCabinets: ArcadeCabinet[] = [];
   const treadmills: Treadmill[] = [];
   let punchingBag: PunchingBag | null = null;
   let aquarium: Aquarium | null = null;
@@ -499,9 +502,10 @@ export function buildOffice(): OfficeProps {
         break;
       }
       case "arcade": {
-        const built = buildArcade(piece);
-        root.add(built.root);
-        arcades.push(built.screen);
+        const cabinet = new ArcadeCabinet(piece);
+        root.add(cabinet.root);
+        arcades.push(cabinet.screen);
+        arcadeCabinets.push(cabinet);
         break;
       }
       case "tv-wall": {
@@ -665,6 +669,7 @@ export function buildOffice(): OfficeProps {
     hairColliders,
     tv,
     arcades,
+    arcadeCabinets,
     treadmills,
     punchingBag,
     aquarium,

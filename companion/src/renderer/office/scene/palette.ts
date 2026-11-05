@@ -34,6 +34,8 @@ export const palette = {
   // The bar stools and the round high table in the collab corner, one darker wood for both.
   walnut: "#7a5236",
   walnutDark: "#5a3d2b",
+  // A warmer purple than the trim elsewhere: the deep one reads as navy under the room's lights.
+  chairPurple: "#a33ccc",
   steel: "#c9ccd3",
   leaf: "#5b8c4a",
   leafDark: "#3f6e35",

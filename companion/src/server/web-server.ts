@@ -5,10 +5,10 @@
  */
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { resolveHookPort } from "../shared/protocol.js";
+import { type LocalProp, localProps, resolveHookPort } from "../shared/protocol.js";
 import { type MemberId, memberIds } from "../shared/team.js";
 import { findBaseModel, repoRootFrom } from "../tools/base-model.js";
-import { findCourierModel, findMemberModel } from "../tools/member-models.js";
+import { findCourierModel, findLocalProp, findMemberModel } from "../tools/member-models.js";
 import { HookServer } from "./hook-server.js";
 
 const staticDir = resolve(import.meta.dirname, "../../renderer");
@@ -35,6 +35,20 @@ for (const memberId of memberIds) {
   modelPaths[memberId] = path;
 }
 
+/** The local-only props found in models/, served to the office page when present. */
+function localPropPaths(repoRoot: string): Partial<Record<LocalProp, string>> {
+  const found: Partial<Record<LocalProp, string>> = {};
+  for (const name of localProps) {
+    const path = findLocalProp(repoRoot, name);
+    if (path !== null) {
+      found[name] = path;
+    }
+  }
+  return found;
+}
+
+const ignoreLocalModels = process.env.WAIFU_IGNORE_LOCAL_MODELS === "1";
+
 const server = new HookServer({
   log: (line) => console.log(line),
   host: "127.0.0.1",
@@ -43,7 +57,10 @@ const server = new HookServer({
     staticDir,
     modelPaths,
     baseModelPath: findBaseModel(repoRootFrom(import.meta.dirname), process.env),
-    courierModelPath: findCourierModel(repoRootFrom(import.meta.dirname)),
+    // Tests set WAIFU_IGNORE_LOCAL_MODELS so they run against the repo alone, not whatever
+    // optional models (the courier, local-only props) the machine has in models/.
+    courierModelPath: ignoreLocalModels ? null : findCourierModel(repoRootFrom(import.meta.dirname)),
+    localPropPaths: ignoreLocalModels ? {} : localPropPaths(repoRootFrom(import.meta.dirname)),
   },
 });
 

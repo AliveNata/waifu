@@ -1,4 +1,4 @@
-import { Group, type Object3D } from "three";
+import { Group, type Material, Mesh, MeshStandardMaterial, type Object3D } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import appleUrl from "../assets/food/apple.glb?url";
 import burgerUrl from "../assets/food/burger-cheese.glb?url";
@@ -76,6 +76,48 @@ export const roomScale = 0.73;
 
 const templates = new Map<FoodModelName, Object3D>();
 
+/**
+ * Every distinct material setup is one more shader to compile before the room's first frame,
+ * which on software rendering costs seconds. Models from different authors bring physical
+ * materials and normal, roughness, metalness and occlusion maps that the room's look does not
+ * need, so each is cut down to a standard material with its color and glow textures: the
+ * setups the room already compiles.
+ */
+export function simplifyMaterials(model: Object3D): void {
+  const simpler = new Map<Material, MeshStandardMaterial>();
+  const simplify = (material: Material): Material => {
+    if (!(material instanceof MeshStandardMaterial)) {
+      return material;
+    }
+    let replacement = simpler.get(material);
+    if (replacement === undefined) {
+      replacement = new MeshStandardMaterial({
+        name: material.name,
+        color: material.color,
+        map: material.map,
+        roughness: material.roughness,
+        metalness: material.metalness,
+        emissive: material.emissive,
+        // Some models paint their art into the glow map (the Pac-Man cabinet), so it stays.
+        emissiveMap: material.emissiveMap,
+        emissiveIntensity: material.emissiveIntensity,
+        transparent: material.transparent,
+        opacity: material.opacity,
+        alphaTest: material.alphaTest,
+        side: material.side,
+      });
+      simpler.set(material, replacement);
+      material.dispose();
+    }
+    return replacement;
+  };
+  model.traverse((part) => {
+    if (part instanceof Mesh) {
+      part.material = Array.isArray(part.material) ? part.material.map(simplify) : simplify(part.material);
+    }
+  });
+}
+
 /** Loads each GLB into `into` by name. One that fails is logged and left out, for a stand-in to take its place. */
 export async function loadTemplates<Name extends string>(
   sources: Record<Name, string>,
@@ -91,6 +133,7 @@ export async function loadTemplates<Name extends string>(
           part.castShadow = false;
           part.receiveShadow = true;
         });
+        simplifyMaterials(gltf.scene);
         into.set(name, gltf.scene);
       } catch (error) {
         console.error(`[office] ${what} model "${name}" could not be loaded`, error);

@@ -208,6 +208,7 @@ function createWebBridge(): RendererBridge {
     pickModel: () => pickFileFromBrowser(),
     loadBaseModel: () => fetchModel("/model/base"),
     loadCourierModel: () => fetchModel("/model/courier"),
+    loadLocalProp: (name) => fetchModel(`/model/prop/${name}`),
     async getConversationMode() {
       return conversationMode;
     },

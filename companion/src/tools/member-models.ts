@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import type { LocalProp } from "../shared/protocol.js";
 import { type MemberId, roster } from "../shared/team.js";
 
 /**
@@ -33,5 +34,15 @@ export function findMemberModel(
  */
 export function findCourierModel(repoRoot: string, exists: (path: string) => boolean = existsSync): string | null {
   const path = join(repoRoot, "models", "courier.vrm");
+  return exists(path) ? path : null;
+}
+
+/** A local-only prop dropped into models/ as <name>.glb. Optional, like the courier. */
+export function findLocalProp(
+  repoRoot: string,
+  name: LocalProp,
+  exists: (path: string) => boolean = existsSync,
+): string | null {
+  const path = join(repoRoot, "models", `${name}.glb`);
   return exists(path) ? path : null;
 }

@@ -52,6 +52,14 @@ export function kitPiece(
     return null;
   }
   recolorKit(model, colors);
+  return fitModel(model, fit);
+}
+
+/**
+ * Any loaded model fitted the way `kitPiece` fits a kit model: its footprint centered on the
+ * origin and its base on the floor, wrapped in a holder that can be turned and placed.
+ */
+export function fitModel(model: Object3D, fit: KitFit): Group {
   model.updateMatrixWorld(true);
   const bounds = new Box3().setFromObject(model);
   const size = bounds.getSize(new Vector3());

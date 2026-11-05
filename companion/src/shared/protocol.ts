@@ -47,6 +47,18 @@ export function isConversationMode(value: unknown): value is ConversationMode {
   return value === "simulated" || value === "real";
 }
 
+/**
+ * Props whose model may only live on the user's machine, not in the repo: a non-commercial
+ * arcade cabinet and a punching bag under Sketchfab's standard license. Each is optional; the
+ * office keeps its own version when the file is not in models/.
+ */
+export const localProps = ["arcade-elben", "punching-bag"] as const;
+export type LocalProp = (typeof localProps)[number];
+
+export function isLocalProp(value: unknown): value is LocalProp {
+  return typeof value === "string" && (localProps as readonly string[]).includes(value);
+}
+
 export interface CompanionApi {
   /** Model for a team member. Null when none is configured yet. */
   loadSavedModel(memberId: MemberId): Promise<ModelFile | null>;
@@ -56,6 +68,8 @@ export interface CompanionApi {
   loadBaseModel(): Promise<ModelFile | null>;
   /** The delivery courier's model, models/courier.vrm. Null when there is none. */
   loadCourierModel(): Promise<ModelFile | null>;
+  /** A prop whose license keeps it out of the repo, models/<name>.glb. Null when there is none. */
+  loadLocalProp(name: LocalProp): Promise<ModelFile | null>;
   getConversationMode(): Promise<ConversationMode>;
   setConversationMode(mode: ConversationMode): void;
   onConversationMode(listener: (mode: ConversationMode) => void): () => void;
@@ -137,6 +151,7 @@ export const ipcChannels = {
   pickModel: "companion:pick-model",
   loadBaseModel: "companion:load-base-model",
   loadCourierModel: "companion:load-courier-model",
+  loadLocalProp: "companion:load-local-prop",
   getConversationMode: "companion:get-conversation-mode",
   setConversationMode: "companion:set-conversation-mode",
   conversationMode: "companion:conversation-mode",
