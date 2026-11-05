@@ -12,6 +12,7 @@ import {
 import type { ArmSide } from "../avatar.js";
 import type { HandPropKind } from "../office-director.js";
 import { type FoodModelName, foodModel, kitScale, roomScale } from "./food-models.js";
+import { kitPiece } from "./kit.js";
 import { box, glow, mesh, palette, standard } from "./palette.js";
 
 /**
@@ -365,6 +366,17 @@ export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook):
       break;
     }
     case "rose": {
+      // The rose model, its stem's foot where the drawn one ends: held by the stem above the vase.
+      const model = kitPiece(
+        "rose",
+        { height: 0.123 },
+        { "05___Default": "#b3262f", "06___Default": palette.leafDark },
+      );
+      if (model !== null) {
+        model.position.y = -0.03;
+        group.add(model);
+        break;
+      }
       const stem = mesh(new CylinderGeometry(0.003, 0.003, 0.1, 6), standard(palette.leafDark, 0.8));
       stem.position.y = 0.02;
       const bloom = mesh(new IcosahedronGeometry(0.018, 1), standard("#b3262f", 0.7));

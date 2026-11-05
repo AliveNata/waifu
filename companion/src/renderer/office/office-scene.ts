@@ -62,6 +62,7 @@ import {
   type MeetingLaptop,
   type Oven,
   type SinkTap,
+  type TrashBin,
 } from "./scene/furniture.js";
 import {
   Aquarium,
@@ -119,6 +120,7 @@ export interface OfficeProps {
   /** One per meeting chair, in seat order, shown while someone has lunch there. */
   lunchBoxes: Group[];
   fridgeDoor: FridgeDoor;
+  trashBin: TrashBin;
   sink: SinkTap;
   /** Points on the pantry counter that hands go to: the coffee button, the cup's place, the basin. */
   pantryReach: { button: Object3D; tray: Object3D; basin: Object3D };
@@ -373,6 +375,7 @@ export function buildOffice(): OfficeProps {
   let statusBoard: StatusBoard | null = null;
   let bookshelf: Bookshelf | null = null;
   let fridgeDoor: FridgeDoor | null = null;
+  let trashBin: TrashBin | null = null;
   let sink: SinkTap | null = null;
   let pantryReach: OfficeProps["pantryReach"] | null = null;
   let oven: Oven | null = null;
@@ -509,7 +512,6 @@ export function buildOffice(): OfficeProps {
       case "plant":
         root.add(buildPlant(piece));
         break;
-      case "ceiling-fan":
       case "floor-lamp":
       case "coat-rack":
         root.add(buildKitDecor(piece));
@@ -566,7 +568,8 @@ export function buildOffice(): OfficeProps {
         root.add(wallClock.root);
         break;
       case "trash-bin":
-        root.add(buildTrashBin(piece));
+        trashBin = buildTrashBin(piece);
+        root.add(trashBin.root);
         break;
       case "entry-door": {
         const built = buildEntryDoor(piece, logo);
@@ -584,6 +587,7 @@ export function buildOffice(): OfficeProps {
     aquarium === null ||
     rackLights === null ||
     fridgeDoor === null ||
+    trashBin === null ||
     sink === null ||
     pantryReach === null ||
     oven === null ||
@@ -655,6 +659,7 @@ export function buildOffice(): OfficeProps {
     meetingLaptops,
     lunchBoxes,
     fridgeDoor,
+    trashBin,
     sink,
     pantryReach,
     oven,

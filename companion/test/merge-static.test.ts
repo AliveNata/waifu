@@ -39,6 +39,22 @@ describe("mergeStaticMeshes", () => {
     expect(merged.geometry.boundingBox?.max.y).toBeCloseTo(1.05);
   });
 
+  it("leaves a mesh in the scene when it has children, so a door hung on a body stays attached", () => {
+    // Arrange: a kit fridge's body mesh with its door as a child, and a plain box that looks the same.
+    const root = new Group();
+    const body = box("#ff0000", 0);
+    const door = box("#00ff00", 0.2);
+    body.add(door);
+    root.add(body, box("#ff0000", 1));
+
+    // Act
+    mergeStaticMeshes(root, collectLiveParts({ door }, [root]));
+
+    // Assert
+    expect(body.parent).toBe(root);
+    expect(door.parent).toBe(body);
+  });
+
   it("keeps different looks apart", () => {
     // Arrange
     const root = new Group();

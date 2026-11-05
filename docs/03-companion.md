@@ -67,11 +67,13 @@ Makanan dan minuman di meja bar pakai model dari [Food Kit 2.0](https://kenney.n
 Furnitur dari [Furniture Kit 2.0](https://kenney.nl/assets/furniture-kit) karya [Kenney](https://www.kenney.nl), lisensi [CC0](http://creativecommons.org/publicdomain/zero/1.0/), warnanya diganti ke palet kantor:
 
 - Rak buku: `bookcaseClosedWide` dua unit, diisi `books` dengan warna sampul per kumpulan.
-- Lounge: sofa `loungeSofa`, meja `tableCoffee`, kabinet TV `cabinetTelevision`, standing lamp `lampRoundFloor`, kipas `ceilingFan`.
+- Lounge: sofa `loungeSofa`, meja `tableCoffee`, kabinet TV `cabinetTelevision`, standing lamp `lampRoundFloor`.
 - Dapur: kulkas `kitchenFridgeLarge` (pintu kirinya yang kebuka), lemari `kitchenCabinet`, mesin kopi `kitchenCoffeeMachine`, `kitchenMicrowave`, `toaster`.
-- Lain-lain: kursi bar `stoolBar`, tanaman `pottedPlant` dan `plantSmall1`, tempat sampah `trashcan`, keset `rugDoormat`, gantungan jaket `coatRackStanding`.
+- Lain-lain: rangka kursi bar `stoolBar` (dudukannya bulat buatan kode), tanaman `pottedPlant` dan `plantSmall1`, keset `rugDoormat`, gantungan jaket `coatRackStanding`.
 
 File-nya ada di `companion/src/renderer/office/assets/furniture/`. Kalau ada yang gagal dimuat, versi buatan kode dipakai.
+
+Mawar di meja Yor pakai model "Rose" karya M Smith Jonn dari [Poly Pizza](https://poly.pizza/m/3iKz2gyNhMr). Poly Pizza cuma nyediain model CC0 atau CC-BY, jadi kreditnya dicantumin di sini dan di `assets/furniture/rose.CREDIT.txt`.
 
 Kurir pesanan opsional. Simpan model kurir sebagai `models/courier.vrm`, nanti tiap pesanan diantar sama kurirnya: jalan masuk lewat lorong bawa bungkus sesuai pesanan, nunggu di depan pintu sampai Alyx ambil paketnya, terus balik keluar. Kalau 45 detik nggak diambil, paketnya ditaruh di keset dan kurirnya pergi. Tanpa file itu, pesanan langsung muncul di keset kayak sebelumnya.
 
