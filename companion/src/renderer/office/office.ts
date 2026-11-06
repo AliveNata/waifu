@@ -24,6 +24,7 @@ import { FrameRate, frameLabel } from "./frame-rate.js";
 import { MusicPanel } from "./music-panel.js";
 import { OfficePointer } from "./office-pointer.js";
 import { type CloseupRect, closeupRect, OfficeStage, portraitSize, teamDialogDock } from "./office-stage.js";
+import { loadCatModel } from "./scene/cat-model.js";
 import { loadFishModels } from "./scene/fish-models.js";
 import { loadFoodModels, simplifyMaterials } from "./scene/food-models.js";
 import { loadFurnitureModels } from "./scene/furniture-models.js";
@@ -651,6 +652,7 @@ function afterPaint(): Promise<void> {
 const foodModels = loadFoodModels();
 const furnitureModels = loadFurnitureModels();
 const fishModels = loadFishModels();
+const catModel = loadCatModel();
 /**
  * Props whose license keeps them out of the repo load from models/ when the user has them, with
  * the other models, so their parsing is over before the room runs. Without the file the office
@@ -676,8 +678,8 @@ async function loadLocalProps(): Promise<Map<LocalProp, Object3D>> {
 }
 
 const localPropModels = loadLocalProps();
-Promise.all([quality, chatShown, foodModels, furnitureModels, fishModels, localPropModels])
-  .then(async ([chosen, , , , , props]) => {
+Promise.all([quality, chatShown, foodModels, furnitureModels, fishModels, catModel, localPropModels])
+  .then(async ([chosen, , , , , , props]) => {
     await afterPaint();
     setSceneQuality(chosen);
     const page = new OfficePage(bridge, canvas);

@@ -1,9 +1,10 @@
 import { ConeGeometry, CylinderGeometry, Group, type Mesh, SphereGeometry } from "three";
 import type { CatPose } from "../office-cat.js";
+import { ModelCat } from "./cat-model.js";
 import { box, mesh, standard } from "./palette.js";
 
 /**
- * Mochi as a model: an orange tabby built from rounded shapes at the office's scale, about 0.3 m nose to
+ * Mochi: the Somali cat model when it loaded (see cat-model.ts), otherwise an orange tabby built from rounded shapes at the office's scale, about 0.3 m nose to
  * rump. The parts hang off pivots (hips, shoulders, neck, the tail's joints) so poses are just
  * turns, the same way the team is posed. She faces +z.
  */
@@ -43,8 +44,13 @@ export class OfficeCat {
   private readonly legs: { pivot: Group; front: boolean; side: number }[] = [];
   private readonly tail: Group[] = [];
   private readonly eyes: Mesh[] = [];
+  private readonly model = ModelCat.create();
 
   constructor() {
+    if (this.model !== null) {
+      this.root.add(this.model.root);
+      return;
+    }
     const torso = sphere(bodyRadius, fur);
     torso.scale.set(1, 0.95, bodyLength / (2 * bodyRadius));
     const belly = sphere(bodyRadius * 0.9, cream);
@@ -124,6 +130,10 @@ export class OfficeCat {
   }
 
   update(frame: CatFrame): void {
+    if (this.model !== null) {
+      this.model.update(frame);
+      return;
+    }
     const { pose, time, petted } = frame;
     const breath = 1 + 0.025 * Math.sin(time * (pose === "sleep" ? 1.6 : 3));
     this.body.scale.set(breath, breath, 1);
