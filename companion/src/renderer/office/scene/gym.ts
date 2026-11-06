@@ -4,6 +4,8 @@ import {
   CanvasTexture,
   CylinderGeometry,
   Group,
+  InstancedMesh,
+  Matrix4,
   Mesh,
   MeshStandardMaterial,
   type Object3D,
@@ -293,7 +295,19 @@ interface Tank {
   centerZ: number;
   /** Half the swimmable depth, front glass to back. */
   reach: number;
+  /** Where the bubbles leave the air stone, and the water line they rise to. */
+  bubbleFrom: Vector3;
+  waterLine: number;
 }
+
+interface Bubble {
+  /** Rises a tank's height every 1 / rate seconds. */
+  rate: number;
+  phase: number;
+  size: number;
+}
+
+const bubbleCount = 18;
 
 /**
  * The aquarium: the Sketchfab "Room aquarium" by NeoT1 (CC-BY-4.0, credited in
@@ -305,6 +319,9 @@ export class Aquarium {
   readonly root: Group;
   private readonly fish: Fish[] = [];
   private readonly tank: Tank;
+  private readonly bubbles: Bubble[] = [];
+  private readonly bubbleMesh: InstancedMesh;
+  private readonly bubbleMatrix = new Matrix4();
   private lastElapsed = 0;
 
   constructor(piece: Furniture) {
@@ -328,13 +345,46 @@ export class Aquarium {
         height: bottom + (top - bottom) * (0.2 + 0.2 * (index % 4)),
       });
     });
+    // One instanced mesh for the whole stream, so the bubbles cost a single draw call.
+    this.bubbleMesh = new InstancedMesh(
+      new SphereGeometry(1, 8, 6),
+      new MeshStandardMaterial({
+        color: "#ffffff",
+        // A little glow of their own, so they read as air catching the light and not grey beads.
+        emissive: "#bfe9ff",
+        emissiveIntensity: 0.35,
+        transparent: true,
+        opacity: 0.7,
+        roughness: 0.1,
+        depthWrite: false,
+      }),
+      bubbleCount,
+    );
+    // Its bounds are the one sphere at the origin; the stream moves, so it is never culled.
+    this.bubbleMesh.frustumCulled = false;
+    this.root.add(this.bubbleMesh);
+    for (let index = 0; index < bubbleCount; index++) {
+      this.bubbles.push({
+        rate: 0.32 + (0.12 * ((index * 7) % 5)) / 4,
+        phase: index / bubbleCount,
+        size: 0.0035 + (0.0025 * ((index * 3) % 4)) / 3,
+      });
+    }
+    this.updateBubbles(0);
   }
 
-  /** Stands the model at the piece's width and finds its water, so the fish swim inside it. */
+  /**
+   * Stands the model at the piece's width and finds its water, so the fish swim inside it. The
+   * bounds come out in the aquarium's own space: its root's world matrix is not set until the room
+   * is first rendered.
+   */
   private useModel(model: Object3D, width: number): Tank {
     model.updateMatrixWorld(true);
     const size = new Box3().setFromObject(model).getSize(new Vector3());
     const fitted = fitModel(model, { height: (width * size.y) / size.x });
+    // The tall weed is the tank's back and the stone house and corals its front: turned round so
+    // the front faces into the room and the weed stands against the wall.
+    fitted.rotation.y = Math.PI;
     this.root.add(fitted);
     fitted.updateMatrixWorld(true);
     let water: Box3 | null = null;
@@ -349,7 +399,17 @@ export class Aquarium {
     const inside: Box3 = water;
     const middle = inside.getCenter(new Vector3());
     const extent = inside.getSize(new Vector3());
+    // The stream comes off the top of the model's air stone; without one, off the tank's left end.
+    let bubbleFrom = new Vector3(inside.min.x + 0.08, inside.min.y + extent.y * 0.15, middle.z);
+    fitted.traverse((part) => {
+      if (part instanceof Mesh && !Array.isArray(part.material) && part.material.name === "oxygen_regulator") {
+        const stone = new Box3().setFromObject(part);
+        bubbleFrom = stone.getCenter(new Vector3()).setY(stone.max.y);
+      }
+    });
     return {
+      bubbleFrom,
+      waterLine: inside.max.y - 0.01,
       centerX: middle.x,
       half: extent.x / 2 - 0.06,
       // Above the sand and the stones on it, below the water line.
@@ -406,6 +466,8 @@ export class Aquarium {
       this.root.add(blade);
     }
     return {
+      bubbleFrom: new Vector3(-width / 2 + 0.12, cabinet + 0.05, 0),
+      waterLine: cabinet + tank - 0.03,
       centerX: 0,
       half: (width - 0.06) / 2 - 0.08,
       bottom: cabinet + 0.1,
@@ -448,6 +510,26 @@ export class Aquarium {
       fish.body.rotation.y = (forward ? 0 : Math.PI) + sway;
       fish.mixer?.update(delta);
     }
+    this.updateBubbles(elapsed);
+  }
+
+  /** Each bubble rises from the stone to the water line, wobbling and swelling as it goes, then starts again. */
+  private updateBubbles(elapsed: number): void {
+    const { bubbleFrom, waterLine } = this.tank;
+    const rise = waterLine - bubbleFrom.y;
+    this.bubbles.forEach((bubble, index) => {
+      const travel = elapsed * bubble.rate + bubble.phase;
+      const t = travel - Math.floor(travel);
+      const radius = bubble.size * (0.7 + 0.6 * t);
+      this.bubbleMatrix.makeScale(radius, radius, radius);
+      this.bubbleMatrix.setPosition(
+        bubbleFrom.x + 0.01 * t * Math.sin(elapsed * 5 + index * 2.1),
+        bubbleFrom.y + t * rise,
+        bubbleFrom.z + 0.008 * t * Math.cos(elapsed * 4 + index * 1.3),
+      );
+      this.bubbleMesh.setMatrixAt(index, this.bubbleMatrix);
+    });
+    this.bubbleMesh.instanceMatrix.needsUpdate = true;
   }
 }
 
