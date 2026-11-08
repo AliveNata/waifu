@@ -108,6 +108,13 @@ const carriedEnds: readonly [string, string][] = [
 /** Seconds to lie down or get up, and to doze off or wake. */
 const lieSeconds = 0.9;
 const dozeSeconds = 1.5;
+/**
+ * Lying stretched out, her front paws reach a hand's width past where her chest was sitting, so she
+ * settles back by that much and keeps the same patch of floor or desk. On a keyboard, set close to
+ * the desk's front edge, this keeps her paws on the keys instead of out over the edge. Curled up she
+ * is compact and stays where she sat.
+ */
+const stretchedSetBack = 0.08;
 
 function bone(root: Object3D, prefix: string): Bone | null {
   let found: Bone | null = null;
@@ -321,6 +328,7 @@ export class ModelCat {
     this.curl = ease(this.curl, asleep && this.curls ? 1 : 0, delta / dozeSeconds);
     this.mixer.update(delta);
     this.lift.position.y = this.standingLift - this.lyingDrop * smooth(this.lie);
+    this.lift.position.z = -stretchedSetBack * smooth(this.lie) * (1 - smooth(this.curl));
     this.root.updateMatrixWorld(true);
     if (this.playing === "sitting") {
       this.turnBones();
