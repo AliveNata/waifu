@@ -79,6 +79,25 @@ const dozingTurns: readonly [string, number, number][] = [
   ["Neck", 0.25, 0.7],
   ["Head", 0.15, 0.45],
 ];
+/**
+ * Asleep curled up instead: the forearms fold back under the chest, and on top of the lying pose
+ * both halves of her bend round to one side, the head turned and laid down along her flank and the
+ * tail drawn in round her haunches. Yaws are for a curl to her left; the right mirrors them. The
+ * neck turns less than the spine so its nod stays a nod: turned much further, the same pitch would
+ * roll her face up to the ceiling.
+ */
+const tuckedForearm = 2.8;
+const curlingTurns: readonly [string, number, number][] = [
+  ["LowerSpine", 0.7, 0],
+  ["UpperSpine", 1.0, 0],
+  ["Neck", 0.6, 1.1],
+  ["Head", 0.3, 0.6],
+  ["TailBase", 1.0, 0],
+  ["TailBaseMiddle", 1.0, 0],
+  ["TailTipMiddle", 0.9, 0],
+];
+/** How often she sleeps curled up rather than with her head on her paws. */
+const curlChance = 0.6;
 /** The rig's paws and feet are IK bones under its root: each is carried on the end of its leg. */
 const carriedEnds: readonly [string, string][] = [
   ["PawL", "ArmL"],
@@ -152,6 +171,8 @@ export class ModelCat {
   private readonly eyes: Bone[];
   private readonly lying: { bone: Bone; yaw: number; pitch: number }[];
   private readonly dozing: { bone: Bone; yaw: number; pitch: number }[];
+  private readonly curling: { bone: Bone; yaw: number; pitch: number }[];
+  private readonly forearms: Bone[];
   private readonly ends: { end: Bone; leg: Bone; relative: Matrix4 }[];
   /** Her paws on the floor standing, and how far she sinks lying down, in her own space. */
   private readonly lift = new Group();
@@ -162,6 +183,11 @@ export class ModelCat {
   /** 0 sitting to 1 lying down, and 0 awake to 1 asleep, eased so she settles rather than snaps. */
   private lie = 0;
   private doze = 0;
+  /** 0 head on paws to 1 curled up, and which way she curls: 1 to her left, -1 to her right. */
+  private curl = 0;
+  private curlSide = 1;
+  private curls = false;
+  private wasAsleep = false;
 
   private constructor(source: Loaded) {
     this.cat = cloneSkinned(source.scene);
@@ -196,6 +222,8 @@ export class ModelCat {
       });
     this.lying = turns(lyingTurns);
     this.dozing = turns(dozingTurns);
+    this.curling = turns(curlingTurns);
+    this.forearms = [bone(this.cat, "ArmL"), bone(this.cat, "ArmR")].filter((arm): arm is Bone => arm !== null);
     this.ends = carriedEnds.flatMap(([endName, legName]) => {
       const end = bone(this.cat, endName);
       const leg = bone(this.cat, legName);
@@ -282,7 +310,15 @@ export class ModelCat {
     // Down only once she is sitting; back up quickly when she sets off.
     const lying = lyingPoses.has(frame.pose) && this.playing === "sitting";
     this.lie = ease(this.lie, lying ? 1 : 0, delta / (lying ? lieSeconds : lieSeconds / 3));
-    this.doze = ease(this.doze, frame.pose === "sleep" ? 1 : 0, delta / dozeSeconds);
+    const asleep = frame.pose === "sleep";
+    if (asleep && !this.wasAsleep) {
+      // Each nap picks its own way of sleeping, and its own side to curl to.
+      this.curls = Math.random() < curlChance;
+      this.curlSide = Math.random() < 0.5 ? 1 : -1;
+    }
+    this.wasAsleep = asleep;
+    this.doze = ease(this.doze, asleep ? 1 : 0, delta / dozeSeconds);
+    this.curl = ease(this.curl, asleep && this.curls ? 1 : 0, delta / dozeSeconds);
     this.mixer.update(delta);
     this.lift.position.y = this.standingLift - this.lyingDrop * smooth(this.lie);
     this.root.updateMatrixWorld(true);
@@ -299,13 +335,30 @@ export class ModelCat {
    */
   private turnBones(): void {
     const lie = smooth(this.lie);
-    const doze = smooth(this.doze) * lie;
+    const curl = smooth(this.curl) * lie;
+    // Head on the paws only for the share of her that is not curling up.
+    const doze = smooth(this.doze) * lie * (1 - smooth(this.curl));
     for (const { bone: target, yaw, pitch } of this.lying) {
       turnInCatFrame(target, this.root, yaw * lie, pitch * lie);
       target.updateMatrixWorld(true);
     }
+    // Curling up, the forearms fold from along the floor to back under the chest.
+    const lyingForearm = lyingTurns.find(([name]) => name === "ArmL")?.[2] ?? 0;
+    for (const forearm of this.forearms) {
+      turnInCatFrame(forearm, this.root, 0, (tuckedForearm - lyingForearm) * curl);
+      forearm.updateMatrixWorld(true);
+    }
     for (const { bone: target, yaw, pitch } of this.dozing) {
       turnInCatFrame(target, this.root, yaw * doze, pitch * doze);
+      target.updateMatrixWorld(true);
+    }
+    // The bend comes last, on the pose already lying, so the legs go round with the body.
+    for (const { bone: target, yaw, pitch } of this.curling) {
+      // The sitting clip already wraps her tail round to one side. Curling the other way, the
+      // mirrored turn would unwind it into a straight stick, so there the tail stays as the clip
+      // has it.
+      const side = target.name.startsWith("Tail") && this.curlSide < 0 ? 0 : this.curlSide;
+      turnInCatFrame(target, this.root, yaw * side * curl, pitch * curl);
       target.updateMatrixWorld(true);
     }
     for (const { end, leg, relative } of this.ends) {
