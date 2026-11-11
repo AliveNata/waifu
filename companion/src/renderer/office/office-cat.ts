@@ -427,6 +427,49 @@ export function hopHeight(from: number, to: number, done: number): number {
   return from + (to - from) * t + arc;
 }
 
+/** How high she is lifted over the keys while being carried aside, in meters. */
+const liftClearance = 0.1;
+
+/**
+ * Where Mochi is, `done` of the way through being lifted off a keyboard by its owner and set down
+ * on the floor at `to`, beside their chair. `facing` is the way she faces on the keys, toward the
+ * chair. A straight line from the keys to the chair's side passes through the lap of whoever sits
+ * there, so she is carried in two moves, as someone would: first up a little and sideways over the
+ * desk, then toward the chair's side and down, clearing the desk's edge before she drops.
+ */
+export function keyboardLiftPath(
+  from: Point & { height: number },
+  to: Point,
+  facing: number,
+  done: number,
+): Point & { height: number } {
+  const k = Math.min(1, Math.max(0, done));
+  const ahead = { x: Math.sin(facing), z: Math.cos(facing) };
+  const along = (to.x - from.x) * ahead.x + (to.z - from.z) * ahead.z;
+  const across = { x: to.x - from.x - along * ahead.x, z: to.z - from.z - along * ahead.z };
+  const top = from.height + liftClearance;
+  if (k < 0.5) {
+    const a = smooth(k / 0.5);
+    return {
+      x: from.x + across.x * a,
+      z: from.z + across.z * a,
+      height: from.height + liftClearance * Math.sin((Math.PI / 2) * a),
+    };
+  }
+  // Down slowly at first, so she is still above the desk as she passes over its front edge.
+  const b = (k - 0.5) / 0.5;
+  const toward = smooth(b);
+  return {
+    x: from.x + across.x + ahead.x * along * toward,
+    z: from.z + across.z + ahead.z * along * toward,
+    height: top * (1 - b * b),
+  };
+}
+
+function smooth(t: number): number {
+  return t * t * (3 - 2 * t);
+}
+
 function distanceTo(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.z - b.z);
 }

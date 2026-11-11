@@ -90,6 +90,7 @@ import {
   catSpots,
   greetingsForCat,
   hungerSeconds,
+  keyboardLiftPath,
   keyboardLines,
   nextCatPlan,
   refillLines,
@@ -655,7 +656,13 @@ export class OfficeStage {
   private catNap: {
     owner: DeskMember;
     liftAt: number | null;
-    lift: { startedAt: number; from: { x: number; z: number; height: number }; to: Point } | null;
+    lift: {
+      startedAt: number;
+      from: { x: number; z: number; height: number };
+      /** The way she faced on the keys, toward the owner's chair. */
+      facing: number;
+      to: Point;
+    } | null;
   } | null = null;
   private catGreetedLast = Number.NEGATIVE_INFINITY;
   /** The TV, arcades, fridge and meeting laptops he switched on or opened, by target id. */
@@ -1837,6 +1844,7 @@ export class OfficeStage {
       nap.lift = {
         startedAt: this.elapsed,
         from: { ...this.cat.position, height: this.cat.height },
+        facing: this.cat.yaw,
         to: navGrid.nearestFree(stations[`desk-${nap.owner}`].approach),
       };
       const line = keyboardLines[Math.floor(Math.random() * keyboardLines.length)] ?? "Turun dulu ya, Mochi.";
@@ -1848,11 +1856,8 @@ export class OfficeStage {
       return;
     }
     const k = Math.min(1, (t - catLift.reach) / catLift.carry);
-    const eased = k * k * (3 - 2 * k);
     const { from, to } = nap.lift;
-    const position = { x: from.x + (to.x - from.x) * eased, z: from.z + (to.z - from.z) * eased };
-    // Up off the keys, across, and down to the floor.
-    const height = from.height * (1 - eased) + 0.12 * Math.sin(Math.PI * eased);
+    const { height, ...position } = keyboardLiftPath(from, to, nap.lift.facing, k);
     this.cat.carry(position, height, this.cat.yaw);
     if (k >= 1) {
       this.cat.land(to);

@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { afterMeal, Cat, type CatSpotId, catSpots, hopHeight, nextCatPlan } from "../src/renderer/office/office-cat.js";
+import {
+  afterMeal,
+  Cat,
+  type CatSpotId,
+  catSpots,
+  hopHeight,
+  keyboardLiftPath,
+  nextCatPlan,
+} from "../src/renderer/office/office-cat.js";
 import { navGrid } from "../src/renderer/office/office-nav.js";
 
 function seeded(seed: number): () => number {
@@ -258,5 +266,65 @@ describe("Mochi's bowl, naps and ping-pong", () => {
     expect(held).toEqual({ x: 1, z: 1, height: 0.3 });
     expect(cat.height).toBe(0);
     expect(choices).toEqual(["beanbag"]);
+  });
+});
+
+describe("keyboardLiftPath", () => {
+  // A back-row desk: keys 0.345 m in front of the seat, set down beside the chair 0.55 m to its left.
+  const from = { x: 0, z: -4.265, height: 0.575 };
+  const to = { x: -0.55, z: -3.92 };
+  const seat = { x: 0, z: -3.92 };
+  // She faces the chair, toward +z.
+  const facing = 0;
+  const samples = Array.from({ length: 101 }, (_, index) => keyboardLiftPath(from, to, facing, index / 100));
+
+  it("starts on the keys and ends on the floor beside the chair", () => {
+    // Act
+    const start = keyboardLiftPath(from, to, facing, 0);
+    const end = keyboardLiftPath(from, to, facing, 1);
+
+    // Assert
+    expect(start.x).toBeCloseTo(from.x);
+    expect(start.z).toBeCloseTo(from.z);
+    expect(start.height).toBeCloseTo(from.height);
+    expect(end.x).toBeCloseTo(to.x);
+    expect(end.z).toBeCloseTo(to.z);
+    expect(end.height).toBeCloseTo(0);
+  });
+
+  it("goes sideways over the desk before coming toward the chair", () => {
+    // Act
+    const halfway = keyboardLiftPath(from, to, facing, 0.5);
+
+    // Assert: all the way across, none of the way toward the chair yet, and above the keys.
+    expect(halfway.x).toBeCloseTo(to.x);
+    expect(halfway.z).toBeCloseTo(from.z);
+    expect(halfway.height).toBeGreaterThan(from.height);
+  });
+
+  it("never passes through the lap of whoever sits in the chair", () => {
+    // Arrange: off the desk, past its front edge, and lower than a seated chest, about 0.6 m up.
+    const edgeZ = -4.15;
+    const offDeskAndLow = samples.filter((point) => point.z > edgeZ && point.height < 0.6);
+
+    // Act
+    const nearest = Math.min(...offDeskAndLow.map((point) => Math.hypot(point.x - seat.x, point.z - seat.z)));
+
+    // Assert: clear of the knees, which reach about 0.3 m out from the seat's middle. The old
+    // straight line came within 0.3 m, right over the left knee.
+    expect(nearest).toBeGreaterThan(0.45);
+  });
+
+  it("stays above the desk until she is past its front edge", () => {
+    // Arrange: the desk's front edge, 0.115 m in front of the keys.
+    const edgeZ = -4.15;
+
+    // Act
+    const overDesk = samples.filter((point) => point.z < edgeZ);
+
+    // Assert
+    for (const point of overDesk) {
+      expect(point.height).toBeGreaterThanOrEqual(from.height - 1e-9);
+    }
   });
 });
