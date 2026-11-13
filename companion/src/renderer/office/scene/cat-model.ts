@@ -105,6 +105,54 @@ const carriedEnds: readonly [string, string][] = [
   ["FootL", "HeelL"],
   ["FootR", "HeelR"],
 ];
+/** A turn of one bone in the cat's own frame: [bone, yaw, pitch]. */
+type Turn = readonly [string, number, number];
+type Activity = "eat" | "groom" | "beg" | "stare";
+const activities: readonly Activity[] = ["eat", "groom", "beg", "stare"];
+
+/** Her paw tapping the fridge door: a few quick taps, then a wait. */
+function tapping(time: number): number {
+  return Math.sin(time * 0.8) > 0.3 ? Math.max(0, Math.sin(time * 9)) : 0;
+}
+
+/**
+ * What the sitting clip has no move for, as turns on top of it at `time` seconds, parents before
+ * children. Raising or lowering the chest turns the front legs with it, so the shoulders turn back
+ * by as much to keep the paws where they stood.
+ */
+const activityTurns: Record<Activity, (time: number) => Turn[]> = {
+  // Leaning down over the bowl, chewing.
+  eat: (time) => [
+    ["UpperSpine", 0, 0.5],
+    ["UpperArmL", 0, -0.5],
+    ["UpperArmR", 0, -0.5],
+    ["Neck", 0, 0.5],
+    ["Head", 0, 0.3 + 0.08 * Math.sin(time * 9)],
+  ],
+  // Washing her face: the right paw up to her cheek and stroking over it, her head licking it.
+  groom: (time) => [
+    ["UpperArmR", 0.3, -1.7 + 0.25 * Math.sin(time * 2.2)],
+    ["ArmR", 0, -0.9],
+    ["Neck", -0.2, 0.25],
+    ["Head", -0.1, 0.4 + 0.12 * Math.max(0, Math.sin(time * 7))],
+  ],
+  // Sitting up tall at the fridge, looking up at the door and tapping it with a front paw.
+  beg: (time) => [
+    ["UpperSpine", 0, -0.25],
+    ["UpperArmR", 0, 0.25],
+    ["UpperArmL", 0, -0.85 - 0.3 * tapping(time)],
+    ["Neck", 0, -0.3],
+    ["Head", 0, -0.35],
+  ],
+  // Watching the fish, the tip of her tail twitching.
+  stare: (time) => [
+    ["TailTipMiddle", 0.25 * Math.sin(time * 6), 0],
+    ["TailTip", 0.35 * Math.sin(time * 6 + 0.5), 0],
+  ],
+};
+/** Seconds to ease into or out of an activity's pose. */
+const activitySeconds = 0.4;
+
 /** Seconds to lie down or get up, and to doze off or wake. */
 const lieSeconds = 0.9;
 const dozeSeconds = 1.5;
@@ -119,7 +167,12 @@ const stretchedSetBack = 0.08;
 function bone(root: Object3D, prefix: string): Bone | null {
   let found: Bone | null = null;
   root.traverse((part) => {
-    if (found === null && (part as Bone).isBone === true && part.name.startsWith(prefix)) {
+    // The rig's names end in "_" and a number; matching up to it keeps "TailTip" off "TailTipMiddle".
+    if (
+      found === null &&
+      (part as Bone).isBone === true &&
+      (part.name === prefix || part.name.startsWith(`${prefix}_`))
+    ) {
       found = part as Bone;
     }
   });
@@ -195,6 +248,10 @@ export class ModelCat {
   private curlSide = 1;
   private curls = false;
   private wasAsleep = false;
+  /** How far into each activity's pose she is, 0 to 1. */
+  private readonly activity: Record<Activity, number> = { eat: 0, groom: 0, beg: 0, stare: 0 };
+  /** The rig's bones by name, for the activity turns. */
+  private readonly bones = new Map<string, Bone | null>();
 
   private constructor(source: Loaded) {
     this.cat = cloneSkinned(source.scene);
@@ -326,12 +383,15 @@ export class ModelCat {
     this.wasAsleep = asleep;
     this.doze = ease(this.doze, asleep ? 1 : 0, delta / dozeSeconds);
     this.curl = ease(this.curl, asleep && this.curls ? 1 : 0, delta / dozeSeconds);
+    for (const name of activities) {
+      this.activity[name] = ease(this.activity[name], frame.pose === name ? 1 : 0, delta / activitySeconds);
+    }
     this.mixer.update(delta);
     this.lift.position.y = this.standingLift - this.lyingDrop * smooth(this.lie);
     this.lift.position.z = -stretchedSetBack * smooth(this.lie) * (1 - smooth(this.curl));
     this.root.updateMatrixWorld(true);
     if (this.playing === "sitting") {
-      this.turnBones();
+      this.turnBones(frame.time);
     }
     this.pose(frame);
   }
@@ -341,7 +401,20 @@ export class ModelCat {
    * on the legs. The paws are set even when she is not lying, which puts back any channel the
    * sitting clip does not drive.
    */
-  private turnBones(): void {
+  private turnBones(time = 0): void {
+    for (const name of activities) {
+      const weight = smooth(this.activity[name]);
+      if (weight <= 0) {
+        continue;
+      }
+      for (const [boneName, yaw, pitch] of activityTurns[name](time)) {
+        const target = this.boneNamed(boneName);
+        if (target !== null) {
+          turnInCatFrame(target, this.root, yaw * weight, pitch * weight);
+          target.updateMatrixWorld(true);
+        }
+      }
+    }
     const lie = smooth(this.lie);
     const curl = smooth(this.curl) * lie;
     // Head on the paws only for the share of her that is not curling up.
@@ -380,6 +453,13 @@ export class ModelCat {
     }
   }
 
+  private boneNamed(name: string): Bone | null {
+    if (!this.bones.has(name)) {
+      this.bones.set(name, bone(this.cat, name));
+    }
+    return this.bones.get(name) ?? null;
+  }
+
   /** Sitting: the sit-down once when she has just stopped, then the sitting loop. */
   private settle(): ClipKey {
     if (this.playing === "walk" || this.playing === null) {
@@ -412,22 +492,11 @@ export class ModelCat {
     let pitch = 0;
     let eyesOpen = 1;
     if (sittingPoses.has(pose)) {
+      // Eating, grooming and begging move her head in turnBones, with the rest of her.
       switch (pose) {
-        case "beg":
-          pitch = -0.45;
-          break;
         case "stare":
           // Following a fish back and forth.
           yaw = 0.35 * Math.sin(time * 0.9);
-          break;
-        case "eat":
-          // Head down in the bowl, chewing.
-          pitch = 0.75 + 0.08 * Math.sin(time * 9);
-          break;
-        case "groom":
-          // Head down to the side, licking.
-          yaw = 0.6;
-          pitch = 0.55 + 0.12 * Math.max(0, Math.sin(time * 7));
           break;
         case "sleep":
           // The head is down on the paws already (turnBones); the eyes close as she dozes off.
