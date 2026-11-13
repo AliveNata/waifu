@@ -1,12 +1,15 @@
 import {
   AdditiveBlending,
+  Box3,
   type BufferGeometry,
   CatmullRomCurve3,
   Color,
   CylinderGeometry,
   DataTexture,
+  DoubleSide,
   Group,
   type Material,
+  Matrix4,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
@@ -28,6 +31,7 @@ import { Keyboard } from "../surfaces/keyboard.js";
 import { DeskMouse } from "../surfaces/mouse.js";
 import { type ScreenSize, ScreenSurface } from "../surfaces/screen.js";
 import { screenScripts } from "../surfaces/screen-scripts.js";
+import { curvedScreenGeometry, radiusOfCurve } from "./curved-screen.js";
 import { type DeskGadget, returnSetup } from "./desk-returns.js";
 import { furnitureModel } from "./furniture-models.js";
 import { handPropModel, type PropLook } from "./hand-props.js";
@@ -536,6 +540,19 @@ function monitorShell(): MeshStandardMaterial {
   return monitorShellMaterial;
 }
 
+/**
+ * The same plastic drawn from both sides, for the curved monitor: its faces are wound either way
+ * and the model relies on double-sided drawing, so one side of the panel would vanish otherwise.
+ */
+let curvedShellMaterial: MeshStandardMaterial | null = null;
+function curvedShell(): MeshStandardMaterial {
+  if (curvedShellMaterial === null) {
+    curvedShellMaterial = monitorShell().clone();
+    curvedShellMaterial.side = DoubleSide;
+  }
+  return curvedShellMaterial;
+}
+
 /** A part of a model with its own transforms baked in, so it can be fitted on its own. */
 function bakedPart(node: Object3D): Group {
   const part = new Group();
@@ -603,10 +620,132 @@ function modelMonitor(width: number, height: number, y: number): Group | null {
   return group;
 }
 
-/** Monitor on a stand, screen facing +z (toward the sitter). `y` is the bottom edge of the panel. */
-function monitor(map: Texture, width: number, height: number, x: number, z: number, yaw = 0, y = panelBottom): Group {
+/**
+ * "Curved Monitor" by Arnau Rocher Alcayde (CC-BY-4.0): a curved panel on a centre stand, drawn
+ * facing +x with its top leaning back. Baked once, turned to face +z and the panel stood upright, so
+ * the office's screen can sit flat against its face. Its own screen mesh is kept only to find that
+ * face.
+ */
+interface CurvedParts {
+  panel: BufferGeometry;
+  face: BufferGeometry;
+  stand: BufferGeometry;
+}
+
+/** The panel's lean in the model: its face is 0.0088 further back at the top over 0.0727 of height. */
+const curvedLean = Math.atan2(0.0088, 0.0727);
+/**
+ * How deep the curve is: a radius 2.2 times the screen's width, about an 1800R monitor's, gentler
+ * than the model's own so the picture does not wrap round the sitter.
+ */
+const curvedRadiusPerWidth = 2.2;
+let curvedParts: CurvedParts | null | undefined;
+
+function curvedPartsOf(): CurvedParts | null {
+  if (curvedParts !== undefined) {
+    return curvedParts;
+  }
+  const model = furnitureModel("curvedMonitor");
+  model?.updateMatrixWorld(true);
+  const facing = new Matrix4().makeRotationY(-Math.PI / 2);
+  const upright = new Matrix4().makeRotationX(curvedLean).multiply(facing);
+  const bake = (name: string, turn: Matrix4): BufferGeometry | null => {
+    const node = model?.getObjectByName(name);
+    if (!(node instanceof Mesh)) {
+      return null;
+    }
+    return (node.geometry as BufferGeometry).clone().applyMatrix4(node.matrixWorld).applyMatrix4(turn);
+  };
+  const panel = bake("Curved_Monitor_MAT_Plastic_0", upright);
+  const face = bake("Curved_Monitor_MAT_Screen_0", upright);
+  const stand = bake("Peana_MAT_Plastic_0", facing);
+  curvedParts = panel === null || face === null || stand === null ? null : { panel, face, stand };
+  return curvedParts;
+}
+
+/**
+ * The curved monitor at this screen's size, its curve set by `curvedRadiusPerWidth`, and where the
+ * screen goes on its face. Null when the model did not load.
+ */
+function curvedModelMonitor(
+  width: number,
+  height: number,
+  y: number,
+): { group: Group; faceZ: number; radius: number } | null {
+  const parts = curvedPartsOf();
+  if (parts === null) {
+    return null;
+  }
+  const size = (geometry: BufferGeometry): Box3 => {
+    geometry.computeBoundingBox();
+    return geometry.boundingBox ?? new Box3();
+  };
+  const panelBox = size(parts.panel);
+  const faceBox = size(parts.face);
+  const panelSize = panelBox.getSize(new Vector3());
+  const faceSize = faceBox.getSize(new Vector3());
+  // Deep enough for the chosen curve: the model's own depth, scaled from its curve to this one.
+  const chord = width + 0.025;
+  const targetSag = chord * (curvedRadiusPerWidth - Math.sqrt(curvedRadiusPerWidth ** 2 - 0.25));
+  const modelSag = (faceSize.z / faceSize.x) * chord;
+  const depth = panelSize.z * (chord / panelSize.x) * (targetSag / modelSag);
+  const body = new Group();
+  const face = new Mesh(parts.face);
+  body.add(new Mesh(parts.panel, curvedShell()), face);
+  const fitted = fitModel(body, { width: chord, height: height + 0.03, depth });
+  fitted.position.y = y - 0.015;
+  fitted.updateMatrixWorld(true);
+  const placedFace = new Box3().setFromObject(face);
+  // Only there to be measured: the office draws its own screen on the face.
+  face.removeFromParent();
+  const placedPanel = new Box3().setFromObject(fitted);
+  // The model's stand reaches up to about the panel's middle; scaled so it meets this one's.
+  const standBox = size(parts.stand);
+  const panelMiddle = y + height / 2;
+  const modelReach = (panelBox.min.y + panelBox.max.y) / 2 - standBox.min.y;
+  const standHeight = (standBox.max.y - standBox.min.y) * ((panelMiddle - deskTop) / modelReach);
+  const stand = fitModel(new Mesh(parts.stand, curvedShell()), { height: standHeight });
+  // Its neck sits just behind the panel's back, as in the model.
+  const standScale = standHeight / (standBox.max.y - standBox.min.y);
+  const neckBehind = (panelBox.min.z - standBox.min.z) * standScale;
+  stand.position.set(0, deskTop, placedPanel.min.z - neckBehind + ((standBox.max.z - standBox.min.z) * standScale) / 2);
+  const group = new Group();
+  group.add(stand, fitted);
+  return {
+    group,
+    faceZ: placedFace.min.z,
+    radius: radiusOfCurve(placedFace.max.x - placedFace.min.x, placedFace.max.z - placedFace.min.z),
+  };
+}
+
+/**
+ * Monitor on a stand, screen facing +z (toward the sitter). `y` is the bottom edge of the panel.
+ * `curved` puts it on the curved monitor model, its screen bent to the panel's face.
+ */
+function monitor(
+  map: Texture,
+  width: number,
+  height: number,
+  x: number,
+  z: number,
+  yaw = 0,
+  y = panelBottom,
+  curved = false,
+): Group {
   const group = new Group();
   const ink = standard(palette.inkDeep, 0.4, 0.2);
+  const curvedModel = curved ? curvedModelMonitor(width, height, y) : null;
+  if (curvedModel !== null) {
+    group.add(curvedModel.group);
+    const panel = mesh(curvedScreenGeometry(width, height, curvedModel.radius), unlit(map), false);
+    // Just in front of the face's middle; the sides come forward with the face.
+    panel.position.set(0, y + height / 2, curvedModel.faceZ + 0.002);
+    panel.userData.sideScreen = true;
+    group.add(panel);
+    group.position.set(x, 0, z);
+    group.rotation.y = yaw;
+    return group;
+  }
   const fromModel = modelMonitor(width, height, y);
   if (fromModel !== null) {
     group.add(fromModel);
@@ -782,7 +921,8 @@ function kobayashiDesk(piece: Furniture): DeskBuild {
   const screen = new ScreenSurface(screenScripts.kobayashi, ultrawideScreen);
   const back = -depth / 2 + 0.16;
   inner.add(
-    monitor(screen.texture, 0.72, 0.288, 0.05, back),
+    // An ultrawide this wide is curved, as most are: its sides turn in toward her.
+    monitor(screen.texture, 0.72, 0.288, 0.05, back, 0, panelBottom, true),
     monitor(pullRequestsTexture(), portrait.width, portrait.height, -0.5, back + 0.05, 0.35),
     pcTower(-width / 2 + 0.14, 0),
   );
@@ -1291,7 +1431,8 @@ function mirukuDesk(piece: Furniture): DeskBuild {
   const screen = new ScreenSurface(screenScripts.miruku);
   const back = -depth / 2 + 0.16;
   inner.add(
-    monitor(screen.texture, landscape.width, landscape.height, -0.12, back),
+    // Curved, for the one screen she watches alerts on for hours, as a security desk's would be.
+    monitor(screen.texture, landscape.width, landscape.height, -0.12, back, 0, panelBottom, true),
     monitor(securityLogTexture(), portrait.width, portrait.height, 0.28, back + 0.03, -0.25),
   );
   const { keyboard, mouse, mug, unit, drawer } = deskBasics("miruku", width, depth);

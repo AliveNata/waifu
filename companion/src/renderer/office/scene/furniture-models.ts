@@ -9,6 +9,7 @@ import booksUrl from "../assets/furniture/books.glb?url";
 import cabinetTelevisionUrl from "../assets/furniture/cabinetTelevision.glb?url";
 import cameraTripodUrl from "../assets/furniture/cameraTripod.glb?url";
 import coatRackStandingUrl from "../assets/furniture/coatRackStanding.glb?url";
+import curvedMonitorUrl from "../assets/furniture/curvedMonitor.glb?url";
 import gamingLaptopUrl from "../assets/furniture/gamingLaptop.glb?url";
 import kitchenCabinetUrl from "../assets/furniture/kitchenCabinet.glb?url";
 import kitchenCoffeeMachineUrl from "../assets/furniture/kitchenCoffeeMachine.glb?url";
@@ -60,6 +61,7 @@ const urls = {
   laptop: laptopUrl,
   printer: printerUrl,
   pcMonitors: pcMonitorsUrl,
+  curvedMonitor: curvedMonitorUrl,
   pcGaming: pcGamingUrl,
   pcFuturistic: pcFuturisticUrl,
   arcadePacman: arcadePacmanUrl,
