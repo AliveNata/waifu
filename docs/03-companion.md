@@ -237,6 +237,7 @@ Pas Alyx diem, tangannya gerak sendiri tiap beberapa detik, dipilih acak dan ngg
   | Bola pingpong | Kena raket dan mantul di meja |
   | Mochi | Ngeong tiap dia "ngomong", dengkur pas dielus Alyx |
   | Gong | Standup pagi dimulai |
+  | Hujan | Sepanjang hari pas lagi hujan, pelan dan sama kerasnya di mana aja di ruangan |
   | Ding-dong | Ada notifikasi "nunggu kamu" (misalnya minta izin pakai tool). Bunyinya dari meja anggota yang nunggu, atau dari depan kalau yang nunggu 2B |
 
   Suaranya makin pelan makin jauh dari kamera (atau dari mata Alyx di mode Alyx), dan kedengeran dari kiri atau kanan sesuai posisinya. Klik keyboard cuma kedengeran dari meja terdekat, gong dan ding-dong kedengeran sekantor. Di browser, suaranya baru mulai setelah lo klik atau pencet tombol di halaman (aturan autoplay browser).
@@ -310,7 +311,7 @@ Barang di sayap L ditaruh di samping pinggul yang duduk, jadi pas makenya badann
 
 Tiap bangun tidur dan mau pindah tempat, Mochi meregang dulu: dada turun, kaki depan lurus ke depan, pantat dan ekor naik, mata merem.
 
-Anggota yang lewat deket Mochi kadang nyapa ("Halo, Mochi.", "Pus, pus."), terus Mochi noleh dan bales ngeong. Di mode Alyx, kalau mangkoknya belum penuh, arahin titik tengah ke mangkok buat **E Isi mangkok Mochi**. Arahin ke Mochi sampai muncul **E Elus Mochi**: Alyx ngelus dia, Mochi diem, merem, noleh ke Alyx, dan ngedengkur ("Prrr...").
+Anggota yang lewat deket Mochi kadang nyapa ("Halo, Mochi.", "Pus, pus."), terus Mochi noleh dan bales ngeong. Kira-kira satu dari tiga yang nyapa juga berhenti, jongkok di sampingnya, dan ngelus punggungnya sekitar 3 detik: Mochi diem, merem, dan ngedengkur. Ini cuma kejadian kalau anggota itu lagi nggak dipanggil kerja, tangannya kosong, dan Mochi lagi santai di lantai. Di mode Alyx, kalau mangkoknya belum penuh, arahin titik tengah ke mangkok buat **E Isi mangkok Mochi**. Arahin ke Mochi sampai muncul **E Elus Mochi**: Alyx ngelus dia, Mochi diem, merem, noleh ke Alyx, dan ngedengkur ("Prrr...").
 
 **Ritual harian** (jam Jakarta, sama kayak jam dinding). Cuma cast yang lagi nganggur yang ikut. Yang lagi dijalanin Claude Code tetap kerja.
 
@@ -321,6 +322,8 @@ Anggota yang lewat deket Mochi kadang nyapa ("Halo, Mochi.", "Pus, pus."), terus
 | 17:00 sampai 17:10 | Rekap hari ini di layar status tim: jumlah tugas selesai, total jam kerja, tool yang paling sering dipakai, dan per anggota. Arisu bacain ringkasannya sekali (2B kalau Arisu lagi nggak ada). Hitungannya per hari kantor, disimpan di browser, isinya cuma angka dan nama tool |
 | Mulai 19:00 | Pulang satu-satu lewat pintu masuk, selang 5 menit. Ruby duluan, 2B paling akhir jam 19:55. Lampu meja yang orangnya udah pulang mati, dan lampu ruangan makin redup makin sepi kantornya |
 | Mulai 07:30 | Dateng lagi lewat pintu, selang 4 menit, 2B paling pagi |
+
+**Hujan.** Kira-kira satu dari empat hari hujan seharian. Harinya ditentuin dari tanggal, jadi semua jendela yang kebuka di hari yang sama sepakat. Pas hujan, pemandangan di jendela jadi abu-abu dengan tetesan air yang turun di kaca, cahaya matahari jauh lebih redup dan agak kebiruan, dan kalau efek suara nyala kedengeran suara hujan. Tiap anggota yang lewat pintu bawa payung sesuai warna mug-nya, dan payungnya ditaruh di tempat payung sebelah gantungan jaket selama dia di kantor. Mau lihat tanpa nunggu hari hujan? Buka `/office/?weather=rain` (atau `?weather=clear` buat hari cerah).
 
 Kalau ada tugas masuk buat cast yang lagi di rumah, dia masuk lewat pintu dan langsung ke mejanya. Istirahat biasa (duduk di meja, nonton TV, dan sejenisnya) dipotong pas ritual mulai. Yang lagi bawa gelas atau laptop, atau lagi main pingpong, nyelesaiin itu dulu. Mau lihat tanpa nunggu jamnya? Buka `/office/?clock=09:30`, `?clock=12:00`, `?clock=17:00`, atau `?clock=21:00` di versi web.
 

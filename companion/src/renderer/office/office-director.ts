@@ -41,7 +41,8 @@ export type OfficeAction =
   | "wait-report"
   | "standup"
   | "standup-lead"
-  | "lunch";
+  | "lunch"
+  | "pet-cat";
 
 export interface MemberPlan {
   station: StationId;
@@ -139,7 +140,8 @@ export type HandPropKind =
   | "folder"
   | "stamp"
   | "printout"
-  | "chopsticks";
+  | "chopsticks"
+  | "umbrella";
 
 /** The prop an action puts in the right hand, or null for empty-handed actions. */
 export function propForAction(action: OfficeAction | null): HandPropKind | null {

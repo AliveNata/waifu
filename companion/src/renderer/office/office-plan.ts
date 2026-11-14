@@ -93,6 +93,7 @@ export type FurnitureKind =
   | "glass-board"
   | "floor-lamp"
   | "coat-rack"
+  | "umbrella-stand"
   | "lounge-chair"
   | "side-table"
   | "display-cabinet";
@@ -899,6 +900,17 @@ export const furniture: readonly Furniture[] = [
     z: -1.8,
     width: 0.34,
     depth: 0.34,
+    yaw: facing.leftWall,
+    blocksWalking: true,
+  },
+  // Between the coat rack and the door, where a wet umbrella goes on the way in.
+  {
+    id: "umbrella-stand",
+    kind: "umbrella-stand",
+    x: 10.3,
+    z: -1.49,
+    width: 0.22,
+    depth: 0.22,
     yaw: facing.leftWall,
     blocksWalking: true,
   },

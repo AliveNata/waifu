@@ -82,7 +82,8 @@ import { NeonStrips } from "./scene/neon.js";
 import { box, glow, mesh, palette, printed, sceneQuality, standard, unlit } from "./scene/palette.js";
 import { StatusBoard } from "./scene/status-board.js";
 import { surfaceMaps } from "./scene/surface-detail.js";
-import { floorTexture, kanbanTexture, signTextTexture, windowTexture } from "./scene/textures.js";
+import { floorTexture, kanbanTexture, rainTexture, signTextTexture, windowTexture } from "./scene/textures.js";
+import { UmbrellaStand } from "./scene/umbrella.js";
 import { WallClock } from "./scene/wall-clock.js";
 import { IdeaBoard } from "./surfaces/idea-board.js";
 import { riasDiagrams, twobDiagrams, Whiteboard } from "./surfaces/whiteboard.js";
@@ -135,6 +136,12 @@ export interface OfficeProps {
   rackCups: Record<MemberId, Object3D>;
   /** Fades the window view from day to night (0..1), with the dawn or dusk glow on top. */
   setSky(sky: { night: number; twilight: number }): void;
+  /** Grays the view and runs drops down the glass, 0 dry to 1 a wet day. */
+  setRain(level: number): void;
+  /** Moves the drops down the glass while it rains. */
+  stepRain(delta: number): void;
+  /** By the door: everyone's umbrella on a wet day, while they are in. */
+  umbrellaStand: UmbrellaStand;
   /** The big clock on the pantry wall. */
   wallClock: WallClock;
   /** Who is working on what, on the back wall. */
@@ -221,6 +228,11 @@ function leftWallPlane(map: Texture, spec: BoardSpec, frameColor: string): Group
 interface SkyGlass {
   night: MeshBasicMaterial[];
   twilight: MeshBasicMaterial[];
+  /** The gray of a wet day over the view, and the drops running down the glass in front of it. */
+  overcast: MeshBasicMaterial[];
+  drops: MeshBasicMaterial[];
+  /** Both rain layers, hidden on a dry day so they cost nothing to draw. */
+  panes: Mesh[];
 }
 
 function buildRoomShell(root: Group, logo: Texture): SkyGlass {
@@ -274,7 +286,8 @@ function buildRoomShell(root: Group, logo: Texture): SkyGlass {
   // The sills clear the monitors; with the ceiling at 2.6 m the glass runs up to 2.25, tall loft windows.
   const sill = 1.0;
   const windowHeight = 1.25;
-  const sky: SkyGlass = { night: [], twilight: [] };
+  const sky: SkyGlass = { night: [], twilight: [], overcast: [], drops: [], panes: [] };
+  const rain = rainTexture();
   for (const [index, [left, right]] of (
     [
       [-3.6, -1.05],
@@ -297,6 +310,24 @@ function buildRoomShell(root: Group, logo: Texture): SkyGlass {
       pane.position.set(x, sill + windowHeight / 2, room.minZ + 0.014 + layer * 0.002);
       return pane;
     });
+    // In front of the sky: a flat gray, then the drops, each faded in only on a wet day.
+    const overcast = new MeshBasicMaterial({ color: "#66717f", transparent: true, opacity: 0, depthWrite: false });
+    sky.overcast.push(overcast);
+    const overcastPane = mesh(new PlaneGeometry(windowWidth, windowHeight), overcast, false);
+    overcastPane.position.set(x, sill + windowHeight / 2, room.minZ + 0.018);
+    const dropMap = rain.clone();
+    // The drops keep their size whatever the window's width.
+    dropMap.repeat.set(windowWidth / 0.9, windowHeight / 0.9);
+    const drops = unlit(dropMap, true);
+    drops.opacity = 0;
+    drops.depthWrite = false;
+    sky.drops.push(drops);
+    const dropPane = mesh(new PlaneGeometry(windowWidth, windowHeight), drops, false);
+    dropPane.position.set(x, sill + windowHeight / 2, room.minZ + 0.02);
+    overcastPane.visible = false;
+    dropPane.visible = false;
+    sky.panes.push(overcastPane, dropPane);
+    overlays.push(overcastPane, dropPane);
     const frame = standard(palette.laminate, 0.5);
     root.add(
       glass,
@@ -387,6 +418,7 @@ export function buildOffice(): OfficeProps {
   let pantryReach: OfficeProps["pantryReach"] | null = null;
   let oven: Oven | null = null;
   let entryDoor: EntryDoor | null = null;
+  let umbrellaStand: UmbrellaStand | null = null;
   const barFood = new BarFoodDisplay();
   barFood.root.position.set(barFoodSpot.x, surface.barTable, barFoodSpot.z);
   root.add(barFood.root);
@@ -597,6 +629,16 @@ export function buildOffice(): OfficeProps {
         root.add(built.root);
         break;
       }
+      case "umbrella-stand":
+        umbrellaStand = new UmbrellaStand(
+          piece,
+          Object.fromEntries(memberIds.map((memberId) => [memberId, memberPropLooks[memberId].mug])) as Record<
+            MemberId,
+            string
+          >,
+        );
+        root.add(umbrellaStand.root);
+        break;
     }
   }
   if (
@@ -615,7 +657,8 @@ export function buildOffice(): OfficeProps {
     rackCups.length !== memberIds.length ||
     wallClock === null ||
     statusBoard === null ||
-    entryDoor === null
+    entryDoor === null ||
+    umbrellaStand === null
   ) {
     throw new Error(
       "Floor plan is missing the TV, an arcade, a treadmill, the punching bag, the aquarium, server rack, fridge, meeting table, status board or door",
@@ -696,6 +739,27 @@ export function buildOffice(): OfficeProps {
         material.opacity = 0.85 * twilight;
       }
     },
+    setRain: (level) => {
+      for (const material of skyGlass.overcast) {
+        material.opacity = 0.6 * level;
+      }
+      for (const material of skyGlass.drops) {
+        material.opacity = 0.9 * level;
+      }
+      for (const pane of skyGlass.panes) {
+        pane.visible = level > 0;
+      }
+    },
+    stepRain: (delta) => {
+      for (const material of skyGlass.drops) {
+        const map = material.map;
+        if (map !== null) {
+          // Down the glass: the texture's v runs up, so the offset climbs.
+          map.offset.y = (map.offset.y + delta * 0.55) % 1;
+        }
+      }
+    },
+    umbrellaStand,
     wallClock,
     statusBoard,
     bookshelf,
