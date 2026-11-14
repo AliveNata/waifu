@@ -1,7 +1,7 @@
 import { Box3, Group, type Object3D, Vector3 } from "three";
 import type { MemberId } from "../../../shared/team.js";
 import type { HandPropKind } from "../office-director.js";
-import { bentoModel, bentoOf } from "./bento-models.js";
+import { bentoModel, bentoModelsSettled, bentoOf } from "./bento-models.js";
 import { memberPropLooks } from "./desks.js";
 import { handPropModel } from "./hand-props.js";
 import { box, palette, standard } from "./palette.js";
@@ -42,6 +42,8 @@ interface Setting {
   root: Group;
   /** Where the chopsticks go: the box alone, not the taller drink. */
   box: Object3D;
+  /** The plain bento standing in while the models are still loading, to be swapped once they are in. */
+  provisional: boolean;
 }
 
 /**
@@ -91,15 +93,24 @@ export class LunchBox {
 
   private settingFor(memberId: MemberId): Setting {
     let setting = this.settings.get(memberId);
+    if (setting?.provisional === true && bentoModelsSettled()) {
+      // The models are in now: lay the table again, with the real box if it loaded.
+      this.root.remove(setting.root);
+      if (this.shown === setting) {
+        this.shown = null;
+      }
+      setting = undefined;
+    }
     if (setting === undefined) {
-      setting = this.lay(bentoModel(bentoOf[memberId]) ?? codeBento(), drinkOf[memberId], memberId);
+      const model = bentoModel(bentoOf[memberId]);
+      setting = this.lay(model ?? codeBento(), drinkOf[memberId], memberId, model === null && !bentoModelsSettled());
       this.settings.set(memberId, setting);
     }
     return setting;
   }
 
   /** The box toward the chair as far as its depth allows, the drink beside it on the right. */
-  private lay(lunch: Object3D, drinkKind: LunchDrink, memberId: MemberId): Setting {
+  private lay(lunch: Object3D, drinkKind: LunchDrink, memberId: MemberId, provisional: boolean): Setting {
     const root = new Group();
     // Measured on their own, before they join the table, so sizes are along the seat's axes.
     const boxBounds = measured(lunch);
@@ -124,7 +135,7 @@ export class LunchBox {
     }
     root.visible = false;
     this.root.add(root);
-    return { root, box: lunch };
+    return { root, box: lunch, provisional };
   }
 }
 

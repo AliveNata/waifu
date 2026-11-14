@@ -1,6 +1,6 @@
 import { Box3, type Object3D } from "three";
-import { beforeAll, describe, expect, it } from "vitest";
-import { bentoOf } from "../src/renderer/office/scene/bento-models.js";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { bentoModelsSettled, bentoOf, loadBentoModels } from "../src/renderer/office/scene/bento-models.js";
 import { LunchBox, lunchOffset } from "../src/renderer/office/scene/lunch-box.js";
 import { setSceneQuality } from "../src/renderer/office/scene/palette.js";
 import { memberIds } from "../src/shared/team.js";
@@ -80,5 +80,31 @@ describe("lunch boxes", () => {
     expect(top.y).toBeGreaterThan(tableTop);
     expect(bounds.max.z).toBeLessThan(0.23);
     expect(lunch.root.visible).toBe(false);
+  });
+  // Last: loading the models is once per run, so whatever comes after sees them settled.
+  it("lays a lunch again once the models have finished loading, and only then", async () => {
+    // Arrange: someone sits down before the lunches are in.
+    const lunch = new LunchBox(0.73, 0.23);
+    lunch.serve("yor");
+    const early = lunch.root.children.find((child) => child.visible);
+    lunch.serve("yor");
+    const stillEarly = lunch.root.children.find((child) => child.visible);
+    // No models can load under test: each is logged as failed, which still settles the loading.
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    // Act
+    await loadBentoModels();
+    lunch.serve("yor");
+    const after = lunch.root.children.find((child) => child.visible);
+    lunch.serve("yor");
+    const settledAfter = lunch.root.children.find((child) => child.visible);
+    logged.mockRestore();
+
+    // Assert
+    expect(stillEarly).toBe(early);
+    expect(bentoModelsSettled()).toBe(true);
+    expect(after).not.toBe(early);
+    expect(settledAfter).toBe(after);
+    expect(lunch.root.children).toHaveLength(1);
   });
 });

@@ -652,7 +652,6 @@ function afterPaint(): Promise<void> {
 // The bar's food and drinks are small models; they load alongside, and one that fails is logged and left out.
 const foodModels = loadFoodModels();
 const furnitureModels = loadFurnitureModels();
-const bentoModels = loadBentoModels();
 const fishModels = loadFishModels();
 const catModel = loadCatModel();
 /**
@@ -680,8 +679,8 @@ async function loadLocalProps(): Promise<Map<LocalProp, Object3D>> {
 }
 
 const localPropModels = loadLocalProps();
-Promise.all([quality, chatShown, foodModels, furnitureModels, bentoModels, fishModels, catModel, localPropModels])
-  .then(async ([chosen, , , , , , , props]) => {
+Promise.all([quality, chatShown, foodModels, furnitureModels, fishModels, catModel, localPropModels])
+  .then(async ([chosen, , , , , , props]) => {
     await afterPaint();
     setSceneQuality(chosen);
     const page = new OfficePage(bridge, canvas);
@@ -689,6 +688,8 @@ Promise.all([quality, chatShown, foodModels, furnitureModels, bentoModels, fishM
     page.start();
     // Hook signals are only listened to from here on: anything that drives the office waits for this.
     document.documentElement.dataset.office = "ready";
+    // The lunches are only needed at lunch: they load once the room is up instead of holding it.
+    await loadBentoModels();
   })
   .catch((error: unknown) => {
     console.error("[office] failed to start the office scene", error);

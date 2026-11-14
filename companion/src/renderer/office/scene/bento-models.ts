@@ -60,9 +60,21 @@ export const bentoOf: Readonly<Record<MemberId, BentoName>> = {
 const rebuiltBox: ReadonlySet<BentoName> = new Set(["unaju-kobax"]);
 
 const templates = new Map<BentoName, Object3D>();
+/** Whether loading has finished, each model in or logged as failed. */
+let settled = false;
 
-export function loadBentoModels(): Promise<void> {
-  return loadTemplates(urls, templates, "bento");
+/**
+ * Loads the lunches. They are only needed at lunch, so the office starts without waiting for them
+ * and the plain bento stands in until they are in.
+ */
+export async function loadBentoModels(): Promise<void> {
+  await loadTemplates(urls, templates, "bento");
+  settled = true;
+}
+
+/** True once loading is over: a lunch with no model by then never gets one. */
+export function bentoModelsSettled(): boolean {
+  return settled;
 }
 
 /** A fresh copy at the office's size, or null when it did not load, so the caller keeps its stand-in. */
