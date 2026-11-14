@@ -96,16 +96,26 @@ export class TwobStatus {
   }
 }
 
+/** A teammate held up on a permission prompt, and since when (see waiting-member.ts). */
+export interface WaitingOn {
+  memberId: MemberId;
+  since: number;
+}
+
 /** Every member in roster order, 2B first, each with whether they are in the room. */
 export function statusRows(
   team: TeamRuntime,
   twob: TwobStatus,
   now: number,
   presenceOf: (memberId: MemberId) => Presence = () => "in",
+  waiting: WaitingOn | null = null,
 ): StatusRow[] {
   return memberIds.map((memberId) => {
     const row = memberId === "twob" ? twob.row(now) : memberRow(memberId, team[memberId], now);
-    return { ...row, presence: presenceOf(memberId) };
+    // Like 2B's, a teammate's wait shows no tool: the prompt's text can quote a command.
+    const waits = waiting !== null && waiting.memberId === memberId && memberId !== "twob";
+    const shown = waits ? { ...row, status: "waiting" as const, tool: null, since: waiting.since } : row;
+    return { ...shown, presence: presenceOf(memberId) };
   });
 }
 

@@ -1,5 +1,7 @@
 import { CanvasTexture, Group, type Mesh, PlaneGeometry, SRGBColorSpace } from "three";
+import { roster } from "../../../shared/team.js";
 import { speakerColors } from "../../common/dialog-box.js";
+import { type DayTally, type MemberTally, summarize, workLabel } from "../daily-recap.js";
 import type { Furniture } from "../office-plan.js";
 import {
   type BoardStatus,
@@ -71,6 +73,17 @@ export class StatusBoard {
     this.face = mesh(new PlaneGeometry(piece.width - 0.04, height - 0.03), unlit(this.texture), false);
     this.face.position.set(0, centerY, 0.017);
     this.root.add(this.face);
+  }
+
+  /** The day's recap in place of the rows, redrawn only when the tally changes. */
+  showRecap(tally: DayTally): void {
+    const signature = `recap:${JSON.stringify(tally)}`;
+    if (signature === this.shown) {
+      return;
+    }
+    this.shown = signature;
+    drawRecap(this.context, tally);
+    this.texture.needsUpdate = true;
   }
 
   update(rows: readonly StatusRow[], now: number): void {
@@ -154,6 +167,68 @@ export class StatusBoard {
     });
     this.texture.needsUpdate = true;
   }
+}
+
+/** The recap view: the day's totals on the left, who finished what on the right. */
+function drawRecap(ctx: CanvasRenderingContext2D, tally: DayTally): void {
+  const summary = summarize(tally);
+  ctx.fillStyle = faceColor;
+  ctx.fillRect(0, 0, faceWidth, faceHeight);
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#f4f1ec";
+  ctx.font = `600 54px ${uiFont}`;
+  ctx.fillText("Rekap hari ini", 44, header / 2);
+  ctx.textAlign = "right";
+  ctx.fillStyle = mutedText;
+  ctx.font = `500 34px ${uiFont}`;
+  ctx.fillText("jumlah dan nama tool saja", faceWidth - 44, header / 2);
+  ctx.fillStyle = "#2a2338";
+  ctx.fillRect(44, header - 4, faceWidth - 88, 2);
+
+  const tools = summary.topTools.map(([tool, count]) => `${tool} ${count}x`).join(", ");
+  const stats: [string, string][] = [
+    ["tugas selesai", String(summary.done)],
+    ["total kerja", summary.done === 0 ? "-" : workLabel(summary.workMs)],
+    ["tool terbanyak", tools === "" ? "-" : tools],
+  ];
+  stats.forEach(([label, value], index) => {
+    const middle = header + 40 + index * 150;
+    ctx.textAlign = "left";
+    ctx.fillStyle = mutedText;
+    ctx.font = `500 30px ${uiFont}`;
+    ctx.fillText(label, 60, middle);
+    ctx.fillStyle = index === 0 ? palette.accentSoft : "#f4f1ec";
+    ctx.font = index === 2 ? `600 40px ${uiFont}` : `700 64px ${uiFont}`;
+    ctx.fillText(fitText(ctx, value, faceWidth / 2 - 140), 60, middle + 60);
+  });
+
+  const left = faceWidth / 2 + 20;
+  const right = faceWidth - 60;
+  const members = (Object.entries(tally.members) as [keyof typeof roster, MemberTally][])
+    .filter(([, member]) => member.done > 0)
+    .sort((a, b) => b[1].done - a[1].done || b[1].workMs - a[1].workMs);
+  if (members.length === 0) {
+    ctx.textAlign = "left";
+    ctx.fillStyle = mutedText;
+    ctx.font = `500 36px ${uiFont}`;
+    ctx.fillText("Belum ada tugas yang selesai hari ini.", left, header + 120);
+  }
+  const rowGap = (faceHeight - header - 20) / 7;
+  members.slice(0, 7).forEach(([memberId, member], index) => {
+    const middle = header + 10 + rowGap * (index + 0.5);
+    ctx.textAlign = "left";
+    ctx.fillStyle = speakerColors[memberId];
+    ctx.font = `600 38px ${uiFont}`;
+    ctx.fillText(roster[memberId].displayName, left, middle);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#f4f1ec";
+    ctx.font = `600 34px ${uiFont}`;
+    ctx.fillText(`${member.done} tugas`, right - 230, middle);
+    ctx.fillStyle = mutedText;
+    ctx.font = `400 30px ${uiFont}`;
+    ctx.fillText(workLabel(member.workMs), right, middle);
+  });
 }
 
 /** Cuts a long tool name (MCP tools can be long) so it never runs into the name column. */
