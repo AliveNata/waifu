@@ -76,6 +76,7 @@ import {
   PunchingBag,
   Treadmill,
 } from "./scene/gym.js";
+import type { LunchBox } from "./scene/lunch-box.js";
 import { collectLiveParts, mergeStaticMeshes } from "./scene/merge-static.js";
 import { NeonStrips } from "./scene/neon.js";
 import { box, glow, mesh, palette, printed, sceneQuality, standard, unlit } from "./scene/palette.js";
@@ -123,7 +124,7 @@ export interface OfficeProps {
   /** One per meeting chair, in seat order meeting-1..12. */
   meetingLaptops: MeetingLaptop[];
   /** One per meeting chair, in seat order, shown while someone has lunch there. */
-  lunchBoxes: Group[];
+  lunchBoxes: LunchBox[];
   fridgeDoor: FridgeDoor;
   trashBin: TrashBin;
   sink: SinkTap;
@@ -375,7 +376,7 @@ export function buildOffice(): OfficeProps {
   let aquarium: Aquarium | null = null;
   let rackLights: RackLights | null = null;
   let meetingLaptops: MeetingLaptop[] = [];
-  let lunchBoxes: Group[] = [];
+  let lunchBoxes: LunchBox[] = [];
   let rackCups: Object3D[] = [];
   let wallClock: WallClock | null = null;
   let statusBoard: StatusBoard | null = null;
