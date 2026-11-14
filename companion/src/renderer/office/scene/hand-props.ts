@@ -3,7 +3,8 @@ import {
   CylinderGeometry,
   Group,
   IcosahedronGeometry,
-  type Mesh,
+  Mesh,
+  MeshStandardMaterial,
   type Object3D,
   SphereGeometry,
   TorusGeometry,
@@ -11,7 +12,7 @@ import {
 } from "three";
 import type { ArmSide } from "../avatar.js";
 import type { HandPropKind } from "../office-director.js";
-import { type FoodModelName, foodModel, kitScale, roomScale } from "./food-models.js";
+import { type FoodModelName, foodModel, kitScale, loadedFoodModel, roomScale } from "./food-models.js";
 import { kitPiece } from "./kit.js";
 import { box, glow, mesh, palette, standard } from "./palette.js";
 
@@ -93,6 +94,14 @@ export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook):
   const group = new Group();
   switch (kind) {
     case "mug": {
+      // The kit's plain cup in the owner's color, its handle turned from -z to the left (-x).
+      const model = crockery("cup", 0.22, look.mug);
+      if (model !== null) {
+        model.rotation.y = Math.PI / 2;
+        model.position.y = -0.015;
+        group.add(model, cupFill(0.019, -0.009, 0.025));
+        break;
+      }
       const material = standard(look.mug, 0.4);
       const cup = mesh(new CylinderGeometry(0.022, 0.019, 0.05, 12), material);
       cup.position.y = 0.01;
@@ -234,8 +243,23 @@ export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook):
     }
     case "chopsticks": {
       // A pair held together, tips down toward the lunch box and up to the mouth.
-      const wood = standard(palette.oak, 0.6);
-      group.add(box(0.003, 0.075, 0.003, wood, -0.003, -0.05, 0), box(0.003, 0.075, 0.003, wood, 0.003, -0.05, 0.002));
+      const sticks = [crockery("chopstick", 0.167), crockery("chopstick", 0.167)].filter(
+        (stick): stick is Group => stick !== null,
+      );
+      if (sticks.length === 2) {
+        // The kit's chopstick lies along z: stood up along y, a little apart.
+        sticks.forEach((stick, index) => {
+          stick.rotation.x = Math.PI / 2;
+          stick.position.set(index === 0 ? -0.003 : 0.003, -0.05, index * 0.002);
+          group.add(stick);
+        });
+      } else {
+        const wood = standard(palette.oak, 0.6);
+        group.add(
+          box(0.003, 0.075, 0.003, wood, -0.003, -0.05, 0),
+          box(0.003, 0.075, 0.003, wood, 0.003, -0.05, 0.002),
+        );
+      }
       group.rotation.x = 0.9;
       break;
     }
@@ -321,8 +345,12 @@ export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook):
     }
     case "plate": {
       // A warmed-up plate: a white dish with a slice of something on it, carried flat.
-      const dish = mesh(new CylinderGeometry(0.05, 0.042, 0.008, 20), standard("#fbfaf7", 0.4));
-      const food = box(0.04, 0.02, 0.03, standard("#d9a05b", 0.7), 0, 0.004, 0);
+      const model = crockery("plate", 0.112);
+      if (model !== null) {
+        model.position.y = -0.004;
+      }
+      const dish = model ?? mesh(new CylinderGeometry(0.05, 0.042, 0.008, 20), standard("#fbfaf7", 0.4));
+      const food = box(0.04, 0.02, 0.03, standard("#d9a05b", 0.7), 0, model === null ? 0.004 : 0.005, 0);
       group.add(dish, food);
       break;
     }
@@ -357,11 +385,19 @@ export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook):
       break;
     }
     case "fork": {
+      const bite = box(0.012, 0.01, 0.01, standard("#f6efe4", 0.8), 0, 0.06, 0.004);
+      bite.name = "bite";
+      // The kit's fork lies along x with its tines toward -x: stood up, tines on top.
+      const model = crockery("fork", 0.2);
+      if (model !== null) {
+        model.rotation.z = -Math.PI / 2;
+        model.position.y = 0.005;
+        group.add(model, bite);
+        break;
+      }
       const steel = standard("#c9ccd2", 0.25, 0.8);
       const handle = box(0.006, 0.07, 0.003, steel, 0, -0.02, 0);
       const tines = box(0.012, 0.022, 0.002, steel, 0, 0.05, 0);
-      const bite = box(0.012, 0.01, 0.01, standard("#f6efe4", 0.8), 0, 0.06, 0.004);
-      bite.name = "bite";
       group.add(handle, tines, bite);
       break;
     }
@@ -385,9 +421,22 @@ export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook):
       break;
     }
     case "teacup": {
+      const gold = standard("#c9a24a", 0.3, 0.6);
+      // The same cup, squatter and in china white, with a gold rim.
+      const model = crockery("cup", 0.2, "#f7f1ea");
+      if (model !== null) {
+        model.scale.y = 0.7;
+        model.rotation.y = Math.PI / 2;
+        model.position.y = -0.015;
+        const rim = mesh(new TorusGeometry(0.023, 0.0016, 6, 18), gold);
+        rim.rotation.x = Math.PI / 2;
+        rim.position.y = 0.013;
+        group.add(model, rim, cupFill(0.02, -0.01, 0.009, "#9a5a2a"));
+        break;
+      }
       const china = standard("#f7f1ea", 0.3);
       const cup = mesh(new CylinderGeometry(0.024, 0.016, 0.03, 14), china);
-      const rim = mesh(new TorusGeometry(0.024, 0.0018, 6, 18), standard("#c9a24a", 0.3, 0.6));
+      const rim = mesh(new TorusGeometry(0.024, 0.0018, 6, 18), gold);
       rim.rotation.x = Math.PI / 2;
       rim.position.y = 0.015;
       const handle = mesh(new TorusGeometry(0.009, 0.0025, 6, 10), china);
@@ -425,6 +474,24 @@ export interface PropLook {
 }
 
 const defaultLook: PropLook = { mug: palette.laminate, shell: "#d9d4cc" };
+
+/**
+ * One of the Food Kit's crockery or cutlery models at `scale` of the kit's size, given its own
+ * material in `tint` when there is one so recoloring it leaves the other copies alone. Null when
+ * it did not load, for the drawn stand-in.
+ */
+function crockery(name: FoodModelName, scale: number, tint?: string): Group | null {
+  const model = loadedFoodModel(name, scale);
+  if (model !== null && tint !== undefined) {
+    model.traverse((part) => {
+      if (part instanceof Mesh && part.material instanceof MeshStandardMaterial) {
+        part.material = part.material.clone();
+        part.material.color.set(tint);
+      }
+    });
+  }
+  return model;
+}
 
 /**
  * The drink in a cup, as a disc that rises and falls with how full it is. It remembers the cup's

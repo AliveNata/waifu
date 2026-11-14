@@ -3,12 +3,14 @@ import {
   CylinderGeometry,
   Group,
   IcosahedronGeometry,
-  type Mesh,
+  Mesh,
+  MeshStandardMaterial,
   SphereGeometry,
   TorusGeometry,
 } from "three";
 import { type CatPose, playMoment } from "../office-cat.js";
 import { ModelCat } from "./cat-model.js";
+import { furnitureModel } from "./furniture-models.js";
 import { box, mesh, standard } from "./palette.js";
 
 /**
@@ -291,16 +293,37 @@ function yarnBall(): Group {
   return ball;
 }
 
-/** Mochi's food bowl: a shallow dish with kibble in it, more or less full. */
+/** Her bowl's purple, so it is plainly hers. */
+const bowlColor = "#b45cff";
+
+/**
+ * Mochi's food bowl with kibble in it, more or less full: the "Dog Bowl" model by Zambur
+ * (Sketchfab, CC-BY-4.0, credited in docs/03-companion.md) at a cat's size and tinted her purple,
+ * or a plain dish when it did not load.
+ */
 export class CatBowl {
   readonly root = new Group();
   private readonly food: Mesh;
 
   constructor() {
-    const dish = mesh(new CylinderGeometry(0.065, 0.05, 0.03, 20), standard("#b45cff", 0.5));
-    dish.position.y = 0.015;
-    this.food = mesh(new CylinderGeometry(0.052, 0.052, 0.014, 18), standard("#9a5b2e", 0.9), false);
-    this.root.add(dish, this.food);
+    const model = furnitureModel("catBowl");
+    if (model === null) {
+      const dish = mesh(new CylinderGeometry(0.065, 0.05, 0.03, 20), standard(bowlColor, 0.5));
+      dish.position.y = 0.015;
+      this.root.add(dish);
+    } else {
+      model.traverse((part) => {
+        if (part instanceof Mesh && part.material instanceof MeshStandardMaterial) {
+          part.material = part.material.clone();
+          part.material.color.set(bowlColor);
+        }
+      });
+      this.root.add(model);
+    }
+    // The model's well is narrower than its rim, so the kibble sits inside it.
+    const radius = model === null ? 0.052 : 0.045;
+    this.food = mesh(new CylinderGeometry(radius, radius, 0.014, 18), standard("#9a5b2e", 0.9), false);
+    this.root.add(this.food);
     this.setFood(1);
   }
 
