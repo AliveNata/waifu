@@ -99,11 +99,12 @@ export class DeskLamp {
     readonly root: Group,
     private readonly bulb: MeshStandardMaterial,
     private readonly pool: MeshBasicMaterial,
+    private readonly glowStrength = 2.2,
   ) {}
 
   /** 0 off to 1 fully on. */
   setLevel(level: number): void {
-    this.bulb.emissiveIntensity = 2.2 * level;
+    this.bulb.emissiveIntensity = this.glowStrength * level;
     this.pool.opacity = 0.5 * level;
     this.pool.visible = level > 0.01;
   }
@@ -132,6 +133,31 @@ interface LampLook {
   /** How far ahead of the base the pool of light falls, toward the sitter. */
   poolAhead: number;
   light: string;
+  /** How brightly the bulb glows at full: a small bulb glows harder than a whole lit shade. */
+  glow?: number;
+}
+
+/**
+ * Kenney's round table lamp (Furniture Kit, CC0) in a member's colors, standing on the desk top.
+ * Its shade is closed underneath, so the shade itself lights up rather than a bulb inside it.
+ * Null when the model did not load, so the member keeps the drawn lamp.
+ */
+function kitTableLamp(stand: string, shade: string, light: string): LampLook | null {
+  const lamp = kitPiece("lampRoundTable", { height: 0.26 }, { metal: stand });
+  if (lamp === null) {
+    return null;
+  }
+  // Lit, the shade glows in its own color; the light it throws on the desk is the warm `light`.
+  const lit = standard(shade, 0.85);
+  lit.emissive.set(shade);
+  lit.emissiveIntensity = 0;
+  lamp.traverse((part) => {
+    if (part instanceof Mesh && !Array.isArray(part.material) && part.material.name === "lamp") {
+      part.material = lit;
+    }
+  });
+  lamp.position.y = deskTop;
+  return { parts: [lamp], bulb: lit, poolAhead: 0.05, light, glow: 1.1 };
 }
 
 function at(object: Object3D, x: number, y: number, z: number): Object3D {
@@ -199,6 +225,11 @@ function lampLook(member: DeskMember): LampLook {
       };
     }
     case "rias": {
+      // Brass, with a crimson shade.
+      const kit = kitTableLamp("#c9a24a", "#8e1f2f", "#ffb36b");
+      if (kit !== null) {
+        return kit;
+      }
       const brass = standard("#c9a24a", 0.3, 0.7);
       const bulb = glow("#ffcf96", 0);
       return {
@@ -360,6 +391,10 @@ function lampLook(member: DeskMember): LampLook {
     }
     case "huagua": {
       // A wooden lamp with a soft green fabric shade, warm like a sketchbook corner.
+      const kit = kitTableLamp("#a87a52", "#7fb894", "#ffe9c8");
+      if (kit !== null) {
+        return kit;
+      }
       const wood = standard("#a87a52", 0.7);
       const bulb = glow("#fff0d6", 0);
       return {
@@ -426,7 +461,7 @@ function deskLamp(member: DeskMember, x: number, z: number, depth: number): Desk
   pool.rotation.x = -Math.PI / 2;
   pool.position.set(0, deskTop + 0.002, look.poolAhead * lampScale[member]);
   root.add(pool);
-  const lamp = new DeskLamp(root, look.bulb, poolMaterial);
+  const lamp = new DeskLamp(root, look.bulb, poolMaterial, look.glow);
   lamp.setLevel(0);
   return lamp;
 }

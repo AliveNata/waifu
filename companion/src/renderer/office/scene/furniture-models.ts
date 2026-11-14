@@ -1,6 +1,7 @@
 import type { Object3D } from "three";
 import aquariumUrl from "../assets/furniture/aquarium.glb?url";
 import arcadePacmanUrl from "../assets/furniture/arcadePacman.glb?url";
+import beanbagUrl from "../assets/furniture/beanbag.glb?url";
 import bearUrl from "../assets/furniture/bear.glb?url";
 import benchCushionLowUrl from "../assets/furniture/benchCushionLow.glb?url";
 import bookcaseUrl from "../assets/furniture/bookcaseClosedWide.glb?url";
@@ -15,6 +16,7 @@ import kitchenCabinetUrl from "../assets/furniture/kitchenCabinet.glb?url";
 import kitchenCoffeeMachineUrl from "../assets/furniture/kitchenCoffeeMachine.glb?url";
 import kitchenFridgeLargeUrl from "../assets/furniture/kitchenFridgeLarge.glb?url";
 import lampRoundFloorUrl from "../assets/furniture/lampRoundFloor.glb?url";
+import lampRoundTableUrl from "../assets/furniture/lampRoundTable.glb?url";
 import laptopUrl from "../assets/furniture/laptop.glb?url";
 import loungeChairUrl from "../assets/furniture/loungeChair.glb?url";
 import loungeSofaUrl from "../assets/furniture/loungeSofa.glb?url";
@@ -62,6 +64,7 @@ const urls = {
   printer: printerUrl,
   pcMonitors: pcMonitorsUrl,
   curvedMonitor: curvedMonitorUrl,
+  beanbag: beanbagUrl,
   pcGaming: pcGamingUrl,
   pcFuturistic: pcFuturisticUrl,
   arcadePacman: arcadePacmanUrl,
@@ -88,6 +91,7 @@ const urls = {
   kitchenCoffeeMachine: kitchenCoffeeMachineUrl,
   toaster: toasterUrl,
   lampRoundFloor: lampRoundFloorUrl,
+  lampRoundTable: lampRoundTableUrl,
   coatRackStanding: coatRackStandingUrl,
 } as const;
 
