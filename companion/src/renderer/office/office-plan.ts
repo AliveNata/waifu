@@ -117,6 +117,8 @@ export interface Furniture {
 
 /** Beside a teammate's desk, where 2B stands to hand over a brief. */
 type VisitStationId = `visit-${Exclude<MemberId, "twob">}`;
+/** Beside a teammate's own desk, facing the camera: where they stand to call the user over. */
+type CallStationId = `call-${Exclude<MemberId, "twob">}`;
 
 export type StationId =
   | "desk-asuna"
@@ -181,6 +183,7 @@ export type StationId =
   | "pingpong-west"
   | "pingpong-east"
   | VisitStationId
+  | CallStationId
   | "reading-chair"
   | "report-1"
   | "report-2"
@@ -1098,7 +1101,7 @@ export function yawToward(from: Point, to: Point): number {
 /** Close enough to the boards (surface at x -6.91) that an arm reaches the writing. */
 const boardStandX = -6.68;
 
-const placeStations: Record<Exclude<StationId, VisitStationId>, Station> = {
+const placeStations: Record<Exclude<StationId, VisitStationId | CallStationId>, Station> = {
   "desk-asuna": deskRowStation("desk-asuna", deskRowX.asuna),
   "desk-kobayashi": deskRowStation("desk-kobayashi", deskRowX.kobayashi),
   "desk-huagua": deskRowStation("desk-huagua", deskRowX.huagua),
@@ -1263,9 +1266,21 @@ function visitStations(desks: typeof placeStations): Record<VisitStationId, Stat
   ) as Record<VisitStationId, Station>;
 }
 
+function callStations(desks: typeof placeStations): Record<CallStationId, Station> {
+  return Object.fromEntries(
+    memberIds
+      .filter((memberId): memberId is Exclude<MemberId, "twob"> => memberId !== "twob")
+      .map((memberId) => {
+        const id: CallStationId = `call-${memberId}`;
+        return [id, standing(id, desks[`desk-${memberId}`].approach, facingCamera)];
+      }),
+  ) as Record<CallStationId, Station>;
+}
+
 export const stations: Record<StationId, Station> = {
   ...placeStations,
   ...visitStations(placeStations),
+  ...callStations(placeStations),
 };
 
 function meetingStations(): Record<MeetingStationId, Station> {

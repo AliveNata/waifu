@@ -1,6 +1,7 @@
 /**
  * The office's sound effects, made on the spot with WebAudio instead of shipped as recordings:
- * keys, the sliding door, the coffee machine, the ping-pong ball, Mochi, and the standup gong.
+ * keys, the sliding door, the coffee machine, the ping-pong ball, Mochi, the standup gong, and the
+ * chime when someone is waiting for the user.
  * Each sound plays from where it happens, quieter with distance from the listener (the camera, or
  * Alyx's eyes in first person) and panned to the side it is on. Off until switched on; while off
  * no AudioContext exists at all.
@@ -8,7 +9,16 @@
 
 import { defaultSoundSettings, normalizeSoundSettings, type OfficeSoundSettings } from "../../shared/sound-settings.js";
 
-export type SoundCue = "key" | "door-open" | "door-close" | "coffee" | "paddle" | "bounce" | "meow" | "gong";
+export type SoundCue =
+  | "key"
+  | "door-open"
+  | "door-close"
+  | "coffee"
+  | "paddle"
+  | "bounce"
+  | "meow"
+  | "gong"
+  | "attention";
 
 export interface SoundPoint {
   x: number;
@@ -35,6 +45,8 @@ export const cueReach: Record<SoundCue, number> = {
   bounce: 2.5,
   meow: 2.5,
   gong: 12,
+  // It calls the user, wherever the camera is.
+  attention: 30,
 };
 
 /** Peak loudness of each cue before distance, so keys stay a patter and the gong is not a crash. */
@@ -47,6 +59,7 @@ const cueLevel: Record<SoundCue, number> = {
   bounce: 0.35,
   meow: 0.55,
   gong: 0.6,
+  attention: 0.4,
 };
 
 /** Quieter than this after distance, a sound is not worth the nodes it costs. */
@@ -173,6 +186,9 @@ export class OfficeSound {
         break;
       case "gong":
         this.gong(context, out, start);
+        break;
+      case "attention":
+        this.chime(context, out, start);
         break;
     }
   }
@@ -396,6 +412,23 @@ export class OfficeSound {
     vibrato.start(start);
     voice.stop(start + seconds + 0.02);
     vibrato.stop(start + seconds + 0.02);
+  }
+
+  /** Two soft bell notes, falling a fourth: someone needs the user, gently. */
+  private chime(context: AudioContext, out: AudioNode, start: number): void {
+    for (const [index, frequency] of [1175, 880].entries()) {
+      const at = start + index * 0.16;
+      const tone = context.createOscillator();
+      tone.type = "sine";
+      tone.frequency.value = frequency;
+      const envelope = context.createGain();
+      envelope.gain.setValueAtTime(0, at);
+      envelope.gain.linearRampToValueAtTime(0.5, at + 0.01);
+      envelope.gain.exponentialRampToValueAtTime(0.001, at + 0.9);
+      tone.connect(envelope).connect(out);
+      tone.start(at);
+      tone.stop(at + 0.95);
+    }
   }
 
   /** A struck gong: a few out-of-tune partials ringing down over several seconds. */

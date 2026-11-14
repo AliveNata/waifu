@@ -57,6 +57,7 @@ import { type AlyxTarget, pickableItems, pickTarget } from "./alyx-targets.js";
 import type { ArmSide, ArmTip, OfficeAvatar } from "./avatar.js";
 import { bossLine } from "./boss-greetings.js";
 import { type CourierVisit, courierHolding, courierWaiting, stepCourier } from "./courier-visit.js";
+import { browserTallyStore, DailyRecap, inRecapWindow, recapLine, summarize } from "./daily-recap.js";
 import {
   type ActiveDeskBit,
   chessCarry,
@@ -167,7 +168,15 @@ import { HandProps, handPropModel, setCupFill } from "./scene/hand-props.js";
 import { sceneQuality } from "./scene/palette.js";
 import { type BadgeKind, StatusBadge, toolKind } from "./scene/status-badge.js";
 import { fitSeat } from "./seating.js";
-import { type Presence, rowDetail, type StatusRow, statusLabels, statusRows, TwobStatus } from "./status-board.js";
+import {
+  type Presence,
+  rowDetail,
+  type StatusRow,
+  statusLabels,
+  statusRows,
+  TwobStatus,
+  type WaitingOn,
+} from "./status-board.js";
 import type { PenState } from "./surfaces/board-pen.js";
 import { widgetFor } from "./surfaces/work-widget.js";
 import {
@@ -180,6 +189,7 @@ import {
   type TeamRuntime,
 } from "./team-state.js";
 import { handForKey, MouseHabit, TypingHands } from "./typing-hands.js";
+import { WaitingCalls } from "./waiting-member.js";
 import { WalkHabits, walkStyles } from "./walk-life.js";
 import { type ActiveWorkBeat, beatHands, WorkBeats } from "./work-beats.js";
 
@@ -757,6 +767,11 @@ export class OfficeStage {
 
   private team: TeamRuntime = emptyTeamRuntime();
   private readonly twobStatus = new TwobStatus();
+  private readonly waitingCalls = new WaitingCalls();
+  /** The day's tally for the 17:00 recap, kept across restarts of the app. */
+  private readonly recap = new DailyRecap(browserTallyStore, new Date());
+  /** The office day whose recap has been read out, so it is said once. */
+  private recapReadOn: string | null = null;
   private readonly handoffs = new Handoffs();
   private twobReaction: Reaction = idleReaction(Date.now());
   private elapsed = 0;
@@ -962,13 +977,55 @@ export class OfficeStage {
   setTwobReaction(reaction: Reaction): void {
     this.twobReaction = reaction;
     this.twobStatus.observe(reaction);
+    if (this.waitingCalls.observe(reaction, this.team, Date.now())) {
+      // Rung from whoever is waiting: the teammate at their desk, or 2B at the front.
+      const caller = this.waitingCalls.waiting(this.team, Date.now());
+      const spot = (caller === null ? stations.front : stations[`desk-${caller}` as const]).spot;
+      this.sound.play("attention", { x: spot.x, y: 1.2, z: spot.z });
+    }
+  }
+
+  /**
+   * The status board, or for ten minutes from 17:00 the day's recap in its place, read out once by
+   * Arisu (2B when Arisu is not about).
+   */
+  private updateRecap(now: number): void {
+    const clock = this.clock();
+    if (!inRecapWindow(jakartaHours(clock))) {
+      this.office.statusBoard.update(
+        statusRows(this.team, this.twobStatus, now, (memberId) => this.presenceOf(memberId), this.waitingOn(now)),
+        now,
+      );
+      return;
+    }
+    const tally = this.recap.today(clock);
+    this.office.statusBoard.showRecap(tally);
+    if (this.recapReadOn === tally.day) {
+      return;
+    }
+    const reader = (["arisu", "twob"] as const).find(
+      (memberId) => this.presenceOf(memberId) === "in" && this.rigs[memberId].avatar.root.visible,
+    );
+    if (reader !== undefined) {
+      this.recapReadOn = tally.day;
+      this.chatter.announce(reader, recapLine(summarize(tally)), this.elapsed, this.elapsed + 7);
+    }
+  }
+
+  /** The teammate held up on a permission prompt, if one can be told from the notification. */
+  private waitingOn(now: number): WaitingOn | null {
+    const memberId = this.waitingCalls.waiting(this.team, now);
+    const since = this.waitingCalls.since();
+    return memberId === null || since === null ? null : { memberId, since };
   }
 
   applyMemberSignal(signal: MemberSignal): void {
     if (signal.memberId === "twob") {
       return;
     }
-    this.team = { ...this.team, [signal.memberId]: applyMemberSignal(this.team[signal.memberId], signal) };
+    const before = this.team[signal.memberId];
+    this.team = { ...this.team, [signal.memberId]: applyMemberSignal(before, signal) };
+    this.recap.record(signal, before, this.team[signal.memberId]);
     if (signal.activity === "stop" && this.team[signal.memberId].activeAgents.size === 0) {
       this.handoffs.finished(signal.memberId, Date.now());
     }
@@ -2300,7 +2357,9 @@ export class OfficeStage {
       this.lifeSteps[memberId] = step;
       return twobPlan("idle", step);
     }
-    const behavior = memberBehavior(this.team[memberId], now);
+    const working = memberBehavior(this.team[memberId], now);
+    const behavior: MemberBehavior =
+      working === "working" && this.waitingCalls.waiting(this.team, now) === memberId ? "waiting" : working;
     if (behavior !== "idle") {
       if (rig !== null && !rig.wasWorking) {
         this.life.interrupt(memberId, now);
@@ -3523,9 +3582,13 @@ export class OfficeStage {
   private chooseFocus(now: number): CloseupFocus | null {
     if (this.pinned !== null) {
       const memberId = this.pinned;
-      const row = statusRows(this.team, this.twobStatus, now, (memberId) => this.presenceOf(memberId)).find(
-        (candidate) => candidate.memberId === memberId,
-      );
+      const row = statusRows(
+        this.team,
+        this.twobStatus,
+        now,
+        (memberId) => this.presenceOf(memberId),
+        this.waitingOn(now),
+      ).find((candidate) => candidate.memberId === memberId);
       const detail = row === undefined ? "" : rowDetail(row, now);
       const status = row === undefined ? "" : ` · ${statusLabels[row.status]}${detail === "" ? "" : ` (${detail})`}`;
       return { memberId, label: `${this.focusLabel(memberId, null)}${status}` };
@@ -3642,7 +3705,10 @@ export class OfficeStage {
   /** The status board's rows right now, for showing them large on the page. */
   statusNow(): { rows: StatusRow[]; now: number } {
     const now = Date.now();
-    return { rows: statusRows(this.team, this.twobStatus, now, (memberId) => this.presenceOf(memberId)), now };
+    return {
+      rows: statusRows(this.team, this.twobStatus, now, (memberId) => this.presenceOf(memberId), this.waitingOn(now)),
+      now,
+    };
   }
 
   /** The held shot while the hold runs, otherwise the member's live shot. */
@@ -3860,10 +3926,7 @@ export class OfficeStage {
       this.office.enclosure.neon.update(this.elapsed, this.night);
     }
     this.office.wallClock.update(this.clock());
-    this.office.statusBoard.update(
-      statusRows(this.team, this.twobStatus, now, (memberId) => this.presenceOf(memberId)),
-      now,
-    );
+    this.updateRecap(now);
     this.refreshMading();
     this.focus = this.chooseFocus(now);
     if (this.firstPerson.active) {

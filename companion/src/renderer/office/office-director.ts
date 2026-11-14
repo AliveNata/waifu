@@ -87,6 +87,10 @@ export function memberPlan(
   if (behavior === "idle" && idle !== null) {
     return { station: idle.station, action: idle.action, mood: "idle" };
   }
+  if (behavior === "waiting") {
+    // Up from the desk and waving at the camera until the prompt is answered.
+    return { station: `call-${memberId}`, action: "wave", mood: "waiting" };
+  }
   const action = behavior === "done" ? workActions[memberId].done : workActions[memberId].working;
   return { station: homeStations[memberId], action, mood: behavior === "done" ? "done" : "working" };
 }

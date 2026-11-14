@@ -1,7 +1,8 @@
 import type { MemberSignal } from "../../shared/reaction.js";
 import type { MemberId } from "../../shared/team.js";
 
-export type MemberBehavior = "idle" | "working" | "done";
+/** "waiting" only ever comes from the stage, for a teammate held up on a permission prompt. */
+export type MemberBehavior = "idle" | "working" | "waiting" | "done";
 
 export interface MemberRuntime {
   /** agent_ids currently running for this member. */

@@ -30,7 +30,7 @@ File-nya disimpan di `models/base/` dan nggak ikut ke-commit.
 | `SessionStart` | greeting | senyum, kepala miring | jalan ke depan, melambai |
 | `UserPromptSubmit` | thinking | kepala miring, mata ke atas | berdiri di papan tulis, nulis |
 | `PreToolUse`, `PostToolUse` | working | nunduk kayak baca layar | duduk di meja laptop, ngetik |
-| `Notification` | waiting | kaget, condong ke depan | jalan ke depan, melambai pelan |
+| `Notification` | waiting | kaget, condong ke depan | jalan ke depan, melambai pelan. Kalau isinya minta izin tool dan tepat satu anggota yang lagi kerja terakhir pakai tool itu, anggota itu juga berdiri di samping mejanya, ngadep kamera, dan melambai sampai ada sinyal baru darinya |
 | `Stop` | done | senyum lebar, ngangguk | lompat kecil di depan, lalu balik ke sofa |
 | `PreCompact` | thinking | sama kayak thinking | sama kayak thinking |
 | `SessionEnd` | idle | santai | duduk di sofa |
@@ -197,7 +197,7 @@ Tiap zona punya bentuk yang kebaca jelas dari kamera, dan meja meeting, meja 2B,
 | Lounge | Sofa menghadap TV, meja kopi, beanbag, dan akuarium di atas meja kayu nempel dinding depan, di antara lounge dan meja depan |
 | Pantry | Jam digital besar di dinding (zona Asia/Jakarta). Counter bentuk L: wastafel dengan rak pengering gelas di sampingnya, mesin kopi, dan oven di counter belakang, lalu meja bar yang nyambung ke ujungnya dengan dua bar stool di tiap sisi, plus kulkas dan tempat sampah yang mepet dinding di samping kulkas. Makanan bareng ditaruh di ujung meja bar |
 | Game dan fitness | Pojok kanan belakang di atas matras karet: dua mesin arcade, dua treadmill menghadap jendela, meja pingpong dengan bangku penonton di depannya, dan samsak |
-| Layar status tim | Layar besar di dinding belakang di atas mesin arcade. Isinya tiap anggota: lagi kerja, nunggu kamu, selesai, atau idle, plus nama tool terakhir dan sudah berapa lama. Datanya dari hook Claude Code yang sama yang ngegerakin cast. Yang ditampilin cuma status dan nama tool, nggak pernah isi pesan atau isi file. Status selesai tetap kelihatan 15 menit setelah run berhenti Klik layarnya (atau tombol **Status tim** di bawah) buat buka versi besar, tutup pakai tombol X, Escape, atau klik di luar |
+| Layar status tim | Layar besar di dinding belakang di atas mesin arcade. Isinya tiap anggota: lagi kerja, nunggu kamu, selesai, atau idle, plus nama tool terakhir dan sudah berapa lama. Datanya dari hook Claude Code yang sama yang ngegerakin cast. Yang ditampilin cuma status dan nama tool, nggak pernah isi pesan atau isi file. Status selesai tetap kelihatan 15 menit setelah run berhenti. Jam 17:00 sampai 17:10 layarnya ganti jadi rekap hari ini (lihat ritual harian). Klik layarnya (atau tombol **Status tim** di bawah) buat buka versi besar, tutup pakai tombol X, Escape, atau klik di luar |
 | Studio Ruby | Pojok kanan depan, menghadap kamera kayak set: backdrop logo di belakang kursinya, meja lurus, ring light, dan kamera di tripod |
 | Sisi kanan | Pintu kaca otomatis dengan tanaman di sebelahnya, buat yang keluar beli makanan. Pas ketutup tulisannya kebaca AlyxLabs, pas kebuka kepisah jadi Alyx dan Labs |
 
@@ -237,8 +237,9 @@ Pas Alyx diem, tangannya gerak sendiri tiap beberapa detik, dipilih acak dan ngg
   | Bola pingpong | Kena raket dan mantul di meja |
   | Mochi | Ngeong tiap dia "ngomong", dengkur pas dielus Alyx |
   | Gong | Standup pagi dimulai |
+  | Ding-dong | Ada notifikasi "nunggu kamu" (misalnya minta izin pakai tool). Bunyinya dari meja anggota yang nunggu, atau dari depan kalau yang nunggu 2B |
 
-  Suaranya makin pelan makin jauh dari kamera (atau dari mata Alyx di mode Alyx), dan kedengeran dari kiri atau kanan sesuai posisinya. Klik keyboard cuma kedengeran dari meja terdekat, gong kedengeran sekantor. Di browser, suaranya baru mulai setelah lo klik atau pencet tombol di halaman (aturan autoplay browser).
+  Suaranya makin pelan makin jauh dari kamera (atau dari mata Alyx di mode Alyx), dan kedengeran dari kiri atau kanan sesuai posisinya. Klik keyboard cuma kedengeran dari meja terdekat, gong dan ding-dong kedengeran sekantor. Di browser, suaranya baru mulai setelah lo klik atau pencet tombol di halaman (aturan autoplay browser).
 
 **Kalau kantornya patah-patah**: yang paling berat jumlah draw call, bayangan matahari (shadow map-nya digambar sekali per frame, dan props di bawah 6 cm nggak ngelempar bayangan), fisika rambut 12 karakter, dan close-up yang ngegambar adegan sekali lagi. Yang bisa langsung dicoba: matiin **Grafis kantor tinggi** di menu (nonaktifin efek ambient occlusion), atau matiin close-up otomatis. Angka di chip FPS bisa dipakai buat bandingin sebelum dan sesudah.
 
@@ -317,10 +318,11 @@ Anggota yang lewat deket Mochi kadang nyapa ("Halo, Mochi.", "Pus, pus."), terus
 |---|---|
 | 09:30 sampai 09:36 | Standup di pojok kolaborasi. Arisu berdiri di samping glass board, yang lain melingkar di sekitar meja tinggi. Arisu buka, tiap orang gantian bilang apa yang udah beres dan apa yang dikerjain hari ini, Arisu nutup, terus sisanya ngobrol pelan sampai bubar |
 | 12:00 sampai 13:00 | Makan siang bareng di meja meeting. Tiap orang dapet kursi sendiri, kotak bekal muncul di depannya, makan pakai sumpit, dan yang duduk berhadapan ngobrol. Sekali sehari per orang |
+| 17:00 sampai 17:10 | Rekap hari ini di layar status tim: jumlah tugas selesai, total jam kerja, tool yang paling sering dipakai, dan per anggota. Arisu bacain ringkasannya sekali (2B kalau Arisu lagi nggak ada). Hitungannya per hari kantor, disimpan di browser, isinya cuma angka dan nama tool |
 | Mulai 19:00 | Pulang satu-satu lewat pintu masuk, selang 5 menit. Ruby duluan, 2B paling akhir jam 19:55. Lampu meja yang orangnya udah pulang mati, dan lampu ruangan makin redup makin sepi kantornya |
 | Mulai 07:30 | Dateng lagi lewat pintu, selang 4 menit, 2B paling pagi |
 
-Kalau ada tugas masuk buat cast yang lagi di rumah, dia masuk lewat pintu dan langsung ke mejanya. Istirahat biasa (duduk di meja, nonton TV, dan sejenisnya) dipotong pas ritual mulai. Yang lagi bawa gelas atau laptop, atau lagi main pingpong, nyelesaiin itu dulu. Mau lihat tanpa nunggu jamnya? Buka `/office/?clock=09:30`, `?clock=12:00`, atau `?clock=21:00` di versi web.
+Kalau ada tugas masuk buat cast yang lagi di rumah, dia masuk lewat pintu dan langsung ke mejanya. Istirahat biasa (duduk di meja, nonton TV, dan sejenisnya) dipotong pas ritual mulai. Yang lagi bawa gelas atau laptop, atau lagi main pingpong, nyelesaiin itu dulu. Mau lihat tanpa nunggu jamnya? Buka `/office/?clock=09:30`, `?clock=12:00`, `?clock=17:00`, atau `?clock=21:00` di versi web.
 
 **Pas nggak ada tugas**, tiap cast milih kegiatan sendiri dan jalan ke sana tanpa nembus furnitur atau cast lain: kerja santai di meja, bikin kopi, ngemil di kulkas, cuci tangan di wastafel, manasin makanan di oven, nonton TV, main game di sofa, main arcade, lari di treadmill, ninju samsak, ngelihatin ikan di akuarium, ngobrol di meja tinggi pojok kolaborasi, nyiram tanaman, rebahan di beanbag, baca, ngobrol di meja bar, meeting di meja tengah, atau main pingpong. Sebagian besar waktunya di meja: satu sesi di meja 2,5 sampai 5 menit dan bisa langsung disambung sesi berikutnya, jadi tiap orang rata-rata ninggalin meja sekitar 8 kali per jam. Abis istirahat, kemungkinan besar dia balik lagi ke meja. Biar nggak monoton:
 - Kegiatan yang sama nggak dipilih dua kali berturut-turut, dan tiap kegiatan punya jeda sebelum bisa diulang.
