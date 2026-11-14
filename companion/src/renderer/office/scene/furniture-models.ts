@@ -1,6 +1,9 @@
 import type { Object3D } from "three";
 import aquariumUrl from "../assets/furniture/aquarium.glb?url";
 import arcadePacmanUrl from "../assets/furniture/arcadePacman.glb?url";
+import awardDiscUrl from "../assets/furniture/award-disc.glb?url";
+import awardGlassUrl from "../assets/furniture/award-glass.glb?url";
+import awardPlaqueUrl from "../assets/furniture/award-plaque.glb?url";
 import beanbagUrl from "../assets/furniture/beanbag.glb?url";
 import bearUrl from "../assets/furniture/bear.glb?url";
 import benchCushionLowUrl from "../assets/furniture/benchCushionLow.glb?url";
@@ -9,6 +12,7 @@ import bookcaseOpenLowUrl from "../assets/furniture/bookcaseOpenLow.glb?url";
 import booksUrl from "../assets/furniture/books.glb?url";
 import cabinetTelevisionUrl from "../assets/furniture/cabinetTelevision.glb?url";
 import cameraTripodUrl from "../assets/furniture/cameraTripod.glb?url";
+import catBowlUrl from "../assets/furniture/cat-bowl.glb?url";
 import coatRackStandingUrl from "../assets/furniture/coatRackStanding.glb?url";
 import curvedMonitorUrl from "../assets/furniture/curvedMonitor.glb?url";
 import gamingLaptopUrl from "../assets/furniture/gamingLaptop.glb?url";
@@ -78,6 +82,11 @@ const urls = {
   ringLight: ringLightUrl,
   cameraTripod: cameraTripodUrl,
   aquarium: aquariumUrl,
+  // The awards in the display cabinet and Mochi's bowl, credited the same way.
+  awardDisc: awardDiscUrl,
+  awardPlaque: awardPlaqueUrl,
+  awardGlass: awardGlassUrl,
+  catBowl: catBowlUrl,
   // Kenney Furniture Kit, CC0.
   televisionModern: televisionModernUrl,
   speakerSmall: speakerSmallUrl,

@@ -1,4 +1,15 @@
-import { CanvasTexture, Group, MeshStandardMaterial, PlaneGeometry, SRGBColorSpace, type Texture } from "three";
+import {
+  CanvasTexture,
+  Group,
+  type Material,
+  Mesh,
+  MeshStandardMaterial,
+  type Object3D,
+  PlaneGeometry,
+  SRGBColorSpace,
+  type Texture,
+} from "three";
+import { furnitureModel } from "./furniture-models.js";
 import { box, mesh, palette, standard, unlit } from "./palette.js";
 
 /**
@@ -59,6 +70,27 @@ export function engraving(logo: Texture, text: AwardText, width: number, top: nu
   return group;
 }
 
+/** Clear acrylic: barely there except where light catches it. */
+function acrylicMaterial(): MeshStandardMaterial {
+  return new MeshStandardMaterial({
+    color: "#cfe8ff",
+    roughness: 0.05,
+    metalness: 0,
+    transparent: true,
+    opacity: 0.16,
+    depthWrite: false,
+  });
+}
+
+/** Every material of `model` that `pick` chooses becomes `replacement`. */
+function swapMaterials(model: Object3D, pick: (material: Material) => boolean, replacement: Material): void {
+  model.traverse((part) => {
+    if (part instanceof Mesh && !Array.isArray(part.material) && pick(part.material)) {
+      part.material = replacement;
+    }
+  });
+}
+
 const slabWidth = 0.1;
 const slabThickness = 0.014;
 const baseHeight = 0.028;
@@ -70,14 +102,7 @@ const baseHeight = 0.028;
 export function acrylicAward(logo: Texture, text: AwardText, height: number): Group {
   const award = new Group();
   const slabHeight = height - baseHeight;
-  const acrylic = new MeshStandardMaterial({
-    color: "#cfe8ff",
-    roughness: 0.05,
-    metalness: 0,
-    transparent: true,
-    opacity: 0.16,
-    depthWrite: false,
-  });
+  const acrylic = acrylicMaterial();
   // Clear acrylic shows mostly at its cut edges, which catch the light a little blue.
   const edge = new MeshStandardMaterial({ color: "#a9d4f5", roughness: 0.1, transparent: true, opacity: 0.7 });
   const bottom = baseHeight - 0.004;
@@ -92,5 +117,59 @@ export function acrylicAward(logo: Texture, text: AwardText, height: number): Gr
   const front = engraving(logo, text, slabWidth, height - 0.004);
   front.position.z = slabThickness / 2 + 0.0008;
   award.add(front);
+  return award;
+}
+
+/**
+ * A round crystal award on its own block, both clear ("Award 4" by MDgraphicLAB, CC-BY-4.0). The
+ * disc is 12 cm across, its middle 10.5 cm up and its face 6 mm in front. Without the model it is
+ * an acrylic slab of the same height.
+ */
+export function discAward(logo: Texture, text: AwardText): Group {
+  const model = furnitureModel("awardDisc");
+  if (model === null) {
+    return acrylicAward(logo, text, 0.165);
+  }
+  const award = new Group();
+  swapMaterials(model, () => true, acrylicMaterial());
+  award.add(model);
+  const width = 0.075;
+  const front = engraving(logo, text, width, 0.105 + width * 0.49);
+  front.position.z = 0.0068;
+  award.add(front);
+  return award;
+}
+
+/**
+ * A glass blade standing in a gold-trimmed base ("Glass Trophy" by ikhwanulnull, CC-BY-4.0), 17.6
+ * cm tall, its glass 6 cm wide and its face 9 mm in front. The printing goes below the dark name
+ * plate at its top. Without the model it is an acrylic slab of the same height.
+ */
+export function glassAward(logo: Texture, text: AwardText): Group {
+  const model = furnitureModel("awardGlass");
+  if (model === null) {
+    return acrylicAward(logo, text, 0.176);
+  }
+  const award = new Group();
+  swapMaterials(model, (material) => material.name === "Material.003", acrylicMaterial());
+  award.add(model);
+  const front = engraving(logo, text, 0.05, 0.128);
+  front.position.z = 0.0098;
+  award.add(front);
+  return award;
+}
+
+/**
+ * A wooden plaque on its stand ("Plaque" by omccartan, CC-BY-4.0). Its brass panel already reads
+ * "BEST DEMO, AlyxLabs Demo Day 2025" with the logo: the words were painted into its texture in
+ * place of the original engraving. Without the model it is an acrylic slab.
+ */
+export function plaqueAward(logo: Texture): Group {
+  const model = furnitureModel("awardPlaque");
+  if (model === null) {
+    return acrylicAward(logo, { title: "BEST DEMO", lines: ["AlyxLabs Demo Day 2025"] }, 0.16);
+  }
+  const award = new Group();
+  award.add(model);
   return award;
 }

@@ -19,6 +19,7 @@ import {
   MeshStandardMaterial,
   type Object3D,
   PlaneGeometry,
+  Raycaster,
   Shape,
   SphereGeometry,
   SRGBColorSpace,
@@ -29,7 +30,7 @@ import {
 } from "three";
 import { type Furniture, people, surface } from "../office-plan.js";
 import { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./animated.js";
-import { acrylicAward } from "./awards.js";
+import { acrylicAward, discAward, glassAward, plaqueAward } from "./awards.js";
 import { type FoodModelName, foodModel, kitScale, roomScale } from "./food-models.js";
 import { furnitureModel } from "./furniture-models.js";
 import { handPropModel, type PropLook } from "./hand-props.js";
@@ -2060,23 +2061,16 @@ export function buildSideTable(piece: Furniture): Group {
   return root;
 }
 
-/** A hackathon cup in gold on a dark base, `height` tall. */
-function trophy(height: number): Group {
-  const gold = standard("#d4af37", 0.3, 0.8);
-  const group = new Group();
-  const base = box(height * 0.45, height * 0.18, height * 0.45, standard(palette.inkDeep, 0.4), 0, 0, 0);
-  const stem = mesh(new CylinderGeometry(height * 0.05, height * 0.09, height * 0.3, 10), gold);
-  stem.position.y = height * 0.33;
-  const cup = mesh(new CylinderGeometry(height * 0.28, height * 0.12, height * 0.42, 16, 1, true), gold);
-  cup.position.y = height * 0.69;
-  const handles = [-1, 1].map((side) => {
-    const handle = mesh(new TorusGeometry(height * 0.1, height * 0.025, 6, 12, Math.PI), gold);
-    handle.rotation.z = (side * Math.PI) / 2;
-    handle.position.set(side * height * 0.28, height * 0.72, 0);
-    return handle;
-  });
-  group.add(base, stem, cup, ...handles);
-  return group;
+/**
+ * The height of the first shelf under (`x`, `from`, `z`) in `root`'s own space, found by looking
+ * straight down through the shelving already in it, or the floor when nothing is there.
+ */
+function shelfBelow(root: Group, x: number, z: number, from: number): number {
+  root.updateMatrixWorld(true);
+  const origin = root.localToWorld(new Vector3(x, from, z));
+  const down = new Vector3(0, -1, 0).transformDirection(root.matrixWorld);
+  const [hit] = new Raycaster(origin, down).intersectObject(root, true);
+  return hit === undefined ? 0 : root.worldToLocal(hit.point.clone()).y;
 }
 
 /** The framed photo from the hackathon the team won, drawn once. */
@@ -2118,7 +2112,7 @@ function hackathonPhoto(): CanvasTexture {
 
 /**
  * A low cabinet of the team's keepsakes: three of Kenney's low open shelves side by side, with
- * the hackathon cups, the winning photo, a teddy bear and a radio on top.
+ * the team's awards on top and on the bottom shelves, the winning photo, a teddy bear and a radio.
  */
 export function buildDisplayCabinet(piece: Furniture, logo: Texture): Group {
   const root = placed(piece);
@@ -2136,9 +2130,16 @@ export function buildDisplayCabinet(piece: Furniture, logo: Texture): Group {
   }
   // The team's first win, the 24-hour hackathon in the photo beside it.
   const big = acrylicAward(logo, { title: "1ST PLACE", lines: ["24-Hour Hackathon", "AlyxLabs 2026"] }, 0.2);
-  big.position.set(-0.05, height, 0);
-  const small = trophy(0.11);
-  small.position.set(0.1, height, 0.04);
+  // The units' corner posts stand up at the joins, so each thing sits between them.
+  big.position.set(-0.1, height, 0);
+  const small = discAward(logo, { title: "PEOPLE'S CHOICE", lines: ["AlyxLabs Hackathon 2025"] });
+  small.position.set(0.1, height, 0.02);
+  // On the middle shelf of the end units, seen through their open fronts.
+  const plaque = plaqueAward(logo);
+  plaque.position.set(-width / 3, shelfBelow(root, -width / 3, 0.02, height - 0.05), 0.02);
+  const glass = glassAward(logo, { title: "MOST INNOVATIVE", lines: ["AI Build Week 2026"] });
+  glass.position.set(width / 3, shelfBelow(root, width / 3, 0.02, height - 0.05), 0.02);
+  root.add(plaque, glass);
   // Leaning back a little, the way a frame stands on its own foot.
   const frame = new Group();
   frame.add(
@@ -2148,7 +2149,7 @@ export function buildDisplayCabinet(piece: Furniture, logo: Texture): Group {
   const photo = frame.children[1];
   photo?.position.set(0, 0.0775, 0.007);
   frame.rotation.x = -0.15;
-  frame.position.set(0.3, height, 0.02);
+  frame.position.set(0.33, height, 0.02);
   root.add(big, small, frame);
   const bear = kitPiece("bear", { height: 0.2 }, { fur: "#a8744f", wood: palette.oak });
   if (bear !== null) {
@@ -2157,7 +2158,7 @@ export function buildDisplayCabinet(piece: Furniture, logo: Texture): Group {
   }
   const radio = kitPiece("radio", { height: 0.12 }, { metalMedium: palette.inkSoft, wood: palette.oak });
   if (radio !== null) {
-    radio.position.set(0.48, height, -0.04);
+    radio.position.set(0.52, height, -0.04);
     root.add(radio);
   }
   return root;
