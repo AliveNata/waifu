@@ -1,4 +1,4 @@
-import { Box3 } from "three";
+import { Box3, type Object3D } from "three";
 import { beforeAll, describe, expect, it } from "vitest";
 import { bentoOf } from "../src/renderer/office/scene/bento-models.js";
 import { LunchBox, lunchOffset } from "../src/renderer/office/scene/lunch-box.js";
@@ -37,6 +37,26 @@ describe("lunch boxes", () => {
 
     // Assert
     expect(middle).toBe(0);
+  });
+
+  it("sets the drink at the eater's right hand, clear of the box", () => {
+    // Arrange: the sitter faces -z, so their right is +x. Rias drinks from her own mug, built in code.
+    const lunch = new LunchBox(0.73, 0.23);
+
+    // Act
+    lunch.serve("rias");
+    lunch.root.updateMatrixWorld(true);
+    const setting = lunch.root.children.find((child) => child.visible);
+    const [box, drink] = setting?.children ?? [];
+
+    // Assert
+    expect(box).toBeDefined();
+    expect(drink).toBeDefined();
+    const boxBounds = new Box3().setFromObject(box as Object3D);
+    const drinkBounds = new Box3().setFromObject(drink as Object3D);
+    expect(drinkBounds.min.x).toBeGreaterThan(boxBounds.max.x);
+    expect(drinkBounds.min.y).toBeCloseTo(0.73, 3);
+    expect(drinkBounds.max.z).toBeLessThan(0.23);
   });
 
   it("shows the plain bento for whoever sits down when their model is not loaded, and clears it after", () => {

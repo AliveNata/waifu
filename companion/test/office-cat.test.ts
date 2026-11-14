@@ -1,14 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
   afterMeal,
+  beggingBesideChair,
   Cat,
   type CatSpotId,
   catSpots,
+  chairNap,
+  followSpot,
   hopHeight,
   keyboardLiftPath,
   nextCatPlan,
+  playMoment,
+  playRoundSeconds,
+  stretchMs,
 } from "../src/renderer/office/office-cat.js";
 import { navGrid } from "../src/renderer/office/office-nav.js";
+import { stations } from "../src/renderer/office/office-plan.js";
 
 function seeded(seed: number): () => number {
   let state = seed;
@@ -20,7 +27,7 @@ function seeded(seed: number): () => number {
 
 const none: ReadonlySet<CatSpotId> = new Set();
 /** Nothing special going on: fed, bowl full, no game on. */
-const calm = { snacking: false, unavailable: none, hungry: false, bowlFood: 1, rally: false };
+const calm = { snacking: false, unavailable: none, hungry: false, bowlFood: 1, rally: false, lunching: false };
 
 describe("Mochi's day", () => {
   it("sleeps on through the night instead of getting up", () => {
@@ -85,6 +92,104 @@ describe("Mochi's day", () => {
   });
 });
 
+describe("Mochi's new habits", () => {
+  const toAquarium = () => ({
+    plan: { spot: "aquarium" as const, pose: "stare" as const, durationMs: 60_000 },
+    target: catSpots.aquarium,
+  });
+
+  it("stretches where she slept before she goes anywhere", () => {
+    // Arrange: asleep on the beanbag from the start, waking at 45 s.
+    const cat = new Cat("beanbag");
+    cat.update(0.05, 0, toAquarium, false, null);
+
+    // Act
+    const waking = cat.update(0.05, 46_000, toAquarium, false, null);
+    const stillStretching = cat.update(0.05, 46_000 + stretchMs - 100, toAquarium, false, null);
+    const off = cat.update(0.05, 46_000 + stretchMs, toAquarium, false, null);
+
+    // Assert
+    expect(waking).toBe("stretch");
+    expect(stillStretching).toBe("stretch");
+    expect(off).toBe("walk");
+  });
+
+  it("sleeps on without stretching when the next nap is in the same place", () => {
+    // Arrange: night, and she chooses the beanbag again.
+    const cat = new Cat("beanbag");
+    const toBeanbag = () => ({
+      plan: { spot: "beanbag" as const, pose: "sleep" as const, durationMs: 60_000 },
+      target: catSpots.beanbag,
+    });
+    cat.update(0.05, 0, toBeanbag, false, null);
+
+    // Act
+    const pose = cat.update(0.05, 46_000, toBeanbag, false, null);
+
+    // Assert
+    expect(pose).toBe("sleep");
+  });
+
+  it("plays only by day, and never while she is somewhere she cannot", () => {
+    // Arrange
+    const random = seeded(31);
+    const picks = (hours: number) =>
+      Array.from({ length: 300 }, () => nextCatPlan("aquarium", hours, random, calm)).filter(
+        (plan) => plan.spot === "toy",
+      );
+
+    // Act
+    const day = picks(14);
+    const night = picks(23);
+
+    // Assert
+    expect(day.length).toBeGreaterThan(5);
+    expect(day.every((plan) => plan.pose === "play")).toBe(true);
+    expect(night).toHaveLength(0);
+  });
+
+  it("goes through a round of play and comes back to where she began", () => {
+    // Act
+    const start = playMoment(0);
+    const end = playMoment(playRoundSeconds - 1e-6);
+    const samples = Array.from({ length: 340 }, (_, index) => playMoment((index / 340) * playRoundSeconds));
+
+    // Assert: crouched, then off the floor in the pounce, then batting; the ball always ahead of her.
+    expect(Math.max(...samples.map((moment) => moment.crouch))).toBeCloseTo(1, 2);
+    expect(Math.max(...samples.map((moment) => moment.lift))).toBeGreaterThan(0.05);
+    expect(Math.max(...samples.map((moment) => moment.bat))).toBeGreaterThan(0.9);
+    expect(Math.min(...samples.map((moment) => moment.ballAhead - moment.forward))).toBeGreaterThan(0.1);
+    expect(end.forward).toBeCloseTo(start.forward, 3);
+    expect(end.ballAhead).toBeCloseTo(start.ballAhead, 3);
+  });
+
+  it("tags along a little behind whoever she follows, facing them", () => {
+    // Arrange: someone in the middle of the room, walking toward +x.
+    const walker = { x: 0.4, z: 0.5 };
+
+    // Act
+    const spot = followSpot(walker, Math.PI / 2);
+
+    // Assert
+    expect(spot.spot.x).toBeLessThan(walker.x);
+    expect(Math.hypot(spot.spot.x - walker.x, spot.spot.z - walker.z)).toBeLessThan(1);
+    expect(spot.facing).toBeCloseTo(Math.atan2(walker.x - spot.spot.x, walker.z - spot.spot.z), 5);
+  });
+
+  it("naps on a meeting chair's seat, hopping up from the floor in front of it", () => {
+    // Arrange
+    const chair = stations["meeting-1"];
+
+    // Act
+    const nap = chairNap(chair);
+
+    // Assert
+    expect(nap.height).toBeGreaterThan(0.2);
+    expect(nap.spot).toEqual(chair.spot);
+    expect(navGrid.isFree(nap.approach)).toBe(true);
+  });
+});
+
 describe("Mochi moving about", () => {
   const toAquarium = () => ({
     plan: { spot: "aquarium" as const, pose: "stare" as const, durationMs: 60_000 },
@@ -96,7 +201,9 @@ describe("Mochi moving about", () => {
     // She starts asleep for a while before her first plan.
     const cat = new Cat("beanbag");
     cat.update(0.05, 0, toAquarium, false, null);
-    let now = 46_000;
+    // Awake at 45 s: a stretch, then off.
+    cat.update(0.05, 46_000, toAquarium, false, null);
+    let now = 46_000 + stretchMs;
     let pose = cat.update(0.05, now, toAquarium, false, null);
 
     // Act: two minutes of frames, plenty to cross the room.
@@ -118,7 +225,8 @@ describe("Mochi moving about", () => {
     // Arrange: down off the beanbag and walking the floor on her way somewhere.
     const cat = new Cat("beanbag");
     cat.update(0.05, 0, toAquarium, false, null);
-    let now = 46_000;
+    cat.update(0.05, 46_000, toAquarium, false, null);
+    let now = 46_000 + stretchMs;
     for (let frame = 0; frame < 40; frame++) {
       now += 50;
       cat.update(0.05, now, toAquarium, false, null);
@@ -139,11 +247,12 @@ describe("Mochi moving about", () => {
     const cat = new Cat("beanbag");
     cat.update(0.05, 0, toAquarium, false, null);
     cat.update(0.05, 46_000, toAquarium, false, null);
-    cat.update(0.1, 46_100, toAquarium, false, null);
+    cat.update(0.05, 46_000 + stretchMs, toAquarium, false, null);
+    cat.update(0.1, 46_100 + stretchMs, toAquarium, false, null);
     const midHop = cat.height;
 
     // Act: held from here on.
-    let now = 46_100;
+    let now = 46_100 + stretchMs;
     for (let frame = 0; frame < 40; frame++) {
       now += 50;
       cat.update(0.05, now, toAquarium, true, 0);
@@ -212,6 +321,42 @@ describe("Mochi's bowl, naps and ping-pong", () => {
     expect(rally).toBeGreaterThan(30);
   });
 
+  it("comes to beg at the meeting table only while someone is eating lunch there", () => {
+    // Arrange
+    const random = seeded(21);
+    const picks = (lunching: boolean) =>
+      Array.from({ length: 200 }, () => nextCatPlan("aquarium", 12, random, { ...calm, lunching })).filter(
+        (plan) => plan.spot === "lunch",
+      );
+
+    // Act
+    const quiet = picks(false);
+    const lunch = picks(true);
+
+    // Assert
+    expect(quiet).toHaveLength(0);
+    expect(lunch.length).toBeGreaterThan(30);
+    expect(lunch.every((plan) => plan.pose === "beg")).toBe(true);
+  });
+
+  it("sits on the floor beside the eater's chair, facing them", () => {
+    // Arrange
+    const chair = stations["meeting-3"];
+
+    for (const roll of [0.2, 0.8]) {
+      // Act
+      const spot = beggingBesideChair(chair, () => roll);
+      const away = Math.hypot(spot.spot.x - chair.spot.x, spot.spot.z - chair.spot.z);
+      const toChair = Math.atan2(chair.spot.x - spot.spot.x, chair.spot.z - spot.spot.z);
+
+      // Assert
+      expect(spot.height).toBe(0);
+      expect(away).toBeGreaterThan(0.2);
+      expect(away).toBeLessThan(0.6);
+      expect(Math.abs(Math.atan2(Math.sin(spot.facing - toChair), Math.cos(spot.facing - toChair)))).toBeLessThan(0.01);
+    }
+  });
+
   it("hops up onto a desk by its short leg and settles on the keys at desk height", () => {
     // Arrange: a keyboard on a desk 0.55 m up, reached over a leg at the same height.
     const cat = new Cat("beanbag");
@@ -223,7 +368,8 @@ describe("Mochi's bowl, naps and ping-pong", () => {
     };
     const toKeys = () => ({ plan: { spot: "keyboard" as const, pose: "sleep" as const, durationMs: 12_000 }, target });
     cat.update(0.05, 0, toKeys, false, null);
-    let now = 46_000;
+    cat.update(0.05, 46_000, toKeys, false, null);
+    let now = 46_000 + stretchMs;
     cat.update(0.05, now, toKeys, false, null);
     let highest = 0;
 

@@ -1,5 +1,13 @@
-import { ConeGeometry, CylinderGeometry, Group, type Mesh, SphereGeometry } from "three";
-import type { CatPose } from "../office-cat.js";
+import {
+  ConeGeometry,
+  CylinderGeometry,
+  Group,
+  IcosahedronGeometry,
+  type Mesh,
+  SphereGeometry,
+  TorusGeometry,
+} from "three";
+import { type CatPose, playMoment } from "../office-cat.js";
 import { ModelCat } from "./cat-model.js";
 import { box, mesh, standard } from "./palette.js";
 
@@ -45,8 +53,12 @@ export class OfficeCat {
   private readonly tail: Group[] = [];
   private readonly eyes: Mesh[] = [];
   private readonly model = ModelCat.create();
+  /** Her ball of yarn, out only while she plays with it. */
+  private readonly ball = yarnBall();
 
   constructor() {
+    this.ball.visible = false;
+    this.root.add(this.ball);
     if (this.model !== null) {
       this.root.add(this.model.root);
       return;
@@ -130,6 +142,12 @@ export class OfficeCat {
   }
 
   update(frame: CatFrame): void {
+    this.ball.visible = frame.pose === "play";
+    if (this.ball.visible) {
+      const moment = playMoment(frame.time);
+      this.ball.position.z = moment.ballAhead;
+      this.ball.rotation.x = moment.ballTurn;
+    }
     if (this.model !== null) {
       this.model.update(frame);
       return;
@@ -158,7 +176,14 @@ export class OfficeCat {
         neckPitch = 0.05 * Math.sin(frame.walkPhase * 2);
         bodyY = hipHeight + 0.004 * Math.abs(swing);
         break;
+      case "stretch":
+        // Chest down and front legs out, rump still up.
+        bodyPitch = 0.35;
+        neckPitch = -0.4;
+        tailLift = 0.7;
+        break;
       case "sit":
+      case "play":
       case "beg":
       case "stare":
       case "groom":
@@ -243,6 +268,27 @@ export class OfficeCat {
       joint.rotation.y = tailWrap + tailSway * (0.4 + index * 0.25);
     });
   }
+}
+
+const ballRadius = 0.022;
+
+/** A ball of yarn, wound round a few ways, resting on the floor at the origin. */
+function yarnBall(): Group {
+  const ball = new Group();
+  const yarn = standard("#d9566b", 0.95);
+  const core = mesh(new IcosahedronGeometry(ballRadius, 2), yarn, false);
+  ball.add(core);
+  for (const [x, y] of [
+    [0, 0],
+    [Math.PI / 2, 0],
+    [Math.PI / 3, Math.PI / 4],
+  ] as const) {
+    const wind = mesh(new TorusGeometry(ballRadius, 0.003, 4, 20), standard("#b8414f", 0.95), false);
+    wind.rotation.set(x, y, 0);
+    ball.add(wind);
+  }
+  ball.position.y = ballRadius;
+  return ball;
 }
 
 /** Mochi's food bowl: a shallow dish with kibble in it, more or less full. */

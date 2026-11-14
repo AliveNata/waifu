@@ -80,6 +80,7 @@ import { eatStyles, lunchMoment, speakerGestureKinds } from "./lunch-eating.js";
 import { type ActorState, angleDelta, initialActor, isWalking, stepActor } from "./office-actor.js";
 import {
   afterMeal,
+  beggingBesideChair,
   bowlSpot,
   Cat,
   type CatChoice,
@@ -87,6 +88,8 @@ import {
   catLine,
   catName,
   catSpots,
+  chairNap,
+  followSpot,
   greetingsForCat,
   hungerSeconds,
   keyboardLiftPath,
@@ -140,6 +143,7 @@ import {
   distance,
   floorHeightAt,
   furniture,
+  type MeetingStationId,
   meetingStationIds,
   type Point,
   room,
@@ -545,6 +549,28 @@ const mealSeconds = 5;
 const catPetSeconds = 3;
 /** Her back, off whatever she lies or sits on: where a stroking hand lands. */
 const catBackHeight = 0.17;
+/** Someone with at least this far still to walk is worth Mochi tagging along behind, in meters. */
+const followFrom = 3;
+/** She only tags along behind someone passing within this far of her, in meters. */
+const followNear = 4;
+/** She gives up following after this long, in seconds, whether or not they have got there. */
+const followLongest = 40;
+/** How often her path is brought up to date while following, in seconds. */
+const followRetarget = 0.6;
+/** How far they get from where she was headed before she changes course, in meters. */
+const followSlack = 0.4;
+
+/** The length of a walk from `from` along the waypoints still ahead. */
+function pathLength(from: Point, path: readonly Point[]): number {
+  let total = 0;
+  let at = from;
+  for (const point of path) {
+    total += distance(at, point);
+    at = point;
+  }
+  return total;
+}
+
 /** A teammate walking this close to Mochi says hello to her. */
 const catGreetDistance = 1;
 /** Seconds before the same teammate greets her again, and before anyone does. */
@@ -651,6 +677,10 @@ export class OfficeStage {
   /** The meal (by arrival time) already taken out of the bowl. */
   private catAte: number | null = null;
   private bowlRefilledAt = Number.NEGATIVE_INFINITY;
+  /** Whom Mochi is tagging along behind, since when, and when her path was last brought up to date. */
+  private catFollow: { memberId: MemberId; since: number; retargetedAt: number } | null = null;
+  /** The meeting chair she is napping on, or headed for. */
+  private catChair: MeetingStationId | null = null;
   /** Asleep on someone's keyboard: whose, when they lift her, and the lift once it has started. */
   private catNap: {
     owner: DeskMember;
@@ -1762,13 +1792,54 @@ export class OfficeStage {
       unavailable.add("keyboard");
     }
     const snacking = memberIds.some((memberId) => this.rigs[memberId].action === "snack");
+    // Teammates sat down to lunch at the meeting table, whose chair she might sit by and ask.
+    const eating = memberIds.filter((memberId) => {
+      const step = this.lifeSteps[memberId];
+      return step?.activity === "lunch" && step.arrivedAt !== null && step.station.startsWith("meeting-");
+    });
+    if (eating.length === 0) {
+      unavailable.add("lunch");
+    }
+    // Someone passing close by on their way across the office, far enough to be worth tagging along.
+    const walkers = memberIds.filter((memberId) => {
+      const { actor, avatar } = this.rigs[memberId];
+      return (
+        avatar.root.visible &&
+        isWalking(actor) &&
+        distance(actor.position, this.cat.position) < followNear &&
+        pathLength(actor.position, actor.path) > followFrom
+      );
+    });
+    if (walkers.length === 0) {
+      unavailable.add("follow");
+    }
+    const freeChairs = meetingStationIds.filter((seat) => this.chairIsFree(seat));
+    if (freeChairs.length === 0) {
+      unavailable.add("chair");
+    }
     const plan = nextCatPlan(previous, jakartaHours(this.clock()), Math.random, {
       snacking,
       unavailable,
       hungry: this.catHunger >= hungryFrom,
       bowlFood: this.bowlFood,
       rally: this.office.pingpongBall.visible,
+      lunching: eating.length > 0,
     });
+    if (plan.spot === "follow") {
+      const followed = walkers[Math.floor(Math.random() * walkers.length) % walkers.length] as MemberId;
+      const { actor } = this.rigs[followed];
+      this.catFollow = { memberId: followed, since: this.elapsed, retargetedAt: this.elapsed };
+      return { plan, target: followSpot(actor.position, actor.yaw) };
+    }
+    if (plan.spot === "chair") {
+      const seat = freeChairs[Math.floor(Math.random() * freeChairs.length) % freeChairs.length] as MeetingStationId;
+      this.catChair = seat;
+      return { plan, target: chairNap(stations[seat]) };
+    }
+    if (plan.spot === "lunch") {
+      const eater = eating[Math.floor(Math.random() * eating.length) % eating.length] as MemberId;
+      return { plan, target: beggingBesideChair(stations[this.lifeSteps[eater]?.station as StationId], Math.random) };
+    }
     if (plan.spot === "keyboard") {
       const owner = keyboards[Math.floor(Math.random() * keyboards.length) % keyboards.length] as DeskMember;
       return { plan, target: this.keyboardPerch(owner) };
@@ -1783,6 +1854,47 @@ export class OfficeStage {
       plan,
       target: { spot, height: 0, approach: spot, facing: Math.atan2(desk.spot.x - spot.x, desk.spot.z - spot.z) },
     };
+  }
+
+  /** A meeting chair nobody sits on or is on the way to. */
+  private chairIsFree(seat: MeetingStationId): boolean {
+    return memberIds.every((memberId) => {
+      const rig = this.rigs[memberId];
+      return rig.plan.station !== seat && rig.actor.target !== seat && this.lifeSteps[memberId]?.station !== seat;
+    });
+  }
+
+  /**
+   * Mochi on the move with someone: trotting after whoever she follows as they walk on, and off a
+   * meeting chair as soon as anyone heads for it.
+   */
+  private updateCatCompany(): void {
+    const follow = this.catFollow;
+    if (follow !== null) {
+      const rig = this.rigs[follow.memberId];
+      if (this.cat.spotId !== "follow") {
+        this.catFollow = null;
+      } else if (!rig.avatar.root.visible || this.elapsed - follow.since > followLongest) {
+        // Out of the door, or a long way round: she gives up and finds something else to do.
+        this.cat.leave();
+        this.catFollow = null;
+      } else if (this.elapsed - follow.retargetedAt > followRetarget) {
+        follow.retargetedAt = this.elapsed;
+        const next = followSpot(rig.actor.position, rig.actor.yaw);
+        if (distance(next.spot, this.cat.heading.spot) > followSlack) {
+          this.cat.retarget(next);
+        }
+      }
+    }
+    const chair = this.catChair;
+    if (chair !== null) {
+      if (this.cat.spotId !== "chair") {
+        this.catChair = null;
+      } else if (!this.chairIsFree(chair)) {
+        this.cat.leave();
+        this.catChair = null;
+      }
+    }
   }
 
   /**
@@ -1913,6 +2025,7 @@ export class OfficeStage {
     const { position } = this.cat;
     const face = look === null ? null : Math.atan2(look.x - position.x, look.z - position.z);
     this.updateCatNap();
+    this.updateCatCompany();
     const pose = this.cat.update(delta, now, (previous) => this.chooseCatPlan(previous), petted, face);
     this.updateCatFood(delta, pose);
     // Begging at the fridge: one plaintive meow once she gets there.
