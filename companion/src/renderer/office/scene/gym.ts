@@ -543,6 +543,18 @@ export function buildHighTable(piece: Furniture): Group {
   const top = surface.barTable;
   const radius = width / 2;
   const frame = standard(palette.ink, 0.5, 0.2);
+  // Kenney's round table (Furniture Kit, CC0), a six-sided top on one pedestal, stretched up to
+  // the bar's height so the stools round it fit, in walnut like the stools.
+  const kit = kitPiece("tableRound", { width, height: top, depth: width }, { wood: palette.walnut });
+  if (kit !== null) {
+    // The accent strip under the six-sided top's edge.
+    const edgeGlow = mesh(new CylinderGeometry(radius - 0.04, radius - 0.04, 0.008, 6), glow());
+    edgeGlow.position.y = top - 0.045;
+    edgeGlow.rotation.y = Math.PI / 6;
+    root.add(kit, edgeGlow);
+    addHuddleLeftovers(root, top);
+    return root;
+  }
   const base = mesh(new CylinderGeometry(radius * 0.55, radius * 0.6, 0.03, 24), frame);
   base.position.y = 0.015;
   const pole = mesh(new CylinderGeometry(0.03, 0.03, top - 0.04, 12), frame);
@@ -554,6 +566,12 @@ export function buildHighTable(piece: Furniture): Group {
   const ring = mesh(new CylinderGeometry(radius - 0.02, radius - 0.02, 0.008, 32), glow());
   ring.position.y = top - 0.04;
   root.add(base, pole, tabletop, ring);
+  addHuddleLeftovers(root, top);
+  return root;
+}
+
+/** A couple of sticky notes and a tablet left on the high table from the last huddle. */
+function addHuddleLeftovers(root: Group, top: number): void {
   for (const [index, color] of ["#ffd84d", "#9fe0ff", "#ff9fc2"].entries()) {
     const note = box(0.05, 0.003, 0.05, standard(color, 0.9), -0.12 + index * 0.06, top, 0.08 - index * 0.03);
     note.rotation.y = (index - 1) * 0.3;
@@ -562,7 +580,6 @@ export function buildHighTable(piece: Furniture): Group {
   const tablet = box(0.16, 0.008, 0.11, standard("#1b1b1f", 0.4), 0.1, top, -0.08);
   tablet.rotation.y = 0.4;
   root.add(tablet);
-  return root;
 }
 
 /**
