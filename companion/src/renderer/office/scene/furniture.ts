@@ -366,8 +366,26 @@ export function buildSofa(piece: Furniture, seatHeight: number): BuiltPiece {
  * Beanbag with a sunken seat and a raised back. The cushion surface is the station's seat
  * height, so a sitter rests on it; the back bump carries a collider so hair drapes over it.
  */
+/**
+ * "Simple Bean Bag" by AleixoAlonso (Sketchfab, CC-BY-4.0): a high back and a dip in front of it.
+ * The dip is about 0.65 of the bag's height and lies about a quarter of its depth ahead of the
+ * middle, so the bag is fitted that much taller than the seat, a little higher so the sitter sinks
+ * in, and set back most of the way toward having the dip under their hips: all the way would push
+ * its back into the wall behind it.
+ */
+const beanbagDip = 0.65;
+const beanbagDipAhead = 0.23;
+
 export function buildBeanbag(piece: Furniture, tint: string, seatHeight: number): BuiltPiece {
   const root = placed(piece);
+  const size = 0.74;
+  const model = furnitureModel("beanbag");
+  if (model !== null) {
+    const bag = fitModel(model, { width: size, height: (seatHeight + 0.02) / beanbagDip, depth: size });
+    bag.position.z = -beanbagDipAhead * size * 0.6;
+    root.add(bag);
+    return { root, hairColliders: [sphereCollider(root, 0, seatHeight + 0.08, -0.22, 0.16)] };
+  }
   const material = standard(tint, 1);
   const base = mesh(new SphereGeometry(0.34, 18, 10), material);
   base.scale.set(1, seatHeight / 0.34, 1);
