@@ -33,6 +33,7 @@ import { type ScreenSize, ScreenSurface } from "../surfaces/screen.js";
 import { screenScripts } from "../surfaces/screen-scripts.js";
 import { curvedScreenGeometry, radiusOfCurve } from "./curved-screen.js";
 import { type DeskGadget, returnSetup } from "./desk-returns.js";
+import { loadedFoodModel } from "./food-models.js";
 import { furnitureModel } from "./furniture-models.js";
 import { handPropModel, type PropLook } from "./hand-props.js";
 import { fitModel, kitPiece } from "./kit.js";
@@ -1237,9 +1238,16 @@ function riasDesk(piece: Furniture): DeskBuild {
   const queen = chessPiece("#b3262f", queenHeight);
   queen.position.copy(chessMove[0]);
 
-  const saucer = mesh(new CylinderGeometry(0.052, 0.044, 0.006, 18), standard("#f7f1ea", 0.3));
-  saucer.position.set(0.32, deskTop + 0.003, nearEdge(depth) + 0.04);
-  const teacup = deskItem(handPropModel("teacup"), 0.32, deskTop + 0.027, nearEdge(depth) + 0.04);
+  // The Food Kit's saucer, or a drawn one when it did not load.
+  const saucerModel = loadedFoodModel("saucer", 0.29);
+  const saucer = saucerModel ?? mesh(new CylinderGeometry(0.052, 0.044, 0.006, 18), standard("#f7f1ea", 0.3));
+  saucer.position.set(0.32, deskTop + (saucerModel === null ? 0.003 : 0), nearEdge(depth) + 0.04);
+  const teacup = deskItem(
+    handPropModel("teacup"),
+    0.32,
+    deskTop + (saucerModel === null ? 0.027 : 0.032),
+    nearEdge(depth) + 0.04,
+  );
 
   const books = new Group();
   for (const [index, color] of ["#5c2a35", "#2f3b55", "#c9a24a"].entries()) {

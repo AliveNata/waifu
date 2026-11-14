@@ -2073,37 +2073,61 @@ function shelfBelow(root: Group, x: number, z: number, from: number): number {
   return hit === undefined ? 0 : root.worldToLocal(hit.point.clone()).y;
 }
 
-/** The framed photo from the hackathon the team won, drawn once. */
-function hackathonPhoto(): CanvasTexture {
+/**
+ * The framed photo on the cabinet: Komachi, the tech lead, holding her own award, the one moment
+ * on the shelf that is one person's rather than the team's. Drawn once.
+ */
+function leadershipPhoto(): CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = 256;
   canvas.height = 192;
   const ctx = canvas.getContext("2d");
   if (ctx !== null) {
-    const sky = ctx.createLinearGradient(0, 0, 0, 192);
-    sky.addColorStop(0, "#3a2a6a");
-    sky.addColorStop(1, "#1b0f2e");
-    ctx.fillStyle = sky;
+    const backdrop = ctx.createLinearGradient(0, 0, 0, 192);
+    backdrop.addColorStop(0, "#2c3150");
+    backdrop.addColorStop(1, "#141629");
+    ctx.fillStyle = backdrop;
     ctx.fillRect(0, 0, 256, 192);
-    // The team in a row, heads and shoulders, in the members' colors.
-    const colors = ["#e8e6f2", "#c9783f", "#c0303a", "#e9c46a", "#4fae6f", "#2b2b30", "#c23a3a", "#f5a8c2"];
-    colors.forEach((color, index) => {
-      const x = 22 + index * 30;
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(x, 112, 11, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillRect(x - 13, 124, 26, 40);
-    });
-    ctx.fillStyle = "#f2c94c";
-    ctx.font = "700 22px 'Segoe UI', system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("1ST PLACE", 128, 40);
+    // A soft spotlight behind her.
+    const spot = ctx.createRadialGradient(70, 110, 6, 70, 110, 80);
+    spot.addColorStop(0, "rgba(201, 162, 245, 0.45)");
+    spot.addColorStop(1, "rgba(201, 162, 245, 0)");
+    ctx.fillStyle = spot;
+    ctx.fillRect(0, 0, 256, 192);
+    // Komachi, head and shoulders in her navy, her dark hair framing her face.
+    ctx.fillStyle = "#1c1c22";
+    ctx.beginPath();
+    ctx.arc(70, 84, 25, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#f2d7c4";
+    ctx.beginPath();
+    ctx.arc(70, 90, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#3b4466";
+    ctx.beginPath();
+    ctx.roundRect(38, 112, 64, 80, 14);
+    ctx.fill();
+    // The award in her hands: a small clear slab on a dark base.
+    ctx.fillStyle = "#11121c";
+    ctx.fillRect(58, 150, 24, 7);
+    ctx.fillStyle = "rgba(220, 238, 255, 0.85)";
+    ctx.fillRect(62, 124, 16, 27);
+    ctx.fillStyle = "#8a3fd6";
+    ctx.fillRect(66, 129, 8, 8);
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#c9a2f5";
+    ctx.font = "700 15px 'Segoe UI', system-ui, sans-serif";
+    ctx.fillText("BEST TECH", 120, 70);
+    ctx.fillText("LEADERSHIP", 120, 88);
     ctx.fillStyle = "#f4f1ec";
-    ctx.font = "600 16px 'Segoe UI', system-ui, sans-serif";
-    ctx.fillText("24-Hour Hackathon", 128, 64);
+    ctx.font = "600 13px 'Segoe UI', system-ui, sans-serif";
+    ctx.fillText("Komachi", 120, 116);
+    ctx.font = "500 11px 'Segoe UI', system-ui, sans-serif";
+    ctx.fillStyle = "#b9bdd6";
+    ctx.fillText("Tech Lead", 120, 132);
+    ctx.fillText("AlyxLabs Awards 2026", 120, 150);
   } else {
-    console.error("[office] no 2D canvas for the hackathon photo");
+    console.error("[office] no 2D canvas for the award photo");
   }
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
@@ -2112,7 +2136,7 @@ function hackathonPhoto(): CanvasTexture {
 
 /**
  * A low cabinet of the team's keepsakes: three of Kenney's low open shelves side by side, with
- * the team's awards on top and on the bottom shelves, the winning photo, a teddy bear and a radio.
+ * the team's awards on top and on the middle shelves, Komachi's award photo, a teddy bear and a radio.
  */
 export function buildDisplayCabinet(piece: Furniture, logo: Texture): Group {
   const root = placed(piece);
@@ -2128,7 +2152,7 @@ export function buildDisplayCabinet(piece: Furniture, logo: Texture): Group {
     shelf.position.x = -width / 2 + (width / units) * (unit + 0.5);
     root.add(shelf);
   }
-  // The team's first win, the 24-hour hackathon in the photo beside it.
+  // The team's first win, at a 24-hour hackathon.
   const big = acrylicAward(logo, { title: "1ST PLACE", lines: ["24-Hour Hackathon", "AlyxLabs 2026"] }, 0.2);
   // The units' corner posts stand up at the joins, so each thing sits between them.
   big.position.set(-0.1, height, 0);
@@ -2144,7 +2168,7 @@ export function buildDisplayCabinet(piece: Furniture, logo: Texture): Group {
   const frame = new Group();
   frame.add(
     box(0.2, 0.155, 0.012, standard(palette.inkDeep, 0.4), 0, 0, 0),
-    mesh(new PlaneGeometry(0.18, 0.135), unlit(hackathonPhoto()), false),
+    mesh(new PlaneGeometry(0.18, 0.135), unlit(leadershipPhoto()), false),
   );
   const photo = frame.children[1];
   photo?.position.set(0, 0.0775, 0.007);

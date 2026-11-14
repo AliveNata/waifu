@@ -6,9 +6,12 @@ import milkUrl from "../assets/food/carton.glb?url";
 import cartonUrl from "../assets/food/carton-small.glb?url";
 import cheeseBlockUrl from "../assets/food/cheese.glb?url";
 import cheeseUrl from "../assets/food/cheese-cut.glb?url";
+import chopstickUrl from "../assets/food/chopstick.glb?url";
 import cookieUrl from "../assets/food/cookie.glb?url";
 import cookieChocolateUrl from "../assets/food/cookie-chocolate.glb?url";
+import cupUrl from "../assets/food/cup.glb?url";
 import coffeeUrl from "../assets/food/cup-coffee.glb?url";
+import saucerUrl from "../assets/food/cup-saucer.glb?url";
 import boardUrl from "../assets/food/cutting-board-round.glb?url";
 import dimSumUrl from "../assets/food/dim-sum.glb?url";
 import frappeUrl from "../assets/food/frappe.glb?url";
@@ -17,6 +20,7 @@ import iceCreamCupUrl from "../assets/food/ice-cream-cup.glb?url";
 import orangeUrl from "../assets/food/orange.glb?url";
 import pizzaUrl from "../assets/food/pizza.glb?url";
 import pizzaBoxUrl from "../assets/food/pizza-box.glb?url";
+import plateUrl from "../assets/food/plate.glb?url";
 import puddingUrl from "../assets/food/pudding.glb?url";
 import sandwichUrl from "../assets/food/sandwich.glb?url";
 import sausageUrl from "../assets/food/sausage-half.glb?url";
@@ -24,6 +28,7 @@ import sodaBottleUrl from "../assets/food/soda-bottle.glb?url";
 import sodaUrl from "../assets/food/soda-can.glb?url";
 import steamerUrl from "../assets/food/steamer.glb?url";
 import tacoUrl from "../assets/food/taco.glb?url";
+import forkUrl from "../assets/food/utensil-fork.glb?url";
 import waffleUrl from "../assets/food/waffle.glb?url";
 
 /**
@@ -58,6 +63,12 @@ const urls = {
   orange: orangeUrl,
   pudding: puddingUrl,
   "soda-bottle": sodaBottleUrl,
+  // Crockery and cutlery for the mugs, teacups, plates, forks and chopsticks people hold.
+  cup: cupUrl,
+  saucer: saucerUrl,
+  plate: plateUrl,
+  fork: forkUrl,
+  chopstick: chopstickUrl,
 } as const;
 
 export type FoodModelName = keyof typeof urls;
@@ -157,6 +168,11 @@ export function foodModel(name: FoodModelName, scale = kitScale): Group {
     group.add(copy);
   }
   return group;
+}
+
+/** A fresh copy at `scale` times the kit's size, or null when it is not loaded, for a stand-in. */
+export function loadedFoodModel(name: FoodModelName, scale = kitScale): Group | null {
+  return templates.has(name) ? foodModel(name, scale) : null;
 }
 
 /** The named parts of a model, such as the pizza's slices or the box's lid, in model order. */
