@@ -2135,7 +2135,7 @@ export function buildDisplayCabinet(piece: Furniture, logo: Texture): Group {
     root.add(shelf);
   }
   // The team's first win, the 24-hour hackathon in the photo beside it.
-  const big = acrylicAward(logo, { title: "JUARA 1", lines: ["Hackathon 24 Jam", "AlyxLabs 2026"] }, 0.2);
+  const big = acrylicAward(logo, { title: "1ST PLACE", lines: ["24-Hour Hackathon", "AlyxLabs 2026"] }, 0.2);
   big.position.set(-0.05, height, 0);
   const small = trophy(0.11);
   small.position.set(0.1, height, 0.04);
