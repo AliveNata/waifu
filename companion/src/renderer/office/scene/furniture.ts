@@ -29,6 +29,7 @@ import {
 } from "three";
 import { type Furniture, people, surface } from "../office-plan.js";
 import { ArcadeScreen, LaptopScreen, RackLights, TvScreen } from "./animated.js";
+import { acrylicAward } from "./awards.js";
 import { type FoodModelName, foodModel, kitScale, roomScale } from "./food-models.js";
 import { furnitureModel } from "./furniture-models.js";
 import { handPropModel, type PropLook } from "./hand-props.js";
@@ -2119,7 +2120,7 @@ function hackathonPhoto(): CanvasTexture {
  * A low cabinet of the team's keepsakes: three of Kenney's low open shelves side by side, with
  * the hackathon cups, the winning photo, a teddy bear and a radio on top.
  */
-export function buildDisplayCabinet(piece: Furniture): Group {
+export function buildDisplayCabinet(piece: Furniture, logo: Texture): Group {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const height = 0.5;
@@ -2133,7 +2134,8 @@ export function buildDisplayCabinet(piece: Furniture): Group {
     shelf.position.x = -width / 2 + (width / units) * (unit + 0.5);
     root.add(shelf);
   }
-  const big = trophy(0.16);
+  // The team's first win, the 24-hour hackathon in the photo beside it.
+  const big = acrylicAward(logo, { title: "JUARA 1", lines: ["Hackathon 24 Jam", "AlyxLabs 2026"] }, 0.2);
   big.position.set(-0.05, height, 0);
   const small = trophy(0.11);
   small.position.set(0.1, height, 0.04);

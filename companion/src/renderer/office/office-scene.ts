@@ -445,7 +445,7 @@ export function buildOffice(): OfficeProps {
         root.add(buildSideTable(piece));
         break;
       case "display-cabinet":
-        root.add(buildDisplayCabinet(piece));
+        root.add(buildDisplayCabinet(piece, logo));
         break;
       case "beanbag":
       case "stool": {
