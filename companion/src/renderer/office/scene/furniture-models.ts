@@ -12,6 +12,7 @@ import cameraTripodUrl from "../assets/furniture/cameraTripod.glb?url";
 import coatRackStandingUrl from "../assets/furniture/coatRackStanding.glb?url";
 import curvedMonitorUrl from "../assets/furniture/curvedMonitor.glb?url";
 import gamingLaptopUrl from "../assets/furniture/gamingLaptop.glb?url";
+import kitchenBarUrl from "../assets/furniture/kitchenBar.glb?url";
 import kitchenCabinetUrl from "../assets/furniture/kitchenCabinet.glb?url";
 import kitchenCoffeeMachineUrl from "../assets/furniture/kitchenCoffeeMachine.glb?url";
 import kitchenFridgeLargeUrl from "../assets/furniture/kitchenFridgeLarge.glb?url";
@@ -37,9 +38,12 @@ import serverRackUrl from "../assets/furniture/serverRack.glb?url";
 import sideTableUrl from "../assets/furniture/sideTable.glb?url";
 import speakerSmallUrl from "../assets/furniture/speakerSmall.glb?url";
 import stoolBarUrl from "../assets/furniture/stoolBar.glb?url";
+import tableUrl from "../assets/furniture/table.glb?url";
 import tableCoffeeUrl from "../assets/furniture/tableCoffee.glb?url";
+import tableRoundUrl from "../assets/furniture/tableRound.glb?url";
 import televisionModernUrl from "../assets/furniture/televisionModern.glb?url";
 import toasterUrl from "../assets/furniture/toaster.glb?url";
+import trashcanUrl from "../assets/furniture/trashcan.glb?url";
 import treadmillUrl from "../assets/furniture/treadmill.glb?url";
 import { loadTemplates } from "./food-models.js";
 
@@ -92,6 +96,10 @@ const urls = {
   toaster: toasterUrl,
   lampRoundFloor: lampRoundFloorUrl,
   lampRoundTable: lampRoundTableUrl,
+  trashcan: trashcanUrl,
+  table: tableUrl,
+  kitchenBar: kitchenBarUrl,
+  tableRound: tableRoundUrl,
   coatRackStanding: coatRackStandingUrl,
 } as const;
 

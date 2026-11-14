@@ -6,6 +6,8 @@ import {
 import {
   Box3,
   BoxGeometry,
+  BufferAttribute,
+  BufferGeometry,
   CanvasTexture,
   CatmullRomCurve3,
   CylinderGeometry,
@@ -731,14 +733,44 @@ function buildOven(x: number, front: number): { root: Group; oven: Oven } {
  * The bar that runs out from the end of the pantry counter, making the L: a raised top that
  * overhangs both sides for the knees of whoever sits on the stools, and a footrest rail each side.
  */
+/**
+ * The bar's body from Kenney's kitchen bar units (Furniture Kit, CC0): panelled on one face only,
+ * so two runs stand back to back and each side the stools are on shows its panels. `across` by
+ * `length` on the floor, `height` up to the underside of the bar's own top. Null when the model
+ * did not load.
+ */
+function kitBarBody(across: number, height: number, length: number): Group | null {
+  const units = Math.max(1, Math.round(length / 0.55));
+  const unitLength = length / units;
+  const body = new Group();
+  for (const side of [-1, 1]) {
+    for (let index = 0; index < units; index++) {
+      // The unit's panel faces its +z; turned a quarter round it faces out along +x or -x.
+      const unit = kitPiece(
+        "kitchenBar",
+        { width: unitLength, height, depth: across / 2 },
+        { wood: palette.ink, woodDark: palette.inkSoft, metal: palette.ink },
+      );
+      if (unit === null) {
+        return null;
+      }
+      unit.rotation.y = (side * Math.PI) / 2;
+      unit.position.set((side * across) / 4, 0, -length / 2 + (index + 0.5) * unitLength);
+      body.add(unit);
+    }
+  }
+  return body;
+}
+
 export function buildBarCounter(piece: Furniture): Group {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const top = surface.barTable;
   const ink = standard(palette.ink, 0.6);
   const overhang = 0.14;
+  const body = kitBarBody(width - 0.12, top - 0.035, depth) ?? box(width - 0.12, top - 0.035, depth, ink, 0, 0, 0);
   root.add(
-    box(width - 0.12, top - 0.035, depth, ink, 0, 0, 0),
+    body,
     box(width + overhang * 2, 0.035, depth + 0.02, standard(palette.laminate, 0.4), 0, top - 0.035, 0),
     box(0.01, 0.012, depth - 0.2, glow(), width / 2 - 0.065, top - 0.05, 0),
     box(0.01, 0.012, depth - 0.2, glow(), -width / 2 + 0.065, top - 0.05, 0),
@@ -773,13 +805,88 @@ export class TrashBin {
   }
 }
 
+/** The triangles of `geometry` lying at or above `cut` (by their lowest corner), and the rest. */
+function splitAtHeight(geometry: BufferGeometry, cut: number): { below: BufferGeometry; above: BufferGeometry } {
+  const flat = geometry.index === null ? geometry : geometry.toNonIndexed();
+  const position = flat.getAttribute("position");
+  const normal = flat.getAttribute("normal");
+  const sides = { below: [] as number[], above: [] as number[] };
+  for (let first = 0; first + 2 < position.count; first += 3) {
+    const lowest = Math.min(position.getY(first), position.getY(first + 1), position.getY(first + 2));
+    sides[lowest >= cut ? "above" : "below"].push(first, first + 1, first + 2);
+  }
+  const build = (vertices: number[]): BufferGeometry => {
+    const out = new BufferGeometry();
+    for (const [name, attribute] of [
+      ["position", position],
+      ["normal", normal],
+    ] as const) {
+      if (attribute === undefined) {
+        continue;
+      }
+      const array = new Float32Array(vertices.length * 3);
+      vertices.forEach((vertex, index) => {
+        array.set([attribute.getX(vertex), attribute.getY(vertex), attribute.getZ(vertex)], index * 3);
+      });
+      out.setAttribute(name, new BufferAttribute(array, 3));
+    }
+    return out;
+  };
+  return { below: build(sides.below), above: build(sides.above) };
+}
+
 /**
- * A pedal bin by the bar, where the empty food boxes go: about 0.45 m tall (0.65 real at the
- * room's scale), eight-sided like the Kenney one it replaces, with a lid hinged at the back that
- * opens while something goes in.
+ * Kenney's pedal bin (Furniture Kit, CC0): its lid is the top fifth of it, drawn as one mesh with
+ * the body, so it is cut off there to turn on its own back hinge. About 0.48 m tall (0.65 real at
+ * the room's scale), its pedal at the front.
+ */
+const kitBinHeight = 0.48;
+const kitBinLidFrom = 0.8;
+
+function kitTrashBin(root: Group): TrashBin | null {
+  const kit = kitPiece("trashcan", { height: kitBinHeight }, { metal: palette.steel, metalDark: "#3a3f4b" });
+  if (kit === null) {
+    return null;
+  }
+  kit.updateMatrixWorld(true);
+  const lid = new Group();
+  const lidParts: Mesh[] = [];
+  const hinge = new Vector3(0, Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
+  kit.traverse((part) => {
+    if (!(part instanceof Mesh)) {
+      return;
+    }
+    const placedGeometry = (part.geometry as BufferGeometry).clone().applyMatrix4(part.matrixWorld);
+    const { below, above } = splitAtHeight(placedGeometry, kitBinHeight * kitBinLidFrom);
+    root.add(mesh(below, part.material as Material));
+    above.computeBoundingBox();
+    const box3 = above.boundingBox;
+    if (box3 !== null && !box3.isEmpty()) {
+      hinge.y = Math.min(hinge.y, box3.min.y);
+      hinge.z = Math.min(hinge.z, box3.min.z);
+      lidParts.push(mesh(above, part.material as Material));
+    }
+  });
+  // Turned about the lid's back bottom edge, so it lifts from the front.
+  for (const part of lidParts) {
+    part.geometry.translate(0, -hinge.y, -hinge.z);
+    lid.add(part);
+  }
+  lid.position.set(0, hinge.y, hinge.z);
+  root.add(lid);
+  return new TrashBin(root, lid);
+}
+
+/**
+ * A pedal bin by the bar, where the empty food boxes go: Kenney's when it loaded, else drawn
+ * eight-sided like it, with a lid hinged at the back that opens while something goes in.
  */
 export function buildTrashBin(piece: Furniture): TrashBin {
   const root = placed(piece);
+  const kit = kitTrashBin(root);
+  if (kit !== null) {
+    return kit;
+  }
   const height = 0.44;
   const radius = 0.13;
   const body = mesh(new CylinderGeometry(radius, radius * 0.88, height, 8), standard("#3a3f4b", 0.5, 0.3));
@@ -1546,6 +1653,32 @@ export class MeetingLaptop {
   }
 }
 
+/**
+ * The meeting table as Kenney's table (Furniture Kit, CC0) set side by side and back to back, the
+ * way a long meeting table is made of joined tables. Five along put the legs where two tables meet
+ * halfway between the chairs, which stand 0.65 m apart, so no knee meets a leg; two across keep
+ * each table near its own proportions. Null when the model did not load.
+ */
+const meetingTablesAlong = 5;
+const meetingTablesAcross = 2;
+
+function kitJoinedTables(width: number, depth: number, top: number): Group | null {
+  const tableWidth = width / meetingTablesAlong;
+  const tableDepth = depth / meetingTablesAcross;
+  const joined = new Group();
+  for (let along = 0; along < meetingTablesAlong; along++) {
+    for (let across = 0; across < meetingTablesAcross; across++) {
+      const table = kitPiece("table", { width: tableWidth, height: top, depth: tableDepth }, { wood: palette.oak });
+      if (table === null) {
+        return null;
+      }
+      table.position.set(-width / 2 + (along + 0.5) * tableWidth, 0, -depth / 2 + (across + 0.5) * tableDepth);
+      joined.add(table);
+    }
+  }
+  return joined;
+}
+
 export function buildMeetingTable(
   piece: Furniture,
   laptopSpots: readonly { x: number; z: number; yaw: number }[],
@@ -1554,12 +1687,17 @@ export function buildMeetingTable(
   const { width, depth } = localSize(piece);
   const top = surface.desk;
   const legs = standard(palette.ink, 0.6);
-  root.add(
-    box(width, 0.035, depth, standard(palette.oak, 0.55), 0, top - 0.035, 0),
-    box(0.05, top - 0.035, depth - 0.2, legs, -width / 2 + 0.12, 0, 0),
-    box(0.05, top - 0.035, depth - 0.2, legs, width / 2 - 0.12, 0, 0),
-    box(width - 0.3, 0.012, 0.01, glow(), 0, top - 0.045, depth / 2 - 0.01),
-  );
+  const joined = kitJoinedTables(width, depth, top);
+  if (joined !== null) {
+    root.add(joined);
+  } else {
+    root.add(
+      box(width, 0.035, depth, standard(palette.oak, 0.55), 0, top - 0.035, 0),
+      box(0.05, top - 0.035, depth - 0.2, legs, -width / 2 + 0.12, 0, 0),
+      box(0.05, top - 0.035, depth - 0.2, legs, width / 2 - 0.12, 0, 0),
+    );
+  }
+  root.add(box(width - 0.3, 0.012, 0.01, glow(), 0, top - 0.045, depth / 2 - 0.01));
   // One per chair, each turned so its keys face the chair it belongs to.
   const laptops = laptopSpots.map(({ x, z, yaw }, index) => {
     const screen = new LaptopScreen(index + 1);
