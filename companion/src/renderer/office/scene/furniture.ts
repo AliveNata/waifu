@@ -2104,10 +2104,10 @@ function hackathonPhoto(): CanvasTexture {
     ctx.fillStyle = "#f2c94c";
     ctx.font = "700 22px 'Segoe UI', system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("JUARA 1", 128, 40);
+    ctx.fillText("1ST PLACE", 128, 40);
     ctx.fillStyle = "#f4f1ec";
     ctx.font = "600 16px 'Segoe UI', system-ui, sans-serif";
-    ctx.fillText("Hackathon 24 jam", 128, 64);
+    ctx.fillText("24-Hour Hackathon", 128, 64);
   } else {
     console.error("[office] no 2D canvas for the hackathon photo");
   }
