@@ -34,6 +34,7 @@ import { furnitureModel } from "./furniture-models.js";
 import { handPropModel, type PropLook } from "./hand-props.js";
 import { fitModel, kitPiece, kitSize } from "./kit.js";
 import { laptopShell } from "./laptop-model.js";
+import { LunchBox } from "./lunch-box.js";
 import { box, glow, mesh, palette, standard, unlit } from "./palette.js";
 import { leafyCrown } from "./plant.js";
 import { doorLetteringTexture, type SignLettering } from "./textures.js";
@@ -1682,7 +1683,7 @@ function kitJoinedTables(width: number, depth: number, top: number): Group | nul
 export function buildMeetingTable(
   piece: Furniture,
   laptopSpots: readonly { x: number; z: number; yaw: number }[],
-): { root: Group; laptops: MeetingLaptop[]; lunchBoxes: Group[] } {
+): { root: Group; laptops: MeetingLaptop[]; lunchBoxes: LunchBox[] } {
   const root = placed(piece);
   const { width, depth } = localSize(piece);
   const top = surface.desk;
@@ -1736,31 +1737,15 @@ export function buildMeetingTable(
   root.add(box(0.14, 0.004, 0.2, standard("#fbfaf7", 0.9), 0.33, top, 0));
   // A lunch box for each chair, set out while someone eats there.
   const lunchBoxes = laptopSpots.map(({ x, z, yaw }) => {
-    const lunch = lunchBox(top);
-    lunch.position.set(x, 0, z);
-    lunch.rotation.y = yaw;
-    lunch.visible = false;
-    root.add(lunch);
+    // Side seats face the table's long edge; the two end seats face its short ones.
+    const reach = Math.abs(z) > 1e-6 ? depth / 2 - Math.abs(z) : width / 2 - Math.abs(x);
+    const lunch = new LunchBox(top, reach);
+    lunch.root.position.set(x, 0, z);
+    lunch.root.rotation.y = yaw;
+    root.add(lunch.root);
     return lunch;
   });
   return { root, laptops, lunchBoxes };
-}
-
-/**
- * An open bento: rice on one side, salmon, egg and greens on the other. Near the table's edge, in
- * easy reach of the chopsticks from the chair, where a laptop would sit further in.
- */
-function lunchBox(top: number): Group {
-  const lunch = new Group();
-  const z = 0.13;
-  lunch.add(
-    box(0.13, 0.03, 0.09, standard(palette.inkDeep, 0.5), 0, top, z),
-    box(0.058, 0.006, 0.078, standard("#f7f3ea", 0.9), -0.03, top + 0.026, z),
-    box(0.03, 0.012, 0.03, standard("#f2a65a", 0.7), 0.03, top + 0.026, z - 0.018),
-    box(0.024, 0.01, 0.022, standard("#f2c94c", 0.7), 0.026, top + 0.026, z + 0.022),
-    box(0.016, 0.012, 0.02, standard(palette.leaf, 0.8), 0.05, top + 0.026, z + 0.02),
-  );
-  return lunch;
 }
 
 /** The low step along a board: oak top, dark sides, a thin glow along its front edge. */

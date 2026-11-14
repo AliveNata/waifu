@@ -1,7 +1,6 @@
 import {
   ACESFilmicToneMapping,
   AmbientLight,
-  Box3,
   BoxGeometry,
   Color,
   DirectionalLight,
@@ -724,7 +723,6 @@ export class OfficeStage {
   private readonly lifeSteps: Partial<Record<MemberId, LifeChoice>> = {};
   /** The bin's lid stays up until this point on the stage clock, after something goes in. */
   private binOpenUntil = Number.NEGATIVE_INFINITY;
-  private readonly lunchBoxTops = new Map<Object3D, Vector3>();
   private readonly rigs: Record<MemberId, MemberRig>;
 
   private team: TeamRuntime = emptyTeamRuntime();
@@ -2998,7 +2996,7 @@ export class OfficeStage {
     const forward = new Vector3(Math.sin(yaw), 0, Math.cos(yaw));
     // Facing +z, the member's left is +x.
     const left = new Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
-    const boxAt = this.lunchBoxTop(box);
+    const boxAt = box.top();
     // The wrist stays a hand and chopsticks short of the food, which the tips reach.
     const overBox = boxAt
       .clone()
@@ -3045,17 +3043,6 @@ export class OfficeStage {
               .addScaledVector(forward, -0.14)
               .add(new Vector3(0, 0.02, 0));
     return { left: leftHand, right, tip: "wrist", approach: null, board: null, rate: 5 };
-  }
-
-  /** The middle of a lunch box's lid, worked out once: the box's own origin is down at the floor. */
-  private lunchBoxTop(box: Object3D): Vector3 {
-    let top = this.lunchBoxTops.get(box);
-    if (top === undefined) {
-      const bounds = new Box3().setFromObject(box);
-      top = bounds.getCenter(new Vector3()).setY(bounds.max.y);
-      this.lunchBoxTops.set(box, top);
-    }
-    return top.clone();
   }
 
   private foodTargets(
@@ -3363,10 +3350,11 @@ export class OfficeStage {
     this.office.oven.update(step?.oven ?? "off", step?.foodInside ?? false, delta, this.elapsed);
     this.office.lunchBoxes.forEach((lunch, index) => {
       const seat = meetingStationIds[index];
-      lunch.visible = memberIds.some((memberId) => {
+      const eater = memberIds.find((memberId) => {
         const step = this.lifeSteps[memberId];
         return step?.activity === "lunch" && step.station === seat && step.arrivedAt !== null;
       });
+      lunch.serve(eater ?? null);
     });
     this.office.meetingLaptops.forEach((laptop, index) => {
       const seat = meetingStationIds[index];

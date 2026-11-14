@@ -24,6 +24,7 @@ import { FrameRate, frameLabel } from "./frame-rate.js";
 import { MusicPanel } from "./music-panel.js";
 import { OfficePointer } from "./office-pointer.js";
 import { type CloseupRect, closeupRect, OfficeStage, portraitSize, teamDialogDock } from "./office-stage.js";
+import { loadBentoModels } from "./scene/bento-models.js";
 import { loadCatModel } from "./scene/cat-model.js";
 import { loadFishModels } from "./scene/fish-models.js";
 import { loadFoodModels, simplifyMaterials } from "./scene/food-models.js";
@@ -651,6 +652,7 @@ function afterPaint(): Promise<void> {
 // The bar's food and drinks are small models; they load alongside, and one that fails is logged and left out.
 const foodModels = loadFoodModels();
 const furnitureModels = loadFurnitureModels();
+const bentoModels = loadBentoModels();
 const fishModels = loadFishModels();
 const catModel = loadCatModel();
 /**
@@ -678,8 +680,8 @@ async function loadLocalProps(): Promise<Map<LocalProp, Object3D>> {
 }
 
 const localPropModels = loadLocalProps();
-Promise.all([quality, chatShown, foodModels, furnitureModels, fishModels, catModel, localPropModels])
-  .then(async ([chosen, , , , , , props]) => {
+Promise.all([quality, chatShown, foodModels, furnitureModels, bentoModels, fishModels, catModel, localPropModels])
+  .then(async ([chosen, , , , , , , props]) => {
     await afterPaint();
     setSceneQuality(chosen);
     const page = new OfficePage(bridge, canvas);
