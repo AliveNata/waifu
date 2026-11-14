@@ -16,7 +16,7 @@ import {
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import somaliCatUrl from "../assets/cat/somali-cat.glb?url";
-import type { CatPose } from "../office-cat.js";
+import { type CatPose, playMoment } from "../office-cat.js";
 import type { CatFrame } from "./cat.js";
 import { simplifyMaterials } from "./food-models.js";
 
@@ -153,6 +153,54 @@ const activityTurns: Record<Activity, (time: number) => Turn[]> = {
 /** Seconds to ease into or out of an activity's pose. */
 const activitySeconds = 0.4;
 
+/**
+ * Stretching and playing are done standing: the walk clip held at the moment all four paws are
+ * down, as a fraction of the clip, with bones turned on top.
+ */
+const standingFrame = 0.2;
+const standingPoses: ReadonlySet<CatPose> = new Set(["stretch", "play"]);
+/** Seconds to ease into or out of a stretch or a game. */
+const standingSeconds = 0.5;
+/** The long stretch on waking: chest down to the floor, front legs out ahead, rump and tail up. */
+const stretchTurns: readonly Turn[] = [
+  ["LowerSpine", 0, 0.2],
+  ["UpperSpine", 0, 0.8],
+  ["UpperArmL", 0, -1.8],
+  ["ArmL", 0, -0.2],
+  ["UpperArmR", 0, -1.8],
+  ["ArmR", 0, -0.2],
+  ["Neck", 0, -0.7],
+  ["TailBase", 0, -0.4],
+];
+/** Low at the front, eyes on the ball, before the pounce. */
+const crouchTurns: readonly Turn[] = [
+  ["UpperSpine", 0, 0.5],
+  ["UpperArmL", 0, -1.2],
+  ["ArmL", 0, 0.3],
+  ["UpperArmR", 0, -1.2],
+  ["ArmR", 0, 0.3],
+  ["Neck", 0, -0.45],
+  ["TailBase", 0, 0.6],
+];
+/** Up off the front paws, both reaching for the ball. */
+const pounceTurns: readonly Turn[] = [
+  ["UpperSpine", 0, -0.3],
+  ["UpperArmL", 0, -2.0],
+  ["UpperArmR", 0, -2.0],
+  ["Neck", 0, 0.2],
+  ["TailBase", 0, -0.3],
+];
+/** Batting the ball with her right paw, head down watching it. */
+function batTurns(time: number): Turn[] {
+  return [
+    ["UpperSpine", 0, 0.2],
+    ["UpperArmR", 0.2, -1.6 + 0.35 * Math.sin(time * 8)],
+    ["ArmR", 0, -0.4],
+    ["Neck", 0, 0.25],
+    ["Head", 0, 0.2],
+  ];
+}
+
 /** Seconds to lie down or get up, and to doze off or wake. */
 const lieSeconds = 0.9;
 const dozeSeconds = 1.5;
@@ -234,11 +282,27 @@ export class ModelCat {
   private readonly curling: { bone: Bone; yaw: number; pitch: number }[];
   private readonly forearms: Bone[];
   private readonly ends: { end: Bone; leg: Bone; relative: Matrix4 }[];
+  /** The same paws on the ends of the legs, measured standing (see standingFrame). */
+  private readonly standingEnds: { end: Bone; leg: Bone; relative: Matrix4 }[];
+  /** 0 to 1, how far into a stretch and into play she is. */
+  private stretch = 0;
+  private game = 0;
+  /** How far the stretch lowers her lowest point, so the paws stay on the floor. */
+  private stretchDrop = 0;
+  /**
+   * Every bone the code turns, with how it stood before this frame's turns and after them. The mixer
+   * only writes a bone when the clip's value for it changes: held on one frame, or on a stretch of a
+   * clip where a bone keeps still, it leaves last frame's turned bone as it was, and turning it again
+   * would pile one frame's turn on the last. A bone still as it was left is set back first.
+   */
+  private readonly turned = new Map<Bone, { before: Quaternion; after: Quaternion }>();
   /** Her paws on the floor standing, and how far she sinks lying down, in her own space. */
   private readonly lift = new Group();
   private standingLift = 0;
   private lyingDrop = 0;
   private playing: ClipKey | null = null;
+  /** When the clip last changed, on the frame clock, so the one before can be stopped once faded. */
+  private switchedAt = 0;
   private lastTime: number | null = null;
   /** 0 sitting to 1 lying down, and 0 awake to 1 asleep, eased so she settles rather than snaps. */
   private lie = 0;
@@ -293,8 +357,76 @@ export class ModelCat {
       const leg = bone(this.cat, legName);
       return end === null || leg === null ? [] : [{ end, leg, relative: new Matrix4() }];
     });
+    this.standingEnds = this.ends.map(({ end, leg }) => ({ end, leg, relative: new Matrix4() }));
     this.standUpright();
     this.measureLying();
+    this.measureStanding();
+    this.noteTurnedBones();
+  }
+
+  /**
+   * Measured once, standing still on the walk clip: where each paw sits on the end of its leg, and
+   * how far the stretch brings her lowest point down.
+   */
+  private measureStanding(): void {
+    const walk = this.actions.walk;
+    walk.play();
+    walk.time = standingFrame * walk.getClip().duration;
+    this.mixer.update(0);
+    this.root.updateMatrixWorld(true);
+    for (const { end, leg, relative } of this.standingEnds) {
+      relative.copy(leg.matrixWorld).invert().multiply(end.matrixWorld);
+    }
+
+    const stood = new Box3().setFromObject(this.cat, true).min.y;
+    this.stretch = 1;
+    this.turnStanding(0);
+    const stretched = new Box3().setFromObject(this.cat, true).min.y;
+    this.stretch = 0;
+    this.stretchDrop = stretched - stood;
+    walk.stop();
+  }
+
+  /** The stretch and the game at their current weights on the standing frame, paws carried along. */
+  private turnStanding(time: number): void {
+    const stretch = smooth(this.stretch);
+    const game = smooth(this.game);
+    const moment = playMoment(time);
+    const sets: [readonly Turn[], number][] = [
+      [stretchTurns, stretch],
+      [crouchTurns, game * moment.crouch],
+      [pounceTurns, game * moment.pounce],
+      [batTurns(time), game * moment.bat],
+      // The rump wiggling side to side, the tip of the tail twitching with it.
+      [
+        [
+          ["LowerSpine", 0.15 * moment.wiggle, 0],
+          ["TailTip", 0.4 * moment.wiggle, 0],
+        ],
+        game,
+      ],
+    ];
+    for (const [turns, weight] of sets) {
+      if (weight <= 0) {
+        continue;
+      }
+      for (const [boneName, yaw, pitch] of turns) {
+        const target = this.boneNamed(boneName);
+        if (target !== null) {
+          turnInCatFrame(target, this.root, yaw * weight, pitch * weight);
+          target.updateMatrixWorld(true);
+        }
+      }
+    }
+    for (const { end, leg, relative } of this.standingEnds) {
+      const parent = end.parent;
+      if (parent === null) {
+        continue;
+      }
+      spare.matrix.copy(parent.matrixWorld).invert().multiply(spare.carried.copy(leg.matrixWorld).multiply(relative));
+      spare.matrix.decompose(end.position, end.quaternion, end.scale);
+      end.updateMatrixWorld(true);
+    }
   }
 
   /** A copy of the loaded cat, or null when the model did not load. */
@@ -365,12 +497,15 @@ export class ModelCat {
   update(frame: CatFrame): void {
     const delta = this.lastTime === null ? 0 : Math.max(0, frame.time - this.lastTime);
     this.lastTime = frame.time;
-    this.play(frame.pose === "walk" ? "walk" : this.settle());
+    const standing = standingPoses.has(frame.pose);
+    this.play(frame.pose === "walk" || standing ? "walk" : this.settle());
     if (this.playing === "walk") {
-      // Her feet keep step with the ground she covers, and stop when she does.
-      const strides = frame.walkPhase * stridesPerPhase;
+      // Her feet keep step with the ground she covers, and stop when she does; standing, they hold still.
+      const strides = standing ? standingFrame : frame.walkPhase * stridesPerPhase;
       this.actions.walk.time = (strides - Math.floor(strides)) * this.actions.walk.getClip().duration;
     }
+    this.stretch = ease(this.stretch, frame.pose === "stretch" ? 1 : 0, delta / standingSeconds);
+    this.game = ease(this.game, frame.pose === "play" ? 1 : 0, delta / standingSeconds);
     // Down only once she is sitting; back up quickly when she sets off.
     const lying = lyingPoses.has(frame.pose) && this.playing === "sitting";
     this.lie = ease(this.lie, lying ? 1 : 0, delta / (lying ? lieSeconds : lieSeconds / 3));
@@ -387,13 +522,70 @@ export class ModelCat {
       this.activity[name] = ease(this.activity[name], frame.pose === name ? 1 : 0, delta / activitySeconds);
     }
     this.mixer.update(delta);
-    this.lift.position.y = this.standingLift - this.lyingDrop * smooth(this.lie);
-    this.lift.position.z = -stretchedSetBack * smooth(this.lie) * (1 - smooth(this.curl));
+    this.undoStaleTurns();
+    if (frame.time - this.switchedAt > fadeSeconds) {
+      // A clip faded out stays scheduled at no weight; once the fade is over it is stopped, so only
+      // the playing clip is left for the mixer to work out each frame.
+      for (const [key, action] of Object.entries(this.actions) as [ClipKey, AnimationAction][]) {
+        if (key !== this.playing && action.isScheduled()) {
+          action.stop();
+        }
+      }
+    }
+    const moment = playMoment(frame.time);
+    const game = smooth(this.game);
+    this.lift.position.y =
+      this.standingLift -
+      this.lyingDrop * smooth(this.lie) -
+      this.stretchDrop * smooth(this.stretch) +
+      moment.lift * game;
+    this.lift.position.z = -stretchedSetBack * smooth(this.lie) * (1 - smooth(this.curl)) + moment.forward * game;
     this.root.updateMatrixWorld(true);
     if (this.playing === "sitting") {
       this.turnBones(frame.time);
+    } else if (this.playing === "walk" && (this.stretch > 0 || this.game > 0)) {
+      this.turnStanding(frame.time);
     }
     this.pose(frame);
+    for (const [target, kept] of this.turned) {
+      kept.after.copy(target.quaternion);
+    }
+  }
+
+  /** Sets back any turned bone the mixer left alone this frame, and notes how each stands now. */
+  private undoStaleTurns(): void {
+    for (const [target, kept] of this.turned) {
+      if (target.quaternion.equals(kept.after)) {
+        target.quaternion.copy(kept.before);
+      }
+      kept.before.copy(target.quaternion);
+    }
+  }
+
+  /** The bones some turn of the code's touches, found once. */
+  private noteTurnedBones(): void {
+    const names = new Set<string>(["Neck", "Head", "ArmL", "ArmR", "LowerSpine", "TailTip"]);
+    const tables: (readonly Turn[])[] = [
+      lyingTurns,
+      dozingTurns,
+      curlingTurns,
+      stretchTurns,
+      crouchTurns,
+      pounceTurns,
+      batTurns(0),
+      ...activities.map((name) => activityTurns[name](0)),
+    ];
+    for (const table of tables) {
+      for (const [name] of table) {
+        names.add(name);
+      }
+    }
+    for (const name of names) {
+      const target = this.boneNamed(name);
+      if (target !== null) {
+        this.turned.set(target, { before: target.quaternion.clone(), after: new Quaternion(Number.NaN) });
+      }
+    }
   }
 
   /**
@@ -483,6 +675,7 @@ export class ModelCat {
       next.crossFadeFrom(previous, fadeSeconds, false);
     }
     this.playing = key;
+    this.switchedAt = this.lastTime ?? 0;
   }
 
   /** The head and eyes for what she is doing, which the clips do not cover. */
@@ -509,6 +702,13 @@ export class ModelCat {
         default:
           break;
       }
+    }
+    if (pose === "stretch") {
+      // Eyes screwed up with the effort of it.
+      eyesOpen = 1 - 0.7 * smooth(this.stretch);
+    } else if (pose === "play") {
+      // Eyes on the ball, never anywhere else.
+      yaw = 0;
     }
     if (petted > 0) {
       // Pushing up into the hand, eyes shut.
