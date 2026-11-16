@@ -1,7 +1,7 @@
 /**
  * The office's sound effects, made on the spot with WebAudio instead of shipped as recordings:
- * keys, the sliding door, the coffee machine, the ping-pong ball, Mochi, the standup gong, and the
- * chime when someone is waiting for the user.
+ * keys, the sliding door, the coffee machine, the ping-pong ball, Mochi, the standup gong, the
+ * chime when someone is waiting for the user, and rain on the windows on a wet day.
  * Each sound plays from where it happens, quieter with distance from the listener (the camera, or
  * Alyx's eyes in first person) and panned to the side it is on. Off until switched on; while off
  * no AudioContext exists at all.
@@ -62,6 +62,9 @@ const cueLevel: Record<SoundCue, number> = {
   attention: 0.4,
 };
 
+/** How loud the rain is: under the keys, so it sits in the background. */
+const rainLevel = 0.05;
+
 /** Quieter than this after distance, a sound is not worth the nodes it costs. */
 export const inaudible = 0.02;
 
@@ -117,6 +120,7 @@ export class OfficeSound {
   private settings: OfficeSoundSettings = { ...defaultSoundSettings };
   private listener: SoundListener = { position: { x: 0, y: 1.2, z: 0 }, right: { x: 1, z: 0 } };
   private purr: { source: OscillatorNode; gain: GainNode; pan: StereoPannerNode; lfo: OscillatorNode } | null = null;
+  private rain: { source: AudioBufferSourceNode; gain: GainNode } | null = null;
 
   /** Applies the setting; the first time it is switched on builds the audio graph. */
   configure(settings: OfficeSoundSettings): void {
@@ -237,6 +241,43 @@ export class OfficeSound {
     source.start();
     lfo.start();
     this.purr = { source, gain: level, pan: panner, lfo };
+  }
+
+  /**
+   * Rain on the glass all day on a wet day: a steady, quiet hiss with the low rumble and the
+   * sharpest highs taken out, heard the same anywhere in the room.
+   */
+  setRain(on: boolean): void {
+    const context = this.context;
+    const playing = this.rain;
+    const noise = this.noise;
+    if (!on || !this.settings.enabled || context === null || noise === null || context.state !== "running") {
+      if (playing !== null && context !== null) {
+        playing.gain.gain.setTargetAtTime(0, context.currentTime, 0.4);
+        playing.source.stop(context.currentTime + 2);
+      }
+      this.rain = null;
+      return;
+    }
+    if (playing !== null) {
+      return;
+    }
+    const source = context.createBufferSource();
+    source.buffer = noise;
+    source.loop = true;
+    const low = context.createBiquadFilter();
+    low.type = "highpass";
+    low.frequency.value = 500;
+    const high = context.createBiquadFilter();
+    high.type = "lowpass";
+    high.frequency.value = 2600;
+    const level = context.createGain();
+    level.gain.value = 0;
+    level.gain.setTargetAtTime(rainLevel, context.currentTime, 0.8);
+    source.connect(low).connect(high).connect(level).connect(this.output(context));
+    // A random start, so the second-long loop does not line up with anything else using the noise.
+    source.start(0, Math.random());
+    this.rain = { source, gain: level };
   }
 
   private ensureContext(): void {

@@ -56,6 +56,7 @@ import {
 import { type AlyxTarget, pickableItems, pickTarget } from "./alyx-targets.js";
 import type { ArmSide, ArmTip, OfficeAvatar } from "./avatar.js";
 import { bossLine } from "./boss-greetings.js";
+import { memberPetDistance, petChance, petPhase, petReachSlack, strokeOffset } from "./cat-petting.js";
 import { type CourierVisit, courierHolding, courierWaiting, stepCourier } from "./courier-visit.js";
 import { browserTallyStore, DailyRecap, inRecapWindow, recapLine, summarize } from "./daily-recap.js";
 import {
@@ -137,7 +138,7 @@ import {
 } from "./office-laptop.js";
 import { type Errand, type LifeChoice, OfficeLife } from "./office-life.js";
 import { afterSip, initialMug, type MugState, mugPickSeconds, stepMug } from "./office-mug.js";
-import { navGrid } from "./office-nav.js";
+import { navGrid, planPath } from "./office-nav.js";
 import {
   arcadeStationIds,
   barFoodSpot,
@@ -191,6 +192,7 @@ import {
 import { handForKey, MouseHabit, TypingHands } from "./typing-hands.js";
 import { WaitingCalls } from "./waiting-member.js";
 import { WalkHabits, walkStyles } from "./walk-life.js";
+import { weatherFor, weatherOverride } from "./weather.js";
 import { type ActiveWorkBeat, beatHands, WorkBeats } from "./work-beats.js";
 
 const closeupBackground = new Color("#e9e4da");
@@ -228,6 +230,8 @@ const sunNight = new Color(0x9fb0ff);
 /** Ceiling light at night is a warmer white than the daylight it replaces. */
 const roomDay = new Color(0xfff8ee);
 const roomNight = new Color(0xffe9cf);
+/** The flat, cool light of a wet day, mixed into the sun and the room. */
+const rainLight = new Color(0xa9b8cc);
 
 /**
  * `?clock=21:30` on the office page previews another Jakarta time of day; otherwise it is now.
@@ -598,6 +602,7 @@ const actionLabels: Record<OfficeAction, string> = {
   ponder: "thinking",
   cheer: "done",
   wave: "calling you",
+  "pet-cat": "petting Mochi",
   relax: "relaxing",
   watch: "watching TV",
   game: "gaming",
@@ -658,6 +663,18 @@ export class OfficeStage {
   private readonly photos = new Map<MemberId, HTMLCanvasElement>();
   /** Where Alyx stood when he went to stroke her, and where he crouches beside her. */
   private petWalk: { from: Point; to: Point } | null = null;
+  /**
+   * A teammate stopped on the way past to stroke Mochi: who, since when, the step from where they
+   * stopped to beside her, where she was, and whether the hand has reached her yet.
+   */
+  private memberPet: {
+    memberId: MemberId;
+    startedAt: number;
+    from: Point;
+    to: Point;
+    catAt: Point;
+    stroked: boolean;
+  } | null = null;
   private catBegged: number | null = null;
   private readonly sound = new OfficeSound();
   /** Code bits off the keyboards and sparks over finished work. */
@@ -788,6 +805,12 @@ export class OfficeStage {
   private lastInputAt = Date.now();
   private driftPhase = 0;
   private night = 0;
+  /** `?weather=` on the page, which overrides the day's own weather. */
+  private readonly weatherPreview = weatherOverride(window.location.search);
+  /** Whether it is raining today, kept up to date with the daylight. */
+  private raining = false;
+  /** Whose umbrella is in the stand this frame, reused so nothing is allocated per frame. */
+  private readonly umbrellasIn = new Set<MemberId>();
   /** Set by the page every frame from where the chat panel sits. */
   private closeupLayout: CloseupRect | null = null;
   private lastDaylightAt = 0;
@@ -2109,7 +2132,6 @@ export class OfficeStage {
     });
   }
 
-  /** A teammate walking past says hello to Mochi, and she answers. */
   /** A meow as each of Mochi's lines starts, and a purr instead while she is stroked. */
   private voiceCat(petted: boolean): void {
     const at = { x: this.cat.position.x, y: this.cat.height + 0.25, z: this.cat.position.z };
@@ -2124,6 +2146,10 @@ export class OfficeStage {
     }
   }
 
+  /**
+   * A teammate walking past says hello to Mochi, and she answers. Now and then they stop to
+   * crouch and stroke her too.
+   */
   private greetCat(): void {
     if (this.elapsed - this.catGreetedLast < catGreetCooldown.anyone) {
       return;
@@ -2144,6 +2170,10 @@ export class OfficeStage {
       this.catGreetedLast = this.elapsed;
       const line = greetingsForCat[Math.floor(Math.random() * greetingsForCat.length)] ?? "Halo, Mochi.";
       this.chatter.announce(memberId, line, this.elapsed, this.elapsed + 2.5);
+      if (Math.random() < petChance && this.canStopToPet(memberId)) {
+        this.startMemberPet(memberId);
+        return;
+      }
       rig.walkHabits.wave(this.elapsed);
       this.catLook = { point: rig.actor.position, until: this.elapsed + 3 };
       this.catSpeech = {
@@ -2153,6 +2183,106 @@ export class OfficeStage {
       };
       return;
     }
+  }
+
+  /**
+   * Whether a teammate saying hello to Mochi can stop to stroke her: not called to work, nothing
+   * in their hands, and her down on the floor and settled, with room to crouch beside her.
+   */
+  private canStopToPet(memberId: MemberId): boolean {
+    const rig = this.rigs[memberId];
+    const handsFull =
+      this.mugs[memberId].place === "hand" ||
+      rig.laptop.place === "hand" ||
+      rig.food.bag ||
+      rig.food.box ||
+      rig.food.piece !== null ||
+      rig.inHandoff ||
+      this.booksOut.has(memberId);
+    const strokedLately = this.catPettedAt !== null && this.elapsed - this.catPettedAt < catPetSeconds + 1;
+    return (
+      this.memberPet === null &&
+      // Only life steps are theirs to interrupt; work from Claude Code goes straight on.
+      this.lifeSteps[memberId] !== undefined &&
+      !handsFull &&
+      !strokedLately &&
+      this.cat.height < 0.05 &&
+      this.cat.arrivedAt !== null &&
+      navGrid.isFree(petStandSpot(this.cat.position, rig.actor.position, memberPetDistance))
+    );
+  }
+
+  private startMemberPet(memberId: MemberId): void {
+    const from = { ...this.rigs[memberId].actor.position };
+    const catAt = { ...this.cat.position };
+    this.memberPet = {
+      memberId,
+      startedAt: this.elapsed,
+      from,
+      to: petStandSpot(catAt, from, memberPetDistance),
+      catAt,
+      stroked: false,
+    };
+  }
+
+  /**
+   * Instead of walking: a step in beside Mochi turning to face her, down, the strokes, and back
+   * up. Then a fresh route on from where they crouched, since the old one started elsewhere.
+   */
+  private stepMemberPet(
+    rig: MemberRig,
+    pet: NonNullable<OfficeStage["memberPet"]>,
+    delta: number,
+    standing: readonly Point[],
+  ): void {
+    const since = this.elapsed - pet.startedAt;
+    const phase = petPhase(since);
+    if (phase.done || distance(this.cat.position, pet.catAt) > petReachSlack) {
+      this.memberPet = null;
+      const { position, target } = rig.actor;
+      rig.actor = { ...rig.actor, path: planPath(position, target, navGrid, standing), blockedSeconds: 0 };
+      return;
+    }
+    const step = Math.min(1, since / crouchSeconds);
+    const eased = step * step * (3 - 2 * step);
+    const position = {
+      x: pet.from.x + (pet.to.x - pet.from.x) * eased,
+      z: pet.from.z + (pet.to.z - pet.from.z) * eased,
+    };
+    const toward = Math.atan2(this.cat.position.x - position.x, this.cat.position.z - position.z);
+    const yaw = rig.actor.yaw + angleDelta(rig.actor.yaw, toward) * Math.min(1, delta * 8);
+    rig.actor = { ...rig.actor, position, yaw };
+    if (phase.stroking && !pet.stroked) {
+      // Her side of it: she stays put, turns to them, shuts her eyes and purrs.
+      pet.stroked = true;
+      this.catPettedAt = this.elapsed;
+      this.catLook = { point: position, until: this.elapsed + catPetSeconds };
+      this.catSpeech = {
+        text: catLine("petted", Math.random),
+        startedAt: this.elapsed + 0.5,
+        until: this.elapsed + catPetSeconds,
+      };
+    }
+  }
+
+  /** The right hand on Mochi's back, stroking along it, once they are down beside her. */
+  private petHandTargets(): HandTargets {
+    const pet = this.memberPet;
+    if (pet === null) {
+      return noHandTargets;
+    }
+    const since = this.elapsed - pet.startedAt;
+    if (petPhase(since).down < 0.4) {
+      return noHandTargets;
+    }
+    const back = this.catBack();
+    const ahead = strokeOffset(since);
+    const { yaw } = this.cat;
+    return {
+      ...noHandTargets,
+      right: new Vector3(back.x + Math.sin(yaw) * ahead, back.y + 0.02, back.z + Math.cos(yaw) * ahead),
+      rate: 6,
+    };
   }
 
   /** Leaving first person puts back what he carried and switched, so nothing is left stuck. */
@@ -2678,14 +2808,22 @@ export class OfficeStage {
     const alyx = this.firstPerson.active ? [this.firstPerson.position] : [];
     const others = [...otherRigs.map((actor) => actor.position), ...alyx];
     const standing = [...otherRigs.filter((actor) => !isWalking(actor)).map((actor) => actor.position), ...alyx];
-    rig.actor = stepActor(rig.actor, plan.station, delta, others, standing);
+    const pet = this.memberPet?.memberId === memberId ? this.memberPet : null;
+    if (pet === null) {
+      rig.actor = stepActor(rig.actor, plan.station, delta, others, standing);
+    } else {
+      this.stepMemberPet(rig, pet, delta, standing);
+    }
     const walking = isWalking(rig.actor);
     const arrived = !walking && rig.actor.target === plan.station;
     if (arrived) {
       this.life.arrived(memberId, now);
       this.handoffs.arrived(memberId, plan.station, now);
     }
-    let action = walking ? null : plan.action;
+    let action: OfficeAction | null = walking ? null : plan.action;
+    if (pet !== null && this.memberPet === pet) {
+      action = "pet-cat";
+    }
     if (action === "pingpong" && !this.opponentReady(memberId)) {
       // The rally starts when the other player is at the table, not while they are still walking.
       action = "pingpong-wait";
@@ -2734,14 +2872,16 @@ export class OfficeStage {
     rig.workBeat = rig.workBeats.update(delta, atHomeDesk, !typingHere);
     const surfaceTargets = this.updateSurface(memberId, rig, delta);
     const handTargets =
-      surfaceTargets !== noHandTargets
-        ? surfaceTargets
-        : deskBit !== null
-          ? this.deskBitTargets(memberId, rig, deskBit)
-          : (this.lunchTargets(memberId, rig, action, arrived) ??
-            this.counterTargets(rig, action, arrived) ??
-            this.foodTargets(rig, action, errand, arrived, stepElapsed) ??
-            this.errandTargets(memberId, rig, errand, arrived, stepElapsed, remaining));
+      action === "pet-cat"
+        ? this.petHandTargets()
+        : surfaceTargets !== noHandTargets
+          ? surfaceTargets
+          : deskBit !== null
+            ? this.deskBitTargets(memberId, rig, deskBit)
+            : (this.lunchTargets(memberId, rig, action, arrived) ??
+              this.counterTargets(rig, action, arrived) ??
+              this.foodTargets(rig, action, errand, arrived, stepElapsed) ??
+              this.errandTargets(memberId, rig, errand, arrived, stepElapsed, remaining));
     // Offset each member's idle loops so the room does not move in lockstep.
     const phaseOffset = memberIds.indexOf(memberId) * 1.7;
 
@@ -2780,7 +2920,8 @@ export class OfficeStage {
       walkPhase: doorway?.walking === true ? doorway.walkPhase : actor.walkPhase,
       time: this.elapsed + phaseOffset,
       actionElapsed: this.elapsed - rig.actionStartedAt,
-      seat: action === null || seatHeight === null ? null : fitSeat(avatar.legs, seatHeight),
+      // Crouched beside Mochi on the way there, not yet in the seat the walk ends at.
+      seat: action === null || action === "pet-cat" || seatHeight === null ? null : fitSeat(avatar.legs, seatHeight),
       keystrokes: rig.keystrokes,
       carrying,
       board,
@@ -2840,6 +2981,8 @@ export class OfficeStage {
     const plate = action === "oven" && ovenStep(this.elapsed - rig.actionStartedAt).plateInHand ? "plate" : null;
     // Rias drinks from a teacup; everyone else from their mug.
     const cup = memberId === "rias" ? "teacup" : "mug";
+    // On a wet day, out through the door and back in with their umbrella.
+    const umbrellaOut = this.raining && doorway !== null && !doorway.gone;
     const asCup = (kind: HandPropKind | null): HandPropKind | null => (kind === "mug" ? cup : kind);
     const fromDesk = asCup(deskBit === null ? null : deskBitProp(deskBit));
     const carried = rig.laptop.place === "hand" ? "laptop" : this.mugs[memberId].place === "hand" ? cup : null;
@@ -2847,6 +2990,7 @@ export class OfficeStage {
       action !== null && usesHandIk(action)
         ? null
         : (foodHeld ??
+          (umbrellaOut ? "umbrella" : null) ??
           (rig.inHandoff ? "folder" : null) ??
           fromDesk ??
           plate ??
@@ -3855,6 +3999,18 @@ export class OfficeStage {
     }
     this.renderer.toneMappingExposure = mix("exposure");
     this.office.setSky(sky);
+    this.raining = (this.weatherPreview ?? weatherFor(officeDay(this.clock()))) === "rain";
+    this.office.setRain(this.raining ? 1 : 0);
+    if (this.raining) {
+      // Under cloud: hardly any sun through the windows, the room a little dimmer and cooler.
+      const day = 1 - night;
+      this.sun.intensity *= 1 - 0.75 * day;
+      this.sun.color.lerp(rainLight, 0.6);
+      this.hemisphere.intensity *= 1 - 0.2 * day;
+      this.hemisphere.color.lerp(rainLight, 0.4);
+      this.windowFill.intensity *= 1 - 0.4 * day;
+      this.renderer.toneMappingExposure *= 1 - 0.1 * day;
+    }
     // On once it is getting dark, not at the first hint of dusk, and only for whoever is still in.
     const lamps = Math.min(1, Math.max(0, (night - 0.35) / 0.4));
     this.autoLamps = lamps;
@@ -3872,6 +4028,22 @@ export class OfficeStage {
     // The ceiling panels are the room lights Alyx looks up at, so they go down with them.
     this.office.enclosure.setLight(1 - 0.6 * emptied);
     this.night = night;
+  }
+
+  /** Drops down the glass, the sound of the rain, and the umbrellas in the stand by the door. */
+  private updateRain(delta: number): void {
+    this.sound.setRain(this.raining && this.soundOn);
+    this.umbrellasIn.clear();
+    if (this.raining) {
+      this.office.stepRain(delta);
+      // Everyone in has left theirs in the stand; whoever is in the hall has it in hand.
+      for (const memberId of memberIds) {
+        if (this.presenceOf(memberId) === "in" && !this.outThroughDoor(memberId)) {
+          this.umbrellasIn.add(memberId);
+        }
+      }
+    }
+    this.office.umbrellaStand.show(this.umbrellasIn);
   }
 
   /** A slow sway around the default angle once nobody has touched the camera for a while. */
@@ -3916,6 +4088,7 @@ export class OfficeStage {
     this.teamMs += (performance.now() - membersFrom - this.teamMs) * 0.1;
     this.updateProps(delta);
     this.updateCat(delta, now);
+    this.updateRain(delta);
     this.deskEffects.update(delta);
     if (now - this.lastDaylightAt > 1000) {
       this.lastDaylightAt = now;

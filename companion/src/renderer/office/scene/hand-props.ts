@@ -15,6 +15,7 @@ import type { HandPropKind } from "../office-director.js";
 import { type FoodModelName, foodModel, kitScale, loadedFoodModel, roomScale } from "./food-models.js";
 import { kitPiece } from "./kit.js";
 import { box, glow, mesh, palette, standard } from "./palette.js";
+import { umbrellaModel } from "./umbrella.js";
 
 /**
  * Pieces of food and drinks from the bar, held in the hand: which model, how big, and how far down
@@ -283,6 +284,10 @@ export function handPropModel(kind: HandPropKind, look: PropLook = defaultLook):
       group.rotation.x = -1.0;
       break;
     }
+    case "umbrella":
+      // Closed, in the member's own color: the same one that waits in the stand by the door.
+      group.add(umbrellaModel(look.mug));
+      break;
     case "folder": {
       // A brief or a report: a card folder with the pages showing at the edge.
       group.add(
@@ -569,6 +574,8 @@ const gripOffset: Record<HandPropKind, { x: number; y: number; z: number; tilt: 
   chopsticks: { x: 0, y: 0, z: 0.01, tilt: 0, turn: 0 },
   // Held up between both hands like the clipboard, tipped back toward the eyes.
   printout: { x: 0.05, y: 0.015, z: 0.05, tilt: -1.1, turn: 0 },
+  // Carried by the crook, the tip swung forward clear of the floor.
+  umbrella: { x: 0, y: 0, z: 0.01, tilt: -0.9, turn: 0 },
 };
 
 const handPosition = new Vector3();

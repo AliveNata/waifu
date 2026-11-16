@@ -128,3 +128,23 @@ describe("hands in every pose", () => {
     }
   });
 });
+
+describe("crouching to stroke Mochi", () => {
+  function petting(actionElapsed: number): OfficePoseInput {
+    return { action: "pet-cat", walkPhase: 0, time: 0, actionElapsed, seat: null, keystrokes: 0, carrying: false };
+  }
+
+  it("goes from standing right down onto the heels and back up", () => {
+    // Act
+    const start = officePose(petting(0));
+    const down = officePose(petting(2));
+    const end = officePose(petting(10));
+
+    // Assert
+    expect(start.hipsOffsetY).toBeCloseTo(0);
+    expect(down.hipsOffsetY).toBeLessThan(-0.2);
+    expect(down.bones.leftLowerLeg?.x ?? 0).toBeGreaterThan(2);
+    expect(down.bones.spine?.x ?? 0).toBeGreaterThan(0.4);
+    expect(end.hipsOffsetY).toBeCloseTo(0);
+  });
+});

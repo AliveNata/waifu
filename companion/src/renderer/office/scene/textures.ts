@@ -66,6 +66,54 @@ const skyColors: Record<WindowView, readonly [string, string, string]> = {
   night: ["#0d1230", "#24204a", "#3a2a5c"],
 };
 
+/**
+ * Rain on a window pane, on a clear background so the view shows through: thin streaks where drops
+ * run down, and beads of water stuck to the glass. Tiles both ways, so it can scroll and repeat.
+ * Seeded, so every pane and every run draws the same rain.
+ */
+export function rainTexture(): CanvasTexture {
+  const size = 256;
+  const { canvas: element, ctx } = canvas(size, size);
+  let seed = 7;
+  const random = (): number => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+  ctx.lineCap = "round";
+  for (let index = 0; index < 90; index++) {
+    const x = random() * size;
+    const y = random() * size;
+    const length = 8 + random() * 26;
+    ctx.strokeStyle = `rgba(226, 236, 248, ${0.25 + random() * 0.3})`;
+    ctx.lineWidth = 0.8 + random() * 0.8;
+    // Drawn again one tile up, so a streak cut off at the bottom carries on at the top.
+    for (const shift of [0, -size]) {
+      ctx.beginPath();
+      ctx.moveTo(x, y + shift);
+      ctx.lineTo(x - length * 0.06, y + length + shift);
+      ctx.stroke();
+    }
+  }
+  for (let index = 0; index < 55; index++) {
+    const x = random() * size;
+    const y = random() * size;
+    const radius = 1.2 + random() * 2.2;
+    ctx.fillStyle = "rgba(232, 240, 250, 0.32)";
+    ctx.beginPath();
+    ctx.ellipse(x, y, radius * 0.85, radius, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // The glint on the lower edge, where light bends through the bead.
+    ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+    ctx.beginPath();
+    ctx.arc(x + radius * 0.2, y + radius * 0.45, radius * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const result = texture(element);
+  result.wrapS = RepeatWrapping;
+  result.wrapT = RepeatWrapping;
+  return result;
+}
+
 export function windowTexture(seed: number, view: WindowView = "day"): CanvasTexture {
   const { canvas: element, ctx } = canvas(512, 256);
   const sky = ctx.createLinearGradient(0, 0, 0, 256);

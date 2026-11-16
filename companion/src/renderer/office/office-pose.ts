@@ -1,4 +1,5 @@
 import { addRotation, armsRelaxed, type BoneRotation, type Pose, type PoseBones } from "../common/pose.js";
+import { petPhase } from "./cat-petting.js";
 import {
   type ActiveDeskBit,
   calendarStep,
@@ -1397,8 +1398,34 @@ function ovenBody(input: OfficePoseInput): UpperBody {
   };
 }
 
+/**
+ * Down on their heels beside Mochi, deeper than reaching into the oven, leaning over her.
+ * The right hand goes to her back by reaching, so only the body and the left arm are posed here.
+ */
+function petCatBody(input: OfficePoseInput): UpperBody {
+  const { down } = petPhase(input.actionElapsed);
+  return {
+    bones: {
+      ...armsRelaxed,
+      spine: { x: 0.6 * down, y: 0, z: 0 },
+      head: { x: 0.2 * down, y: 0, z: 0 },
+      // The free hand rests on the knee.
+      leftUpperArm: { x: -0.6 * down, y: -0.2 * down, z: -1.15 },
+      leftLowerArm: { x: 0, y: -0.6 * down, z: 0 },
+      leftUpperLeg: { x: -1.15 * down, y: 0, z: 0.15 * down },
+      rightUpperLeg: { x: -1.15 * down, y: 0, z: -0.15 * down },
+      leftLowerLeg: { x: 2.3 * down, y: 0, z: 0 },
+      rightLowerLeg: { x: 2.3 * down, y: 0, z: 0 },
+    },
+    // Lower than the oven crouch: right down on their heels, so a short arm reaches the floor.
+    standingHipsY: -0.24 * down,
+  };
+}
+
 function upperBody(action: OfficeAction, input: OfficePoseInput): UpperBody {
   switch (action) {
+    case "pet-cat":
+      return petCatBody(input);
     case "wash":
       return washBody(input);
     case "oven":
